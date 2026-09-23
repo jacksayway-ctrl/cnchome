@@ -280,13 +280,12 @@ function updateMapLabels(svg){
  const baseLabelHeight=(maxY-minY+6)*.115,baseFontSize=(maxX-minX+6)*.021;
  const labelMeasure=document.createElement('canvas').getContext('2d'),labelFont=getComputedStyle(host).fontFamily;
  const textWidth=(text,size,weight=400)=>{labelMeasure.font=weight+' '+size+'px '+labelFont;return labelMeasure.measureText(text).width;};
- const occupied=[];
- const mapLabels=labelGroups.sort((a,b)=>Number(a===activeGroup)-Number(b===activeGroup)).map(i=>{
+ const labels=labelGroups.sort((a,b)=>Number(a===activeGroup)-Number(b===activeGroup)).map(i=>{
   const labelScale=i===mapHoveredGroup?1.5:1;
   let labelHeight=baseLabelHeight*labelScale,fontSize=baseFontSize*labelScale;
   const r=regions[i],items=[];
   items.push(...availableInsuranceItems(r,general).map(item=>item.label+' '+item.remaining+'건'));
-  if(!items.length)return '';
+  if(!items.length)return null;
   let labelWidth=Math.max(textWidth(r[0],fontSize,700),textWidth(items.join(' · '),fontSize),textWidth('남은 수량 · 묶음 공유',fontSize*.8))+fontSize*1.1;
   // Scale normally, but keep oversized labels fully inside the viewport.
   const fitScale=Math.min(1,dims[2]*.94/labelWidth,dims[3]*.94/labelHeight);
@@ -294,13 +293,39 @@ function updateMapLabels(svg){
   const visible=regionMapShapes.filter(f=>f.group===i&&inView(f)),bb=visible.map(f=>f.b);
   const cx=(Math.max(dims[0],Math.min(...bb.map(b=>b[0])))+Math.min(dims[0]+dims[2],Math.max(...bb.map(b=>b[2]))))/2;
   const cy=(Math.max(dims[1],Math.min(...bb.map(b=>b[1])))+Math.min(dims[1]+dims[3],Math.max(...bb.map(b=>b[3]))))/2;
-  const margin=dims[2]*.012;
-  let lx=Math.max(dims[0]+margin,Math.min(cx-labelWidth/2,dims[0]+dims[2]-labelWidth-margin));
-  let ly=Math.max(dims[1]+margin,Math.min(cy-labelHeight/2,dims[1]+dims[3]-labelHeight-margin));
-  const candidates=[{x:lx,y:ly}];
-  for(let row=0;row<8;row++)for(let col=0;col<3;col++)candidates.push({x:dims[0]+margin+col*(labelWidth+margin),y:dims[1]+margin+row*(labelHeight+margin)});
-  const fits=p=>p.x+labelWidth<=dims[0]+dims[2]&&p.y+labelHeight<=dims[1]+dims[3]&&!occupied.some(b=>p.x<b.x+b.w+margin&&p.x+labelWidth+margin>b.x&&p.y<b.y+b.h+margin&&p.y+labelHeight+margin>b.y);
-  const spot=candidates.find(fits)||{x:lx,y:ly};lx=spot.x;ly=spot.y;occupied.push({...spot,w:labelWidth,h:labelHeight});
+  return {i,r,items,cx,cy,labelWidth,labelHeight,fontSize};
+ }).filter(Boolean);
+ const gap=Math.min(dims[2],dims[3])*.012;
+ const left=dims[0]+gap,top=dims[1]+gap,right=dims[0]+dims[2]-gap,bottom=dims[1]+dims[3]-gap;
+ const occupied=[];
+ let packed=true;
+ for(const label of labels){
+  const w=label.labelWidth,h=label.labelHeight;
+  const x=Math.max(left,Math.min(label.cx-w/2,right-w)),y=Math.max(top,Math.min(label.cy-h/2,bottom-h));
+  const xs=[x,left,right-w,...occupied.flatMap(b=>[b.x+b.w+gap,b.x-w-gap])];
+  const ys=[y,top,bottom-h,...occupied.flatMap(b=>[b.y+b.h+gap,b.y-h-gap])];
+  const candidates=xs.flatMap(x=>ys.map(y=>({x,y}))).sort((a,b)=>Math.hypot(a.x-x,a.y-y)-Math.hypot(b.x-x,b.y-y));
+  const spot=candidates.find(p=>p.x>=left&&p.y>=top&&p.x+w<=right&&p.y+h<=bottom&&!occupied.some(b=>p.x<b.x+b.w+gap&&p.x+w+gap>b.x&&p.y<b.y+b.h+gap&&p.y+h+gap>b.y));
+  if(!spot){packed=false;break;}
+  label.lx=spot.x;label.ly=spot.y;occupied.push({...spot,w,h});
+ }
+ // If geographic placement cannot fit every box, use disjoint cells with one shared scale.
+ if(!packed&&labels.length){
+  const maxWidth=Math.max(...labels.map(l=>l.labelWidth)),maxHeight=Math.max(...labels.map(l=>l.labelHeight));
+  let best=null;
+  for(let cols=1;cols<=labels.length;cols++){
+   const rows=Math.ceil(labels.length/cols),cw=(right-left)/cols,ch=(bottom-top)/rows;
+   const scale=Math.min(1,cw*.92/maxWidth,ch*.92/maxHeight);
+   if(!best||scale>best.scale)best={cols,cw,ch,scale};
+  }
+  labels.sort((a,b)=>a.cy-b.cy||a.cx-b.cx);
+  labels.forEach((label,index)=>{
+   label.labelWidth*=best.scale;label.labelHeight*=best.scale;label.fontSize*=best.scale;
+   label.lx=left+(index%best.cols)*best.cw+(best.cw-label.labelWidth)/2;
+   label.ly=top+Math.floor(index/best.cols)*best.ch+(best.ch-label.labelHeight)/2;
+  });
+ }
+ const mapLabels=labels.map(({i,r,items,cx,cy,labelWidth,labelHeight,fontSize,lx,ly})=>{
   return `<g class="map-item-label" data-map-label-group="${i}" pointer-events="none"><line x1="${cx}" y1="${cy}" x2="${lx+labelWidth/2}" y2="${ly+labelHeight/2}" stroke="#526b86" stroke-width="1" vector-effect="non-scaling-stroke"/><rect x="${lx}" y="${ly}" width="${labelWidth}" height="${labelHeight}" rx="${fontSize*.5}" fill="#fff" fill-opacity=".8" stroke="#7894b5" stroke-width="1" vector-effect="non-scaling-stroke"/><text x="${lx+fontSize*.55}" y="${ly+fontSize*1.35}" font-size="${fontSize}" font-weight="700" fill="#173653">${r[0]}</text><text x="${lx+fontSize*.55}" y="${ly+fontSize*2.7}" font-size="${fontSize}" fill="#1457bb">${items.join(' · ')}</text><text x="${lx+fontSize*.55}" y="${ly+fontSize*3.9}" font-size="${fontSize*.8}" fill="#61738b">남은 수량 · 묶음 공유</text></g>`;
  }).join('');
  highlightMapRegionRow(null);
