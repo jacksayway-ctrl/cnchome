@@ -1063,8 +1063,26 @@ function policyNormalizeCell(p,w,h,binary){
  left=Math.max(0,left-2);top=Math.max(0,top-2);right=Math.min(w-1,right+2);bottom=Math.min(h-1,bottom+2);
  return {left,top,width:right-left+1,height:bottom-top+1,blank:false};
 }
+
+function policyRemoveCellRules(p,w,h){
+ // Only remove near-continuous lines at the cell boundary, never internal strokes.
+ const dark=(x,y)=>{const k=(y*w+x)*4;return Math.max(p.data[k],p.data[k+1],p.data[k+2])<100};
+ const rows=[],cols=[],edgeX=Math.min(3,Math.floor(w*.05)),edgeY=Math.min(3,Math.floor(h*.12));
+ for(let y=0;y<h;y++)if(y<edgeY||y>=h-edgeY){let n=0;for(let x=0;x<w;x++)if(dark(x,y))n++;if(n/w>.85)rows.push(y)}
+ for(let x=0;x<w;x++)if(x<edgeX||x>=w-edgeX){let n=0;for(let y=0;y<h;y++)if(dark(x,y))n++;if(n/h>.85)cols.push(x)}
+ const white=(x,y)=>{const k=(y*w+x)*4;p.data[k]=p.data[k+1]=p.data[k+2]=p.data[k+3]=255};
+ for(const y of rows)for(let x=0;x<w;x++)white(x,y);
+ for(const x of cols)for(let y=0;y<h;y++)white(x,y);
+ return p;
+}
+function policyRegionNoise(text){
+ const value=String(text||'').replace(/\s/g,''),hangul=(value.match(/[가-힣]/g)||[]).length;
+ return hangul<2||/[|=<>_]/.test(value)||(hangul>0&&(value.match(/[0-9]/g)||[]).length>=hangul);
+}
+
 function policyCellImage(source,x0,y0,x1,y1,binary=false){
  const w=Math.max(1,x1-x0),h=Math.max(1,y1-y0),p=source.context.getImageData(x0,y0,w,h);
+ if(binary==='rules')policyRemoveCellRules(p,w,h);
  const original=(binary==='original'||binary==='pixel')?source.context.getImageData(x0,y0,w,h):null;
  const box=policyNormalizeCell(p,w,h,binary===true),small=document.createElement('canvas');small.width=w;small.height=h;small.getContext('2d').putImageData(original||p,0,0);
  // Keep the entire row height in the original-color pass so thin strokes are not cropped.
@@ -1118,7 +1136,7 @@ function policyAnalyzeExisting(){
  toast(policyAnalysis.length?'아래 분석 내역에서 판독 후보를 비교해 주세요.':'이전 결과에는 분석 기록이 없습니다. 원본 이미지를 다시 변환해 주세요.');
 }
 function policySelectRegion(candidates){
- const usable=candidates.filter(c=>/[가-힣]/.test(c.text));
+ const usable=candidates.filter(c=>/[가-힣]/.test(c.text)&&!policyRegionNoise(c.text));
  if(!usable.length)return {text:'',confidence:0,review:true};
  const groups=new Map();
  for(const c of usable){
@@ -1134,7 +1152,7 @@ function policySelectRegion(candidates){
  return {best,score:mean+Math.min(2,readings.length-1)*8,count:readings.length};
  }).sort((a,b)=>b.score-a.score);
  const top=ranking[0];
- return {...top.best,review:groups.size>1||top.count<2||top.best.confidence<85||policyRegionSuspicious(top.best.text)};
+ return {...top.best,review:usable.length!==candidates.length||groups.size>1||top.count<2||top.best.confidence<85||policyRegionSuspicious(top.best.text)};
 }
 
 async function policyRecognizeCells(source,layout,ocr){
@@ -1153,7 +1171,7 @@ async function policyRecognizeCells(source,layout,ocr){
   const nameCandidates=[await read(false,'original'),await read(false,'pixel'),await read(false,false)];
   if(new Set(nameCandidates.map(c=>c.text)).size>1||nameCandidates.some(c=>c.confidence<85||!/[가-힣]/.test(c.text)))nameCandidates.push(await read(false,'original','13'));
   let name=policySelectRegion(nameCandidates);
-  if(policyRegionSuspicious(name.text)||irregular){nameCandidates.push(await read(false,'original','6'));name=policySelectRegion(nameCandidates)}
+  if(name.review||policyRegionSuspicious(name.text)||irregular){nameCandidates.push(await read(false,'rules','7'));if(policyRegionNoise(name.text))nameCandidates.push(await read(false,'rules','8'));name=policySelectRegion(nameCandidates)}
   name.review=name.review||policyRegionSuspicious(name.text)||irregular;
   if(title){policyInsurer=name.text+(name.review?' (확인 필요)':'');continue}
   policyAnalysis.push({row:rows.length+1,text:name.text||'판독 실패',alternatives:nameCandidates.map(c=>c.text+' ['+c.family+'/'+c.mode+', '+Math.round(c.confidence)+']').join(' / '),reason:name.review?'판독 불일치 또는 저신뢰 · 원본 확인 필요':'서로 다른 전처리의 결과 일치'});
