@@ -437,12 +437,21 @@ root.addEventListener('mouseover',e=>{
  const target=mapRegionHoverTarget(e.target);
  if(!target||target.contains(e.relatedTarget))return;
  const group=mapRegionHoverGroup(target);
- const general=root.querySelector('#tm-age')?.selectedIndex===0;
- if(target.matches('[data-map-group]')&&group!==null&&regionCanReceive(regions[group],general)){
-  // Refresh only the information card, keeping the map viewport and paths in place.
-  if(mapHoveredGroup!==group){
+ if(target.matches('[data-map-group]')&&group!==null){
+  const svg=root.querySelector('#tm-region-map > svg');
+  if(svg){
    mapHoveredGroup=group;
-   updateMapLabels(root.querySelector('#tm-region-map > svg'));
+   svg.querySelectorAll('.region-shape[data-map-group]').forEach(path=>{
+    path.classList.toggle('region-match',Number(path.dataset.mapGroup)===group);
+   });
+   svg.querySelectorAll('.map-search-border').forEach(path=>path.remove());
+   const outline=document.createElementNS('http://www.w3.org/2000/svg','path');
+   const shapes=group===jejuRegionIndex?jejuShapes:regionMapShapes.filter(f=>f.group===group);
+   outline.setAttribute('d',regionSelectedEdges[group]||shapes.map(f=>f.d).join(' '));
+   outline.setAttribute('class','map-availability-border map-search-border');
+   outline.setAttribute('pointer-events','none');
+   svg.insertBefore(outline,svg.querySelector('.map-label-layer'));
+   updateMapLabels(svg);
   }
  }
  highlightMapRegionRow(group);
