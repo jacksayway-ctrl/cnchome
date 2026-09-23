@@ -968,8 +968,6 @@ const policyCityGroups=[
 ];
 const policyCityData=policyCityGroups.flatMap(([province,names])=>names.split(' ').map(name=>({province,name,aliases:[name,name.replace(/(?:특별자치시|특별시|광역시|시)$/,'')]})));
 const policyProvinceNames={서울:'서울특별시',부산:'부산광역시',대구:'대구광역시',인천:'인천광역시',광주:'광주광역시',대전:'대전광역시',울산:'울산광역시',세종:'세종특별자치시',경기:'경기도',강원:'강원특별자치도',충북:'충청북도',충남:'충청남도',전북:'전북특별자치도',전남:'전라남도',경북:'경상북도',경남:'경상남도',제주:'제주특별자치도'};
-// Explicitly approved by the user; unrelated near matches require manual selection.
-const policyApprovedCityCorrections=new Map([['찬안시','천안시']]);
 const policyDirections=['북부','남부','서부','동부','중부','서북부','서남부','동북부','동남부','북서부','북동부','남서부','남동부'];
 let policyCityOriginalRows=[],policyCityAudit=[],policyCityDrafts=new Map();
 function policyCityProvince(text){
@@ -983,12 +981,6 @@ function policyCityDistance(a,b){
 }
 // Reference names confirmed in the supplied policy image; not a nationwide county registry.
 const policyReferenceCounties=['성주','칠곡','예천','봉화','고령','청도','의성','청송','영양','영덕','울진','울릉'];
-function policyCorrectCountyReading(text){
- const tokens=String(text).match(/[가-힣]+/g)||[];
- const countyContext=tokens.some(t=>t==='칠곡'||t==='칠곡군')&&tokens.some(t=>t==='예천'||t==='예천군');
- if(!countyContext)return String(text);
- return String(text).replace(/[가-힣]+/g,token=>token==='성수'?'성주':token==='성수군'?'성주군':token);
-}
 function policyCityIssues(text){
  const province=policyCityProvince(text),issues=[];
  for(const match of String(text).matchAll(/[가-힣]+/g)){
@@ -1005,17 +997,8 @@ function policyCityIssues(text){
  return issues;
 }
 function policyPrepareCityReview(){
+ // OCR output stays verbatim; dictionary suggestions require explicit user selection.
  policyCityOriginalRows=policyRows.map(row=>[...row]);policyCityAudit=[];policyCityDrafts.clear();
- policyRows=policyRows.map((row,index)=>{if(!index)return row;const copy=[...row];
-  copy[0]=String(copy[0]||'').replace(/[가-힣]+/g,token=>{
-   const target=policyApprovedCityCorrections.get(token);
-   if(!target||!policyCityData.some(c=>c.name===target))return token;
-   policyCityAudit.push({row:index,from:token,to:target,reason:'요청하신 지명 보정'});return target;
-  });
-  const countyCorrected=policyCorrectCountyReading(copy[0]);
-  if(countyCorrected!==copy[0]){policyCityAudit.push({row:index,from:copy[0],to:countyCorrected,reason:'원본 확인 · 칠곡·예천 문맥의 성주 보정'});copy[0]=countyCorrected}
-  return copy;
- });
  policySyncCityText();
 }
 function policySyncCityText(){const input=root.querySelector('#tm-policy-paste');if(input)input.value=policyRows.map(r=>r.join('\t')).join('\n')}
@@ -1319,14 +1302,14 @@ function policyWhiteInk(p,w,h,convert=false){
 function policyCellImage(source,x0,y0,x1,y1,binary=false){
  const w=Math.max(1,x1-x0),h=Math.max(1,y1-y0),p=source.context.getImageData(x0,y0,w,h);
  if(binary==='rules')policyRemoveCellRules(p,w,h);
- if(binary==='color'||binary==='channel'||binary==='stroke')policyColorForeground(p,w,h,binary==='channel');
+ if(binary==='color'||binary==='channel'||binary==='stroke'||binary==='detail')policyColorForeground(p,w,h,binary==='channel');
  if(binary==='white'||binary==='whitepixel')policyWhiteInk(p,w,h,true);
  const original=(binary==='original'||binary==='pixel'||binary==='title')?source.context.getImageData(x0,y0,w,h):null;
- const box=policyNormalizeCell(p,w,h,binary===true),small=document.createElement('canvas');small.width=w;small.height=h;small.getContext('2d').putImageData(original||p,0,0);
+ const box=binary==='detail'?{left:0,top:0,width:w,height:h}:policyNormalizeCell(p,w,h,binary===true),small=document.createElement('canvas');small.width=w;small.height=h;small.getContext('2d').putImageData(original||p,0,0);
  // Keep the entire row height in the original-color pass so thin strokes are not cropped.
- if(original||binary==='stroke'){box.top=0;box.height=h;box.left=0;box.width=w}
- const scale=binary==='stroke'?6:binary==='whitepixel'?4:binary==='title'?3:binary==='pixel'?4:Math.max(2,Math.min(5,64/box.height)),out=document.createElement('canvas');out.width=Math.ceil(box.width*scale)+32;out.height=Math.ceil(box.height*scale)+32;
- const ctx=out.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,out.width,out.height);ctx.imageSmoothingEnabled=binary!=='stroke'&&binary!=='whitepixel'&&binary!==true&&binary!=='pixel'&&binary!=='title';ctx.imageSmoothingQuality='high';ctx.drawImage(small,box.left,box.top,box.width,box.height,16,16,box.width*scale,box.height*scale);return out;
+ if(original||['stroke','color','channel','white','whitepixel'].includes(binary)){box.top=0;box.height=h;box.left=0;box.width=w}
+ const scale=(binary==='stroke'||binary==='detail')?6:binary==='whitepixel'?4:binary==='title'?3:binary==='pixel'?4:Math.max(2,Math.min(5,64/box.height)),out=document.createElement('canvas');out.width=Math.ceil(box.width*scale)+32;out.height=Math.ceil(box.height*scale)+32;
+ const ctx=out.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,out.width,out.height);ctx.imageSmoothingEnabled=binary!=='detail'&&binary!=='stroke'&&binary!=='whitepixel'&&binary!==true&&binary!=='pixel'&&binary!=='title';ctx.imageSmoothingQuality='high';ctx.drawImage(small,box.left,box.top,box.width,box.height,16,16,box.width*scale,box.height*scale);return out;
 }
 // Locate the printed colon from two vertically aligned ink components.
 // Coordinates come from the source pixels, never a guessed/corrected region name.
@@ -1489,7 +1472,7 @@ function policySelectRegion(candidates){
  const mean=readings.reduce((sum,c)=>sum+c.confidence,0)/readings.length;
  const headingSupport=headings.get(headingOf(best.text))?.size||0;
  return {best,known:policyKnownRegion(best.text)&&headingSupport>=2&&mean>=70,score:mean+Math.min(2,readings.length-1)*8,count:readings.length};
- }).sort((a,b)=>Number(b.known)-Number(a.known)||b.score-a.score);
+ }).sort((a,b)=>b.score-a.score);
  const top=ranking[0];
  return {...top.best,review:usable.length!==candidates.length||groups.size>1||top.count<2||top.best.confidence<85||policyRegionSuspicious(top.best.text)};
 }
@@ -1558,6 +1541,7 @@ async function policyRecognizeCells(source,layout,ocr){
   if(name.review||policyRegionSuspicious(name.text)||irregular){nameCandidates.push(await read(false,'rules','7'));if(policyRegionNoise(name.text))nameCandidates.push(await read(false,'rules','8'));name=policySelectRegion(nameCandidates)}
   if(name.review||policyRegionSuspicious(name.text)){
    // Word segmentation and nearest-neighbor enlargement preserve detached top strokes.
+   nameCandidates.push(await read(false,'detail','7'));
    nameCandidates.push(await read(false,'stroke','8'));
    nameCandidates.push(await read(false,'pixel','8'));
    nameCandidates.push(await read(false,'channel','8'));
