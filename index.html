@@ -436,7 +436,16 @@ function mapRegionHoverGroup(target){
 root.addEventListener('mouseover',e=>{
  const target=mapRegionHoverTarget(e.target);
  if(!target||target.contains(e.relatedTarget))return;
- highlightMapRegionRow(mapRegionHoverGroup(target));
+ const group=mapRegionHoverGroup(target);
+ const general=root.querySelector('#tm-age')?.selectedIndex===0;
+ if(target.matches('[data-map-group]')&&group!==null&&regionCanReceive(regions[group],general)){
+  // Refresh only the information card, keeping the map viewport and paths in place.
+  if(mapHoveredGroup!==group){
+   mapHoveredGroup=group;
+   updateMapLabels(root.querySelector('#tm-region-map > svg'));
+  }
+ }
+ highlightMapRegionRow(group);
 });
 root.addEventListener('mouseout',e=>{
  const target=mapRegionHoverTarget(e.target);
