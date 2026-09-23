@@ -321,7 +321,7 @@ function updateRegionMap(){
  }).join('');
  host.style.setProperty('--map-ratio',Math.max(.65,Math.min(1.8,dims[2]/dims[3])));host.innerHTML=`<svg viewBox="${box}" preserveAspectRatio="xMidYMid meet" role="group" aria-label="전국 접수 가능지역 지도">${paths}<defs><clipPath id="tm-selected-map-clip">${visibleShapes.filter(f=>!focused(f)).map(f=>`<path d="${f.d}"/>`).join('')}</clipPath></defs><g clip-path="url(#tm-selected-map-clip)"><path d="${regionBorders.city}" class="map-city-border"/><path d="${regionBorders.province}" class="map-province-border"/></g>${visibleShapes.filter(f=>available(f.group)&&!focused(f)).map(f=>`<path d="${f.d}" class="map-availability-border ${focused(f)?'map-search-border':''}"/>`).join('')}${[...new Set(selected.map(f=>f.group))].filter(i=>i>=0).map(i=>`<path d="${regionSelectedEdges[i]}" class="map-availability-border map-search-border"/>`).join('')}${regionNames}${mapLabels}${jejuLabel}</svg>`;
  layoutMapRegionNames(host.querySelector(':scope > svg'));
- root.querySelector('#tm-map-detail').textContent='마지막 미리보기 유지 · 마우스 휠로 확대/축소 · 클릭 드래그로 이동 · 지도 더블클릭으로 전체 보기 · 아이템별 남은 공유 수량';
+ root.querySelector('#tm-map-detail').textContent='마지막 미리보기 유지 · 마우스 휠로 확대/축소 · 클릭 드래그로 이동 · 지도 더블클릭으로 청주시 청원구 중심 전체 보기 · 아이템별 남은 공유 수량';
  if(activeGroup!==null){showMapRegion(activeGroup)}
 }
 root.addEventListener('click',e=>{const choice=e.target.closest('[data-region-select]');if(choice){mapSelectedGroup=Number(choice.dataset.regionSelect);mapHoveredGroup=null;filterRegions();return}});
@@ -383,6 +383,8 @@ root.addEventListener('dblclick',e=>{
  if(!e.target.closest('#tm-region-map'))return;
  e.preventDefault();mapSelectedGroup=null;mapHoveredGroup=null;mapSuppressClick=false;
  root.querySelector('#tm-region-search').value='';filterRegions();
+ const svg=root.querySelector('#tm-region-map > svg'),idx=regionMapShapes.findIndex(f=>f.name==='청주시청원구');
+ if(svg&&idx>=0){const point=regionNamePoints[idx],v=svg.viewBox.baseVal;svg.setAttribute('viewBox',[point[0]-v.width/2,point[1]-v.height/2,v.width,v.height].join(' '));layoutMapRegionNames(svg);}
 });
 function showMapRegion(i){if(i<0)return;const r=regions[i],general=root.querySelector('#tm-age').selectedIndex===0,items=availableInsuranceItems(r,general);root.querySelector('#tm-map-detail').textContent=r[0]+' · '+(items.length?items.map(item=>item.label+' 배정 / 남은 수량 '+item.amount).join(' · '):'선택한 상품 구분의 확정 가능 수량 없음')+' · 묶음 공유';}
 root.addEventListener('click',e=>{const f=e.target.closest('[data-map-group]');if(f)showMapRegion(Number(f.dataset.mapGroup));});
