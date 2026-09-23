@@ -1042,7 +1042,8 @@ async function policyGetPaddleOcr(){
   catch(error){expired=true;throw error}
  };
  const worker=await create('kor+chi_tra+chi_sim','한국어·한문(번체·간체)'),digitWorker=await create('eng','숫자');
- policyPaddleOcr={worker,digitWorker,dispose:async()=>{await Promise.allSettled(ready.map(w=>w.terminate()))}};
+ let regionWorkerPromise;
+ policyPaddleOcr={worker,digitWorker,getRegionWorker:()=>regionWorkerPromise||(regionWorkerPromise=create('kor','지역명 전용 한국어')),dispose:async()=>{await Promise.allSettled(ready.map(w=>w.terminate()))}};
  return policyPaddleOcr;
  }catch(error){await Promise.allSettled(ready.map(w=>w.terminate()));policyPaddleOcr=null;policyPaddlePromise=null;throw error}
 }
@@ -1149,6 +1150,79 @@ function policyCellImage(source,x0,y0,x1,y1,binary=false){
  const scale=binary==='stroke'?6:binary==='whitepixel'?4:binary==='title'?3:binary==='pixel'?4:Math.max(2,Math.min(5,64/box.height)),out=document.createElement('canvas');out.width=Math.ceil(box.width*scale)+32;out.height=Math.ceil(box.height*scale)+32;
  const ctx=out.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,out.width,out.height);ctx.imageSmoothingEnabled=binary!=='stroke'&&binary!=='whitepixel'&&binary!==true&&binary!=='pixel'&&binary!=='title';ctx.imageSmoothingQuality='high';ctx.drawImage(small,box.left,box.top,box.width,box.height,16,16,box.width*scale,box.height*scale);return out;
 }
+// Locate the printed colon from two vertically aligned ink components.
+// Coordinates come from the source pixels, never a guessed/corrected region name.
+function policyHeadingCrop(source,layout,band){
+ const x0=2,w=layout.divider-4,h=band.bottom-band.top;
+ if(w<12||h<8)return null;
+ const p=source.context.getImageData(x0,band.top,w,h);
+ policyColorForeground(p,w,h);
+ const ink=new Uint8Array(w*h),seen=new Uint8Array(w*h),parts=[];
+ for(let i=0;i<ink.length;i++)ink[i]=p.data[i*4]<150?1:0;
+ for(let i=0;i<ink.length;i++){
+  if(!ink[i]||seen[i])continue;
+  const stack=[i];seen[i]=1;let left=w,right=0,top=h,bottom=0,count=0;
+  while(stack.length){const q=stack.pop(),x=q%w,y=Math.floor(q/w);count++;
+   left=Math.min(left,x);right=Math.max(right,x);top=Math.min(top,y);bottom=Math.max(bottom,y);
+   for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){
+    const nx=x+dx,ny=y+dy,k=ny*w+nx;
+    if(nx>=0&&nx<w&&ny>=0&&ny<h&&ink[k]&&!seen[k]){seen[k]=1;stack.push(k)}
+   }
+  }
+  parts.push({left,right,top,bottom,count});
+ }
+ const dots=parts.filter(c=>c.right-c.left+1<=Math.max(2,h*.18)&&c.bottom-c.top+1<=Math.max(2,h*.22));
+ const matches=[];
+ for(const a of dots)for(const b of dots){
+  const left=Math.min(a.left,b.left),right=Math.max(a.right,b.right);
+  if(a.bottom>=b.top||Math.abs(a.left+a.right-b.left-b.right)>2||b.bottom-a.top<h*.18||b.bottom-a.top>h*.65)continue;
+  if(a.top<h*.1||b.bottom>h*.9)continue;
+  // Colon must be isolated from letters by empty vertical columns on both sides.
+  if(left<2||right>w-3)continue;
+  let clear=true;for(let y=0;y<h;y++)if(ink[y*w+left-1]||ink[y*w+right+1])clear=false;
+  const before=parts.filter(c=>c.right<left-1&&c.count>=4),after=parts.filter(c=>c.left>right+1&&c.count>=4);
+  if(!clear||before.length<2||!after.length)continue;
+  const first=Math.min(...parts.filter(c=>c.right<left-1).map(c=>c.left));
+  if(left-first<h*1.5)continue;
+  matches.push({left:x0+Math.max(0,first-2),right:x0+left-1,colon:x0+left});
+ }
+ // Ambiguous punctuation is left for manual review rather than an arbitrary crop.
+ const unique=[...new Map(matches.map(m=>[m.colon,m])).values()];
+ return unique.length===1?unique[0]:null;
+}
+function policyHeadingConsensus(candidates){
+ const groups=new Map();
+ for(const c of candidates){
+  const text=String(c.text||'').trim(),key=text.replace(/\s/g,'');
+  if(!/^[가-힣]+$/.test(key)||!policyKnownRegion(key)||c.confidence<75)continue;
+  if(!groups.has(key))groups.set(key,new Map());
+  const family=groups.get(key),previous=family.get(c.family);
+  if(!previous||c.confidence>previous.confidence)family.set(c.family,{...c,text});
+ }
+ const supported=[...groups.values()].filter(g=>g.size>=2);
+ if(supported.length!==1)return null;
+ return [...supported[0].values()].sort((a,b)=>b.confidence-a.confidence)[0];
+}
+async function policyReadHeading(source,layout,band,ocr){
+ const crop=policyHeadingCrop(source,layout,band);if(!crop)return {candidates:[],selected:null};
+ const worker=await ocr.getRegionWorker(),candidates=[];
+ for(const [variant,mode] of [['pixel','7'],['stroke','7'],['channel','13']]){
+  await worker.setParameters({tessedit_pageseg_mode:mode,tessedit_char_whitelist:'',preserve_interword_spaces:'1',user_defined_dpi:'300'});
+  const result=await policyOcrTimeout(worker.recognize(policyCellImage(source,crop.left,band.top,crop.right,band.bottom,variant)),30000,'지역명 확대 판독 제한 시간을 초과했습니다.');
+  candidates.push({text:String(result.data?.text||'').trim().replace(/\s+/g,' '),confidence:Number(result.data?.confidence||0),family:'heading-kor-'+variant,mode});
+ }
+ return {candidates,selected:policyHeadingConsensus(candidates)};
+}
+function policyApplyHeading(name,heading){
+ // Keep the city list, Han characters, and symbols exactly as the full-line OCR read them.
+ const colon=String(name.text||'').search(/[:：]/);
+ if(!heading||colon<0)return name;
+ const previous=name.text.slice(0,colon).replace(/\s/g,''),next=heading.text.replace(/\s/g,'');
+ if(previous===next)return name;
+ if(policyKnownRegion(previous))return {...name,review:true};
+ return {...name,text:heading.text.trim()+' '+name.text.slice(colon),review:true,headingCorrected:true};
+}
+
 function policyQuantityStatus(text,review){
  if(review||!/^\d+$/.test(text))return '확인 필요';
  return Number(text)===0?'마감':'접수 가능';
@@ -1291,9 +1365,15 @@ async function policyRecognizeCells(source,layout,ocr){
    nameCandidates.push(await read(false,'channel','8'));
    name=policySelectRegion(nameCandidates);
   }
+  let headingReadings=[];
+  if(!title&&(name.review||policyRegionSuspicious(name.text))){
+   const heading=await policyReadHeading(source,layout,band,ocr);
+   headingReadings=heading.candidates;
+   name=policyApplyHeading(name,heading.selected);
+  }
   name.review=name.review||policyRegionSuspicious(name.text)||irregular;
   if(title){policyInsurer=name.text+(name.review?' (확인 필요)':'');continue}
-  policyAnalysis.push({row:rows.length+1,text:name.text||'판독 실패',alternatives:nameCandidates.map(c=>c.text+' ['+c.family+'/'+c.mode+', '+Math.round(c.confidence)+']').join(' / '),reason:name.review?'판독 불일치 또는 저신뢰 · 원본 확인 필요':'서로 다른 전처리의 결과 일치'});
+  policyAnalysis.push({row:rows.length+1,text:name.text||'판독 실패',alternatives:[...nameCandidates,...headingReadings].map(c=>c.text+' ['+c.family+'/'+c.mode+', '+Math.round(c.confidence)+']').join(' / '),reason:name.headingCorrected?'지역명 원본 영역을 한국어 전용으로 재판독 · 도시명·한자는 원문 판독 유지 · 확인 필요':name.review?'판독 불일치 또는 저신뢰 · 원본 확인 필요':'서로 다른 전처리의 결과 일치'});
   const qtyCandidates=[await read(true,'original'),await read(true,'color'),await read(true,'channel')];
   if(qtyCandidates[0].text!==qtyCandidates[1].text||Math.min(...qtyCandidates.map(c=>c.confidence))<85)qtyCandidates.push(await read(true,false,'8'));
   let qty=policyChooseReading(qtyCandidates,true);
