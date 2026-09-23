@@ -49,6 +49,9 @@
 #tm-preview .map-carrier-buttons button{padding:7px 11px;border:1px solid #c7d6e8;border-radius:7px;background:#fff;color:#244464;font-weight:600}
 #tm-preview .map-carrier-buttons button[aria-pressed="true"]{background:#1464ec;border-color:#1464ec;color:#fff}
 #tm-preview .map-carrier-buttons button:disabled{background:#edf0f4;color:#8a96a7;cursor:not-allowed}
+#tm-preview #tm-region-map{cursor:grab;touch-action:none;user-select:none}
+#tm-preview #tm-region-map.map-dragging,#tm-preview #tm-region-map.map-dragging *{cursor:grabbing!important}
+#tm-preview .jeju-map-inset{cursor:default}
 </style>
 </head><body>
 <div id="tm-preview">
@@ -262,7 +265,7 @@ function updateRegionMap(){
  }).join('');
  host.style.aspectRatio=Math.max(.65,Math.min(1.8,dims[2]/dims[3]));host.innerHTML=`<svg viewBox="${box}" preserveAspectRatio="xMidYMid meet" role="group" aria-label="전국 접수 가능지역 지도">${paths}<defs><clipPath id="tm-selected-map-clip">${visibleShapes.filter(f=>!focused(f)).map(f=>`<path d="${f.d}"/>`).join('')}</clipPath></defs><g clip-path="url(#tm-selected-map-clip)"><path d="${regionBorders.city}" class="map-city-border"/><path d="${regionBorders.province}" class="map-province-border"/></g>${visibleShapes.filter(f=>available(f.group)&&!focused(f)).map(f=>`<path d="${f.d}" class="map-availability-border ${focused(f)?'map-search-border':''}"/>`).join('')}${[...new Set(selected.map(f=>f.group))].filter(i=>i>=0).map(i=>`<path d="${regionSelectedEdges[i]}" class="map-availability-border map-search-border"/>`).join('')}${mapLabels}</svg>${jejuInset}`;
  root.querySelector('#tm-map-status').textContent=(mapCarrier==='ga'&&general)?'GA 일반은 자료 대기 중입니다.':q?(matches.length?'검색한 지역을 확대해 표시합니다.':'검색 결과가 없습니다.'):'파란 테두리 지역을 선택하면 남은 수량을 확인할 수 있습니다.';
- root.querySelector('#tm-map-detail').textContent='마지막 미리보기 유지 · 마우스 휠로 확대/축소 · 전체 지도 버튼으로 초기화 · 아이템별 남은 공유 수량';
+ root.querySelector('#tm-map-detail').textContent='마지막 미리보기 유지 · 마우스 휠로 확대/축소 · 클릭 드래그로 이동 · 전체 지도 버튼으로 초기화 · 아이템별 남은 공유 수량';
  if(activeGroup!==null){root.querySelector('#tm-map-status').textContent=regions[activeGroup][0]+(mapHoveredGroup!==null?' 미리보기':' 선택 유지')+' · 주변 지역 함께 보기';showMapRegion(activeGroup)}
 }
 root.addEventListener('click',e=>{const choice=e.target.closest('[data-region-select]');if(choice){mapSelectedGroup=Number(choice.dataset.regionSelect);mapHoveredGroup=null;filterRegions();return}if(e.target.closest('[data-map-reset]')){mapSelectedGroup=null;mapHoveredGroup=null;root.querySelector('#tm-region-search').value='';filterRegions();}});
@@ -283,6 +286,41 @@ root.addEventListener('wheel',e=>{
  const width=Math.max(8,Math.min(1800,v.width*factor)),ratio=width/v.width,height=v.height*ratio;
  svg.setAttribute('viewBox',[v.x+v.width*px-width*px,v.y+v.height*py-height*py,width,height].join(' '));
 },{passive:false});
+
+let mapDrag=null,mapSuppressClick=false;
+root.addEventListener('pointerdown',e=>{
+ const host=e.target.closest('#tm-region-map');
+ if(!host||e.target.closest('.jeju-map-inset')||e.button!==0)return;
+ const svg=host.querySelector(':scope > svg');if(!svg)return;
+ const box=svg.viewBox.baseVal,rect=svg.getBoundingClientRect();
+ const scale=Math.min(rect.width/box.width,rect.height/box.height);
+ mapDrag={host,svg,id:e.pointerId,startX:e.clientX,startY:e.clientY,x:box.x,y:box.y,w:box.width,h:box.height,scale,moved:false};
+ mapSuppressClick=false;
+},true);
+root.addEventListener('pointermove',e=>{
+ if(!mapDrag||e.pointerId!==mapDrag.id)return;
+ const d=mapDrag,dx=e.clientX-d.startX,dy=e.clientY-d.startY;
+ if(!d.moved&&Math.hypot(dx,dy)<4)return;
+ if(!d.moved){d.moved=true;d.host.setPointerCapture(e.pointerId);d.host.classList.add('map-dragging');}
+ e.preventDefault();
+ d.svg.setAttribute('viewBox',[d.x-dx/d.scale,d.y-dy/d.scale,d.w,d.h].join(' '));
+});
+function finishMapDrag(e){
+ if(!mapDrag||e.pointerId!==mapDrag.id)return;
+ const d=mapDrag;mapDrag=null;mapSuppressClick=d.moved;
+ d.host.classList.remove('map-dragging');
+ if(d.host.hasPointerCapture(e.pointerId))d.host.releasePointerCapture(e.pointerId);
+}
+root.addEventListener('pointerup',finishMapDrag);
+root.addEventListener('pointercancel',finishMapDrag);
+root.addEventListener('lostpointercapture',finishMapDrag);
+root.addEventListener('pointerleave',e=>{if(mapDrag&&!mapDrag.moved)finishMapDrag(e);});
+root.addEventListener('click',e=>{
+ if(mapSuppressClick&&e.target.closest('#tm-region-map')){
+  mapSuppressClick=false;e.preventDefault();e.stopImmediatePropagation();
+ }
+},true);
+
 function showMapRegion(i){if(i<0)return;const r=regions[i],general=root.querySelector('#tm-age').selectedIndex===0;root.querySelector('#tm-map-detail').textContent=r[0]+' · '+(mapCarrier==='all'?'가능지역 모두':mapCarrier==='hanwha'?'한화':general?'GA 일반':'GA 실버')+' · '+(mapCarrier==='all'?'한화 '+r[2]+' · GA '+(general?'일반 자료 대기':'실버 '+r[3]):mapCarrier==='ga'&&general?'자료 대기':'배정 / 남은 수량 '+r[mapCarrier==='ga'?3:2])+' · 묶음 내 공유 수량';}
 root.addEventListener('click',e=>{const f=e.target.closest('[data-map-group]');if(f)showMapRegion(Number(f.dataset.mapGroup));});
 root.addEventListener('keydown',e=>{const f=e.target.closest('[data-map-group]');if(f&&(e.key==='Enter'||e.key===' ')){e.preventDefault();showMapRegion(Number(f.dataset.mapGroup));}});
