@@ -343,11 +343,11 @@ root.addEventListener('wheel',e=>{
  const host=e.target.closest('#tm-region-map');if(!host||e.target.closest('.jeju-map-inset'))return;
  const svg=host.querySelector('svg');if(!svg)return;e.preventDefault();
  const v=svg.viewBox.baseVal,r=svg.getBoundingClientRect();
- const px=Math.max(0,Math.min(1,(e.clientX-r.left)/r.width)),py=Math.max(0,Math.min(1,(e.clientY-r.top)/r.height));
+ const centerX=v.x+v.width/2,centerY=v.y+v.height/2;
  const unit=e.deltaMode===1?16:e.deltaMode===2?r.height:1;
  const factor=Math.exp(Math.max(-.3,Math.min(.3,e.deltaY*unit*.0015)));
  const width=Math.max(8,Math.min(1800,v.width*factor)),ratio=width/v.width,height=v.height*ratio;
- svg.setAttribute('viewBox',[v.x+v.width*px-width*px,v.y+v.height*py-height*py,width,height].join(' '));layoutMapRegionNames(svg);
+ svg.setAttribute('viewBox',[centerX-width/2,centerY-height/2,width,height].join(' '));layoutMapRegionNames(svg);
 
 
 },{passive:false});
