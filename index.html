@@ -943,7 +943,7 @@ function adminHome(){
  panel('팀별 현황',teamSummary)+teamPanels+
  `<div class="notice">팀 목록에 새 팀을 추가하면 팀별 요약과 직원 현황 구역이 자동으로 확장됩니다.</div>`
 }
-let policyRows=[],policyRegisteredRows=[],policyImageData='',policyImageName='',policyRegistered=false,policyOcrRunning=false,policyOcrProgress=0,policyPaddleOcr=null,policyPaddlePromise=null;
+let policyRows=[],policyRegisteredRows=[],policyImageData='',policyImageName='',policyRegistered=false,policyOcrRunning=false,policyOcrProgress=0,policyPaddleOcr=null,policyPaddlePromise=null,policyInsurer='';
 function policyEscape(value){return String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]))}
 function parsePolicyText(text){
  const lines=String(text||'').replace(/\r/g,'').split('\n').map(line=>line.trim()).filter(Boolean);
@@ -952,66 +952,85 @@ function parsePolicyText(text){
  return lines.map(line=>(delimiter==='tab'?line.split('\t'):delimiter==='comma'?line.split(','):line.split(/\s{2,}/)).map(cell=>cell.trim())).filter(row=>row.some(Boolean));
 }
 function policyPreviewMarkup(){
- if(policyRows.length){const width=Math.max(...policyRows.map(row=>row.length));const normalized=policyRows.map(row=>Array.from({length:width},(_,index)=>policyEscape(row[index]||'')));return `<div class="notice">${policyRegistered?'등록 완료':'표 변환 완료'} · ${policyRows.length}행 ${width}열</div>`+table(normalized[0].map((heading,index)=>heading||'열 '+(index+1)),normalized.slice(1));}
- if(policyImageData)return `<div class="notice">이미지 정책표가 감지되었습니다. PaddleOCR가 브라우저 안에서 한글 정책표를 읽고 지역명과 수량을 표로 변환합니다.</div><img src="${policyImageData}" alt="붙여넣은 정책표 이미지" style="display:block;max-width:100%;max-height:420px;margin:12px auto;border:1px solid var(--tm-line);border-radius:8px"><p class="sub">파일: ${policyEscape(policyImageName||'클립보드 이미지')} · 이미지는 외부 OCR 서버에 업로드되지 않습니다.</p><div class="row"><button type="button" class="action" data-action="policy-ocr" ${policyOcrRunning?'disabled':''}>${policyOcrRunning?'OCR 변환 중':'로컬 PaddleOCR로 표 변환'}</button><span id="tm-policy-ocr-status" class="sub">${policyOcrRunning?'한글 OCR 처리 중 · '+policyOcrProgress+'%':'PaddleOCR · 브라우저 로컬 처리'}</span></div><div class="track" aria-label="OCR 진행률"><span id="tm-policy-ocr-progress" style="width:${policyOcrProgress}%"></span></div>`;
+ if(policyRows.length){const width=Math.max(...policyRows.map(row=>row.length));const normalized=policyRows.map(row=>Array.from({length:width},(_,index)=>policyEscape(row[index]||'')));return '<div class="notice">'+(policyRegistered?'등록 완료':'전용 OCR 변환 완료')+(policyInsurer?' · 보험사 '+policyEscape(policyInsurer):'')+' · '+policyRows.length+'행 '+width+'열</div>'+table(normalized[0].map((heading,index)=>heading||'열 '+(index+1)),normalized.slice(1));}
+ if(policyImageData)return '<div class="notice">정책표 전용 OCR이 표선으로 행과 수량 열을 먼저 나눈 뒤, 정리된 한글만 로컬에서 인식합니다.</div><img src="'+policyImageData+'" alt="붙여넣은 정책표 이미지" style="display:block;max-width:100%;max-height:420px;margin:12px auto;border:1px solid var(--tm-line);border-radius:8px"><p class="sub">파일: '+policyEscape(policyImageName||'클립보드 이미지')+' · 이미지는 외부 서버에 전송되지 않습니다.</p><div class="row"><button type="button" class="action" data-action="policy-ocr" '+(policyOcrRunning?'disabled':'')+'>'+(policyOcrRunning?'전용 OCR 분석 중':'정책표 전용 OCR로 변환')+'</button><span id="tm-policy-ocr-status" class="sub">'+(policyOcrRunning?'표 구조 분석 중 · '+policyOcrProgress+'%':'행·수량·색상 전용 분석')+'</span></div><div class="track" aria-label="OCR 진행률"><span id="tm-policy-ocr-progress" style="width:'+policyOcrProgress+'%"></span></div>';
  return '<p class="sub">아직 변환할 정책표가 없습니다. 엑셀 표·텍스트를 붙여넣거나 이미지를 선택해 주세요.</p>';
 }
 function policyRegisteredPreviewMarkup(){
  if(!policyRegisteredRows.length)return '<div class="notice">아직 등록된 정책표가 없습니다. 위에서 내용을 변환하고 확인한 뒤 등록해 주세요.</div>';
  const width=Math.max(...policyRegisteredRows.map(row=>row.length)),normalized=policyRegisteredRows.map(row=>Array.from({length:width},(_,index)=>policyEscape(row[index]||'')));
- return `<div class="notice">정상 등록 확인 · ${policyRegisteredRows.length}행 ${width}열</div>`+table(normalized[0].map((heading,index)=>heading||'열 '+(index+1)),normalized.slice(1));
+ return '<div class="notice">정상 등록 확인'+(policyInsurer?' · '+policyEscape(policyInsurer):'')+' · '+policyRegisteredRows.length+'행 '+width+'열</div>'+table(normalized[0].map((heading,index)=>heading||'열 '+(index+1)),normalized.slice(1));
 }
 function policyRefreshRegistered(){const target=root.querySelector('#tm-policy-registered-preview');if(target)target.innerHTML=policyRegisteredPreviewMarkup()}
 function policyRefreshPreview(){const target=root.querySelector('#tm-policy-preview');if(target)target.innerHTML=policyPreviewMarkup();const register=root.querySelector('[data-action="policy-register"]');if(register)register.disabled=!policyRows.length}
 function policyHandleImage(file){
  if(!file||!file.type.startsWith('image/'))return;
  const reader=new FileReader();
- reader.onload=()=>{policyImageData=String(reader.result||'');policyImageName=file.name||'클립보드 이미지';policyRows=[];policyRegistered=false;policyRefreshPreview();toast('정책표 이미지를 확인했습니다. 표 변환 대기 상태입니다.');};
+ reader.onload=()=>{policyImageData=String(reader.result||'');policyImageName=file.name||'클립보드 이미지';policyRows=[];policyInsurer='';policyRegistered=false;policyRefreshPreview();toast('정책표 이미지를 확인했습니다. 전용 OCR 변환을 눌러 주세요.');};
  reader.readAsDataURL(file);
 }
-function policyUpdateOcrProgress(message){
- const status=root.querySelector('#tm-policy-ocr-status'),bar=root.querySelector('#tm-policy-ocr-progress');
- if(status)status.textContent=message;if(bar)bar.style.width=policyOcrProgress+'%';
-}
+function policyUpdateOcrProgress(message){const status=root.querySelector('#tm-policy-ocr-status'),bar=root.querySelector('#tm-policy-ocr-progress');if(status)status.textContent=message;if(bar)bar.style.width=policyOcrProgress+'%'}
 function policyOcrTimeout(promise,ms,message){return Promise.race([promise,new Promise((_,reject)=>setTimeout(()=>reject(new Error(message)),ms))])}
-function policyPrepareImage(dataUrl){
- return new Promise((resolve,reject)=>{const image=new Image();image.onload=()=>{const maxWidth=1600,scale=Math.min(1,maxWidth/image.naturalWidth),canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(image.naturalWidth*scale));canvas.height=Math.max(1,Math.round(image.naturalHeight*scale));const context=canvas.getContext('2d',{alpha:false});context.fillStyle='#fff';context.fillRect(0,0,canvas.width,canvas.height);context.drawImage(image,0,0,canvas.width,canvas.height);canvas.toBlob(blob=>blob?resolve(blob):reject(new Error('이미지 변환에 실패했습니다.')),'image/png');};image.onerror=()=>reject(new Error('이미지를 읽지 못했습니다.'));image.src=dataUrl;});
+function policyLoadCanvas(dataUrl){
+ return new Promise((resolve,reject)=>{const image=new Image();image.onload=()=>{const scale=Math.min(1,1400/image.naturalWidth),canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(image.naturalWidth*scale));canvas.height=Math.max(1,Math.round(image.naturalHeight*scale));const context=canvas.getContext('2d',{alpha:false,willReadFrequently:true});context.fillStyle='#fff';context.fillRect(0,0,canvas.width,canvas.height);context.drawImage(image,0,0,canvas.width,canvas.height);resolve({canvas,context,data:context.getImageData(0,0,canvas.width,canvas.height)});};image.onerror=()=>reject(new Error('이미지를 읽지 못했습니다.'));image.src=dataUrl;});
+}
+function policyGroups(values,gap=2){
+ const groups=[];for(const value of values){const last=groups[groups.length-1];if(!last||value-last[last.length-1]>gap)groups.push([value]);else last.push(value)}return groups.map(group=>Math.round(group.reduce((sum,value)=>sum+value,0)/group.length));
+}
+function policyColorName(r,g,b){
+ if(r>175&&g<125&&b<125)return '마감';
+ if(g>r*1.08&&g>b*.9)return '접수 가능';
+ if(r>185&&g>170&&b<150)return '접수 가능';
+ if(b>r*1.08&&b>g*.9)return '별도 확인';
+ if(r>205&&g>185&&b>165)return '접수 가능';
+ return '일반';
+}
+function policyAnalyzeTable(source){
+ const {canvas,context,data}=source,w=canvas.width,h=canvas.height,p=data.data,dark=(x,y)=>{const i=(y*w+x)*4;return p[i]+p[i+1]+p[i+2]<210};
+ const horizontal=[];for(let y=0;y<h;y++){let count=0;for(let x=0;x<w;x+=2)if(dark(x,y))count++;if(count>w*.36)horizontal.push(y)}
+ let lines=policyGroups(horizontal,2);if(lines.length<3)throw new Error('표의 가로선을 찾지 못했습니다. 이미지 여백을 줄여 다시 시도해 주세요.');
+ if(lines[0]>5)lines.unshift(0);if(lines[lines.length-1]<h-5)lines.push(h-1);
+ const bands=[];for(let i=0;i<lines.length-1;i++){const top=lines[i]+1,bottom=lines[i+1]-1;if(bottom-top>=7)bands.push({top,bottom,center:(top+bottom)/2})}
+ if(bands.length<3)throw new Error('정책표 행을 충분히 찾지 못했습니다.');
+ let divider=Math.round(w*.88),best=-1;for(let x=Math.round(w*.65);x<Math.round(w*.97);x++){let count=0;for(let y=0;y<h;y+=2)if(dark(x,y))count++;if(count>best){best=count;divider=x}}
+ const clean=document.createElement('canvas');clean.width=w;clean.height=h;const cc=clean.getContext('2d',{alpha:false});cc.fillStyle='#fff';cc.fillRect(0,0,w,h);
+ for(const band of bands){const sample={};for(let y=band.top+2;y<band.bottom-1;y+=3)for(let x=3;x<w-3;x+=4){const i=(y*w+x)*4,key=(p[i]>>4)+','+(p[i+1]>>4)+','+(p[i+2]>>4);sample[key]=(sample[key]||0)+1}const bgKey=Object.keys(sample).sort((a,b)=>sample[b]-sample[a])[0]||'15,15,15',bg=bgKey.split(',').map(v=>Number(v)*16+8);let rr=0,gg=0,bb=0,n=0;
+  for(let y=band.top+2;y<band.bottom-1;y++)for(let x=2;x<w-2;x++){const i=(y*w+x)*4,dr=p[i]-bg[0],dg=p[i+1]-bg[1],db=p[i+2]-bg[2],distance=Math.sqrt(dr*dr+dg*dg+db*db),lum=(p[i]+p[i+1]+p[i+2])/3;if(distance>62&&lum<215){cc.fillStyle='#000';cc.fillRect(x,y,1,1)}}
+  for(let y=band.top+2;y<band.bottom-1;y+=3)for(let x=3;x<Math.min(divider-3,w);x+=5){const i=(y*w+x)*4;rr+=p[i];gg+=p[i+1];bb+=p[i+2];n++}band.status=policyColorName(rr/n,gg/n,bb/n);
+ }
+ return new Promise((resolve,reject)=>clean.toBlob(blob=>blob?resolve({blob,bands,divider,width:w,height:h}):reject(new Error('전용 OCR 이미지를 만들지 못했습니다.')),'image/png'));
 }
 function policyItemPosition(item){
  const points=Array.isArray(item?.poly)?item.poly:[],pairs=points.map(point=>Array.isArray(point)?point:[point?.x,point?.y]).filter(point=>Number.isFinite(point[0])&&Number.isFinite(point[1]));
- if(!pairs.length)return {x:0,y:0,h:18};
- const xs=pairs.map(point=>point[0]),ys=pairs.map(point=>point[1]);return {x:Math.min(...xs),y:(Math.min(...ys)+Math.max(...ys))/2,h:Math.max(10,Math.max(...ys)-Math.min(...ys))};
+ if(!pairs.length)return {x:0,y:0,h:18};const xs=pairs.map(point=>point[0]),ys=pairs.map(point=>point[1]);return {x:(Math.min(...xs)+Math.max(...xs))/2,y:(Math.min(...ys)+Math.max(...ys))/2,h:Math.max(10,Math.max(...ys)-Math.min(...ys))};
 }
-function policyPaddleText(items){
- const entries=(items||[]).filter(item=>String(item?.text||'').trim()).map(item=>({text:String(item.text).trim(),...policyItemPosition(item)})).sort((a,b)=>a.y-b.y||a.x-b.x),rows=[];
- for(const entry of entries){let row=rows.find(candidate=>Math.abs(candidate.y-entry.y)<=Math.max(10,Math.min(candidate.h,entry.h)*.7));if(!row){row={y:entry.y,h:entry.h,items:[]};rows.push(row)}row.items.push(entry)}
- return rows.sort((a,b)=>a.y-b.y).map(row=>row.items.sort((a,b)=>a.x-b.x).map(item=>item.text).join('\t')).join('\n');
+function policyBuildRows(items,layout){
+ const entries=(items||[]).filter(item=>String(item?.text||'').trim()).map(item=>({text:String(item.text).trim(),...policyItemPosition(item)}));
+ const rows=layout.bands.map(band=>({band,left:[],right:[]}));
+ for(const entry of entries){let target=rows.reduce((best,row)=>Math.abs(row.band.center-entry.y)<Math.abs(best.band.center-entry.y)?row:best,rows[0]);(entry.x>layout.divider?target.right:target.left).push(entry)}
+ const textRows=rows.map(row=>({name:row.left.sort((a,b)=>a.x-b.x).map(item=>item.text).join(' ').trim(),qty:row.right.sort((a,b)=>a.x-b.x).map(item=>item.text).join('').replace(/[Oo]/g,'0').replace(/[Il|]/g,'1').match(/\d+/)?.[0]||'',status:row.band.status}));
+ const titleIndex=textRows.findIndex(row=>row.name&&!row.qty);policyInsurer=titleIndex>=0?textRows[titleIndex].name:'';
+ const body=textRows.filter((row,index)=>index!==titleIndex&&(row.name||row.qty));
+ return [['지역','수량','상태'],...body.map(row=>[row.name||'확인 필요',row.qty||'확인 필요',row.status])];
 }
 async function policyGetPaddleOcr(){
- if(policyPaddleOcr)return policyPaddleOcr;
- if(policyPaddlePromise)return policyPaddlePromise;
- policyOcrProgress=5;policyUpdateOcrProgress('PaddleOCR 실행 파일 준비 · 5%');
- policyPaddlePromise=(async()=>{const module=await import('https://cdn.jsdelivr.net/npm/@paddleocr/paddleocr-js@0.4.2/+esm');policyOcrProgress=15;policyUpdateOcrProgress('한국어 경량 모델 준비 · 15%');return module.PaddleOCR.create({lang:'korean',ocrVersion:'PP-OCRv3',textDetectionBatchSize:1,textRecognitionBatchSize:8,ortOptions:{backend:'wasm',wasmPaths:'https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/'}})})();
- try{policyPaddleOcr=await policyOcrTimeout(policyPaddlePromise,90000,'PaddleOCR 한국어 모델 준비 시간이 90초를 초과했습니다.');return policyPaddleOcr;}
- catch(error){policyPaddleOcr=null;throw error;}
- finally{policyPaddlePromise=null;}
+ if(policyPaddleOcr)return policyPaddleOcr;if(policyPaddlePromise)return policyPaddlePromise;
+ policyOcrProgress=18;policyUpdateOcrProgress('로컬 한글 모델 준비 · 18%');
+ policyPaddlePromise=(async()=>{const module=await import('https://cdn.jsdelivr.net/npm/@paddleocr/paddleocr-js@0.4.2/+esm');return module.PaddleOCR.create({lang:'korean',ocrVersion:'PP-OCRv3',textDetectionBatchSize:1,textRecognitionBatchSize:8,ortOptions:{backend:'wasm',wasmPaths:'https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/'}})})();
+ try{policyPaddleOcr=await policyOcrTimeout(policyPaddlePromise,90000,'첫 실행용 한국어 모델 준비 시간이 90초를 초과했습니다. 네트워크를 확인해 주세요.');return policyPaddleOcr;}catch(error){policyPaddleOcr=null;throw error}finally{policyPaddlePromise=null}
 }
 async function policyResetPaddleOcr(){if(policyPaddleOcr?.dispose)await policyPaddleOcr.dispose().catch(()=>{});policyPaddleOcr=null;policyPaddlePromise=null}
 async function policyRunOcr(){
- if(!policyImageData||policyOcrRunning)return;
- policyOcrRunning=true;policyOcrProgress=1;policyRefreshPreview();
+ if(!policyImageData||policyOcrRunning)return;policyOcrRunning=true;policyOcrProgress=3;policyRefreshPreview();
  try{
-  const imageBlob=await policyPrepareImage(policyImageData),ocr=await policyGetPaddleOcr();policyOcrProgress=55;policyUpdateOcrProgress('정책표 문자와 행 분석 · 55%');
-  const results=await policyOcrTimeout(ocr.predict(imageBlob,{textDetLimitSideLen:1600,textRecScoreThresh:.35}),60000,'정책표 인식 시간이 60초를 초과했습니다.'),recognized=policyPaddleText(results?.[0]?.items||[]);
-  if(!recognized)throw new Error('이미지에서 한글 정책표를 찾지 못했습니다.');
-  policyRows=parsePolicyText(recognized);const textarea=root.querySelector('#tm-policy-paste');if(textarea)textarea.value=recognized;
-  if(!policyRows.length)throw new Error('인식한 내용을 표로 나누지 못했습니다.');
-  policyOcrProgress=100;policyRegistered=false;policyImageData='';policyImageName='';policyRefreshPreview();toast('PaddleOCR로 정책표를 변환했습니다. 내용을 확인한 뒤 등록해 주세요.');
- }catch(error){
-  policyOcrProgress=0;await policyResetPaddleOcr();policyRefreshPreview();toast('PaddleOCR 오류: '+(error?.message||'변환 실패'));
- }finally{
-  policyOcrRunning=false;const button=root.querySelector('[data-action="policy-ocr"]');if(button){button.disabled=false;button.textContent='로컬 OCR로 다시 변환';}
- }
+  policyUpdateOcrProgress('표선·숫자 열 분석 · 3%');const source=await policyLoadCanvas(policyImageData),layout=await policyAnalyzeTable(source);policyOcrProgress=12;policyUpdateOcrProgress('행 '+layout.bands.length+'개 감지 · 12%');
+  const ocr=await policyGetPaddleOcr();policyOcrProgress=55;policyUpdateOcrProgress('정리된 글자만 로컬 인식 · 55%');
+  const results=await policyOcrTimeout(ocr.predict(layout.blob,{textDetLimitSideLen:1400,textRecScoreThresh:.3}),45000,'정책표 글자 인식 시간이 45초를 초과했습니다.'),items=results?.[0]?.items||[];
+  policyRows=policyBuildRows(items,layout);if(policyRows.length<2)throw new Error('정책표 내용을 찾지 못했습니다.');
+  const recognized=policyRows.map(row=>row.join('\t')).join('\n'),textarea=root.querySelector('#tm-policy-paste');if(textarea)textarea.value=recognized;
+  policyOcrProgress=100;policyRegistered=false;policyImageData='';policyImageName='';policyRefreshPreview();toast('정책표 전용 OCR 변환을 완료했습니다. 확인이 필요한 셀만 수정해 주세요.');
+ }catch(error){policyOcrProgress=0;policyRefreshPreview();toast('전용 OCR 오류: '+(error?.message||'변환 실패'))}
+ finally{policyOcrRunning=false;const button=root.querySelector('[data-action="policy-ocr"]');if(button){button.disabled=false;button.textContent='정책표 전용 OCR로 다시 변환'}}
 }
 function adminIntake(){
  const management=panel('접수·지역 관리 항목',table(['구분','관리 내용','우선 확인'],[
