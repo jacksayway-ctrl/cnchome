@@ -300,12 +300,14 @@ function updateRegionMap(){
  const dims=box.split(' ').map(Number);
  const inView=f=>f.b[2]>=dims[0]&&f.b[0]<=dims[0]+dims[2]&&f.b[3]>=dims[1]&&f.b[1]<=dims[1]+dims[3];
  const labelGroups=[...new Set(regionMapShapes.filter(f=>f.group>=0&&inView(f)).map(f=>f.group))];
- const labelHeight=dims[3]*.115,fontSize=dims[2]*.021;
+ const baseLabelHeight=dims[3]*.115,baseFontSize=dims[2]*.021;
  const labelMeasure=document.createElement('canvas').getContext('2d'),labelFont=getComputedStyle(host).fontFamily;
  const textWidth=(text,size,weight=400)=>{labelMeasure.font=weight+' '+size+'px '+labelFont;return labelMeasure.measureText(text).width;};
  const occupied=[];
  const regionNames=regionHierarchyLabels.map(label=>`<text class="map-region-name" data-level="${label.level}" data-priority="${activeGroup!==null&&label.group===activeGroup?1:0}" x="${label.point[0]}" y="${label.point[1]}" text-anchor="middle" dominant-baseline="middle" pointer-events="none">${label.name}</text>`).join('');
  const mapLabels=labelGroups.map(i=>{
+  const labelScale=i===mapHoveredGroup?1.5:1;
+  const labelHeight=baseLabelHeight*labelScale,fontSize=baseFontSize*labelScale;
   const r=regions[i],items=[];
   items.push(...availableInsuranceItems(r,general).map(item=>item.label+' '+item.remaining+'건'));
   if(!items.length)return '';
@@ -329,7 +331,7 @@ function updateRegionMap(){
 }
 root.addEventListener('click',e=>{const choice=e.target.closest('[data-region-select]');if(choice){mapSelectedGroup=Number(choice.dataset.regionSelect);mapHoveredGroup=null;filterRegions();return}});
 root.addEventListener('input',e=>{if(e.target.id==='tm-region-search'){mapSelectedGroup=null;mapHoveredGroup=null;}},true);
-function previewTableRegion(e){const button=e.target.closest('[data-region-select]');if(!button||button.contains(e.relatedTarget))return;mapHoveredGroup=Number(button.dataset.regionSelect);updateRegionMap();}
+function previewTableRegion(e){const row=e.target.closest('#tm-region-results tr');const button=row?.querySelector('[data-region-select]');if(!button||row.contains(e.relatedTarget))return;mapHoveredGroup=Number(button.dataset.regionSelect);updateRegionMap();}
 function leaveTableRegion(e){const button=e.target.closest('[data-region-select]');if(!button||button.contains(e.relatedTarget))return;mapHoveredGroup=null;updateRegionMap();}
 root.addEventListener('mouseover',previewTableRegion);
 
