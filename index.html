@@ -300,13 +300,16 @@ function updateRegionMap(){
  const dims=box.split(' ').map(Number);
  const inView=f=>f.b[2]>=dims[0]&&f.b[0]<=dims[0]+dims[2]&&f.b[3]>=dims[1]&&f.b[1]<=dims[1]+dims[3];
  const labelGroups=[...new Set(regionMapShapes.filter(f=>f.group>=0&&inView(f)).map(f=>f.group))];
- const labelWidth=dims[2]*.29,labelHeight=dims[3]*.115,fontSize=dims[2]*.021;
+ const labelHeight=dims[3]*.115,fontSize=dims[2]*.021;
+ const labelMeasure=document.createElement('canvas').getContext('2d'),labelFont=getComputedStyle(host).fontFamily;
+ const textWidth=(text,size,weight=400)=>{labelMeasure.font=weight+' '+size+'px '+labelFont;return labelMeasure.measureText(text).width;};
  const occupied=[];
  const regionNames=regionHierarchyLabels.map(label=>`<text class="map-region-name" data-level="${label.level}" data-priority="${activeGroup!==null&&label.group===activeGroup?1:0}" x="${label.point[0]}" y="${label.point[1]}" text-anchor="middle" dominant-baseline="middle" pointer-events="none">${label.name}</text>`).join('');
  const mapLabels=labelGroups.map(i=>{
   const r=regions[i],items=[];
   items.push(...availableInsuranceItems(r,general).map(item=>item.label+' '+item.remaining+'건'));
   if(!items.length)return '';
+  const labelWidth=Math.max(textWidth(r[0],fontSize,700),textWidth(items.join(' · '),fontSize),textWidth('남은 수량 · 묶음 공유',fontSize*.8))+fontSize*1.1;
   const visible=regionMapShapes.filter(f=>f.group===i&&inView(f)),bb=visible.map(f=>f.b);
   const cx=(Math.max(dims[0],Math.min(...bb.map(b=>b[0])))+Math.min(dims[0]+dims[2],Math.max(...bb.map(b=>b[2]))))/2;
   const cy=(Math.max(dims[1],Math.min(...bb.map(b=>b[1])))+Math.min(dims[1]+dims[3],Math.max(...bb.map(b=>b[3]))))/2;
@@ -315,8 +318,8 @@ function updateRegionMap(){
   let ly=Math.max(dims[1]+margin,Math.min(cy-labelHeight/2,dims[1]+dims[3]-labelHeight-margin));
   const candidates=[{x:lx,y:ly}];
   for(let row=0;row<8;row++)for(let col=0;col<3;col++)candidates.push({x:dims[0]+margin+col*(labelWidth+margin),y:dims[1]+margin+row*(labelHeight+margin)});
-  const fits=p=>p.x+labelWidth<=dims[0]+dims[2]&&p.y+labelHeight<=dims[1]+dims[3]&&!occupied.some(b=>p.x<b.x+labelWidth+margin&&p.x+labelWidth+margin>b.x&&p.y<b.y+labelHeight+margin&&p.y+labelHeight+margin>b.y);
-  const spot=candidates.find(fits)||{x:lx,y:ly};lx=spot.x;ly=spot.y;occupied.push(spot);
+  const fits=p=>p.x+labelWidth<=dims[0]+dims[2]&&p.y+labelHeight<=dims[1]+dims[3]&&!occupied.some(b=>p.x<b.x+b.w+margin&&p.x+labelWidth+margin>b.x&&p.y<b.y+b.h+margin&&p.y+labelHeight+margin>b.y);
+  const spot=candidates.find(fits)||{x:lx,y:ly};lx=spot.x;ly=spot.y;occupied.push({...spot,w:labelWidth,h:labelHeight});
   return `<g class="map-item-label" pointer-events="none"><line x1="${cx}" y1="${cy}" x2="${lx+labelWidth/2}" y2="${ly+labelHeight/2}" stroke="#526b86" stroke-width="1" vector-effect="non-scaling-stroke"/><rect x="${lx}" y="${ly}" width="${labelWidth}" height="${labelHeight}" rx="${fontSize*.5}" fill="#fff" fill-opacity=".96" stroke="#7894b5" stroke-width="1" vector-effect="non-scaling-stroke"/><text x="${lx+fontSize*.55}" y="${ly+fontSize*1.35}" font-size="${fontSize}" font-weight="700" fill="#173653">${r[0]}</text><text x="${lx+fontSize*.55}" y="${ly+fontSize*2.7}" font-size="${fontSize}" fill="#1457bb">${items.join(' · ')}</text><text x="${lx+fontSize*.55}" y="${ly+fontSize*3.9}" font-size="${fontSize*.8}" fill="#61738b">남은 수량 · 묶음 공유</text></g>`;
  }).join('');
  host.style.setProperty('--map-ratio',Math.max(.65,Math.min(1.8,dims[2]/dims[3])));host.innerHTML=`<svg viewBox="${box}" preserveAspectRatio="xMidYMid meet" role="group" aria-label="전국 접수 가능지역 지도">${paths}<defs><clipPath id="tm-selected-map-clip">${visibleShapes.filter(f=>!focused(f)).map(f=>`<path d="${f.d}"/>`).join('')}</clipPath></defs><g clip-path="url(#tm-selected-map-clip)"><path d="${regionBorders.city}" class="map-city-border"/><path d="${regionBorders.province}" class="map-province-border"/></g>${visibleShapes.filter(f=>available(f.group)&&!focused(f)).map(f=>`<path d="${f.d}" class="map-availability-border ${focused(f)?'map-search-border':''}"/>`).join('')}${[...new Set(selected.map(f=>f.group))].filter(i=>i>=0).map(i=>`<path d="${regionSelectedEdges[i]}" class="map-availability-border map-search-border"/>`).join('')}${regionNames}${mapLabels}${jejuLabel}</svg>`;
