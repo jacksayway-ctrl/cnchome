@@ -301,7 +301,8 @@ function updateRegionMap(){
  const dims=box.split(' ').map(Number);
  const inView=f=>f.b[2]>=dims[0]&&f.b[0]<=dims[0]+dims[2]&&f.b[3]>=dims[1]&&f.b[1]<=dims[1]+dims[3];
  const labelGroups=[...new Set(regionMapShapes.filter(f=>f.group>=0&&inView(f)).map(f=>f.group))];
- const baseLabelHeight=dims[3]*.115,baseFontSize=dims[2]*.021;
+ // Keep label dimensions in map units so boxes and text scale with every zoom level.
+ const baseLabelHeight=(maxY-minY+6)*.115,baseFontSize=(maxX-minX+6)*.021;
  const labelMeasure=document.createElement('canvas').getContext('2d'),labelFont=getComputedStyle(host).fontFamily;
  const textWidth=(text,size,weight=400)=>{labelMeasure.font=weight+' '+size+'px '+labelFont;return labelMeasure.measureText(text).width;};
  const occupied=[];
