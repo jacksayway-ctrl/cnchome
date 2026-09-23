@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://cdn.jsdelivr.net https://paddle-model-ecology.bj.bcebos.com; media-src 'self' data: blob:; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'self'; worker-src 'self' blob: https://cdn.jsdelivr.net">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://cdn.jsdelivr.net https://tessdata.projectnaptha.com; media-src 'self' data: blob:; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'self'; worker-src 'self' blob: https://cdn.jsdelivr.net">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
@@ -1013,11 +1013,20 @@ function policyBuildRows(items,layout){
  const body=textRows.filter((row,index)=>index!==titleIndex&&(row.name||row.qty));
  return [['지역','수량','상태'],...body.map(row=>[row.name||'확인 필요',row.qty||'확인 필요',row.status])];
 }
+function policyLoadOcrScript(){
+ if(window.Tesseract)return Promise.resolve(window.Tesseract);
+ if(policyPaddlePromise)return policyPaddlePromise;
+ policyPaddlePromise=new Promise((resolve,reject)=>{const script=document.createElement('script');script.src='https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js';script.onload=()=>window.Tesseract?resolve(window.Tesseract):reject(new Error('한국어 OCR 실행 파일을 불러오지 못했습니다.'));script.onerror=()=>reject(new Error('한국어 OCR 실행 파일 다운로드에 실패했습니다.'));document.head.appendChild(script)});
+ return policyPaddlePromise;
+}
 async function policyGetPaddleOcr(){
- if(policyPaddleOcr)return policyPaddleOcr;if(policyPaddlePromise)return policyPaddlePromise;
- policyOcrProgress=18;policyUpdateOcrProgress('로컬 한글 모델 준비 · 18%');
- policyPaddlePromise=(async()=>{const module=await import('https://cdn.jsdelivr.net/npm/@paddleocr/paddleocr-js@0.4.2/+esm');return module.PaddleOCR.create({lang:'korean',ocrVersion:'PP-OCRv3',textDetectionBatchSize:1,textRecognitionBatchSize:8,ortOptions:{backend:'wasm',wasmPaths:'https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/'}})})();
- try{policyPaddleOcr=await policyOcrTimeout(policyPaddlePromise,90000,'첫 실행용 한국어 모델 준비 시간이 90초를 초과했습니다. 네트워크를 확인해 주세요.');return policyPaddleOcr;}catch(error){policyPaddleOcr=null;throw error}finally{policyPaddlePromise=null}
+ if(policyPaddleOcr)return policyPaddleOcr;
+ policyOcrProgress=18;policyUpdateOcrProgress('한국어 전용 로컬 모델 준비 · 18%');
+ try{
+  const Tesseract=await policyLoadOcrScript(),worker=await policyOcrTimeout(Tesseract.createWorker('kor+eng',1,{workerPath:'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/worker.min.js',corePath:'https://cdn.jsdelivr.net/npm/tesseract.js-core@5.1.1/tesseract-core-simd-lstm.wasm.js',langPath:'https://tessdata.projectnaptha.com/4.0.0',logger:message=>{if(message.status==='loading language traineddata'||message.status==='initializing api'){policyOcrProgress=Math.max(policyOcrProgress,Math.round(18+(message.progress||0)*27));policyUpdateOcrProgress('한국어 모델 준비 · '+policyOcrProgress+'%')}else if(message.status==='recognizing text'){policyOcrProgress=Math.max(55,Math.round(55+(message.progress||0)*38));policyUpdateOcrProgress('정책표 글자 인식 · '+policyOcrProgress+'%')}}}),90000,'한국어 모델 준비 시간이 90초를 초과했습니다.');
+  policyPaddleOcr={worker,predict:async blob=>{const result=await worker.recognize(blob,{}, {blocks:true}),data=result?.data||{},parts=(data.words?.length?data.words:data.lines)||[],items=parts.filter(part=>String(part.text||'').trim()).map(part=>{const box=part.bbox||{};return {text:String(part.text).trim(),score:Number(part.confidence||0)/100,poly:[[box.x0||0,box.y0||0],[box.x1||0,box.y0||0],[box.x1||0,box.y1||0],[box.x0||0,box.y1||0]]}});return [{items}]},dispose:()=>worker.terminate()};
+  return policyPaddleOcr;
+ }catch(error){policyPaddleOcr=null;policyPaddlePromise=null;throw error}
 }
 async function policyResetPaddleOcr(){if(policyPaddleOcr?.dispose)await policyPaddleOcr.dispose().catch(()=>{});policyPaddleOcr=null;policyPaddlePromise=null}
 async function policyRunOcr(){
@@ -1025,7 +1034,7 @@ async function policyRunOcr(){
  try{
   policyUpdateOcrProgress('표선·숫자 열 분석 · 3%');const source=await policyLoadCanvas(policyImageData),layout=await policyAnalyzeTable(source);policyOcrProgress=12;policyUpdateOcrProgress('행 '+layout.bands.length+'개 감지 · 12%');
   const ocr=await policyGetPaddleOcr();policyOcrProgress=55;policyUpdateOcrProgress('정리된 글자만 로컬 인식 · 55%');
-  const results=await policyOcrTimeout(ocr.predict(layout.blob,{textDetLimitSideLen:1400,textRecScoreThresh:.3}),45000,'정책표 글자 인식 시간이 45초를 초과했습니다.'),items=results?.[0]?.items||[];
+  const results=await policyOcrTimeout(ocr.predict(layout.blob),60000,'정책표 글자 인식 시간이 60초를 초과했습니다.'),items=results?.[0]?.items||[];
   policyRows=policyBuildRows(items,layout);if(policyRows.length<2)throw new Error('정책표 내용을 찾지 못했습니다.');
   const recognized=policyRows.map(row=>row.join('\t')).join('\n'),textarea=root.querySelector('#tm-policy-paste');if(textarea)textarea.value=recognized;
   policyOcrProgress=100;policyRegistered=false;policyImageData='';policyImageName='';policyRefreshPreview();toast('정책표 전용 OCR 변환을 완료했습니다. 확인이 필요한 셀만 수정해 주세요.');
