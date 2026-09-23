@@ -1107,16 +1107,35 @@ function policyColorForeground(p,w,h){
  policyRemoveCellRules(p,w,h);
 }
 
+
+function policyWhiteInk(p,w,h,convert=false){
+ // White text differs from saturated backgrounds in its weakest RGB channel.
+ const histogram=new Array(256).fill(0);
+ for(let y=1;y<h-1;y++)for(let x=1;x<w-1;x++){const k=(y*w+x)*4;histogram[Math.min(p.data[k],p.data[k+1],p.data[k+2])]++}
+ const total=histogram.reduce((a,b)=>a+b,0);let n=0,background=255;
+ for(let v=0;v<256;v++){n+=histogram[v];if(n>=total*.5){background=v;break}}
+ let white=0;for(let v=Math.max(220,background+40);v<256;v++)white+=histogram[v];
+ const detected=background<190&&white>=3&&white<total*.4;
+ if(!convert||!detected)return detected;
+ for(let i=0;i<w*h;i++){const k=i*4,min=Math.min(p.data[k],p.data[k+1],p.data[k+2]);
+ const coverage=Math.max(0,Math.min(1,(min-background)/(255-background)));
+ const value=Math.round(255*(1-coverage));
+ p.data[k]=p.data[k+1]=p.data[k+2]=value;p.data[k+3]=255;
+ }
+ return true;
+}
+
 function policyCellImage(source,x0,y0,x1,y1,binary=false){
  const w=Math.max(1,x1-x0),h=Math.max(1,y1-y0),p=source.context.getImageData(x0,y0,w,h);
  if(binary==='rules')policyRemoveCellRules(p,w,h);
  if(binary==='color')policyColorForeground(p,w,h);
+ if(binary==='white'||binary==='whitepixel')policyWhiteInk(p,w,h,true);
  const original=(binary==='original'||binary==='pixel'||binary==='title')?source.context.getImageData(x0,y0,w,h):null;
  const box=policyNormalizeCell(p,w,h,binary===true),small=document.createElement('canvas');small.width=w;small.height=h;small.getContext('2d').putImageData(original||p,0,0);
  // Keep the entire row height in the original-color pass so thin strokes are not cropped.
  if(original){box.top=0;box.height=h;box.left=Math.max(0,box.left-3);box.width=Math.min(w-box.left,box.width+6)}
- const scale=binary==='title'?3:binary==='pixel'?4:Math.max(2,Math.min(5,64/box.height)),out=document.createElement('canvas');out.width=Math.ceil(box.width*scale)+32;out.height=Math.ceil(box.height*scale)+32;
- const ctx=out.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,out.width,out.height);ctx.imageSmoothingEnabled=binary!==true&&binary!=='pixel'&&binary!=='title';ctx.imageSmoothingQuality='high';ctx.drawImage(small,box.left,box.top,box.width,box.height,16,16,box.width*scale,box.height*scale);return out;
+ const scale=binary==='whitepixel'?4:binary==='title'?3:binary==='pixel'?4:Math.max(2,Math.min(5,64/box.height)),out=document.createElement('canvas');out.width=Math.ceil(box.width*scale)+32;out.height=Math.ceil(box.height*scale)+32;
+ const ctx=out.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,out.width,out.height);ctx.imageSmoothingEnabled=binary!=='whitepixel'&&binary!==true&&binary!=='pixel'&&binary!=='title';ctx.imageSmoothingQuality='high';ctx.drawImage(small,box.left,box.top,box.width,box.height,16,16,box.width*scale,box.height*scale);return out;
 }
 function policyQuantityStatus(text,review){
  if(review||!/^\d+$/.test(text))return '확인 필요';
@@ -1209,9 +1228,11 @@ async function policyRecognizeCells(source,layout,ocr){
    const reader=digits?ocr.digitWorker:worker;
    await reader.setParameters({tessedit_pageseg_mode:mode,tessedit_char_whitelist:digits?'0123456789':'',preserve_interword_spaces:'1',user_defined_dpi:'300'});
    const result=await policyOcrTimeout(reader.recognize(policyCellImage(source,left,band.top,right,band.bottom,binary)),30000,'행 인식 제한 시간을 초과했습니다.');
-   return {text:String(result.data?.text||'').replace(/必/g,'').trim().replace(/\s+/g,' '),confidence:Number(result.data?.confidence||0),family:String(binary),mode};
+   return {text:String(result.data?.text||'').replace(/必/g,'').trim().replace(/\s+/g,' '),confidence:Number(result.data?.confidence||0),family:(binary==='whitepixel'?'white':String(binary)),mode};
   };
-  const nameCandidates=[await read(false,'original'),await read(false,'pixel'),await read(false,false),await read(false,'color')];
+  const regionRight=title?layout.width-2:layout.divider-2,regionWidth=Math.max(1,regionRight-2),regionHeight=Math.max(1,band.bottom-band.top);
+  const whiteInk=policyWhiteInk(source.context.getImageData(2,band.top,regionWidth,regionHeight),regionWidth,regionHeight);
+  const nameCandidates=whiteInk?[await read(false,'white'),await read(false,'whitepixel'),await read(false,'color')]:[await read(false,'original'),await read(false,'pixel'),await read(false,false),await read(false,'color')];
   if(new Set(nameCandidates.map(c=>c.text)).size>1||nameCandidates.some(c=>c.confidence<85||!/[가-힣]/.test(c.text)))nameCandidates.push(await read(false,'original','13'));
   if(index===0&&(title||nameCandidates.some(c=>policyTitleShape(c.text)))){
    // Same-height title cells are detected by their content, not row height alone.
@@ -1233,7 +1254,7 @@ async function policyRecognizeCells(source,layout,ocr){
   const qtyCandidates=[await read(true,false),await read(true,true)];
   if(qtyCandidates[0].text!==qtyCandidates[1].text||Math.min(...qtyCandidates.map(c=>c.confidence))<85)qtyCandidates.push(await read(true,false,'8'));
   let qty=policyChooseReading(qtyCandidates,true);
-  if(qty.review){qtyCandidates.push(await read(true,'original'));qtyCandidates.push(await read(true,'color'));if(!qty.text)qtyCandidates.push(await read(true,true,'10'));qty=policyChooseReading(qtyCandidates,true)}
+  if(qty.review){qtyCandidates.push(await read(true,'original'));qtyCandidates.push(await read(true,'color'));qtyCandidates.push(await read(true,'white'));if(!qty.text)qtyCandidates.push(await read(true,true,'10'));qty=policyChooseReading(qtyCandidates,true)}
   qty.review=qty.review||irregular;
   const validQty=/^\d+$/.test(qty.text),review=name.review||qty.review||!validQty;
   rows.push([name.text||'확인 필요',validQty?qty.text:'확인 필요',policyQuantityStatus(qty.text,qty.review)+(name.review?' · 지역명 확인 필요':'')+(irregular?' · 행 구분 확인 필요':'')]);
