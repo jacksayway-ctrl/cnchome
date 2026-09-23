@@ -343,23 +343,17 @@ function updateMapLabels(svg){
    label.ly=top+Math.floor(index/best.cols)*best.ch+(best.ch-label.labelHeight)/2;
   });
  }
- // Keep the hover card outside the entire selected region's bounds.
+ // Place the hover card above the selected region, centered horizontally.
  if(mapHoveredGroup!==null&&labels.length){
   const bounds=regionMapShapes.filter(f=>f.group===mapHoveredGroup).map(f=>f.b);
-  const x1=Math.min(...bounds.map(b=>b[0])),y1=Math.min(...bounds.map(b=>b[1]));
-  const x2=Math.max(...bounds.map(b=>b[2])),y2=Math.max(...bounds.map(b=>b[3]));
-  const spaces=[
-   {x:Math.max(left,x2+gap),y:top,w:right-Math.max(left,x2+gap),h:bottom-top},
-   {x:left,y:top,w:Math.min(right,x1-gap)-left,h:bottom-top},
-   {x:left,y:Math.max(top,y2+gap),w:right-left,h:bottom-Math.max(top,y2+gap)},
-   {x:left,y:top,w:right-left,h:Math.min(bottom,y1-gap)-top}
-  ].filter(s=>s.w>0&&s.h>0);
+  const y1=Math.min(...bounds.map(b=>b[1]));
   for(const label of labels){
-   const options=spaces.map(s=>({...s,scale:Math.min(1,s.w/label.labelWidth,s.h/label.labelHeight)})).sort((a,b)=>b.scale-a.scale);
-   if(!options.length)continue;
-   const s=options[0];label.labelWidth*=s.scale;label.labelHeight*=s.scale;label.fontSize*=s.scale;
-   label.lx=Math.max(s.x,Math.min(label.cx-label.labelWidth/2,s.x+s.w-label.labelWidth));
-   label.ly=Math.max(s.y,Math.min(label.cy-label.labelHeight/2,s.y+s.h-label.labelHeight));
+   const spaceHeight=Math.max(0,Math.min(bottom,y1-gap)-top);
+   const scale=Math.min(1,(right-left)/label.labelWidth,spaceHeight/label.labelHeight);
+   if(scale<=0)continue;
+   label.labelWidth*=scale;label.labelHeight*=scale;label.fontSize*=scale;
+   label.lx=Math.max(left,Math.min(label.cx-label.labelWidth/2,right-label.labelWidth));
+   label.ly=Math.min(bottom,y1-gap)-label.labelHeight;
   }
  }
  const mapLabels=labels.map(({i,r,items,cx,cy,labelWidth,labelHeight,fontSize,lx,ly})=>{
@@ -401,7 +395,7 @@ function updateRegionMap(){
  jejuShapes.forEach(f=>{f.group=jejuRegionIndex;});
  const combinedShapes=[...mainlandShapes,...jejuShapes];
  const extent=combinedShapes.map(f=>f.b);const minX=Math.min(...extent.map(b=>b[0])),minY=Math.min(...extent.map(b=>b[1])),maxX=Math.max(...extent.map(b=>b[2])),maxY=Math.max(...extent.map(b=>b[3]));let box=[minX-1,minY-1,maxX-minX+2,maxY-minY+2].join(' ');
- if(selected.length){const b=selected.map(f=>f.b),x=Math.min(...b.map(a=>a[0])),y=Math.min(...b.map(a=>a[1])),w=Math.max(...b.map(a=>a[2]))-x,h=Math.max(...b.map(a=>a[3]))-y;const ratio=(maxX-minX+2)/(maxY-minY+2);let vw=Math.max(w*2*Math.sqrt(3),8),vh=Math.max(h*2*Math.sqrt(3),8);if(vw/vh<ratio)vw=vh*ratio;else vh=vw/ratio;if(mapHoveredGroup!==null){vw*=0.16;vh*=0.16;}box=[x+w/2-vw/2,y+h/2-vh/2,vw,vh].join(' ')}
+ if(selected.length){const b=selected.map(f=>f.b),x=Math.min(...b.map(a=>a[0])),y=Math.min(...b.map(a=>a[1])),w=Math.max(...b.map(a=>a[2]))-x,h=Math.max(...b.map(a=>a[3]))-y;const ratio=(maxX-minX+2)/(maxY-minY+2);let vw=Math.max(w*2*Math.sqrt(3),8),vh=Math.max(h*2*Math.sqrt(3),8);if(vw/vh<ratio)vw=vh*ratio;else vh=vw/ratio;if(mapHoveredGroup!==null){vw*=0.16;vh*=0.16;}const viewY=mapHoveredGroup!==null?Math.min(y+h/2-vh/2,y-vh*.28):y+h/2-vh/2;box=[x+w/2-vw/2,viewY,vw,vh].join(' ')}
  const visibleShapes=combinedShapes;
  const paths=visibleShapes.map(f=>{const on=available(f.group),hit=focused(f);return `<path d="${f.d}" class="region-shape ${f.name.endsWith('군')?'region-county':''} ${on?'region-available':''} ${hit?'region-match':''}" data-map-group="${f.group}" ${f.group>=0?'tabindex="0" role="button"':''} aria-label="${f.name} · ${on?'접수 가능':'접수 불가 또는 자료 없음'}"><title>${f.name} · ${on?'접수 가능':'접수 불가 또는 자료 없음'}</title></path>`}).join('');
  const jb=jejuShapes.map(f=>f.b),jx=Math.min(...jb.map(b=>b[0])),jy=Math.min(...jb.map(b=>b[1])),jw=Math.max(...jb.map(b=>b[2]))-jx,jh=Math.max(...jb.map(b=>b[3]))-jy;
