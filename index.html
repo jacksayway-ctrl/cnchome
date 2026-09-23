@@ -1022,12 +1022,27 @@ function policyLoadOcrScript(){
 }
 async function policyGetPaddleOcr(){
  if(policyPaddleOcr)return policyPaddleOcr;
- policyOcrProgress=18;policyUpdateOcrProgress('한국어 전용 로컬 모델 준비 · 18%');
+ const ready=[];
  try{
-  const Tesseract=await policyLoadOcrScript(),worker=await policyOcrTimeout(Tesseract.createWorker('kor',1,{workerPath:'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/worker.min.js',corePath:'https://cdn.jsdelivr.net/npm/tesseract.js-core@5.1.1/tesseract-core-simd-lstm.wasm.js',langPath:'https://raw.githubusercontent.com/tesseract-ocr/tessdata_best/main',gzip:false,cachePath:'policy-best-v1',logger:message=>{if(message.status==='loading language traineddata'||message.status==='initializing api'){policyOcrProgress=Math.max(policyOcrProgress,Math.round(18+(message.progress||0)*27));policyUpdateOcrProgress('한국어 모델 준비 · '+policyOcrProgress+'%')}else if(message.status==='recognizing text'){policyOcrProgress=Math.max(55,Math.round(55+(message.progress||0)*38));policyUpdateOcrProgress('정책표 글자 인식 · '+policyOcrProgress+'%')}}}),90000,'한국어 모델 준비 시간이 90초를 초과했습니다.');
-  policyPaddleOcr={worker,predict:async blob=>{const result=await worker.recognize(blob,{}, {blocks:true}),data=result?.data||{},parts=(data.words?.length?data.words:data.lines)||[],items=parts.filter(part=>String(part.text||'').trim()).map(part=>{const box=part.bbox||{};return {text:String(part.text).trim(),score:Number(part.confidence||0)/100,poly:[[box.x0||0,box.y0||0],[box.x1||0,box.y0||0],[box.x1||0,box.y1||0],[box.x0||0,box.y1||0]]}});return [{items}]},dispose:()=>worker.terminate()};
-  return policyPaddleOcr;
- }catch(error){policyPaddleOcr=null;policyPaddlePromise=null;throw error}
+ const Tesseract=await policyLoadOcrScript();
+ const create=async(lang,label)=>{
+  policyUpdateOcrProgress(label+' 모델 준비');
+  let expired=false;
+  const pending=Tesseract.createWorker(lang,1,{
+   workerPath:'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/worker.min.js',
+   corePath:'https://cdn.jsdelivr.net/npm/tesseract.js-core@5.1.1/tesseract-core-simd-lstm.wasm.js',
+   langPath:'https://raw.githubusercontent.com/tesseract-ocr/tessdata_best/main',
+   gzip:false,cachePath:'policy-best-v1',
+   logger:m=>{if(m.status==='loading language traineddata')policyUpdateOcrProgress(label+' 모델 다운로드 · '+Math.round((m.progress||0)*100)+'%')}
+  });
+  pending.then(w=>{if(expired)w.terminate().catch(()=>{})},()=>{});
+  try{const w=await policyOcrTimeout(pending,90000,label+' 모델 준비 제한 시간을 초과했습니다.');ready.push(w);return w}
+  catch(error){expired=true;throw error}
+ };
+ const worker=await create('kor','한국어'),digitWorker=await create('eng','숫자');
+ policyPaddleOcr={worker,digitWorker,dispose:async()=>{await Promise.allSettled(ready.map(w=>w.terminate()))}};
+ return policyPaddleOcr;
+ }catch(error){await Promise.allSettled(ready.map(w=>w.terminate()));policyPaddleOcr=null;policyPaddlePromise=null;throw error}
 }
 async function policyResetPaddleOcr(){if(policyPaddleOcr?.dispose)await policyPaddleOcr.dispose().catch(()=>{});policyPaddleOcr=null;policyPaddlePromise=null}
 
@@ -1097,8 +1112,9 @@ async function policyRecognizeCells(source,layout,ocr){
   const band=layout.bands[index],title=index===0&&(band.bottom-band.top)>median*1.5&&!policyBandHasDivider(source,layout,band),irregular=!title&&((band.bottom-band.top)>median*1.6||(band.bottom-band.top)<median*.55);
   const read=async(digits,binary,mode='7')=>{
    const left=digits?layout.divider+2:2,right=digits?layout.width-2:(title?layout.width-2:layout.divider-2);
-   await worker.setParameters({tessedit_pageseg_mode:mode,tessedit_char_whitelist:digits?'0123456789':'',preserve_interword_spaces:'1',user_defined_dpi:'300'});
-   const result=await policyOcrTimeout(worker.recognize(policyCellImage(source,left,band.top,right,band.bottom,binary)),30000,'행 인식 제한 시간을 초과했습니다.');
+   const reader=digits?ocr.digitWorker:worker;
+   await reader.setParameters({tessedit_pageseg_mode:mode,tessedit_char_whitelist:digits?'0123456789':'',preserve_interword_spaces:'1',user_defined_dpi:'300'});
+   const result=await policyOcrTimeout(reader.recognize(policyCellImage(source,left,band.top,right,band.bottom,binary)),30000,'행 인식 제한 시간을 초과했습니다.');
    return {text:String(result.data?.text||'').trim().replace(/\s+/g,' '),confidence:Number(result.data?.confidence||0)};
   };
   const nameCandidates=[await read(false,'original'),await read(false,false),await read(false,true)];
@@ -1110,7 +1126,7 @@ async function policyRecognizeCells(source,layout,ocr){
   const qtyCandidates=[await read(true,false),await read(true,true)];
   if(qtyCandidates[0].text!==qtyCandidates[1].text||Math.min(...qtyCandidates.map(c=>c.confidence))<85)qtyCandidates.push(await read(true,false,'8'));
   let qty=policyChooseReading(qtyCandidates,true);
-  if(qty.review){qtyCandidates.push(await read(true,'original'));qty=policyChooseReading(qtyCandidates,true)}
+  if(qty.review){qtyCandidates.push(await read(true,'original'));if(!qty.text)qtyCandidates.push(await read(true,true,'10'));qty=policyChooseReading(qtyCandidates,true)}
   qty.review=qty.review||irregular;
   const validQty=/^\d+$/.test(qty.text),review=name.review||qty.review||!validQty;
   rows.push([name.text||'확인 필요',validQty?qty.text:'확인 필요',policyQuantityStatus(qty.text,qty.review)+(name.review?' · 지역명 확인 필요':'')+(irregular?' · 행 구분 확인 필요':'')]);
