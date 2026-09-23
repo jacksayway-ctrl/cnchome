@@ -894,32 +894,40 @@ function monthly(){return `<h2>월그레이드</h2>`+stats([['이번 달 정상 
 function grade(){return `<h2>그레이드</h2><p class="sub">일·주·월 그레이드 현황을 한 화면에서 확인할 수 있습니다.</p>`+daily()+weekly()+monthly()}
 function asPage(){return `<h2>나의 A/S</h2>`+stats([['처리 필요','3건','중복 2 · 동의 답변 미흡 1'],['오늘 재콜 예정','1건','9월 22일 16:50'],['재콜 완료','1건','기존 A/S 기록 보존']])+panel('처리 내역',table(['고객','접수처','사유','상태','상세'],[['김예시','한화','접수 중복',pill('재콜 필요','amber'),'<button class="secondary" data-action="as-detail">보기</button>'],['이예시','GA 실버','접수 중복',pill('재콜 예정'),'<button class="secondary" data-action="as-detail">보기</button>'],['박예시','한화','동의 답변 미흡',pill('재콜 필요','amber'),'<button class="secondary" data-action="as-detail">보기</button>'],['최예시','GA 실버','접수 중복',pill('재콜 완료','green'),'010-****-1203']]))+`<p class="sub">진행 중인 A/S의 상세 화면에서 연락처를 확인할 수 있습니다. 재콜 완료 시 다시 가려집니다.</p>`}
 function adminPage(title,description,summary,rows){return `<div class="row"><div><h2>${title}</h2><p class="sub">${description}</p></div><span class="pill">관리자 전용</span></div>`+stats(summary)+panel('관리 항목',table(['구분','관리 내용','우선 확인'],rows))}
-function adminHome(){return `<div class="row"><div><h2>관리자 홈</h2><p class="sub">특정 상담원이 아닌 전체 직원의 오늘 운영 현황을 확인합니다.</p></div><span class="pill">전체 직원 16명</span></div>`+
- stats([['전체 직원','16명','보험영업 1팀 8명 · 2팀 8명'],['오늘 출근','14명','휴가 1 · 미출근 1'],['오늘 전체 접수','24건','정상 18 · 가접수 4 · A/S 2']])+
- panel('팀별 현황',table(['팀','재직','오늘 출근','정상 접수','가접수','A/S','월 실적'],[
-  ['보험영업 1팀','8명','7명','10건','2건','1건','86건'],
-  ['보험영업 2팀','8명','7명','8건','2건','1건','79건'],
-  ['전체','16명','14명','18건','4건','2건','165건']
- ]))+
- panel('전체 직원 현황',table(['직원','소속','출결','정상 접수','가접수','A/S','월 실적','월그레이드'],[
-  ['김상담','보험영업 1팀',pill('출근','green'),'8건','2건','1건','86건','81~90건'],
-  ['이민지','보험영업 1팀',pill('출근','green'),'2건','0건','0건','78건','71~80건'],
-  ['박지훈','보험영업 1팀',pill('출근','green'),'0건','0건','0건','74건','71~80건'],
-  ['최서연','보험영업 1팀',pill('휴가','amber'),'0건','0건','0건','69건','61~70건'],
-  ['정현우','보험영업 1팀',pill('출근','green'),'0건','0건','0건','67건','61~70건'],
-  ['윤지영','보험영업 1팀',pill('출근','green'),'0건','0건','0건','64건','61~70건'],
-  ['장민수','보험영업 1팀',pill('출근','green'),'0건','0건','0건','59건','60건 이하'],
-  ['한수진','보험영업 1팀',pill('출근','green'),'0건','0건','0건','57건','60건 이하'],
-  ['오정민','보험영업 2팀',pill('출근','green'),'3건','1건','0건','82건','81~90건'],
-  ['강유진','보험영업 2팀',pill('출근','green'),'2건','0건','0건','76건','71~80건'],
-  ['조성호','보험영업 2팀',pill('출근','green'),'1건','1건','1건','72건','71~80건'],
-  ['신예은','보험영업 2팀',pill('출근','green'),'1건','0건','0건','68건','61~70건'],
-  ['임동현','보험영업 2팀',pill('출근','green'),'1건','0건','0건','65건','61~70건'],
-  ['서하나','보험영업 2팀',pill('출근','green'),'0건','0건','0건','61건','61~70건'],
-  ['문태경','보험영업 2팀',pill('출근','green'),'0건','0건','0건','55건','60건 이하'],
-  ['백소희','보험영업 2팀',pill('미출근','pink'),'0건','0건','0건','51건','60건 이하']
- ]))+
- `<p class="sub">직원 이름을 선택하는 상세 기능은 이후 직원 관리 화면과 연결할 수 있습니다.</p>`}
+const adminTeams=[
+ {id:'insurance',name:'보험팀'},
+ {id:'cosmetics',name:'화장품팀'}
+];
+const adminEmployees=[
+ {name:'김상담',team:'insurance',attendance:'출근',normal:8,pending:2,as:1,monthly:86,grade:'81~90건'},
+ {name:'이민지',team:'insurance',attendance:'출근',normal:2,pending:0,as:0,monthly:78,grade:'71~80건'},
+ {name:'박지훈',team:'insurance',attendance:'출근',normal:0,pending:0,as:0,monthly:74,grade:'71~80건'},
+ {name:'최서연',team:'insurance',attendance:'휴가',normal:0,pending:0,as:0,monthly:69,grade:'61~70건'},
+ {name:'정현우',team:'insurance',attendance:'출근',normal:0,pending:0,as:0,monthly:67,grade:'61~70건'},
+ {name:'윤지영',team:'insurance',attendance:'출근',normal:0,pending:0,as:0,monthly:64,grade:'61~70건'},
+ {name:'장민수',team:'insurance',attendance:'출근',normal:0,pending:0,as:0,monthly:59,grade:'60건 이하'},
+ {name:'한수진',team:'insurance',attendance:'출근',normal:0,pending:0,as:0,monthly:57,grade:'60건 이하'},
+ {name:'오정민',team:'cosmetics',attendance:'출근',normal:3,pending:1,as:0,monthly:82,grade:'81~90건'},
+ {name:'강유진',team:'cosmetics',attendance:'출근',normal:2,pending:0,as:0,monthly:76,grade:'71~80건'},
+ {name:'조성호',team:'cosmetics',attendance:'출근',normal:1,pending:1,as:1,monthly:72,grade:'71~80건'},
+ {name:'신예은',team:'cosmetics',attendance:'출근',normal:1,pending:0,as:0,monthly:68,grade:'61~70건'},
+ {name:'임동현',team:'cosmetics',attendance:'출근',normal:1,pending:0,as:0,monthly:65,grade:'61~70건'},
+ {name:'서하나',team:'cosmetics',attendance:'출근',normal:0,pending:0,as:0,monthly:61,grade:'61~70건'},
+ {name:'문태경',team:'cosmetics',attendance:'출근',normal:0,pending:0,as:0,monthly:55,grade:'60건 이하'},
+ {name:'백소희',team:'cosmetics',attendance:'미출근',normal:0,pending:0,as:0,monthly:51,grade:'60건 이하'}
+];
+function adminAttendancePill(status){return pill(status,status==='출근'?'green':status==='휴가'?'amber':'pink')}
+function adminTeamTotals(teamId){const people=adminEmployees.filter(employee=>employee.team===teamId);return {people,present:people.filter(employee=>employee.attendance==='출근').length,normal:people.reduce((sum,employee)=>sum+employee.normal,0),pending:people.reduce((sum,employee)=>sum+employee.pending,0),as:people.reduce((sum,employee)=>sum+employee.as,0),monthly:people.reduce((sum,employee)=>sum+employee.monthly,0)}}
+function adminHome(){
+ const totals=adminTeams.map(team=>({team,...adminTeamTotals(team.id)}));
+ const present=totals.reduce((sum,item)=>sum+item.present,0),normal=totals.reduce((sum,item)=>sum+item.normal,0),pending=totals.reduce((sum,item)=>sum+item.pending,0),asCount=totals.reduce((sum,item)=>sum+item.as,0);
+ const teamSummary=table(['팀','재직','오늘 출근','정상 접수','가접수','A/S','월 실적'],totals.map(item=>[item.team.name,item.people.length+'명',item.present+'명',item.normal+'건',item.pending+'건',item.as+'건',item.monthly+'건']).concat([['전체',adminEmployees.length+'명',present+'명',normal+'건',pending+'건',asCount+'건',totals.reduce((sum,item)=>sum+item.monthly,0)+'건']]));
+ const teamPanels=totals.map(item=>panel(item.team.name+' 직원 현황',table(['직원','출결','정상 접수','가접수','A/S','월 실적','월그레이드'],item.people.map(employee=>[employee.name,adminAttendancePill(employee.attendance),employee.normal+'건',employee.pending+'건',employee.as+'건',employee.monthly+'건',employee.grade])))).join('');
+ return `<div class="row"><div><h2>관리자 홈</h2><p class="sub">전체 직원을 영업팀별로 구분해 오늘 운영 현황을 확인합니다.</p></div><span class="pill">전체 직원 ${adminEmployees.length}명 · ${adminTeams.length}개 팀</span></div>`+
+ stats([['운영 팀',adminTeams.length+'개','보험팀 · 화장품팀'],['오늘 출근',present+'명','전체 '+adminEmployees.length+'명'],['오늘 전체 접수',(normal+pending+asCount)+'건','정상 '+normal+' · 가접수 '+pending+' · A/S '+asCount]])+
+ panel('팀별 현황',teamSummary)+teamPanels+
+ `<div class="notice">팀 목록에 새 팀을 추가하면 팀별 요약과 직원 현황 구역이 자동으로 확장됩니다.</div>`
+}
 function adminIntake(){return adminPage('접수 관리','전체 접수를 검색하고 상태 변경, 담당자 배정, 중복 여부를 관리합니다.',[['오늘 전체 접수','11건','정상 8 · 가접수 2 · A/S 1'],['승인 대기','2건','가접수 검토'],['중복 의심','1건','전화번호 확인']],[
  ['접수 목록','기간·직원·보험사·상태별 조회','오늘 접수'],
  ['상태 관리','가접수·정상접수·취소·A/S 변경','승인 기록'],
