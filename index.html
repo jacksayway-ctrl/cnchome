@@ -343,21 +343,18 @@ function updateMapLabels(svg){
    label.ly=top+Math.floor(index/best.cols)*best.ch+(best.ch-label.labelHeight)/2;
   });
  }
- // Keep the information card to the left with extra separation from the highlighted region.
+ // Keep hover cards at one screen size; reposition instead of shrinking.
  if(mapHoveredGroup!==null&&labels.length){
   const bounds=regionMapShapes.filter(f=>f.group===mapHoveredGroup).map(f=>f.b);
   const x1=Math.min(...bounds.map(b=>b[0])),y1=Math.min(...bounds.map(b=>b[1]));
+  const rect=svg.getBoundingClientRect();
+  const unitsPerPixel=1/Math.max(.001,Math.min(rect.width/dims[2],rect.height/dims[3]));
   for(const label of labels){
-   const boxOffset=dims[2]*.12;
-   const spaceWidth=Math.max(0,x1-boxOffset-(dims[0]+dims[2]*.004)),spaceHeight=Math.max(0,y1-top);
-   const scale=Math.min(1,spaceWidth/label.labelWidth,spaceHeight/label.labelHeight);
-   if(scale<=0)continue;
-   const enlargedScale=Math.min(scale*1.3,(right-left)/label.labelWidth,(bottom-top)/label.labelHeight);
-   label.labelWidth*=enlargedScale;label.labelHeight*=enlargedScale;label.fontSize*=enlargedScale;
-   const originalLeft=Math.max(left,x1-boxOffset-label.labelWidth);
-   const horizontalGap=Math.max(0,x1-(originalLeft+label.labelWidth));
-   label.lx=originalLeft+horizontalGap*.5;
-   label.ly=Math.max(top,y1-label.labelHeight);
+   label.labelWidth=320*unitsPerPixel;
+   label.labelHeight=150*unitsPerPixel;
+   label.fontSize=26*unitsPerPixel;
+   label.lx=Math.max(left,Math.min(x1-dims[2]*.06-label.labelWidth,right-label.labelWidth));
+   label.ly=Math.max(top,Math.min(y1-label.labelHeight,bottom-label.labelHeight));
   }
  }
  const mapLabels=labels.map(({i,r,items,cx,cy,labelWidth,labelHeight,fontSize,lx,ly})=>{
