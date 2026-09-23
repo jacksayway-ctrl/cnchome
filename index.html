@@ -343,18 +343,16 @@ function updateMapLabels(svg){
    label.ly=top+Math.floor(index/best.cols)*best.ch+(best.ch-label.labelHeight)/2;
   });
  }
- // Keep hover cards at one screen size; reposition instead of shrinking.
+ // Keep hover cards at a fixed screen size and pin them to the map's upper-left corner.
  if(mapHoveredGroup!==null&&labels.length){
-  const bounds=regionMapShapes.filter(f=>f.group===mapHoveredGroup).map(f=>f.b);
-  const x1=Math.min(...bounds.map(b=>b[0])),y1=Math.min(...bounds.map(b=>b[1]));
   const matrix=svg.getScreenCTM();
   const unitsPerPixel=matrix?1/Math.max(.001,Math.hypot(matrix.a,matrix.b)):dims[2]/Math.max(1,host.clientWidth);
   for(const label of labels){
    label.labelWidth=320*unitsPerPixel;
    label.labelHeight=150*unitsPerPixel;
    label.fontSize=26*unitsPerPixel;
-   label.lx=Math.max(left,Math.min(x1-dims[2]*.06-label.labelWidth,right-label.labelWidth));
-   label.ly=Math.max(top,Math.min(y1-label.labelHeight,bottom-label.labelHeight));
+   label.lx=dims[0]+12*unitsPerPixel;
+   label.ly=dims[1]+12*unitsPerPixel;
   }
  }
  const mapLabels=labels.map(({i,r,items,cx,cy,labelWidth,labelHeight,fontSize,lx,ly})=>{
