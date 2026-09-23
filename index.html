@@ -878,7 +878,7 @@ const salesPendingRecords=[
  {date:'2026-09-22',name:'조예시',phone:'010-0000-1302',area:'경기도 파주시 예시로 3'}
 ];
 function salesAsRows(){return [['김예시','한화','접수 중복',pill('재콜 필요','amber')],['이예시','GA 실버','접수 중복',pill('재콜 예정')],['박예시','한화','동의 답변 미흡',pill('재콜 필요','amber')]]}
-function salesStatusMenu(){const counts={'all-pending':salesPendingRecords.length,'today-pending':salesPendingRecords.filter(r=>r.date==='2026-09-22').length,normal:performance[selected]||0,as:salesAsRows().length};return '<div class="sales-status-menu" role="group" aria-label="접수 상태">'+[['all-pending','총 가접수','pink'],['today-pending','오늘의 가접수','pink'],['normal','정상 접수','blue'],['as','A/S','amber']].map(([key,label,color])=>`<button type="button" class="sales-filter-button ${color}" data-sales-status="${key}" aria-pressed="${salesStatus===key}" aria-controls="tm-sales-list">${label} <strong>${counts[key]}건</strong></button>`).join('')+'</div>'}
+function salesStatusMenu(){const counts={'all-pending':salesPendingRecords.length,'today-pending':salesPendingRecords.filter(r=>r.date==='2026-09-22').length,normal:performance[selected]||0,as:salesAsRows().length};return '<div class="sales-status-menu" role="group" aria-label="접수 상태">'+[['normal','정상 접수','blue'],['all-pending','총 가접수','pink'],['today-pending','오늘의 가접수','pink'],['as','A/S','amber']].map(([key,label,color])=>`<button type="button" class="sales-filter-button ${color}" data-sales-status="${key}" aria-pressed="${salesStatus===key}" aria-controls="tm-sales-list">${label} <strong>${counts[key]}건</strong></button>`).join('')+'</div>'}
 function salesStatusRows(){
  if(salesStatus==='normal')return dayRows();
  if(salesStatus==='as')return panel('A/S · 처리 필요',table(['고객','접수처','사유','상태'],salesAsRows()));
