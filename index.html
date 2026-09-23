@@ -285,7 +285,7 @@ function updateMapLabels(svg){
  const host=svg.parentElement;
  const v=svg.viewBox.baseVal,dims=[v.x,v.y,v.width,v.height];
  const fullWidth=Number(svg.dataset.fullWidth),fullHeight=Number(svg.dataset.fullHeight);
- const showLabels=v.width>=fullWidth*.999&&v.height>=fullHeight*.999;
+ const showLabels=mapHoveredGroup!==null||(v.width>=fullWidth*.999&&v.height>=fullHeight*.999);
  layer.style.display=showLabels?'':'none';
  if(!showLabels){layer.innerHTML='';highlightMapRegionRow(null);return;}
  const general=root.querySelector('#tm-age').selectedIndex===0;
@@ -293,7 +293,7 @@ function updateMapLabels(svg){
  const extent=regionMapShapes.map(f=>f.b);
  const minX=Math.min(...extent.map(b=>b[0])),minY=Math.min(...extent.map(b=>b[1])),maxX=Math.max(...extent.map(b=>b[2])),maxY=Math.max(...extent.map(b=>b[3]));
  const inView=f=>f.b[2]>=dims[0]&&f.b[0]<=dims[0]+dims[2]&&f.b[3]>=dims[1]&&f.b[1]<=dims[1]+dims[3];
- const labelGroups=[...new Set(regionMapShapes.filter(f=>f.group>=0&&inView(f)).map(f=>f.group))];
+ const labelGroups=[...new Set(regionMapShapes.filter(f=>f.group>=0&&inView(f)&&(mapHoveredGroup===null||f.group===mapHoveredGroup)).map(f=>f.group))];
  // Keep label dimensions in map units so boxes and text scale with every zoom level.
  const baseLabelHeight=(maxY-minY+6)*.115,baseFontSize=(maxX-minX+6)*.021;
  const labelMeasure=document.createElement('canvas').getContext('2d'),labelFont=getComputedStyle(host).fontFamily;
@@ -303,7 +303,7 @@ function updateMapLabels(svg){
   let labelHeight=baseLabelHeight*labelScale,fontSize=baseFontSize*labelScale;
   const r=regions[i],items=[];
   items.push(...availableInsuranceItems(r,general).map(item=>item.label+' '+item.remaining+'건'));
-  if(!items.length){if(i===jejuRegionIndex)items.push('접수 수량 확인 필요');else return null;}
+  if(!items.length){if(i===jejuRegionIndex)items.push('접수 수량 확인 필요');else if(i===mapHoveredGroup)items.push('현재 접수 가능한 수량 없음');else return null;}
   let labelWidth=Math.max(textWidth(r[0],fontSize,700),textWidth(items.join(' · '),fontSize),textWidth('남은 수량 · 묶음 공유',fontSize*.8))+fontSize*1.1;
   // Scale normally, but keep oversized labels fully inside the viewport.
   const fitScale=Math.min(1,dims[2]*.94/labelWidth,dims[3]*.94/labelHeight);
@@ -342,6 +342,25 @@ function updateMapLabels(svg){
    label.lx=left+(index%best.cols)*best.cw+(best.cw-label.labelWidth)/2;
    label.ly=top+Math.floor(index/best.cols)*best.ch+(best.ch-label.labelHeight)/2;
   });
+ }
+ // Keep the hover card outside the entire selected region's bounds.
+ if(mapHoveredGroup!==null&&labels.length){
+  const bounds=regionMapShapes.filter(f=>f.group===mapHoveredGroup).map(f=>f.b);
+  const x1=Math.min(...bounds.map(b=>b[0])),y1=Math.min(...bounds.map(b=>b[1]));
+  const x2=Math.max(...bounds.map(b=>b[2])),y2=Math.max(...bounds.map(b=>b[3]));
+  const spaces=[
+   {x:Math.max(left,x2+gap),y:top,w:right-Math.max(left,x2+gap),h:bottom-top},
+   {x:left,y:top,w:Math.min(right,x1-gap)-left,h:bottom-top},
+   {x:left,y:Math.max(top,y2+gap),w:right-left,h:bottom-Math.max(top,y2+gap)},
+   {x:left,y:top,w:right-left,h:Math.min(bottom,y1-gap)-top}
+  ].filter(s=>s.w>0&&s.h>0);
+  for(const label of labels){
+   const options=spaces.map(s=>({...s,scale:Math.min(1,s.w/label.labelWidth,s.h/label.labelHeight)})).sort((a,b)=>b.scale-a.scale);
+   if(!options.length)continue;
+   const s=options[0];label.labelWidth*=s.scale;label.labelHeight*=s.scale;label.fontSize*=s.scale;
+   label.lx=Math.max(s.x,Math.min(label.cx-label.labelWidth/2,s.x+s.w-label.labelWidth));
+   label.ly=Math.max(s.y,Math.min(label.cy-label.labelHeight/2,s.y+s.h-label.labelHeight));
+  }
  }
  const mapLabels=labels.map(({i,r,items,cx,cy,labelWidth,labelHeight,fontSize,lx,ly})=>{
   return `<g class="map-item-label" data-map-label-group="${i}" pointer-events="none"><line x1="${cx}" y1="${cy}" x2="${lx+labelWidth/2}" y2="${ly+labelHeight/2}" stroke="#526b86" stroke-width="1" vector-effect="non-scaling-stroke"/><rect x="${lx}" y="${ly}" width="${labelWidth}" height="${labelHeight}" rx="${fontSize*.5}" fill="#fff" fill-opacity=".9" stroke="#7894b5" stroke-width="1" vector-effect="non-scaling-stroke"/><text x="${lx+fontSize*.55}" y="${ly+fontSize*1.35}" font-size="${fontSize}" font-weight="700" fill="#173653">${r[0]}</text><text x="${lx+fontSize*.55}" y="${ly+fontSize*2.7}" font-size="${fontSize}" fill="#1457bb">${items.join(' · ')}</text><text x="${lx+fontSize*.55}" y="${ly+fontSize*3.9}" font-size="${fontSize*.8}" fill="#61738b">남은 수량 · 묶음 공유</text></g>`;
