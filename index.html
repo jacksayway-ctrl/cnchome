@@ -206,6 +206,10 @@ html,body{height:100%;overflow:hidden}
 #tm-preview .chart-day-target:hover,#tm-preview .chart-day-target:focus{fill:#1464ec0d;outline:none;stroke:#1464ec;stroke-width:1}
 
 #tm-preview .my-grade-position{display:inline-flex;align-items:center;gap:4px;margin:4px 0 4px 10px;padding:3px 9px;border:1px solid #a9c9ff;border-radius:20px;background:#fff;color:#1457bb;font-size:12px;font-weight:600;white-space:nowrap}
+
+#tm-preview .panel .attendance-heading.attendance-controls{display:flex;flex-direction:row;align-items:center;justify-content:flex-start;flex-wrap:nowrap;gap:12px;width:100%;margin:0 0 14px;padding:0;overflow-x:auto}
+#tm-preview .panel .attendance-heading.attendance-controls>h3,#tm-preview .panel .attendance-heading.attendance-controls>label,#tm-preview .panel .attendance-heading.attendance-controls>button{display:inline-flex;align-items:center;flex:0 0 auto;width:auto;margin:0;white-space:nowrap}
+#tm-preview .panel .attendance-heading.attendance-controls>h3{font-size:16px;line-height:38px}
 </style>
 <div class="shell">
 <aside><div class="brand"><b>▥</b> TM OFFICE</div><div class="team">보험영업 1팀 · 상담원</div><div class="mobile-note">PC용 화면 미리보기</div><nav aria-label="직원 메뉴">
@@ -561,7 +565,7 @@ function attendanceCalendar(){
   const date=key+'-'+String(d).padStart(2,'0'),dow=new Date(attendanceYear,attendanceMonth-1,d).getDay(),record=records.find(r=>r.date===date);
   cells+=`<div class="attendance-date ${dow===0?'sunday':dow===6?'saturday':''} ${date===todayKey?'is-today':''}" ${date===todayKey?'aria-current="date"':''}><strong>${d}${date===todayKey?'<small>오늘</small>':''}</strong>${record?`<span class="attendance-status">${record.status}</span><small>${record.start} ~ ${record.end}</small><small>${record.hours}</small>`:''}</div>`;
  }
- return `<section class="panel"><div class="attendance-heading"><h3>출근 달력</h3><div class="toolbar attendance-controls"><label>연도 <select id="tm-attendance-year">${yearOptions}</select></label><label><select id="tm-attendance-month" aria-label="월">${monthOptions}</select></label><button type="button" class="secondary" data-attendance-current>이번 달</button><button type="button" class="secondary" data-attendance-next>다음 달</button></div></div><div class="attendance-calendar" aria-label="${attendanceYear}년 ${attendanceMonth}월 출근 달력">${['일','월','화','수','목','금','토'].map((day,i)=>`<div class="attendance-weekday ${i===0?'sunday':i===6?'saturday':''}">${day}</div>`).join('')}${cells}</div></section>`;
+ return `<section class="panel"><div class="attendance-heading attendance-controls"><h3>출근 달력</h3><label>연도 <select id="tm-attendance-year">${yearOptions}</select></label><label><select id="tm-attendance-month" aria-label="월">${monthOptions}</select></label><button type="button" class="secondary" data-attendance-current>이번 달</button><button type="button" class="secondary" data-attendance-next>다음 달</button></div><div class="attendance-calendar" aria-label="${attendanceYear}년 ${attendanceMonth}월 출근 달력">${['일','월','화','수','목','금','토'].map((day,i)=>`<div class="attendance-weekday ${i===0?'sunday':i===6?'saturday':''}">${day}</div>`).join('')}${cells}</div></section>`;
 }
 function attendanceHistory(){
  const records=attendanceRecords(),key=attendanceMonthKey(),current=records.filter(r=>r.date.slice(0,7)===key),before=records.filter(r=>r.date.slice(0,7)<key),after=records.filter(r=>r.date.slice(0,7)>key);
