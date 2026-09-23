@@ -281,6 +281,15 @@ html,body{height:100%;overflow:hidden}
 #tm-preview .attendance-heading.attendance-controls>button.attendance-month-shortcut{box-sizing:border-box;height:36px;min-width:72px;justify-content:center;padding:6px 14px;border:1px solid #d4deeb;border-radius:6px;background:#fff;color:#173c70;font-size:14px;line-height:22px;cursor:pointer}
 #tm-preview .attendance-heading.attendance-controls>button.attendance-month-shortcut:hover{background:#f2f7ff;border-color:#8fb6f1}
 #tm-preview .attendance-heading.attendance-controls>button.attendance-month-shortcut[aria-pressed="true"]{background:#eaf2ff;border-color:#6d9de7;color:#215bb2;font-weight:600}
+
+#tm-preview .attendance-status-present{background:#e4f6ed;color:#22734f}
+#tm-preview .attendance-status-late{background:#fff0d3;color:#956018}
+#tm-preview .attendance-status-absent{background:#ffe7e9;color:#b42d41}
+#tm-preview .attendance-status-leave{background:#e8efff;color:#355ec0}
+#tm-preview .attendance-status-sick{background:#f1e8fc;color:#8251a8}
+#tm-preview .attendance-status-early{background:#fff0e5;color:#a65c27}
+#tm-preview .attendance-status-outing{background:#e3f4f5;color:#27777d}
+#tm-preview .attendance-status-rest,#tm-preview .attendance-status-scheduled,#tm-preview .attendance-status-unrecorded{background:#f0f2f5;color:#7c8798}
 </style>
 <div class="shell">
 <aside><div class="brand"><b>▥</b> TM OFFICE</div><div class="team">보험영업 1팀 · 상담원</div><div class="mobile-note">PC용 화면 미리보기</div><nav aria-label="직원 메뉴">
@@ -614,14 +623,33 @@ function regionDisplayName(r){
 function filterRegions(){normalizeMapCarrier();const q=root.querySelector('#tm-region-search').value.trim(),general=root.querySelector('#tm-age').selectedIndex===0;const canReceive=r=>regionCanReceive(r,general);const rows=regions.filter(r=>r.join(' ').includes(q)).sort((a,b)=>Number(canReceive(b))-Number(canReceive(a))||a[0].localeCompare(b[0],'ko'));const carriers=visibleRegionCarriers().filter(c=>mapCarrier==='all'||mapCarrier===c.id).sort((a,b)=>['ga','hanwha','shinhan'].indexOf(a.id)-['ga','hanwha','shinhan'].indexOf(b.id));const columns=carriers.flatMap(c=>['general','silver'].map(kind=>({carrier:c,kind})));root.querySelector('#tm-region-results').innerHTML=carriers.length?regionPolicyTable(carriers,rows.map(r=>{const p=regionInsurancePolicies[regions.indexOf(r)];return [`<button type="button" class="region-select-button" data-region-select="${regions.indexOf(r)}" aria-pressed="${mapSelectedGroup===regions.indexOf(r)}">${regionDisplayName(r)}</button>`,...columns.map(({carrier:c,kind})=>p[c.id][kind]?pill(p[c.id][kind],Number(p[c.id][kind].split('/')[1])>0?'green':'pink'):pill(c.id==='hanwha'?'구분 확인':'자료 대기','amber')),r[0]===r[1]?r[4]:r[0]+' · '+r[4]];}))+(rows.length?'':'<p>검색 결과가 없습니다.</p>'):'<p>현재 공개된 접수 정책이 없습니다.</p>';updateRegionMap()}
 const attendanceToday=new Date();
 let attendanceYear=attendanceToday.getFullYear(),attendanceMonth=attendanceToday.getMonth()+1;
-function attendanceRecords(){return [
+function attendanceRecords(){const records=[
  {date:'2026-09-22',start:'10:00',end:clockedOut?'16:40':'—',status:clockedOut?'퇴근':'근무 중',hours:clockedOut?'6시간':'집계 중'},
  {date:'2026-09-21',start:'10:00',end:'17:00',status:'출근',hours:'6시간'},
  {date:'2026-09-18',start:'10:00',end:'17:00',status:'출근',hours:'6시간'},
  {date:'2026-09-17',start:'10:10',end:'17:00',status:'지각 10분',hours:'6시간'},
  {date:'2026-09-16',start:'10:00',end:'15:00',status:'휴가 2시간',hours:'근무 4 + 휴가 2'},
  {date:'2026-09-09',start:'10:00',end:'15:00',status:'조퇴',hours:'4시간'}
-]}
+];
+ // Demonstration attendance records; these are not actual employee records.
+ const examples={4:{status:'결근',start:'—',end:'—',hours:'0시간'},8:{status:'병가',start:'—',end:'—',hours:'병가 1일'},11:{status:'휴가',start:'—',end:'—',hours:'휴가 1일'},14:{status:'외출',start:'10:00',end:'17:00',hours:'외출 1시간'}};
+ for(let day=1;day<=22;day++){
+  const date='2026-09-'+String(day).padStart(2,'0'),dow=new Date(2026,8,day).getDay();
+  if(dow===0||dow===6||records.some(r=>r.date===date))continue;
+  records.push({date,...(examples[day]||{start:'10:00',end:'17:00',status:'출근',hours:'6시간'})});
+ }
+ return records.sort((a,b)=>b.date.localeCompare(a.date));
+}
+function attendanceStatusMarkup(date,dow,holiday,record,request,today){
+ let label,tone;
+ if(request?.status==='approved'){label=request.kind+' 확인';tone=request.kind==='병가'?'sick':'leave';}
+ else if(record){label=record.status;tone=label.includes('지각')?'late':label==='결근'?'absent':label.includes('병가')?'sick':label.includes('휴가')?'leave':label==='조퇴'?'early':label==='외출'?'outing':'present';}
+ else if(holiday){label='공휴일';tone='rest';}
+ else if(dow===0||dow===6){label='휴무';tone='rest';}
+ else if(date>today){label='근무 예정';tone='scheduled';}
+ else{label='미등록';tone='unrecorded';}
+ return `<span class="attendance-status attendance-status-${tone}">${label}</span>${record&&request?.status!=='approved'?(record.start!=='—'?`<small>${record.start} ~ ${record.end}</small>`:'')+`<small>${record.hours}</small>`:''}`;
+}
 function attendanceMonthKey(){return attendanceYear+'-'+String(attendanceMonth).padStart(2,'0')}
 function attendanceRecordTable(records){return records.length?table(['날짜','출근','퇴근','상태','인정 시간'],records.slice().sort((a,b)=>b.date.localeCompare(a.date)).map(r=>[r.date,r.start,r.end,r.status,r.hours])):'<p class="sub">선택한 달의 출결 내역이 없습니다.</p>'}
 
@@ -719,7 +747,7 @@ function attendanceCalendar(){
   const cellDate=new Date(attendanceYear,attendanceMonth-1,index-first+1),cellYear=cellDate.getFullYear(),cellMonth=cellDate.getMonth()+1,d=cellDate.getDate(),outside=cellMonth!==attendanceMonth||cellYear!==attendanceYear;
   const date=cellYear+'-'+String(cellMonth).padStart(2,'0')+'-'+String(d).padStart(2,'0'),dow=cellDate.getDay(),record=records.find(r=>r.date===date);
   const holiday=(cellYear===attendanceYear?holidays:attendanceHolidays(cellYear))[date]||'',request=attendanceRequestFor(date),expanded=attendanceSelectedDate===date;
-  cells+=`<button type="button" data-attendance-date="${date}" aria-expanded="${expanded}" aria-controls="tm-attendance-leave" aria-label="${cellYear}년 ${cellMonth}월 ${d}일${holiday?' '+holiday:''} 병가 또는 휴가 신청" class="attendance-date ${outside?'outside-month':''} ${holiday||dow===0?'sunday':dow===6?'saturday':''} ${date===todayKey?'is-today':''} ${expanded?'is-selected':''}" ${date===todayKey?'aria-current="date"':''}><strong class="attendance-date-heading">${outside?cellMonth+'월 ':''}${d}${d===15?'<span class="attendance-payday"><svg viewBox="0 0 20 20" width="15" height="15" aria-hidden="true"><circle cx="10" cy="10" r="8" fill="#ffe59a" stroke="#c59225" stroke-width="1.3"/><path d="M5.5 6.5 7.5 13.5 10 8.5 12.5 13.5 14.5 6.5M5 9.5h10" fill="none" stroke="#956516" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>급여일</span>':''}${date===todayKey?'<small>오늘</small>':''}</strong>${holiday?`<small class="attendance-holiday">${holiday}</small>`:''}${record?`<span class="attendance-status">${record.status}</span><small>${record.start} ~ ${record.end}</small><small>${record.hours}</small>`:''}${attendanceLeaveBar(request,date,dow)}</button>`;
+  cells+=`<button type="button" data-attendance-date="${date}" aria-expanded="${expanded}" aria-controls="tm-attendance-leave" aria-label="${cellYear}년 ${cellMonth}월 ${d}일${holiday?' '+holiday:''} 병가 또는 휴가 신청" class="attendance-date ${outside?'outside-month':''} ${holiday||dow===0?'sunday':dow===6?'saturday':''} ${date===todayKey?'is-today':''} ${expanded?'is-selected':''}" ${date===todayKey?'aria-current="date"':''}><strong class="attendance-date-heading">${outside?cellMonth+'월 ':''}${d}${d===15?'<span class="attendance-payday"><svg viewBox="0 0 20 20" width="15" height="15" aria-hidden="true"><circle cx="10" cy="10" r="8" fill="#ffe59a" stroke="#c59225" stroke-width="1.3"/><path d="M5.5 6.5 7.5 13.5 10 8.5 12.5 13.5 14.5 6.5M5 9.5h10" fill="none" stroke="#956516" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>급여일</span>':''}${date===todayKey?'<small>오늘</small>':''}</strong>${holiday?`<small class="attendance-holiday">${holiday}</small>`:''}${attendanceStatusMarkup(date,dow,holiday,record,request,todayKey)}${attendanceLeaveBar(request,date,dow)}</button>`;
  }
  return `<section class="panel"><div class="attendance-heading attendance-controls"><h3>출근 달력</h3><label><select id="tm-attendance-year" aria-label="연도">${yearOptions}</select></label><label><select id="tm-attendance-month" aria-label="월">${monthOptions}</select></label>${attendanceMonthShortcuts()}</div><div class="attendance-calendar" aria-label="${attendanceYear}년 ${attendanceMonth}월 출근 달력">${['일','월','화','수','목','금','토'].map((day,i)=>`<div class="attendance-weekday ${i===0?'sunday':i===6?'saturday':''}">${day}</div>`).join('')}${cells}</div>${attendanceLeaveForm()}</section>`;
 }
