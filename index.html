@@ -258,6 +258,22 @@ const regionInsurancePolicies=regions.map(r=>({hanwha:{general:null,silver:null,
 function availableInsuranceItems(r,general){const p=regionInsurancePolicies[regions.indexOf(r)],kind=general?'general':'silver';return regionCarrierSettings.filter(c=>c.id!=='all'&&c.enabled&&(mapCarrier==='all'||mapCarrier===c.id)).flatMap(c=>{const amount=p[c.id][kind];return amount&&Number(amount.split('/')[1])>0?[{label:c.label+' '+(general?'일반':'실버'),amount,remaining:Number(amount.split('/')[1])}]:[]});}
 function regionCanReceive(r,general){return availableInsuranceItems(r,general).length>0;}
 root.addEventListener('click',e=>{const b=e.target.closest('[data-map-carrier]');if(!b||b.disabled)return;mapCarrier=b.dataset.mapCarrier;root.querySelectorAll('[data-map-carrier]').forEach(el=>el.setAttribute('aria-pressed',String(el.dataset.mapCarrier===mapCarrier)));filterRegions();});
+
+function layoutMapRegionNames(svg){
+ if(!svg)return;const v=svg.viewBox.baseVal,r=svg.getBoundingClientRect();
+ if(!r.width||!r.height)return;
+ const scale=Math.min(r.width/v.width,r.height/v.height),size=10.5/scale,boxes=[];
+ const names=[...svg.querySelectorAll('.map-region-name')].sort((a,b)=>Number(b.dataset.priority)-Number(a.dataset.priority));
+ for(const label of names){
+  const x=Number(label.getAttribute('x')),y=Number(label.getAttribute('y'));
+  label.setAttribute('font-size',size);
+  if(x<v.x||x>v.x+v.width||y<v.y||y>v.y+v.height){label.style.display='none';continue;}
+  const w=label.textContent.length*size*.94,h=size*1.2,b={x:x-w/2,y:y-h/2,w,h};
+  if(boxes.some(a=>b.x<a.x+a.w&&b.x+b.w>a.x&&b.y<a.y+a.h&&b.y+b.h>a.y)){label.style.display='none';continue;}
+  label.style.display='';boxes.push(b);
+ }
+}
+
 function updateRegionMap(){
  const host=root.querySelector('#tm-region-map');if(!host)return;
  const q=root.querySelector('#tm-region-search').value.trim();
@@ -282,9 +298,7 @@ function updateRegionMap(){
  const labelGroups=[...new Set(regionMapShapes.filter(f=>f.group>=0&&inView(f)).map(f=>f.group))];
  const labelWidth=dims[2]*.29,labelHeight=dims[3]*.115,fontSize=dims[2]*.021;
  const occupied=[];
- const nameBoxes=[];
- const namedShapes=[...visibleShapes].sort((a,b)=>Number(focused(b))-Number(focused(a)));
- const regionNames=namedShapes.map(f=>{const point=regionNamePoints[regionMapShapes.indexOf(f)];if(!point||!inView(f))return '';const [x,y]=point;if(x<dims[0]||x>dims[0]+dims[2]||y<dims[1]||y>dims[1]+dims[3])return '';const size=fontSize*.94,tw=f.name.length*size*.92,th=size*1.3;const b={x:x-tw/2,y:y-th/2,w:tw,h:th};if(nameBoxes.some(a=>b.x<a.x+a.w&&b.x+b.w>a.x&&b.y<a.y+a.h&&b.y+b.h>a.y))return '';nameBoxes.push(b);return `<text class="map-region-name" x="${x}" y="${y}" font-size="${size}" text-anchor="middle" dominant-baseline="middle" pointer-events="none">${f.name}</text>`;}).join('');
+ const regionNames=visibleShapes.map(f=>{const point=regionNamePoints[regionMapShapes.indexOf(f)];if(!point)return '';return `<text class="map-region-name" data-priority="${focused(f)?1:0}" x="${point[0]}" y="${point[1]}" text-anchor="middle" dominant-baseline="middle" pointer-events="none">${f.name}</text>`;}).join('');
  const mapLabels=labelGroups.map(i=>{
   const r=regions[i],items=[];
   items.push(...availableInsuranceItems(r,general).map(item=>item.label+' '+item.remaining+'건'));
@@ -302,6 +316,7 @@ function updateRegionMap(){
   return `<g class="map-item-label" pointer-events="none"><line x1="${cx}" y1="${cy}" x2="${lx+labelWidth/2}" y2="${ly+labelHeight/2}" stroke="#526b86" stroke-width="1" vector-effect="non-scaling-stroke"/><rect x="${lx}" y="${ly}" width="${labelWidth}" height="${labelHeight}" rx="${fontSize*.5}" fill="#fff" fill-opacity=".96" stroke="#7894b5" stroke-width="1" vector-effect="non-scaling-stroke"/><text x="${lx+fontSize*.55}" y="${ly+fontSize*1.35}" font-size="${fontSize}" font-weight="700" fill="#173653">${r[0]}</text><text x="${lx+fontSize*.55}" y="${ly+fontSize*2.7}" font-size="${fontSize}" fill="#1457bb">${items.join(' · ')}</text><text x="${lx+fontSize*.55}" y="${ly+fontSize*3.9}" font-size="${fontSize*.8}" fill="#61738b">남은 수량 · 묶음 공유</text></g>`;
  }).join('');
  host.style.setProperty('--map-ratio',Math.max(.65,Math.min(1.8,dims[2]/dims[3])));host.innerHTML=`<svg viewBox="${box}" preserveAspectRatio="xMidYMid meet" role="group" aria-label="전국 접수 가능지역 지도">${paths}<defs><clipPath id="tm-selected-map-clip">${visibleShapes.filter(f=>!focused(f)).map(f=>`<path d="${f.d}"/>`).join('')}</clipPath></defs><g clip-path="url(#tm-selected-map-clip)"><path d="${regionBorders.city}" class="map-city-border"/><path d="${regionBorders.province}" class="map-province-border"/></g>${visibleShapes.filter(f=>available(f.group)&&!focused(f)).map(f=>`<path d="${f.d}" class="map-availability-border ${focused(f)?'map-search-border':''}"/>`).join('')}${[...new Set(selected.map(f=>f.group))].filter(i=>i>=0).map(i=>`<path d="${regionSelectedEdges[i]}" class="map-availability-border map-search-border"/>`).join('')}${regionNames}${mapLabels}${jejuLabel}</svg>`;
+ layoutMapRegionNames(host.querySelector(':scope > svg'));
  root.querySelector('#tm-map-detail').textContent='마지막 미리보기 유지 · 마우스 휠로 확대/축소 · 클릭 드래그로 이동 · 지도 더블클릭으로 전체 보기 · 아이템별 남은 공유 수량';
  if(activeGroup!==null){showMapRegion(activeGroup)}
 }
@@ -321,7 +336,7 @@ root.addEventListener('wheel',e=>{
  const unit=e.deltaMode===1?16:e.deltaMode===2?r.height:1;
  const factor=Math.exp(Math.max(-.3,Math.min(.3,e.deltaY*unit*.0015)));
  const width=Math.max(8,Math.min(1800,v.width*factor)),ratio=width/v.width,height=v.height*ratio;
- svg.setAttribute('viewBox',[v.x+v.width*px-width*px,v.y+v.height*py-height*py,width,height].join(' '));
+ svg.setAttribute('viewBox',[v.x+v.width*px-width*px,v.y+v.height*py-height*py,width,height].join(' '));layoutMapRegionNames(svg);
 
 
 },{passive:false});
@@ -342,7 +357,7 @@ root.addEventListener('pointermove',e=>{
  if(!d.moved&&Math.hypot(dx,dy)<4)return;
  if(!d.moved){d.moved=true;d.host.setPointerCapture(e.pointerId);d.host.classList.add('map-dragging');}
  e.preventDefault();
- d.svg.setAttribute('viewBox',[d.x-dx/d.scale,d.y-dy/d.scale,d.w,d.h].join(' '));
+ d.svg.setAttribute('viewBox',[d.x-dx/d.scale,d.y-dy/d.scale,d.w,d.h].join(' '));layoutMapRegionNames(d.svg);
 });
 function finishMapDrag(e){
  if(!mapDrag||e.pointerId!==mapDrag.id)return;
