@@ -96,8 +96,6 @@
 #tm-preview .toolbar.attendance-controls{gap:12px;margin-bottom:14px;padding:0;min-height:40px}
 #tm-preview .attendance-controls label{color:#173c70;font-size:13px;gap:10px}
 #tm-preview .attendance-controls select{background:#fff;border:1px solid #d4deeb;border-radius:6px;color:#173c70;padding:6px 9px;height:38px}
-#tm-preview .attendance-controls #tm-attendance-year{height:28px;padding:3px 5px;font-size:11px;border-color:#83aaff}
-#tm-preview .attendance-controls #tm-attendance-month{min-width:73px;font-size:16px}
 #tm-preview .attendance-controls button.secondary{background:transparent;border:0;border-radius:0;padding:6px 2px;font-size:14px;color:#173c70;box-shadow:none}
 @media(max-width:600px){#tm-preview .attendance-date,#tm-preview .attendance-empty{padding:5px;min-height:90px}#tm-preview .attendance-date small,#tm-preview .attendance-status{font-size:10px}}
 #tm-preview .attendance-heading{display:flex;align-items:center;gap:18px;flex-wrap:nowrap;overflow-x:auto;margin-bottom:14px}
@@ -222,7 +220,10 @@ html,body{height:100%;overflow:hidden}
 #tm-preview .attendance-leave-types label{display:inline-flex;align-items:center;gap:6px}
 #tm-preview .attendance-leave-types input{width:auto;margin:0}
 
-#tm-preview .attendance-controls #tm-attendance-year,#tm-preview .attendance-controls #tm-attendance-month{height:36px;width:92px;min-width:92px;padding:6px 10px;font-size:14px;line-height:22px;border:1px solid #d4deeb;border-radius:6px;background:#fff;color:#173c70}
+#tm-preview .attendance-controls #tm-attendance-year,#tm-preview .attendance-controls #tm-attendance-month{box-sizing:border-box;height:36px;min-height:36px;max-height:36px;width:92px;min-width:92px;margin:0;padding:6px 10px;font-size:14px;line-height:22px;border:1px solid #d4deeb;border-radius:6px;background:#fff;color:#173c70;vertical-align:middle}
+
+#tm-preview .attendance-calendar>button.attendance-date{width:100%;height:100%;min-width:0;align-self:stretch;align-items:flex-start;justify-content:flex-start;appearance:none;touch-action:manipulation}
+#tm-preview .attendance-calendar>button.attendance-date:focus-visible{outline:2px solid #2563eb;outline-offset:-3px}
 </style>
 <div class="shell">
 <aside><div class="brand"><b>▥</b> TM OFFICE</div><div class="team">보험영업 1팀 · 상담원</div><div class="mobile-note">PC용 화면 미리보기</div><nav aria-label="직원 메뉴">
@@ -607,7 +608,7 @@ function attendanceLeaveForm(){
 }
 root.addEventListener('click',e=>{
  const day=e.target.closest('[data-attendance-date]');
- if(day){const date=day.dataset.attendanceDate;attendanceSelectedDate=attendanceSelectedDate===date?null:date;render();root.querySelector(`[data-attendance-date="${date}"]`)?.focus();return;}
+ if(day){const date=day.dataset.attendanceDate;attendanceSelectedDate=attendanceSelectedDate===date?null:date;render();root.querySelector(`[data-attendance-date="${date}"]`)?.focus({preventScroll:true});if(attendanceSelectedDate)root.querySelector('#tm-attendance-leave')?.scrollIntoView({behavior:'smooth',block:'nearest'});return;}
  if(e.target.closest('[data-leave-close]')){const date=attendanceSelectedDate;attendanceSelectedDate=null;render();root.querySelector(`[data-attendance-date="${date}"]`)?.focus();}
  if(e.target.closest('[data-leave-cancel]')){attendanceLeaveRequests.delete(attendanceSelectedDate);render();toast('미리보기 신청을 취소했습니다.');}
 });
