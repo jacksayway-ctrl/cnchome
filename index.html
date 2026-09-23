@@ -1209,6 +1209,15 @@ function policyAnalyzeExisting(){
 function policySelectRegion(candidates){
  const usable=candidates.filter(c=>/[가-힣\u3400-\u9fff\uf900-\ufaff]/.test(c.text)&&!policyRegionNoise(c.text));
  if(!usable.length)return {text:'',confidence:0,review:true};
+ // A heading can agree even when the city list or a Han character differs.
+ const headingOf=text=>String(text).split(/[:：]/,1)[0].replace(/\s/g,'');
+ const headings=new Map();
+ for(const c of usable){
+  const key=headingOf(c.text);
+  if(!policyKnownRegion(key)||c.confidence<70)continue;
+  if(!headings.has(key))headings.set(key,new Set());
+  headings.get(key).add(c.family);
+ }
  const groups=new Map();
  for(const c of usable){
  const key=c.text.replace(/\s/g,'');
@@ -1220,7 +1229,8 @@ function policySelectRegion(candidates){
  const readings=[...families.values()],best=readings.slice().sort((a,b)=>b.confidence-a.confidence)[0];
  // Repeated segmentation of the same pixels is not an independent vote.
  const mean=readings.reduce((sum,c)=>sum+c.confidence,0)/readings.length;
- return {best,known:policyKnownRegion(best.text)&&readings.length>=2&&mean>=70,score:mean+Math.min(2,readings.length-1)*8,count:readings.length};
+ const headingSupport=headings.get(headingOf(best.text))?.size||0;
+ return {best,known:policyKnownRegion(best.text)&&headingSupport>=2&&mean>=70,score:mean+Math.min(2,readings.length-1)*8,count:readings.length};
  }).sort((a,b)=>Number(b.known)-Number(a.known)||b.score-a.score);
  const top=ranking[0];
  return {...top.best,review:usable.length!==candidates.length||groups.size>1||top.count<2||top.best.confidence<85||policyRegionSuspicious(top.best.text)};
