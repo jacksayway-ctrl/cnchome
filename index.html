@@ -694,11 +694,11 @@ function attendanceLeaveBar(request,date,dow){
  return `<span class="attendance-leave-bar ${first?'range-start':''} ${last?'range-end':''} ${request.status==='approved'?'is-approved':''}" title="${request.start} ~ ${request.end} · ${label} (미리보기)" aria-label="${label} (미리보기)">${first?label:'&nbsp;'}</span>`;
 }
 
-function attendanceUpcomingMonths(now=new Date()){
+function attendanceUpcomingMonths(now=new Date(attendanceYear,attendanceMonth-1,1)){
  return [1,2,3].map(offset=>{const date=new Date(now.getFullYear(),now.getMonth()+offset,1);return {year:date.getFullYear(),month:date.getMonth()+1};});
 }
 function attendanceMonthShortcuts(){
- return attendanceUpcomingMonths().map(({year,month})=>`<button type="button" class="attendance-month-shortcut" data-attendance-jump-year="${year}" data-attendance-jump-month="${month}" aria-label="${year}년 ${month}월 달력 보기" aria-pressed="${attendanceYear===year&&attendanceMonth===month}">${year!==new Date().getFullYear()?year+'년 ':''}${month}월</button>`).join('');
+ return attendanceUpcomingMonths().map(({year,month})=>`<button type="button" class="attendance-month-shortcut" data-attendance-jump-year="${year}" data-attendance-jump-month="${month}" aria-label="${year}년 ${month}월 달력 보기" aria-pressed="${attendanceYear===year&&attendanceMonth===month}">${month}월</button>`).join('');
 }
 root.addEventListener('click',e=>{
  const button=e.target.closest('[data-attendance-jump-month]');if(!button)return;
