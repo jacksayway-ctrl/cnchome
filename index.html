@@ -1030,16 +1030,32 @@ async function policyGetPaddleOcr(){
 }
 async function policyResetPaddleOcr(){if(policyPaddleOcr?.dispose)await policyPaddleOcr.dispose().catch(()=>{});policyPaddleOcr=null;policyPaddlePromise=null}
 
+function policyNormalizeCell(p,w,h,binary){
+ const hist=new Array(256).fill(0),values=new Uint8Array(w*h);
+ for(let k=0;k<values.length;k++){values[k]=Math.max(p.data[k*4],p.data[k*4+1],p.data[k*4+2]);hist[values[k]]++}
+ // The dominant intensity is the cell background, including blue cells.
+ let background=hist.indexOf(Math.max(...hist));background=Math.max(32,background);
+ let weight=0,partial=0,best=-1,threshold=128,total=w*h,sum=0;
+ const normalized=new Uint8Array(total),nh=new Array(256).fill(0);
+ for(let k=0;k<total;k++){normalized[k]=Math.min(255,Math.round(values[k]*255/background));nh[normalized[k]]++;sum+=normalized[k]}
+ for(let t=0;t<255;t++){weight+=nh[t];partial+=t*nh[t];if(!weight||weight===total)continue;const delta=partial/weight-(sum-partial)/(total-weight),variance=weight*(total-weight)*delta*delta;if(variance>best){best=variance;threshold=t}}
+ let left=w,top=h,right=-1,bottom=-1;
+ const inkLimit=Math.min(180,Math.max(50,threshold));
+ for(let y=0;y<h;y++)for(let x=0;x<w;x++){const k=y*w+x,v=normalized[k];if(v<=inkLimit){left=Math.min(left,x);right=Math.max(right,x);top=Math.min(top,y);bottom=Math.max(bottom,y)}
+ const out=binary?(v<=threshold?0:255):v; p.data[k*4]=p.data[k*4+1]=p.data[k*4+2]=out;p.data[k*4+3]=255}
+ if(right<left)return {left:0,top:0,width:w,height:h,blank:true};
+ left=Math.max(0,left-2);top=Math.max(0,top-2);right=Math.min(w-1,right+2);bottom=Math.min(h-1,bottom+2);
+ return {left,top,width:right-left+1,height:bottom-top+1,blank:false};
+}
 function policyCellImage(source,x0,y0,x1,y1,binary=false){
- const w=Math.max(1,x1-x0),h=Math.max(1,y1-y0),p=source.context.getImageData(x0,y0,w,h),hist=new Array(256).fill(0);
- // Max channel removes red/yellow/green backgrounds without treating them as ink.
- for(let i=0;i<p.data.length;i+=4)hist[Math.max(p.data[i],p.data[i+1],p.data[i+2])]++;
- let total=w*h,sum=hist.reduce((v,n,i)=>v+n*i,0),weight=0,partial=0,best=-1,threshold=128;
- for(let t=0;t<255;t++){weight+=hist[t];partial+=t*hist[t];if(!weight||weight===total)continue;const delta=partial/weight-(sum-partial)/(total-weight),variance=weight*(total-weight)*delta*delta;if(variance>best){best=variance;threshold=t}}
- for(let i=0;i<p.data.length;i+=4){let v=Math.max(p.data[i],p.data[i+1],p.data[i+2]);v=binary?(v<=threshold?0:255):Math.min(255,Math.max(0,(v-25)*255/210));p.data[i]=p.data[i+1]=p.data[i+2]=v;p.data[i+3]=255}
- const small=document.createElement('canvas');small.width=w;small.height=h;small.getContext('2d').putImageData(p,0,0);
- const scale=Math.max(2,Math.min(4,56/h)),out=document.createElement('canvas');out.width=Math.ceil(w*scale)+32;out.height=Math.ceil(h*scale)+24;
- const ctx=out.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,out.width,out.height);ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';ctx.drawImage(small,16,12,w*scale,h*scale);return out;
+ const w=Math.max(1,x1-x0),h=Math.max(1,y1-y0),p=source.context.getImageData(x0,y0,w,h);
+ const box=policyNormalizeCell(p,w,h,binary),small=document.createElement('canvas');small.width=w;small.height=h;small.getContext('2d').putImageData(p,0,0);
+ const scale=Math.max(2,Math.min(5,64/box.height)),out=document.createElement('canvas');out.width=Math.ceil(box.width*scale)+32;out.height=Math.ceil(box.height*scale)+32;
+ const ctx=out.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,out.width,out.height);ctx.imageSmoothingEnabled=!binary;ctx.imageSmoothingQuality='high';ctx.drawImage(small,box.left,box.top,box.width,box.height,16,16,box.width*scale,box.height*scale);return out;
+}
+function policyQuantityStatus(text,review){
+ if(review||!/^\d+$/.test(text))return '확인 필요';
+ return Number(text)===0?'마감':'접수 가능';
 }
 
 // Compare independent preprocessing/layout readings; do not guess region names.
@@ -1073,7 +1089,7 @@ async function policyRecognizeCells(source,layout,ocr){
   if(qtyCandidates[0].text!==qtyCandidates[1].text||Math.min(...qtyCandidates.map(c=>c.confidence))<85)qtyCandidates.push(await read(true,false,'8'));
   const qty=policyChooseReading(qtyCandidates,true);
   const validQty=/^\d+$/.test(qty.text),review=name.review||qty.review||!validQty;
-  rows.push([name.text||'확인 필요',validQty?qty.text:'확인 필요',band.status+(review?' · 확인 필요':'')]);
+  rows.push([name.text||'확인 필요',validQty?qty.text:'확인 필요',policyQuantityStatus(qty.text,qty.review)+(name.review?' · 지역명 확인 필요':'')]);
   policyOcrProgress=Math.round(45+50*(index+1)/layout.bands.length);policyUpdateOcrProgress('정밀 인식 '+(index+1)+' / '+layout.bands.length+'행 · '+policyOcrProgress+'%');
  }
  return rows;
