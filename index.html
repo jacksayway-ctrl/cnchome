@@ -85,6 +85,10 @@
 #tm-preview .map-region-name{fill:#7e8b99;font-weight:400;stroke:rgba(255,255,255,.48);stroke-width:1px;opacity:.78}
 #tm-preview .map-item-label rect{fill:#fff;fill-opacity:.8;stroke:#eab308;stroke-opacity:1;stroke-width:1}
 #tm-preview .map-item-label line{stroke-opacity:.25}
+#tm-preview .map-item-label rect{pointer-events:all}
+#tm-preview #tm-region-results tr.map-row-highlight>td{background:#fff3b0;color:#713f12}
+#tm-preview #tm-region-results tr.map-row-highlight .region-select-button{color:#713f12}
+#tm-preview #tm-region-results tr.map-row-highlight>td:first-child{box-shadow:inset 4px 0 #eab308}
 </style>
 </head><body>
 <div id="tm-preview">
@@ -297,8 +301,9 @@ function updateMapLabels(svg){
   for(let row=0;row<8;row++)for(let col=0;col<3;col++)candidates.push({x:dims[0]+margin+col*(labelWidth+margin),y:dims[1]+margin+row*(labelHeight+margin)});
   const fits=p=>p.x+labelWidth<=dims[0]+dims[2]&&p.y+labelHeight<=dims[1]+dims[3]&&!occupied.some(b=>p.x<b.x+b.w+margin&&p.x+labelWidth+margin>b.x&&p.y<b.y+b.h+margin&&p.y+labelHeight+margin>b.y);
   const spot=candidates.find(fits)||{x:lx,y:ly};lx=spot.x;ly=spot.y;occupied.push({...spot,w:labelWidth,h:labelHeight});
-  return `<g class="map-item-label" pointer-events="none"><line x1="${cx}" y1="${cy}" x2="${lx+labelWidth/2}" y2="${ly+labelHeight/2}" stroke="#526b86" stroke-width="1" vector-effect="non-scaling-stroke"/><rect x="${lx}" y="${ly}" width="${labelWidth}" height="${labelHeight}" rx="${fontSize*.5}" fill="#fff" fill-opacity=".8" stroke="#7894b5" stroke-width="1" vector-effect="non-scaling-stroke"/><text x="${lx+fontSize*.55}" y="${ly+fontSize*1.35}" font-size="${fontSize}" font-weight="700" fill="#173653">${r[0]}</text><text x="${lx+fontSize*.55}" y="${ly+fontSize*2.7}" font-size="${fontSize}" fill="#1457bb">${items.join(' · ')}</text><text x="${lx+fontSize*.55}" y="${ly+fontSize*3.9}" font-size="${fontSize*.8}" fill="#61738b">남은 수량 · 묶음 공유</text></g>`;
+  return `<g class="map-item-label" data-map-label-group="${i}" pointer-events="none"><line x1="${cx}" y1="${cy}" x2="${lx+labelWidth/2}" y2="${ly+labelHeight/2}" stroke="#526b86" stroke-width="1" vector-effect="non-scaling-stroke"/><rect x="${lx}" y="${ly}" width="${labelWidth}" height="${labelHeight}" rx="${fontSize*.5}" fill="#fff" fill-opacity=".8" stroke="#7894b5" stroke-width="1" vector-effect="non-scaling-stroke"/><text x="${lx+fontSize*.55}" y="${ly+fontSize*1.35}" font-size="${fontSize}" font-weight="700" fill="#173653">${r[0]}</text><text x="${lx+fontSize*.55}" y="${ly+fontSize*2.7}" font-size="${fontSize}" fill="#1457bb">${items.join(' · ')}</text><text x="${lx+fontSize*.55}" y="${ly+fontSize*3.9}" font-size="${fontSize*.8}" fill="#61738b">남은 수량 · 묶음 공유</text></g>`;
  }).join('');
+ highlightMapRegionRow(null);
  layer.innerHTML=mapLabels;
 }
 
@@ -350,6 +355,22 @@ root.addEventListener('click',e=>{const choice=e.target.closest('[data-region-se
 root.addEventListener('input',e=>{if(e.target.id==='tm-region-search'){mapSelectedGroup=null;mapHoveredGroup=null;}},true);
 function previewTableRegion(e){const row=e.target.closest('#tm-region-results tr');const button=row?.querySelector('[data-region-select]');if(!button||row.contains(e.relatedTarget))return;mapHoveredGroup=Number(button.dataset.regionSelect);updateRegionMap();}
 function leaveTableRegion(e){const button=e.target.closest('[data-region-select]');if(!button||button.contains(e.relatedTarget))return;mapHoveredGroup=null;updateRegionMap();}
+function highlightMapRegionRow(group){
+ root.querySelectorAll('#tm-region-results [data-region-select]').forEach(button=>{
+  button.closest('tr')?.classList.toggle('map-row-highlight',group!==null&&Number(button.dataset.regionSelect)===group);
+ });
+}
+root.addEventListener('mouseover',e=>{
+ const label=e.target.closest('[data-map-label-group]');
+ if(!label||label.contains(e.relatedTarget))return;
+ highlightMapRegionRow(Number(label.dataset.mapLabelGroup));
+});
+root.addEventListener('mouseout',e=>{
+ const label=e.target.closest('[data-map-label-group]');
+ if(!label||label.contains(e.relatedTarget))return;
+ const next=e.relatedTarget?.closest?.('[data-map-label-group]');
+ highlightMapRegionRow(next?Number(next.dataset.mapLabelGroup):null);
+});
 root.addEventListener('mouseover',previewTableRegion);
 
 root.addEventListener('focusin',previewTableRegion);
