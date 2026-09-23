@@ -1080,9 +1080,37 @@ function policyRegionNoise(text){
  return hangul<2||/[|=<>_]/.test(value)||(hangul>0&&(value.match(/[0-9]/g)||[]).length>=hangul);
 }
 
+
+// Separate foreground from the dominant RGB background, irrespective of text polarity.
+function policyColorForeground(p,w,h){
+ const bins=new Map();
+ for(let y=1;y<h-1;y++)for(let x=1;x<w-1;x++){
+ const k=(y*w+x)*4,key=(p.data[k]>>4)+','+(p.data[k+1]>>4)+','+(p.data[k+2]>>4);
+ let bin=bins.get(key);if(!bin){bin=[0,0,0,0];bins.set(key,bin)}
+ bin[0]++;bin[1]+=p.data[k];bin[2]+=p.data[k+1];bin[3]+=p.data[k+2];
+ }
+ const dominant=[...bins.values()].sort((a,b)=>b[0]-a[0])[0];
+ if(!dominant)return;
+ const bg=dominant.slice(1).map(v=>v/dominant[0]),distances=new Float32Array(w*h),hist=new Array(256).fill(0);
+ for(let i=0;i<w*h;i++){
+ const k=i*4,d=Math.max(Math.abs(p.data[k]-bg[0]),Math.abs(p.data[k+1]-bg[1]),Math.abs(p.data[k+2]-bg[2]));
+ distances[i]=d;if(d>35)hist[Math.min(255,Math.round(d))]++;
+ }
+ const count=hist.reduce((a,b)=>a+b,0);let cumulative=0,contrast=255;
+ for(let i=0;i<256;i++){cumulative+=hist[i];if(count&&cumulative>=count*.9){contrast=i;break}}
+ contrast=Math.max(60,contrast);
+ for(let i=0;i<w*h;i++){
+ // Preserve antialiased edges, mapping both white and black ink to dark pixels.
+ const v=Math.round(255*(1-Math.max(0,Math.min(1,(distances[i]-8)/(contrast-8)))));
+ p.data[i*4]=p.data[i*4+1]=p.data[i*4+2]=v;p.data[i*4+3]=255;
+ }
+ policyRemoveCellRules(p,w,h);
+}
+
 function policyCellImage(source,x0,y0,x1,y1,binary=false){
  const w=Math.max(1,x1-x0),h=Math.max(1,y1-y0),p=source.context.getImageData(x0,y0,w,h);
  if(binary==='rules')policyRemoveCellRules(p,w,h);
+ if(binary==='color')policyColorForeground(p,w,h);
  const original=(binary==='original'||binary==='pixel')?source.context.getImageData(x0,y0,w,h):null;
  const box=policyNormalizeCell(p,w,h,binary===true),small=document.createElement('canvas');small.width=w;small.height=h;small.getContext('2d').putImageData(original||p,0,0);
  // Keep the entire row height in the original-color pass so thin strokes are not cropped.
@@ -1126,7 +1154,7 @@ function policyBandHasDivider(source,layout,band){
 
 let policyAnalysis=[];
 function policyAnalysisMarkup(){
- return '<div class="notice">획 보존 분석 · 원본 확대, 픽셀 보존 확대, 배경 보정을 비교합니다. 점수는 OCR 신뢰도이며 정답 확률은 아닙니다.</div>'+
+ return '<div class="notice">획 보존 분석 · 원본 확대, 픽셀 보존 확대, 배경 보정, 글자색 분리를 비교합니다. 점수는 OCR 신뢰도이며 정답 확률은 아닙니다.</div>'+
  (policyAnalysis.length?table(['행','선택 결과','다른 판독 결과','분석'],policyAnalysis.map(item=>[String(item.row),policyEscape(item.text),policyEscape(item.alternatives),policyEscape(item.reason)])):'<p class="sub">이미지를 다시 변환하면 행별 판독 결과를 확인할 수 있습니다.</p>');
 }
 function policyRefreshAnalysis(){const el=root.querySelector('#tm-policy-analysis');if(el)el.innerHTML=policyAnalysisMarkup()}
@@ -1168,7 +1196,7 @@ async function policyRecognizeCells(source,layout,ocr){
    const result=await policyOcrTimeout(reader.recognize(policyCellImage(source,left,band.top,right,band.bottom,binary)),30000,'행 인식 제한 시간을 초과했습니다.');
    return {text:String(result.data?.text||'').trim().replace(/\s+/g,' '),confidence:Number(result.data?.confidence||0),family:String(binary),mode};
   };
-  const nameCandidates=[await read(false,'original'),await read(false,'pixel'),await read(false,false)];
+  const nameCandidates=[await read(false,'original'),await read(false,'pixel'),await read(false,false),await read(false,'color')];
   if(new Set(nameCandidates.map(c=>c.text)).size>1||nameCandidates.some(c=>c.confidence<85||!/[가-힣]/.test(c.text)))nameCandidates.push(await read(false,'original','13'));
   let name=policySelectRegion(nameCandidates);
   if(name.review||policyRegionSuspicious(name.text)||irregular){nameCandidates.push(await read(false,'rules','7'));if(policyRegionNoise(name.text))nameCandidates.push(await read(false,'rules','8'));name=policySelectRegion(nameCandidates)}
@@ -1178,7 +1206,7 @@ async function policyRecognizeCells(source,layout,ocr){
   const qtyCandidates=[await read(true,false),await read(true,true)];
   if(qtyCandidates[0].text!==qtyCandidates[1].text||Math.min(...qtyCandidates.map(c=>c.confidence))<85)qtyCandidates.push(await read(true,false,'8'));
   let qty=policyChooseReading(qtyCandidates,true);
-  if(qty.review){qtyCandidates.push(await read(true,'original'));if(!qty.text)qtyCandidates.push(await read(true,true,'10'));qty=policyChooseReading(qtyCandidates,true)}
+  if(qty.review){qtyCandidates.push(await read(true,'original'));qtyCandidates.push(await read(true,'color'));if(!qty.text)qtyCandidates.push(await read(true,true,'10'));qty=policyChooseReading(qtyCandidates,true)}
   qty.review=qty.review||irregular;
   const validQty=/^\d+$/.test(qty.text),review=name.review||qty.review||!validQty;
   rows.push([name.text||'확인 필요',validQty?qty.text:'확인 필요',policyQuantityStatus(qty.text,qty.review)+(name.review?' · 지역명 확인 필요':'')+(irregular?' · 행 구분 확인 필요':'')]);
