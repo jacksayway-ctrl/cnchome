@@ -1169,14 +1169,18 @@ function policyChooseReading(candidates,digits){
 // Validate actual OCR candidates against map names and standard province aliases.
 // This dictionary never generates or substitutes a missing OCR reading.
 function policyKnownRegion(text){
- const value=String(text||'').replace(/\s/g,'');
+ const value=String(text||'').split(/[:：]/,1)[0].replace(/\s/g,'');
  const aliases=['서울','부산','대구','인천','광주','대전','울산','세종','세종특별자치시','경기','강원','강원특별자치도','충북','충남','전북','전남','경북','경남','제주','제주도','제주특별자치도','전북특별자치도'];
- return aliases.includes(value)||regionHierarchyLabels.some(r=>r.name===value||r.name.replace(/[시군구]$/,'')===value);
+ const names=[...aliases,...regionHierarchyLabels.map(r=>r.name),...regionHierarchyLabels.map(r=>r.name.replace(/[시군구]$/,''))];
+ // Parse a real province/city name followed by a directional coverage label.
+ // Validate only: retain the original OCR text, punctuation and Han characters.
+ return names.some(name=>value===name||(value.startsWith(name)&&/^(?:동|서|남|북|동남|동북|서남|서북|남동|남서|북동|북서|중)부$/.test(value.slice(name.length)))||value===name+'전체');
 }
 function policyRegionSuspicious(text){
  if(!/[가-힣]{2}/.test(String(text).replace(/\s/g,'')))return true;
  if(/[A-Za-z0-9=<>_]/.test(text))return true;
- if(/^[가-힣]{2,5}$/.test(String(text).trim())&&!policyKnownRegion(text))return true;
+ const heading=String(text).split(/[:：]/,1)[0].replace(/\s/g,'');
+ if(/^[가-힣]{2,12}$/.test(heading)&&!policyKnownRegion(heading))return true;
  let depth=0;for(const ch of text){if(ch==='(')depth++;if(ch===')'&&--depth<0)return true}
  return depth!==0;
 }
