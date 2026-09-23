@@ -1025,15 +1025,83 @@ function policyUpdateCityRow(index,text,reason){
  policySyncCityText();policyRefreshPreview();toast('최종 지역명을 수정했습니다. 정책표 등록을 누르면 반영됩니다.');
 }
 
+
+// Policy regions are business categories; no official north/south city boundary is assumed.
+const policyDirections=['북부','남부','서부','동부','중부','서북부','서남부','동북부','동남부','북서부','북동부','남서부','남동부'];
+let policyRegisteredScopes=[],policyScopeSelected=0,policyScopeCity='';
+function policyScopeCategory(text){
+ const heading=String(text).split(/[:：(（]/,1)[0].replace(/\s/g,'').replace(/必/g,'');
+ for(const province of Object.keys(policyProvinceNames)){
+  const aliases=[policyProvinceNames[province],province,...({강원:['강원도'],전북:['전라북도']}[province]||[])].sort((a,b)=>b.length-a.length);
+  for(const alias of aliases){if(!heading.startsWith(alias))continue;const rest=heading.slice(alias.length);
+   if(!rest||rest==='전체'||rest==='도'||policyDirections.includes(rest))return {province,region:policyDirections.includes(rest)?rest:'전체',label:province+' '+(policyDirections.includes(rest)?rest:'전체')};
+  }
+ }
+ return {province:'',region:'개별 시',label:'개별 시·지역'};
+}
+function policyParseScope(row,index){
+ const text=String(row[0]||''),category=policyScopeCategory(text),limited=/必/.test(text),excluded=/제외/.test(text),colon=text.search(/[:：]/);
+ let body=colon>=0?text.slice(colon+1):text;
+ if(colon<0&&category.province){const paren=text.search(/[(（]/);body=paren>=0?text.slice(paren+1):''}
+ const cities=[],unknown=[];
+ for(const match of body.matchAll(/[가-힣]+/g)){
+  const token=match[0];if(['제외','포함','전체','지역','일부','및','필수','만','가능'].includes(token))continue;
+  let choices=policyCityData.filter(c=>c.aliases.includes(token));
+  if(category.province)choices=choices.filter(c=>c.province===category.province);
+  if(choices.length===1){const c=choices[0];if(!cities.some(x=>x.name===c.name&&x.province===c.province))cities.push(c)}else unknown.push(token);
+ }
+ const quantity=/^\d+$/.test(String(row[1]).trim())?Number(row[1]):null;
+ const mode=limited?'only':excluded?'exclude':category.region==='전체'&&!body?'all':cities.length?'listed':'unresolved';
+ const errors=[...unknown.map(t=>'지역 확인: '+t)];
+ if(limited&&excluded)errors.push('必와 제외 조건 충돌');
+ if(limited&&!cities.length)errors.push('必 적용 시 목록 필요');
+ if(excluded&&(!category.province||category.region!=='전체'||!cities.length))errors.push('제외할 전체 범위 확인 필요');
+ if(/[#＃]/.test(text))errors.push('# 기호가 必인지 원본 확인 필요');
+ if(mode==='unresolved')errors.push('권역에 포함되는 시 목록 필요');
+ return {index,text,...category,cities,mode,quantity,quantityReview:/확인 필요/.test(String(row[2]||'').split('·')[0]),errors};
+}
+function policyScopeEligibility(scope,city){
+ if(!scope||!city)return {state:'확인 필요',reason:'정책 권역과 시를 선택해 주세요.'};
+ if(scope.province&&scope.province!==city.province)return {state:'불가',reason:'선택한 정책의 시도가 아닙니다.'};
+ const included=scope.cities.some(c=>c.name===city.name&&c.province===city.province);
+ if(scope.mode==='only'&&!included)return {state:'불가',reason:'必: 나열된 시만 가능하며 다른 시로 확대하지 않습니다.'};
+ if(scope.mode==='exclude'&&included)return {state:'불가',reason:'정책에 제외된 시입니다.'};
+ if(scope.errors.length)return {state:'확인 필요',reason:scope.errors.join(' · ')};
+ if(scope.mode==='listed'&&!included)return {state:'확인 필요',reason:'기재되지 않은 시의 권역 포함 여부가 확정되지 않았습니다.'};
+ if(scope.mode==='all'&&!scope.province)return {state:'확인 필요',reason:'전체 적용 시도를 확인해 주세요.'};
+ if(scope.quantity===0)return {state:'불가',reason:'배정 수량이 0입니다.'};
+ if(scope.quantity===null||scope.quantityReview)return {state:'확인 필요',reason:'수량 판독을 확인해 주세요.'};
+ return {state:'가능',reason:'등록된 적용 범위에 해당합니다. 이 정책 행의 수량 '+scope.quantity+'건을 공유합니다.'};
+}
+function policyScopeDescription(scope){
+ const cities=scope.cities.map(c=>c.name).join(', ');
+ if(scope.mode==='only')return '나열된 시만 가능 · '+(cities||'시 목록 확인 필요')+' · 기타 시 불가';
+ if(scope.mode==='exclude')return scope.province+' 전체 중 '+cities+' 제외';
+ if(scope.mode==='all')return scope.province+' 전체';
+ if(scope.mode==='listed')return '기재 시: '+cities+' · 기타 시 범위 미확정';
+ return '권역 내 시 목록 확인 필요';
+}
+function policyScopeTable(rows){
+ if(rows.length<2)return '';
+ const scopes=rows.slice(1).map((row,index)=>policyParseScope(row,index));
+ return '<section style="margin-top:20px"><h3>권역별 적용 범위</h3><p class="sub">1차 분류: 시도·권역 → 2차 분류: 시. 必는 기재한 시만 허용합니다. 권역의 경계는 정책에 명시된 범위를 사용합니다.</p>'+table(['1차 분류','정책 원문','적용 조건','행 수량','확인'],scopes.map(scope=>[policyEscape(scope.label),policyEscape(scope.text),policyEscape(policyScopeDescription(scope)),scope.quantity===null?'확인 필요':String(scope.quantity),policyEscape(scope.errors.join(' · ')||'범위 분석 완료')]))+'</section>';
+}
+function policyScopeChecker(){
+ if(!policyRegisteredScopes.length)return '';
+ const scope=policyRegisteredScopes[policyScopeSelected]||policyRegisteredScopes[0];
+ const city=policyCityData.find(c=>c.province+'|'+c.name===policyScopeCity),result=policyScopeEligibility(scope,city);
+ return '<section style="margin-top:16px"><h3>등록 정책의 시별 가능 여부 확인</h3><div class="row"><label>정책 권역<select id="tm-policy-scope-rule">'+policyRegisteredScopes.map((s,i)=>'<option value="'+i+'" '+(i===policyScopeSelected?'selected':'')+'>'+policyEscape(s.label+' · '+s.text)+'</option>').join('')+'</select></label><label>확인할 시<select id="tm-policy-scope-city"><option value="">시 선택</option>'+policyCityData.map(c=>'<option value="'+policyEscape(c.province+'|'+c.name)+'" '+(policyScopeCity===c.province+'|'+c.name?'selected':'')+'>'+policyEscape(c.province+' '+c.name)+'</option>').join('')+'</select></label></div><div role="status" id="tm-policy-scope-result"><strong>'+result.state+'</strong> · '+policyEscape(result.reason)+'</div></section>';
+}
+
 function policyPreviewMarkup(){
- if(policyRows.length){const width=Math.max(...policyRows.map(row=>row.length));const normalized=policyRows.map(row=>Array.from({length:width},(_,index)=>policyEscape(row[index]||'')));return '<div class="notice">'+(policyRegistered?'등록 완료':'전용 OCR 변환 완료')+(policyInsurer?' · 보험사 '+policyEscape(policyInsurer):'')+' · '+policyRows.length+'행 '+width+'열</div>'+table(normalized[0].map((heading,index)=>heading||'열 '+(index+1)),normalized.slice(1))+policyCityReviewMarkup();}
+ if(policyRows.length){const width=Math.max(...policyRows.map(row=>row.length));const normalized=policyRows.map(row=>Array.from({length:width},(_,index)=>policyEscape(row[index]||'')));return '<div class="notice">'+(policyRegistered?'등록 완료':'전용 OCR 변환 완료')+(policyInsurer?' · 보험사 '+policyEscape(policyInsurer):'')+' · '+policyRows.length+'행 '+width+'열</div>'+table(normalized[0].map((heading,index)=>heading||'열 '+(index+1)),normalized.slice(1))+policyCityReviewMarkup()+policyScopeTable(policyRows);}
  if(policyImageData)return '<div class="notice">정책표 전용 OCR이 표선으로 행과 수량 열을 먼저 나눈 뒤, 한글과 한문(번체·간체)을 로컬에서 인식합니다.</div><img src="'+policyImageData+'" alt="붙여넣은 정책표 이미지" style="display:block;max-width:100%;max-height:420px;margin:12px auto;border:1px solid var(--tm-line);border-radius:8px"><p class="sub">파일: '+policyEscape(policyImageName||'클립보드 이미지')+' · 이미지는 외부 서버에 전송되지 않습니다.</p><div class="row"><button type="button" class="action" data-action="policy-ocr" '+(policyOcrRunning?'disabled':'')+'>'+(policyOcrRunning?'전용 OCR 분석 중':'정책표 최고정밀 OCR로 변환')+'</button><span id="tm-policy-ocr-status" class="sub">'+(policyOcrRunning?'표 구조 분석 중 · '+policyOcrProgress+'%':'행·수량·색상 전용 분석')+'</span></div><div class="track" aria-label="OCR 진행률"><span id="tm-policy-ocr-progress" style="width:'+policyOcrProgress+'%"></span></div>';
  return '<p class="sub">아직 변환할 정책표가 없습니다. 엑셀 표·텍스트를 붙여넣거나 이미지를 선택해 주세요.</p>';
 }
 function policyRegisteredPreviewMarkup(){
  if(!policyRegisteredRows.length)return '<div class="notice">아직 등록된 정책표가 없습니다. 위에서 내용을 변환하고 확인한 뒤 등록해 주세요.</div>';
  const width=Math.max(...policyRegisteredRows.map(row=>row.length)),normalized=policyRegisteredRows.map(row=>Array.from({length:width},(_,index)=>policyEscape(row[index]||'')));
- return '<div class="notice">정상 등록 확인'+(policyInsurer?' · '+policyEscape(policyInsurer):'')+' · '+policyRegisteredRows.length+'행 '+width+'열</div>'+table(normalized[0].map((heading,index)=>heading||'열 '+(index+1)),normalized.slice(1));
+ return '<div class="notice">정상 등록 확인'+(policyInsurer?' · '+policyEscape(policyInsurer):'')+' · '+policyRegisteredRows.length+'행 '+width+'열</div>'+table(normalized[0].map((heading,index)=>heading||'열 '+(index+1)),normalized.slice(1))+policyScopeTable(policyRegisteredRows)+policyScopeChecker();
 }
 function policyRefreshRegistered(){const target=root.querySelector('#tm-policy-registered-preview');if(target)target.innerHTML=policyRegisteredPreviewMarkup()}
 function policyRefreshPreview(){const target=root.querySelector('#tm-policy-preview');if(target)target.innerHTML=policyPreviewMarkup();const register=root.querySelector('[data-action="policy-register"]');if(register)register.disabled=!policyRows.length;policyRefreshAnalysis()}
@@ -1539,13 +1607,14 @@ function intake(){open('보험 접수 등록',`<p class="sub">입력 체험용�
 root.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.salesStatus){salesStatus=b.dataset.salesStatus;root.querySelectorAll('[data-sales-status]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.salesStatus===salesStatus)));root.querySelector('#tm-sales-list').innerHTML=salesStatusRows();return}if(b.dataset.homeStatus){homeStatus=homeStatus===b.dataset.homeStatus?null:b.dataset.homeStatus;root.querySelectorAll('[data-home-status]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.homeStatus===homeStatus)));const target=root.querySelector('#tm-home-status-list');target.innerHTML=homeStatusList();return}if(b.dataset.page){if(window.location.hash==='#'+b.dataset.page){page=b.dataset.page;render();main.scrollTop=0}else{window.location.hash=b.dataset.page}return}if(b.dataset.day){selected=+b.dataset.day;render();return}switch(b.dataset.action){case 'close':modal.close();break;case 'intake':intake();break;case 'staff-add':open('직원 등록',`<p class="sub">신규 직원의 기본정보와 소속·권한을 입력해 주세요.</p><form id="tm-staff-add-form"><div class="fields"><label>직원 이름<input name="name" required autocomplete="off" placeholder="이름"></label><label>연락처<input name="phone" type="tel" required placeholder="010-0000-0000"></label><label>소속팀<select name="team" required><option value="">팀 선택</option>${adminTeams.map(team=>`<option value="${team.id}">${team.name}</option>`).join('')}</select></label><label>권한<select name="role" required><option>상담원</option><option>팀장</option><option>관리자</option></select></label><label>입사일<input name="startDate" type="date" required value="2026-09-23"></label><label>근무 상태<select name="attendance"><option>출근</option><option>미출근</option><option>휴가</option></select></label></div><button type="submit" class="action">직원 등록</button></form>`);break;case 'notice-detail':open('보험팀 중요 공지','<p>접수 가능지역을 확인한 후 상담해 주세요.</p>');break;case 'notice':noticeRead=true;render();toast('공지 확인 완료 · 미리보기에서만 반영됩니다.');break;case 'cash':open('현금 수령 확인',`<p>오늘 일그레이드 <strong>15,000원</strong>을 받으셨나요?</p><p class="sub">예시 수령 확인이며 실제 지급 기록은 생성되지 않습니다.</p><button class="action" data-action="confirm-cash">예시 수령 확인</button>`);break;case 'confirm-cash':cashReceived=true;modal.close();render();toast('예시 수령 확인 완료');break;case 'clockout':open('퇴근 기록 확인',`<p>예시 시각 <strong>16:40</strong>으로 퇴근을 기록합니다.</p><p class="sub">점심 제외 5시간 40분 → 인정 6시간</p><button class="action" data-action="confirm-clockout">예시 퇴근 확인</button>`);break;case 'confirm-clockout':clockedOut=true;modal.close();render();toast('퇴근 기록 체험 완료');break;case 'outing':open('외출 사전 승인 신청',`<form id="tm-outing-form"><div class="fields"><label>외출 구분<select name="kind"><option>개인 외출</option><option>업무 외출</option></select></label><label>예정일<input type="date" value="2026-09-22" required></label><label>외출 예정<input type="time" name="start" required></label><label>복귀 예정<input type="time" name="end" required></label><label class="full">사유<textarea required rows="2"></textarea></label></div><p class="sub">승인 후 외출 시작이 가능합니다.</p><button type="submit" class="action">신청 체험</button></form>`);break;case 'as-detail':open('진행 중인 A/S · 예시 상세',`<p><strong>김예시</strong> · 한화</p><p>전화번호: 010-0000-1200</p><p>주소: 경기도 부천시 예시로 1, 예시동 101호</p><p>${pill('접수 중복','amber')}</p><label>재콜 예정 시각<input type="datetime-local" value="2026-09-22T16:50"></label><p class="sub">표시된 연락처와 주소는 가상 자료입니다.</p><button class="action" data-action="recall">재콜 일정 확인 체험</button>`);break;case 'recall':modal.close();toast('재콜 일정 확인 체험 완료 · 실제로 저장되지 않습니다.');break;}});
 root.addEventListener('paste',e=>{if(e.target.id!=='tm-policy-paste')return;const imageItem=[...(e.clipboardData?.items||[])].find(item=>item.type.startsWith('image/'));if(imageItem){e.preventDefault();policyHandleImage(imageItem.getAsFile());}});
 root.addEventListener('change',e=>{if(e.target.id==='tm-policy-image'&&e.target.files?.[0])policyHandleImage(e.target.files[0]);});
+root.addEventListener('change',e=>{if(e.target.id==='tm-policy-scope-rule'){policyScopeSelected=Number(e.target.value);policyRefreshRegistered()}else if(e.target.id==='tm-policy-scope-city'){policyScopeCity=e.target.value;policyRefreshRegistered()}});
 root.addEventListener('input',e=>{if(e.target.matches('[data-city-row]'))policyCityDrafts.set(Number(e.target.dataset.cityRow),e.target.value)});
 root.addEventListener('click',e=>{const button=e.target.closest('[data-action^="policy-"]');if(!button)return;const action=button.dataset.action;if(action==='policy-city-save'){
  const index=Number(button.dataset.row);policyUpdateCityRow(index,root.querySelector('[data-city-row="'+index+'"]')?.value||'','직접 수정');
  }else if(action==='policy-city-suggest'){
  const index=Number(button.dataset.row),start=Number(button.dataset.start),end=Number(button.dataset.end),current=policyRows[index]?.[0];
  if(policyCityDrafts.has(index)&&policyCityDrafts.get(index)!==current){toast('입력한 지역명을 먼저 수정 적용해 주세요.');return}if(typeof current==='string'&&current.slice(start,end)===button.dataset.token&&policyCityData.some(c=>c.name===button.dataset.city))policyUpdateCityRow(index,current.slice(0,start)+button.dataset.city+current.slice(end),'후보 선택');
- }else if(action==='policy-analyze'){policyAnalyzeExisting();}else if(action==='policy-ocr'){policyRunOcr();}else if(action==='policy-parse'){const text=root.querySelector('#tm-policy-paste')?.value||'';policyRows=policyCleanRows(parsePolicyText(text));policyPrepareCityReview();policyAnalysis=[];policyImageData='';policyImageName='';policyRegistered=false;policyRefreshPreview();toast(policyRows.length?'붙여넣은 내용을 표로 변환했습니다.':'변환할 텍스트를 붙여넣어 주세요.');}else if(action==='policy-clear'){policyAnalysis=[];policyRows=[];policyImageData='';policyImageName='';policyRegistered=false;const input=root.querySelector('#tm-policy-paste');if(input)input.value='';const file=root.querySelector('#tm-policy-image');if(file)file.value='';policyRefreshPreview();}else if(action==='policy-register'){if(!policyRows.length){toast('먼저 정책표를 표로 변환해 주세요.');return}if([...root.querySelectorAll('[data-city-row]')].some(input=>!input.value.trim())){toast('지역명이 빈 행을 확인해 주세요.');return}for(const input of root.querySelectorAll('[data-city-row]')){const index=Number(input.dataset.cityRow),value=input.value.trim();if(!value){toast('지역명이 빈 행을 확인해 주세요.');return}if(policyRows[index]&&policyRows[index][0]!==value){policyCityAudit.push({row:index,from:policyRows[index][0],to:value,reason:'등록 시 직접 수정'});policyRows[index][0]=value}}policyCityDrafts.clear();policySyncCityText();policyRegistered=true;policyRegisteredRows=policyCleanRows(policyRows);policyRefreshPreview();policyRefreshRegistered();toast('정책표가 정상 등록되었습니다. 아래 등록 결과 표를 확인해 주세요.');}});
+ }else if(action==='policy-analyze'){policyAnalyzeExisting();}else if(action==='policy-ocr'){policyRunOcr();}else if(action==='policy-parse'){const text=root.querySelector('#tm-policy-paste')?.value||'';policyRows=policyCleanRows(parsePolicyText(text));policyPrepareCityReview();policyAnalysis=[];policyImageData='';policyImageName='';policyRegistered=false;policyRefreshPreview();toast(policyRows.length?'붙여넣은 내용을 표로 변환했습니다.':'변환할 텍스트를 붙여넣어 주세요.');}else if(action==='policy-clear'){policyAnalysis=[];policyRows=[];policyImageData='';policyImageName='';policyRegistered=false;const input=root.querySelector('#tm-policy-paste');if(input)input.value='';const file=root.querySelector('#tm-policy-image');if(file)file.value='';policyRefreshPreview();}else if(action==='policy-register'){if(!policyRows.length){toast('먼저 정책표를 표로 변환해 주세요.');return}if([...root.querySelectorAll('[data-city-row]')].some(input=>!input.value.trim())){toast('지역명이 빈 행을 확인해 주세요.');return}for(const input of root.querySelectorAll('[data-city-row]')){const index=Number(input.dataset.cityRow),value=input.value.trim();if(!value){toast('지역명이 빈 행을 확인해 주세요.');return}if(policyRows[index]&&policyRows[index][0]!==value){policyCityAudit.push({row:index,from:policyRows[index][0],to:value,reason:'등록 시 직접 수정'});policyRows[index][0]=value}}policyCityDrafts.clear();policySyncCityText();policyRegistered=true;policyRegisteredRows=policyCleanRows(policyRows);policyRegisteredScopes=policyRegisteredRows.slice(1).map((row,index)=>policyParseScope(row,index));policyScopeSelected=0;policyScopeCity='';policyRefreshPreview();policyRefreshRegistered();toast('정책표가 정상 등록되었습니다. 아래 등록 결과 표를 확인해 주세요.');}});
 root.addEventListener('input',e=>{if(e.target.id==='tm-region-search')filterRegions()});
 root.addEventListener('change',e=>{if(e.target.id==='tm-age')filterRegions();if(e.target.id==='tm-map-carrier'){mapCarrier=e.target.value;filterRegions();}});
 root.addEventListener('submit',e=>{e.preventDefault();if(e.target.id==='tm-staff-add-form'){if(!e.target.reportValidity())return;const f=new FormData(e.target);adminEmployees.push({name:String(f.get('name')).trim(),phone:String(f.get('phone')).trim(),team:String(f.get('team')),role:String(f.get('role')),startDate:String(f.get('startDate')),attendance:String(f.get('attendance')),normal:0,pending:0,as:0,monthly:0,grade:'60건 이하'});modal.close();page='adminStaff';render();toast('직원이 등록되었습니다. · 미리보기에서만 반영됩니다.');return}if(e.target.id==='tm-outing-form'){const f=new FormData(e.target);if(f.get('end')<=f.get('start')){toast('복귀 예정 시간은 외출 예정 시간 이후로 입력해 주세요.');return}outing='pending';root.dataset.outingKind=f.get('kind');modal.close();render();toast('외출 신청 체험 완료 · 관리자 승인 대기 상태입니다.')}else if(e.target.id==='tm-intake-form'){modal.close();toast('접수 입력 체험 완료 · 실제 접수·수량·실적에는 반영되지 않습니다.')}});
