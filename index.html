@@ -44,12 +44,18 @@ html,body{height:100%;overflow:hidden}
 #tm-preview .header-grades caption{position:absolute;width:1px;height:1px;padding:0;overflow:hidden;clip-path:inset(50%)}
 @media(max-width:1000px){#tm-preview .header-grades{min-width:270px}#tm-preview header{gap:12px}}
 @media(max-width:760px){#tm-preview .header-grades{order:3;width:100%;min-width:0}#tm-preview .header-grades th,#tm-preview .header-grades td{padding:5px 8px}#tm-preview header h1{font-size:18px}}
+/* Horizontal grade summary. */
+#tm-preview .header-grades{min-width:350px}
+#tm-preview .header-grades table{table-layout:fixed}
+#tm-preview .header-grades th,#tm-preview .header-grades td,#tm-preview .header-grades th:not(:first-child),#tm-preview .header-grades td:not(:first-child){text-align:center;padding:9px 10px;white-space:nowrap}
+#tm-preview .header-grades td{font-size:17px}
+@media(max-width:760px){#tm-preview .header-grades{min-width:0}#tm-preview .header-grades th,#tm-preview .header-grades td{white-space:normal;padding:6px 4px}#tm-preview .header-grades td{font-size:14px}}
 </style>
 <div class="shell">
 <aside><div class="brand"><b>▥</b> TM OFFICE</div><div class="team">보험영업 1팀 · 상담원</div><div class="mobile-note">PC용 화면 미리보기</div><nav aria-label="직원 메뉴">
 <button data-page="home" class="active"><span aria-hidden="true">⌂</span>홈</button><button data-page="regions"><span aria-hidden="true">⌖</span>접수 가능지역</button><button data-page="attendance"><span aria-hidden="true">▦</span>출결</button><button data-page="sales"><span aria-hidden="true">▥</span>실적</button><button data-page="daily"><span aria-hidden="true">₩</span>일그레이드</button><button data-page="weekly"><span aria-hidden="true">▤</span>주그레이드</button><button data-page="monthly"><span aria-hidden="true">☆</span>월그레이드</button><div class="nav-cut">추가 업무 · 권한 부여됨</div><button data-page="as"><span aria-hidden="true">⚒</span>A/S</button>
 </nav></aside>
-<div class="work"><header><div><h1>안녕하세요, 김상담님</h1><div class="sub">보험영업 1팀 <span aria-hidden="true">·</span> 2026년 9월 22일 (화)</div></div><div class="header-grades"><table aria-label="그레이드 목표 및 현재 달성 현황"><caption>팀 공통 기준 · 월그레이드는 101건 구간 목표 · 예시</caption><thead><tr><th scope="col">그레이드</th><th scope="col">목표</th><th scope="col">달성</th></tr></thead><tbody><tr><th scope="row">일그레이드</th><td>6건</td><td class="achieved" id="tm-head-daily">8건</td></tr><tr><th scope="row">주간그레이드</th><td>평균 6건</td><td class="achieved" id="tm-head-weekly">평균 3건</td></tr><tr><th scope="row">월그레이드</th><td>101건</td><td class="achieved" id="tm-head-monthly">88건</td></tr></tbody></table></div><button class="action" data-action="intake">＋ 접수 등록</button></header><div class="sample">직원 화면 미리보기 · 모든 이름·실적·금액은 예시입니다.</div><div id="tm-toast" class="toast" role="status" hidden></div><main id="tm-main"></main></div>
+<div class="work"><header><div><h1>안녕하세요, 김상담님</h1><div class="sub">보험영업 1팀 <span aria-hidden="true">·</span> 2026년 9월 22일 (화)</div></div><div class="header-grades"><table aria-label="일·주 목표 대비 달성 및 월 현재 실적 구간"><caption>일·주: 목표/달성 · 월: 현재 실적 구간</caption><thead><tr><th scope="col">일그레이드</th><th scope="col">주그레이드</th><th scope="col">월그레이드</th></tr></thead><tbody><tr><td class="achieved" id="tm-head-daily">6/8</td><td class="achieved" id="tm-head-weekly">평균 6/3</td><td class="achieved" id="tm-head-monthly">81~90건</td></tr></tbody></table></div><button class="action" data-action="intake">＋ 접수 등록</button></header><div class="sample">직원 화면 미리보기 · 모든 이름·실적·금액은 예시입니다.</div><div id="tm-toast" class="toast" role="status" hidden></div><main id="tm-main"></main></div>
 </div>
 <dialog id="tm-dialog" aria-labelledby="tm-dialog-title"><div class="row"><h2 id="tm-dialog-title">접수 등록</h2><button class="secondary" data-action="close" aria-label="창 닫기">닫기</button></div><div id="tm-dialog-body"></div></dialog>
 <script>
@@ -58,9 +64,9 @@ const root=document.getElementById('tm-preview'), main=root.querySelector('#tm-m
 let page='home',selected=22,noticeRead=false,cashReceived=false,outing='none',clockedOut=false;
 const performance={1:4,2:5,3:6,4:4,7:5,8:3,9:6,10:7,11:4,14:6,15:5,16:7,17:6,18:5,21:7,22:8};
 const total=Object.values(performance).reduce((a,b)=>a+b,0);
-root.querySelector('#tm-head-daily').textContent=performance[22]+'건';
-root.querySelector('#tm-head-weekly').textContent='평균 '+((performance[21]+performance[22])/5).toFixed(1)+'건';
-root.querySelector('#tm-head-monthly').textContent=total+'건';
+root.querySelector('#tm-head-daily').textContent='6/'+performance[22];
+root.querySelector('#tm-head-weekly').textContent='평균 6/'+Number(((performance[21]+performance[22])/5).toFixed(1));
+root.querySelector('#tm-head-monthly').textContent=total<=60?'60건 이하':total<=70?'61~70건':total<=80?'71~80건':total<=90?'81~90건':total<=100?'91~100건':'101건 이상';
 const names=['김예시','이예시','박예시','최예시','정예시','윤예시','장예시','한예시'];
 const areas=['경기도 부천시','경기도 시흥시','경기도 고양시','충북 청주시','대전 서구','경기도 용인시','경기도 파주시','경남 창원시'];
 const regions=[['부천시 · 시흥시','경기도','2 / 2','4 / 2','일반·실버 모두 확인','부천시 원미구 · 시흥시 정왕동'],['고양시 · 파주시','경기도','3 / 3','4 / 2','수도권 공유 수량','파주시 문산읍 · 고양시 덕양구'],['용인시 · 안성시','경기도','3 / 3','4 / 2','수도권 공유 수량','용인시 처인구 포곡읍 · 안성시 공도읍'],['충청북도','충청','3 / 3','1 / 1','대전·충청 공유 수량','청주시 오창읍 · 옥천군 옥천읍'],['대전 · 금산','충청','4 / 4','1 / 1','대전·충청 공유 수량','금산군 금산읍 · 대전 서구'],['창원시','경남','4 / 4','25 / 18','부산·울산·경남 공유 수량','창원시 의창구 북면'],['서울특별시','서울','0 / 0','4 / 2','수도권 공유 수량','서울 강남구 · 송파구']];
