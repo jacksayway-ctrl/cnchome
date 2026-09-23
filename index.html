@@ -1194,7 +1194,7 @@ async function policyRecognizeCells(source,layout,ocr){
    const reader=digits?ocr.digitWorker:worker;
    await reader.setParameters({tessedit_pageseg_mode:mode,tessedit_char_whitelist:digits?'0123456789':'',preserve_interword_spaces:'1',user_defined_dpi:'300'});
    const result=await policyOcrTimeout(reader.recognize(policyCellImage(source,left,band.top,right,band.bottom,binary)),30000,'행 인식 제한 시간을 초과했습니다.');
-   return {text:String(result.data?.text||'').trim().replace(/\s+/g,' '),confidence:Number(result.data?.confidence||0),family:String(binary),mode};
+   return {text:String(result.data?.text||'').replace(/必/g,'').trim().replace(/\s+/g,' '),confidence:Number(result.data?.confidence||0),family:String(binary),mode};
   };
   const nameCandidates=[await read(false,'original'),await read(false,'pixel'),await read(false,false),await read(false,'color')];
   if(new Set(nameCandidates.map(c=>c.text)).size>1||nameCandidates.some(c=>c.confidence<85||!/[가-힣]/.test(c.text)))nameCandidates.push(await read(false,'original','13'));
