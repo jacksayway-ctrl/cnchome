@@ -981,10 +981,19 @@ function policyCityDistance(a,b){
  for(let i=1;i<=x.length;i++){const next=[i];for(let j=1;j<=y.length;j++)next[j]=Math.min(next[j-1]+1,previous[j]+1,previous[j-1]+(x[i-1]===y[j-1]?0:1));previous=next}
  return previous[y.length];
 }
+// Reference names confirmed in the supplied policy image; not a nationwide county registry.
+const policyReferenceCounties=['성주','칠곡','예천','봉화','고령','청도','의성','청송','영양','영덕','울진','울릉'];
+function policyCorrectCountyReading(text){
+ const tokens=String(text).match(/[가-힣]+/g)||[];
+ const countyContext=tokens.some(t=>t==='칠곡'||t==='칠곡군')&&tokens.some(t=>t==='예천'||t==='예천군');
+ if(!countyContext)return String(text);
+ return String(text).replace(/[가-힣]+/g,token=>token==='성수'?'성주':token==='성수군'?'성주군':token);
+}
 function policyCityIssues(text){
  const province=policyCityProvince(text),issues=[];
  for(const match of String(text).matchAll(/[가-힣]+/g)){
-  const token=match[0];if(token.length<2)continue;
+  const token=match[0];if(token.length<2){if(token==='수')issues.push({token,start:match.index,end:match.index+token.length,kind:'unknown',choices:[]});continue}
+  if(policyReferenceCounties.includes(token)||policyReferenceCounties.some(name=>name+'군'===token))continue;
   let exact=policyCityData.filter(c=>c.aliases.includes(token)||(c.province!=='광주'&&c.name.endsWith('시')&&c.name.replace(/(?:특별자치시|특별시|광역시)$/,'시')===token));
   if(province&&exact.some(c=>c.province===province))exact=exact.filter(c=>c.province===province);
   if(exact.length){if(exact.length>1)issues.push({token,start:match.index,end:match.index+token.length,kind:'ambiguous',choices:exact});continue}
@@ -1002,7 +1011,10 @@ function policyPrepareCityReview(){
    const target=policyApprovedCityCorrections.get(token);
    if(!target||!policyCityData.some(c=>c.name===target))return token;
    policyCityAudit.push({row:index,from:token,to:target,reason:'요청하신 지명 보정'});return target;
-  });return copy;
+  });
+  const countyCorrected=policyCorrectCountyReading(copy[0]);
+  if(countyCorrected!==copy[0]){policyCityAudit.push({row:index,from:copy[0],to:countyCorrected,reason:'원본 확인 · 칠곡·예천 문맥의 성주 보정'});copy[0]=countyCorrected}
+  return copy;
  });
  policySyncCityText();
 }
