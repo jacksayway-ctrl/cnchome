@@ -918,12 +918,27 @@ const adminEmployees=[
 ];
 function adminAttendancePill(status){return pill(status,status==='출근'?'green':status==='휴가'?'amber':'pink')}
 function adminTeamTotals(teamId){const people=adminEmployees.filter(employee=>employee.team===teamId);return {people,present:people.filter(employee=>employee.attendance==='출근').length,normal:people.reduce((sum,employee)=>sum+employee.normal,0),pending:people.reduce((sum,employee)=>sum+employee.pending,0),as:people.reduce((sum,employee)=>sum+employee.as,0),monthly:people.reduce((sum,employee)=>sum+employee.monthly,0)}}
+const adminTeamPerformance={
+ insurance:{1:18,2:21,3:24,4:19,7:23,8:20,9:26,10:28,11:22,14:25,15:27,16:24,17:29,18:26,21:25,22:10},
+ cosmetics:{1:15,2:18,3:20,4:16,7:19,8:17,9:22,10:24,11:18,14:21,15:23,16:20,17:25,18:22,21:21,22:8}
+};
+function adminTeamPerformanceCalendar(team){
+ const daily=adminTeamPerformance[team.id]||{},monthTotal=Object.values(daily).reduce((sum,count)=>sum+count,0);
+ const firstDay=new Date(2026,8,1).getDay();
+ let cells=Array.from({length:firstDay},()=>'<div class="empty" aria-hidden="true"></div>').join('');
+ for(let day=1;day<=30;day++){
+  const count=daily[day],future=day>22;
+  cells+=`<div class="day ${day===22?'active':''}" aria-label="9월 ${day}일 ${future?'집계 전':'정상 접수 '+(count||0)+'건'}"><span>${day}</span><small>${future?'집계 전':count?'정상 '+count+'건':'0건'}</small></div>`;
+ }
+ return panel(team.name+' 실적 달력',`<div class="row" style="margin-bottom:12px"><strong>2026년 9월</strong><span class="pill">정상접수 누계 ${monthTotal}건</span></div><div class="calendar">${['일','월','화','수','목','금','토'].map(day=>`<div class="weekday">${day}</div>`).join('')}${cells}</div>`);
+}
 function adminHome(){
  const totals=adminTeams.map(team=>({team,...adminTeamTotals(team.id)}));
  const present=totals.reduce((sum,item)=>sum+item.present,0),normal=totals.reduce((sum,item)=>sum+item.normal,0),pending=totals.reduce((sum,item)=>sum+item.pending,0),asCount=totals.reduce((sum,item)=>sum+item.as,0);
  const teamSummary=table(['팀','재직','오늘 출근','정상 접수','가접수','A/S','월 실적'],totals.map(item=>[item.team.name,item.people.length+'명',item.present+'명',item.normal+'건',item.pending+'건',item.as+'건',item.monthly+'건']).concat([['전체',adminEmployees.length+'명',present+'명',normal+'건',pending+'건',asCount+'건',totals.reduce((sum,item)=>sum+item.monthly,0)+'건']]));
  const teamPanels=totals.map(item=>panel(item.team.name+' 직원 현황',table(['직원','출결','정상 접수','가접수','A/S','월 실적','월그레이드'],item.people.map(employee=>[employee.name,adminAttendancePill(employee.attendance),employee.normal+'건',employee.pending+'건',employee.as+'건',employee.monthly+'건',employee.grade])))).join('');
  return `<div class="row"><div><h2>관리자 홈</h2><p class="sub">전체 직원을 영업팀별로 구분해 오늘 운영 현황을 확인합니다.</p></div><span class="pill">전체 직원 ${adminEmployees.length}명 · ${adminTeams.length}개 팀</span></div>`+
+ `<div class="detail-grid">${adminTeams.map(adminTeamPerformanceCalendar).join('')}</div>`+
  stats([['운영 팀',adminTeams.length+'개','보험팀 · 화장품팀'],['오늘 출근',present+'명','전체 '+adminEmployees.length+'명'],['오늘 전체 접수',(normal+pending+asCount)+'건','정상 '+normal+' · 가접수 '+pending+' · A/S '+asCount]])+
  panel('팀별 현황',teamSummary)+teamPanels+
  `<div class="notice">팀 목록에 새 팀을 추가하면 팀별 요약과 직원 현황 구역이 자동으로 확장됩니다.</div>`
