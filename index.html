@@ -1203,24 +1203,30 @@ function policyHeadingConsensus(candidates){
  if(supported.length!==1)return null;
  return [...supported[0].values()].sort((a,b)=>b.confidence-a.confidence)[0];
 }
-async function policyReadHeading(source,layout,band,ocr){
- const crop=policyHeadingCrop(source,layout,band);if(!crop)return {candidates:[],selected:null};
+function policyStandaloneHeading(text){
+ const compact=String(text||'').replace(/\s/g,'');
+ return /^[가-힣]{2,4}(?:동|서|남|북|동남|동북|서남|서북|남동|남서|북동|북서|중)[부구]$/.test(compact);
+}
+async function policyReadHeading(source,layout,band,ocr,currentText=''){
+ const crop=policyHeadingCrop(source,layout,band)||(policyStandaloneHeading(currentText)?{left:2,right:layout.divider-2}:null);
+ if(!crop)return {candidates:[],selected:null};
  const worker=await ocr.getRegionWorker(),candidates=[];
- for(const [variant,mode] of [['pixel','7'],['stroke','7'],['channel','13']]){
+ for(const [variant,mode] of [['pixel','7'],['stroke','7'],['channel','13'],['original','13'],['color','8']]){
   await worker.setParameters({tessedit_pageseg_mode:mode,tessedit_char_whitelist:'',preserve_interword_spaces:'1',user_defined_dpi:'300'});
   const result=await policyOcrTimeout(worker.recognize(policyCellImage(source,crop.left,band.top,crop.right,band.bottom,variant)),30000,'지역명 확대 판독 제한 시간을 초과했습니다.');
-  candidates.push({text:String(result.data?.text||'').trim().replace(/\s+/g,' '),confidence:Number(result.data?.confidence||0),family:'heading-kor-'+variant,mode});
+  candidates.push({text:String(result.data?.text||'').trim().replace(/\s+/g,' '),confidence:Number(result.data?.confidence||0),family:'heading-kor-'+(variant==='stroke'?'color':variant),mode});
+  if(candidates.length>=3&&policyHeadingConsensus(candidates))break;
  }
  return {candidates,selected:policyHeadingConsensus(candidates)};
 }
 function policyApplyHeading(name,heading){
  // Keep the city list, Han characters, and symbols exactly as the full-line OCR read them.
  const colon=String(name.text||'').search(/[:：]/);
- if(!heading||colon<0)return name;
- const previous=name.text.slice(0,colon).replace(/\s/g,''),next=heading.text.replace(/\s/g,'');
+ if(!heading||(colon<0&&!policyStandaloneHeading(name.text)))return name;
+ const previous=(colon<0?name.text:name.text.slice(0,colon)).replace(/\s/g,''),next=heading.text.replace(/\s/g,'');
  if(previous===next)return name;
  if(policyKnownRegion(previous))return {...name,review:true};
- return {...name,text:heading.text.trim()+' '+name.text.slice(colon),review:true,headingCorrected:true};
+ return {...name,text:heading.text.trim()+(colon<0?'':' '+name.text.slice(colon)),review:true,headingCorrected:true};
 }
 
 function policyQuantityStatus(text,review){
@@ -1367,7 +1373,7 @@ async function policyRecognizeCells(source,layout,ocr){
   }
   let headingReadings=[];
   if(!title&&(name.review||policyRegionSuspicious(name.text))){
-   const heading=await policyReadHeading(source,layout,band,ocr);
+   const heading=await policyReadHeading(source,layout,band,ocr,name.text);
    headingReadings=heading.candidates;
    name=policyApplyHeading(name,heading.selected);
   }
