@@ -347,8 +347,8 @@ function updateMapLabels(svg){
  if(mapHoveredGroup!==null&&labels.length){
   const bounds=regionMapShapes.filter(f=>f.group===mapHoveredGroup).map(f=>f.b);
   const x1=Math.min(...bounds.map(b=>b[0])),y1=Math.min(...bounds.map(b=>b[1]));
-  const rect=svg.getBoundingClientRect();
-  const unitsPerPixel=1/Math.max(.001,Math.min(rect.width/dims[2],rect.height/dims[3]));
+  const matrix=svg.getScreenCTM();
+  const unitsPerPixel=matrix?1/Math.max(.001,Math.hypot(matrix.a,matrix.b)):dims[2]/Math.max(1,host.clientWidth);
   for(const label of labels){
    label.labelWidth=320*unitsPerPixel;
    label.labelHeight=150*unitsPerPixel;
@@ -404,7 +404,15 @@ function updateRegionMap(){
  const dims=box.split(' ').map(Number);
  const regionNames=regionHierarchyLabels.map(label=>`<text class="map-region-name" data-level="${label.level}" data-priority="${activeGroup!==null&&label.group===activeGroup?1:0}" x="${label.point[0]}" y="${label.point[1]}" text-anchor="middle" dominant-baseline="middle" pointer-events="none">${label.name}</text>`).join('');
  host.style.setProperty('--map-ratio',dims[2]/dims[3]);host.innerHTML=`<svg viewBox="${box}" data-full-width="${maxX-minX+2}" data-full-height="${maxY-minY+2}" preserveAspectRatio="xMidYMid meet" role="group" aria-label="전국 접수 가능지역 지도">${paths}<defs><clipPath id="tm-selected-map-clip">${visibleShapes.filter(f=>!focused(f)&&!available(f.group)).map(f=>`<path d="${f.d}"/>`).join('')}</clipPath><clipPath id="tm-available-inner-clip">${visibleShapes.filter(f=>available(f.group)||focused(f)).map(f=>`<path d="${f.d}"/>`).join('')}</clipPath></defs><g clip-path="url(#tm-selected-map-clip)"><path d="${regionBorders.city}" class="map-city-border"/><path d="${regionBorders.province}" class="map-province-border"/></g><path d="${regionBorders.city}" class="map-shared-inner-border" clip-path="url(#tm-available-inner-clip)"/>${[...new Set(visibleShapes.filter(f=>available(f.group)&&!focused(f)).map(f=>f.group))].map(i=>`<path d="${regionSelectedEdges[i]||combinedShapes.filter(f=>f.group===i).map(f=>f.d).join(' ')}" class="map-availability-border"/>`).join('')}${[...new Set(selected.map(f=>f.group))].filter(i=>i>=0).map(i=>`<path d="${regionSelectedEdges[i]||combinedShapes.filter(f=>f.group===i).map(f=>f.d).join(' ')}" class="map-availability-border map-search-border"/>`).join('')}${regionNames}${jejuLabel}<g class="map-label-layer"></g></svg>`;
- layoutMapRegionNames(host.querySelector(':scope > svg'));
+ const renderedMap=host.querySelector(':scope > svg');
+ layoutMapRegionNames(renderedMap);
+ // Recalculate fixed pixel card dimensions after layout and whenever the map resizes.
+ host._mapResizeObserver?.disconnect();
+ host._mapResizeObserver=new ResizeObserver(()=>{
+  if(renderedMap.isConnected)layoutMapRegionNames(renderedMap);
+ });
+ host._mapResizeObserver.observe(renderedMap);
+ requestAnimationFrame(()=>{if(renderedMap.isConnected)layoutMapRegionNames(renderedMap);});
  root.querySelector('#tm-map-detail').textContent='마지막 미리보기 유지 · 마우스 휠로 확대/축소 · 클릭 드래그로 이동 · 지도 더블클릭으로 상단 정렬 전체 보기 · 아이템별 남은 공유 수량';
  if(activeGroup!==null){showMapRegion(activeGroup)}
 }
