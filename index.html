@@ -209,6 +209,20 @@ html,body{height:100%;overflow:hidden}
 #tm-preview .panel .attendance-heading.attendance-controls{display:flex;flex-direction:row;align-items:center;justify-content:flex-start;flex-wrap:nowrap;gap:12px;width:100%;margin:0 0 14px;padding:0;overflow-x:auto}
 #tm-preview .panel .attendance-heading.attendance-controls>h3,#tm-preview .panel .attendance-heading.attendance-controls>label,#tm-preview .panel .attendance-heading.attendance-controls>button{display:inline-flex;align-items:center;flex:0 0 auto;width:auto;margin:0;white-space:nowrap}
 #tm-preview .panel .attendance-heading.attendance-controls>h3{font-size:16px;line-height:38px}
+
+#tm-preview button.attendance-date{border:0;border-top:1px solid #e6edf5;border-right:1px solid #e6edf5;border-radius:0;text-align:left;color:var(--tm-ink);font:inherit;cursor:pointer}
+#tm-preview button.attendance-date:hover{background:#f0f6ff}
+#tm-preview button.attendance-date.is-selected{background:#eaf3ff;box-shadow:inset 0 0 0 2px #2563eb}
+#tm-preview .attendance-date .attendance-holiday,#tm-preview .attendance-holiday{color:#c52c3d;font-weight:600;white-space:normal}
+#tm-preview .attendance-request{font-size:12px;color:#886012;background:#fff2d9;padding:3px 5px;border-radius:4px}
+#tm-preview .attendance-leave{margin-top:14px;padding:16px;border:1px solid #bfd4f1;border-radius:10px;background:#f7faff}
+#tm-preview .attendance-leave h3{margin:0}
+#tm-preview .attendance-leave textarea{width:100%;margin-top:6px}
+#tm-preview .attendance-leave-types{display:flex;gap:16px;border:0;padding:10px 0;margin:0}
+#tm-preview .attendance-leave-types label{display:inline-flex;align-items:center;gap:6px}
+#tm-preview .attendance-leave-types input{width:auto;margin:0}
+
+#tm-preview .attendance-controls #tm-attendance-year,#tm-preview .attendance-controls #tm-attendance-month{height:36px;width:92px;min-width:92px;padding:6px 10px;font-size:14px;line-height:22px;border:1px solid #d4deeb;border-radius:6px;background:#fff;color:#173c70}
 </style>
 <div class="shell">
 <aside><div class="brand"><b>▥</b> TM OFFICE</div><div class="team">보험영업 1팀 · 상담원</div><div class="mobile-note">PC용 화면 미리보기</div><nav aria-label="직원 메뉴">
@@ -552,7 +566,62 @@ function attendanceRecords(){return [
 ]}
 function attendanceMonthKey(){return attendanceYear+'-'+String(attendanceMonth).padStart(2,'0')}
 function attendanceRecordTable(records){return records.length?table(['날짜','출근','퇴근','상태','인정 시간'],records.slice().sort((a,b)=>b.date.localeCompare(a.date)).map(r=>[r.date,r.start,r.end,r.status,r.hours])):'<p class="sub">선택한 달의 출결 내역이 없습니다.</p>'}
+
+// Holiday rules checked against the 2026-05-01 public holiday regulation and KASA 2027 calendar.
+const attendanceHolidayCache=new Map();
+function attendanceHolidays(year){
+ if(attendanceHolidayCache.has(year))return attendanceHolidayCache.get(year);
+ const result={},groups=[];
+ const key=d=>d.toISOString().slice(0,10),date=(m,d)=>new Date(Date.UTC(year,m-1,d)),shift=(d,n)=>new Date(d.getTime()+n*86400000);
+ function add(days,name,sub){groups.push({days,name,sub});days.forEach((d,i)=>{const label=days.length===3&&i!==1?name+' 연휴':name;const k=key(d);result[k]=result[k]?result[k]+' · '+label:label;});}
+ add([date(1,1)],'신정',false);add([date(3,1)],'삼일절',year>=2022?'weekend':false);
+ add([date(5,5)],'어린이날','weekend');add([date(6,6)],'현충일',false);
+ if(year>=2026){add([date(5,1)],'노동절','weekend');add([date(7,17)],'제헌절','weekend');}
+ add([date(8,15)],'광복절',year>=2021?'weekend':false);add([date(10,3)],'개천절',year>=2021?'weekend':false);add([date(10,9)],'한글날',year>=2021?'weekend':false);add([date(12,25)],'성탄절',year>=2023?'weekend':false);
+ const lunar=new Intl.DateTimeFormat('en-u-ca-dangi',{month:'numeric',day:'numeric',timeZone:'Asia/Seoul'});
+ for(let d=date(1,1);d.getUTCFullYear()===year;d=shift(d,1)){
+  const parts=lunar.formatToParts(d),m=parts.find(p=>p.type==='month').value,day=parts.find(p=>p.type==='day').value;
+  if(m==='1'&&day==='1')add([shift(d,-1),d,shift(d,1)],'설날','sunday');
+  if(m==='4'&&day==='8')add([d],'부처님오신날',year>=2023?'weekend':false);
+  if(m==='8'&&day==='15')add([shift(d,-1),d,shift(d,1)],'추석','sunday');
+ }
+ // One-off nationally designated holidays; extend when new dates are announced.
+ const special={'2022-03-09':'대통령선거','2022-06-01':'전국동시지방선거','2023-10-02':'임시공휴일','2024-04-10':'국회의원선거','2024-10-01':'임시공휴일','2025-01-27':'임시공휴일','2025-06-03':'대통령선거','2026-06-03':'전국동시지방선거'};
+ Object.entries(special).forEach(([k,v])=>{if(k.startsWith(year+'-'))result[k]=v});
+ groups.sort((a,b)=>a.days[0]-b.days[0]).forEach(g=>{
+  if(!g.sub)return;
+  const overlap=g.days.some(d=>d.getUTCDay()===0||(g.sub==='weekend'&&d.getUTCDay()===6)||(d.getUTCDay()!==0&&d.getUTCDay()!==6&&result[key(d)].includes(' · ')));
+  if(!overlap)return;
+  let next=shift(g.days[g.days.length-1],1);while(next.getUTCDay()===0||next.getUTCDay()===6||result[key(next)])next=shift(next,1);
+  result[key(next)]='대체공휴일 ('+g.name+')';
+ });
+ attendanceHolidayCache.set(year,result);return result;
+}
+let attendanceSelectedDate=null;
+const attendanceLeaveRequests=new Map();
+function attendanceEscape(value){return String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function attendanceLeaveForm(){
+ if(!attendanceSelectedDate)return '';
+ const request=attendanceLeaveRequests.get(attendanceSelectedDate),holiday=attendanceHolidays(Number(attendanceSelectedDate.slice(0,4)))[attendanceSelectedDate];
+ return `<section id="tm-attendance-leave" class="attendance-leave" aria-label="병가 또는 휴가 신청"><div class="row"><h3>${attendanceSelectedDate} · 병가 / 휴가 신청</h3><button type="button" class="secondary" data-leave-close>닫기</button></div>${holiday?`<p class="attendance-holiday">${holiday}</p>`:''}${request?`<p role="status"><strong>${request.kind} · 신청 대기 (미리보기)</strong></p><p>${attendanceEscape(request.reason)}</p><button type="button" class="secondary" data-leave-cancel>신청 취소</button>`:`<form id="tm-attendance-leave-form"><fieldset class="attendance-leave-types"><legend>신청 구분</legend><label><input type="radio" name="kind" value="휴가" checked> 휴가</label><label><input type="radio" name="kind" value="병가"> 병가</label></fieldset><label>신청 사유<textarea name="reason" rows="2" maxlength="500" required placeholder="신청 사유를 입력해 주세요"></textarea></label><p class="sub">미리보기 신청입니다. 관리자에게 전송되지 않으며 새로고침하면 초기화됩니다.</p><button type="submit" class="action">신청하기</button></form>`}</section>`;
+}
+root.addEventListener('click',e=>{
+ const day=e.target.closest('[data-attendance-date]');
+ if(day){const date=day.dataset.attendanceDate;attendanceSelectedDate=attendanceSelectedDate===date?null:date;render();root.querySelector(`[data-attendance-date="${date}"]`)?.focus();return;}
+ if(e.target.closest('[data-leave-close]')){const date=attendanceSelectedDate;attendanceSelectedDate=null;render();root.querySelector(`[data-attendance-date="${date}"]`)?.focus();}
+ if(e.target.closest('[data-leave-cancel]')){attendanceLeaveRequests.delete(attendanceSelectedDate);render();toast('미리보기 신청을 취소했습니다.');}
+});
+root.addEventListener('submit',e=>{
+ if(e.target.id!=='tm-attendance-leave-form')return;
+ e.preventDefault();if(!attendanceSelectedDate||!e.target.reportValidity())return;
+ const form=new FormData(e.target),kind=form.get('kind'),reason=String(form.get('reason')||'').trim();
+ if(!['병가','휴가'].includes(kind)||!reason){toast('신청 구분과 사유를 입력해 주세요.');return;}
+ if(attendanceLeaveRequests.has(attendanceSelectedDate))return;
+ attendanceLeaveRequests.set(attendanceSelectedDate,{kind,reason});render();toast(kind+' 신청 대기 · 미리보기이며 관리자에게 전송되지 않습니다.');
+});
+
 function attendanceCalendar(){
+ const holidays=attendanceHolidays(attendanceYear);
  const records=attendanceRecords(),years=records.map(r=>Number(r.date.slice(0,4))),nowYear=attendanceToday.getFullYear();
  const minYear=Math.min(nowYear-5,attendanceYear,...years),maxYear=Math.max(nowYear+5,attendanceYear,...years);
  const yearOptions=Array.from({length:maxYear-minYear+1},(_,i)=>minYear+i).map(y=>`<option value="${y}" ${y===attendanceYear?'selected':''}>${y}년</option>`).join('');
@@ -562,9 +631,10 @@ function attendanceCalendar(){
  let cells=Array.from({length:first},()=>'<div class="attendance-empty" aria-hidden="true"></div>').join('');
  for(let d=1;d<=days;d++){
   const date=key+'-'+String(d).padStart(2,'0'),dow=new Date(attendanceYear,attendanceMonth-1,d).getDay(),record=records.find(r=>r.date===date);
-  cells+=`<div class="attendance-date ${dow===0?'sunday':dow===6?'saturday':''} ${date===todayKey?'is-today':''}" ${date===todayKey?'aria-current="date"':''}><strong>${d}${date===todayKey?'<small>오늘</small>':''}</strong>${record?`<span class="attendance-status">${record.status}</span><small>${record.start} ~ ${record.end}</small><small>${record.hours}</small>`:''}</div>`;
+  const holiday=holidays[date]||'',request=attendanceLeaveRequests.get(date),expanded=attendanceSelectedDate===date;
+  cells+=`<button type="button" data-attendance-date="${date}" aria-expanded="${expanded}" aria-controls="tm-attendance-leave" aria-label="${attendanceYear}년 ${attendanceMonth}월 ${d}일${holiday?' '+holiday:''} 병가 또는 휴가 신청" class="attendance-date ${holiday||dow===0?'sunday':dow===6?'saturday':''} ${date===todayKey?'is-today':''} ${expanded?'is-selected':''}" ${date===todayKey?'aria-current="date"':''}><strong>${d}${date===todayKey?'<small>오늘</small>':''}</strong>${holiday?`<small class="attendance-holiday">${holiday}</small>`:''}${record?`<span class="attendance-status">${record.status}</span><small>${record.start} ~ ${record.end}</small><small>${record.hours}</small>`:''}${request?`<span class="attendance-request">${request.kind} · 신청 대기</span>`:''}</button>`;
  }
- return `<section class="panel"><div class="attendance-heading attendance-controls"><h3>출근 달력</h3><label><select id="tm-attendance-year" aria-label="연도">${yearOptions}</select></label><label><select id="tm-attendance-month" aria-label="월">${monthOptions}</select></label></div><div class="attendance-calendar" aria-label="${attendanceYear}년 ${attendanceMonth}월 출근 달력">${['일','월','화','수','목','금','토'].map((day,i)=>`<div class="attendance-weekday ${i===0?'sunday':i===6?'saturday':''}">${day}</div>`).join('')}${cells}</div></section>`;
+ return `<section class="panel"><div class="attendance-heading attendance-controls"><h3>출근 달력</h3><label><select id="tm-attendance-year" aria-label="연도">${yearOptions}</select></label><label><select id="tm-attendance-month" aria-label="월">${monthOptions}</select></label></div><div class="attendance-calendar" aria-label="${attendanceYear}년 ${attendanceMonth}월 출근 달력">${['일','월','화','수','목','금','토'].map((day,i)=>`<div class="attendance-weekday ${i===0?'sunday':i===6?'saturday':''}">${day}</div>`).join('')}${cells}</div>${attendanceLeaveForm()}</section>`;
 }
 function attendanceHistory(){
  const records=attendanceRecords(),key=attendanceMonthKey(),current=records.filter(r=>r.date.slice(0,7)===key),before=records.filter(r=>r.date.slice(0,7)<key),after=records.filter(r=>r.date.slice(0,7)>key);
@@ -573,7 +643,7 @@ function attendanceHistory(){
 }
 root.addEventListener('change',e=>{
  if(e.target.id!=='tm-attendance-year'&&e.target.id!=='tm-attendance-month')return;
- attendanceYear=Number(root.querySelector('#tm-attendance-year').value);attendanceMonth=Number(root.querySelector('#tm-attendance-month').value);render();root.querySelector('#'+e.target.id)?.focus();
+ attendanceYear=Number(root.querySelector('#tm-attendance-year').value);attendanceMonth=Number(root.querySelector('#tm-attendance-month').value);attendanceSelectedDate=null;render();root.querySelector('#'+e.target.id)?.focus();
 });
 
 function attendance(){return `<h2>나의 출결</h2>`+stats([['오늘 출근','10:00',clockedOut?'퇴근 기록 완료':'정상 출근 · 기본 승인'],['오늘 예정 인정 시간','6시간','점심 제외 · 오후 휴식 포함'],['이번 달 인정 시간','92시간','9월 22일 기준 · 예시']])+panel('오늘 근무',`<div class="row"><span>${outing==='pending'?pill('외출 승인 대기','amber'):pill('근무 중','green')}</span><div class="row"><button class="secondary" data-action="outing" ${outing==='pending'?'disabled':''}>외출 신청</button><button class="action" data-action="clockout" ${clockedOut?'disabled':''}>${clockedOut?'퇴근 기록됨':'퇴근하기'}</button></div></div><p class="sub">외출은 사전 승인 후 시작할 수 있습니다.</p>`)+attendanceCalendar()+attendanceHistory()+panel('외출 기록',outing==='pending'?table(['구분','예정 시간','상태'],[[root.dataset.outingKind||'개인 외출','관리자 확인 예정',pill('승인 대기','amber')]]):'<p class="sub">오늘 등록된 외출 기록이 없습니다.</p>')}
@@ -599,5 +669,6 @@ render();
 </div>
 
 </body></html>
+
 
 
