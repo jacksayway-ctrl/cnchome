@@ -302,6 +302,10 @@ html,body{height:100%;overflow:hidden}
 #tm-preview .attendance-leave .attendance-leave-types input[type="radio"]{width:16px;height:16px;margin:0;flex:none}
 
 #tm-preview .attendance-leave-dates[hidden],#tm-preview #tm-attendance-return-time[hidden]{display:none}
+
+#tm-preview .attendance-month-totals{display:inline-flex;align-items:center;gap:14px;flex:0 0 auto;border-left:1px solid #dbe4ef;padding-left:14px;white-space:nowrap;font-size:13px;color:#52667e}
+#tm-preview .attendance-month-totals>span{display:inline-flex;gap:5px}
+#tm-preview .attendance-month-totals strong{color:#174ea6;font-size:14px}
 </style>
 <div class="shell">
 <aside><div class="brand"><b>▥</b> TM OFFICE</div><div class="team">보험영업 1팀 · 상담원</div><div class="mobile-note">PC용 화면 미리보기</div><nav aria-label="직원 메뉴">
@@ -774,6 +778,19 @@ function attendanceBusinessDays(year,month){
  for(let day=1;day<=days;day++){const dow=new Date(year,month-1,day).getDay(),key=year+'-'+String(month).padStart(2,'0')+'-'+String(day).padStart(2,'0');if(dow!==0&&dow!==6&&!holidays[key])count++;}
  return count;
 }
+function attendanceMonthlySummary(year,month){
+ const totals={work:0,leave:0,sick:0,early:0},records=attendanceRecords(),holidays=attendanceHolidays(year);
+ for(let day=1;day<=new Date(year,month,0).getDate();day++){
+  const date=year+'-'+String(month).padStart(2,'0')+'-'+String(day).padStart(2,'0'),record=records.find(r=>r.date===date),request=attendanceRequestFor(date),approved=request?.status==='approved'?request:null;
+  const dow=new Date(year,month-1,day).getDay(),workday=dow!==0&&dow!==6&&!holidays[date];
+  const status=approved?(workday?approved.kind:''):(record?.status||'');
+  if(record&&record.start!=='—'&&(!approved||!['휴가','병가'].includes(approved.kind)))totals.work++;
+  if(status.includes('휴가'))totals.leave++;
+  if(status.includes('병가'))totals.sick++;
+  if(status.includes('조퇴'))totals.early++;
+ }
+ return `<span class="attendance-month-totals" aria-label="선택한 달 출결 집계"><span>근무일자 <strong>${totals.work}일</strong></span><span title="휴가 기록이 있는 날짜 수 · 시간 휴가 포함 · 신청 대기 제외">휴가 <strong>${totals.leave}일</strong></span><span title="병가 기록이 있는 날짜 수 · 신청 대기 제외">병가 <strong>${totals.sick}일</strong></span><span title="조퇴 기록이 있는 날짜 수 · 신청 대기 제외">조퇴 <strong>${totals.early}일</strong></span></span>`;
+}
 function attendanceCalendar(){
  const holidays=attendanceHolidays(attendanceYear);
  const records=attendanceRecords(),years=records.map(r=>Number(r.date.slice(0,4))),nowYear=attendanceToday.getFullYear();
@@ -790,7 +807,7 @@ function attendanceCalendar(){
   const holiday=(cellYear===attendanceYear?holidays:attendanceHolidays(cellYear))[date]||'',request=attendanceRequestFor(date),expanded=attendanceSelectedDate===date;
   cells+=`<button type="button" data-attendance-date="${date}" aria-expanded="${expanded}" aria-controls="tm-attendance-leave" aria-label="${cellYear}년 ${cellMonth}월 ${d}일${holiday?' '+holiday:''} 휴가·병가·조퇴·외출 신청" class="attendance-date ${outside?'outside-month':''} ${holiday||dow===0?'sunday':dow===6?'saturday':''} ${date===todayKey?'is-today':''} ${expanded?'is-selected':''}" ${date===todayKey?'aria-current="date"':''}><strong class="attendance-date-heading">${outside?cellMonth+'월 ':''}${d}${d===15?'<span class="attendance-payday"><svg viewBox="0 0 20 20" width="15" height="15" aria-hidden="true"><circle cx="10" cy="10" r="8" fill="#ffe59a" stroke="#c59225" stroke-width="1.3"/><path d="M5.5 6.5 7.5 13.5 10 8.5 12.5 13.5 14.5 6.5M5 9.5h10" fill="none" stroke="#956516" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>지급일</span>':''}${date===todayKey?'<small>오늘</small>':''}</strong>${holiday?`<small class="attendance-holiday">${holiday}</small>`:''}${attendanceStatusMarkup(date,dow,holiday,record,request,todayKey)}${attendanceLeaveBar(request,date,dow)}</button>`;
  }
- return `<section class="panel"><div class="attendance-heading attendance-controls"><h3>출근 달력</h3><label><select id="tm-attendance-year" aria-label="연도">${yearOptions}</select></label>${attendanceMonthShortcuts([-1])}<label><select id="tm-attendance-month" aria-label="월">${monthOptions}</select></label>${attendanceMonthShortcuts()}<span class="attendance-business-days" title="토요일·일요일 및 등록된 공휴일 제외">${attendanceMonth}월 영업가능일 <strong>${attendanceBusinessDays(attendanceYear,attendanceMonth)}일</strong></span></div><div class="attendance-calendar" aria-label="${attendanceYear}년 ${attendanceMonth}월 출근 달력">${['일','월','화','수','목','금','토'].map((day,i)=>`<div class="attendance-weekday ${i===0?'sunday':i===6?'saturday':''}">${day}</div>`).join('')}${cells}</div>${attendanceLeaveForm()}</section>`;
+ return `<section class="panel"><div class="attendance-heading attendance-controls"><h3>출근 달력</h3><label><select id="tm-attendance-year" aria-label="연도">${yearOptions}</select></label>${attendanceMonthShortcuts([-1])}<label><select id="tm-attendance-month" aria-label="월">${monthOptions}</select></label>${attendanceMonthShortcuts()}<span class="attendance-business-days" title="토요일·일요일 및 등록된 공휴일 제외">${attendanceMonth}월 영업가능일 <strong>${attendanceBusinessDays(attendanceYear,attendanceMonth)}일</strong></span>${attendanceMonthlySummary(attendanceYear,attendanceMonth)}</div><div class="attendance-calendar" aria-label="${attendanceYear}년 ${attendanceMonth}월 출근 달력">${['일','월','화','수','목','금','토'].map((day,i)=>`<div class="attendance-weekday ${i===0?'sunday':i===6?'saturday':''}">${day}</div>`).join('')}${cells}</div>${attendanceLeaveForm()}</section>`;
 }
 function attendanceHistory(){
  const records=attendanceRecords(),key=attendanceMonthKey(),current=records.filter(r=>r.date.slice(0,7)===key),before=records.filter(r=>r.date.slice(0,7)<key),after=records.filter(r=>r.date.slice(0,7)>key);
