@@ -970,7 +970,7 @@ function policyHandleImage(file){
  reader.readAsDataURL(file);
 }
 function policyUpdateOcrProgress(message){const status=root.querySelector('#tm-policy-ocr-status'),bar=root.querySelector('#tm-policy-ocr-progress');if(status)status.textContent=message;if(bar)bar.style.width=policyOcrProgress+'%'}
-function policyOcrTimeout(promise,ms,message){return Promise.race([promise,new Promise((_,reject)=>setTimeout(()=>reject(new Error(message)),ms))])}
+function policyOcrTimeout(promise,ms,message){return new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(new Error(message)),ms);Promise.resolve(promise).then(value=>{clearTimeout(timer);resolve(value)},error=>{clearTimeout(timer);reject(error)})})}
 function policyLoadCanvas(dataUrl){
  return new Promise((resolve,reject)=>{const image=new Image();image.onload=()=>{const scale=Math.min(1,2800/image.naturalWidth),canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(image.naturalWidth*scale));canvas.height=Math.max(1,Math.round(image.naturalHeight*scale));const context=canvas.getContext('2d',{alpha:false,willReadFrequently:true});context.fillStyle='#fff';context.fillRect(0,0,canvas.width,canvas.height);context.drawImage(image,0,0,canvas.width,canvas.height);resolve({canvas,context,data:context.getImageData(0,0,canvas.width,canvas.height)});};image.onerror=()=>reject(new Error('이미지를 읽지 못했습니다.'));image.src=dataUrl;});
 }
@@ -993,6 +993,7 @@ function policyAnalyzeTable(source){
  const bands=[];for(let i=0;i<lines.length-1;i++){const top=lines[i]+1,bottom=lines[i+1]-1;if(bottom-top>=7)bands.push({top,bottom,center:(top+bottom)/2})}
  if(bands.length<3)throw new Error('정책표 행을 충분히 찾지 못했습니다.');
  let divider=Math.round(w*.88),best=-1;for(let x=Math.round(w*.65);x<Math.round(w*.97);x++){let count=0;for(let y=0;y<h;y+=2)if(dark(x,y))count++;if(count>best){best=count;divider=x}}
+ if(best<h*.22)throw new Error('수량 열의 세로선이 불명확합니다. 표 전체가 포함된 선명한 이미지를 사용해 주세요.');
  const clean=document.createElement('canvas');clean.width=w;clean.height=h;const cc=clean.getContext('2d',{alpha:false});cc.fillStyle='#fff';cc.fillRect(0,0,w,h);
  for(const band of bands){const sample={};for(let y=band.top+2;y<band.bottom-1;y+=3)for(let x=3;x<w-3;x+=4){const i=(y*w+x)*4,key=(p[i]>>4)+','+(p[i+1]>>4)+','+(p[i+2]>>4);sample[key]=(sample[key]||0)+1}const bgKey=Object.keys(sample).sort((a,b)=>sample[b]-sample[a])[0]||'15,15,15',bg=bgKey.split(',').map(v=>Number(v)*16+8);let rr=0,gg=0,bb=0,n=0;
   for(let y=band.top+2;y<band.bottom-1;y++)for(let x=2;x<w-2;x++){const i=(y*w+x)*4,dr=p[i]-bg[0],dg=p[i+1]-bg[1],db=p[i+2]-bg[2],distance=Math.sqrt(dr*dr+dg*dg+db*db),lum=(p[i]+p[i+1]+p[i+2])/3;if(distance>62&&lum<215){cc.fillStyle='#000';cc.fillRect(x,y,1,1)}}
@@ -1072,12 +1073,28 @@ function policyChooseReading(candidates,digits){
  return {...best,review:groups.size>1||usable.length!==candidates.length||ranked[0].length<2||best.confidence<85||(!digits&&/[A-Za-z=]/.test(best.text))};
 }
 
+
+function policyRegionSuspicious(text){
+ if(!/[가-힣]{2}/.test(String(text).replace(/\s/g,'')))return true;
+ if(/[A-Za-z0-9=<>_]/.test(text))return true;
+ let depth=0;for(const ch of text){if(ch==='(')depth++;if(ch===')'&&--depth<0)return true}
+ return depth!==0;
+}
+function policyBandHasDivider(source,layout,band){
+ let hits=0,total=0;
+ for(let y=band.top+1;y<band.bottom;y++){total++;let dark=false;
+ for(let x=Math.max(0,layout.divider-1);x<=Math.min(layout.width-1,layout.divider+1);x++){
+ const k=(y*layout.width+x)*4,p=source.data.data;if(p[k]+p[k+1]+p[k+2]<210)dark=true}
+ if(dark)hits++}
+ return total>0&&hits/total>.65;
+}
+
 async function policyRecognizeCells(source,layout,ocr){
  const rows=[['지역','수량','상태']],worker=ocr.worker;
  const heights=layout.bands.map(b=>b.bottom-b.top).sort((a,b)=>a-b),median=heights[Math.floor(heights.length/2)];
  policyInsurer='';
  for(let index=0;index<layout.bands.length;index++){
-  const band=layout.bands[index],title=index===0&&(band.bottom-band.top)>median*1.5;
+  const band=layout.bands[index],title=index===0&&(band.bottom-band.top)>median*1.5&&!policyBandHasDivider(source,layout,band),irregular=!title&&((band.bottom-band.top)>median*1.6||(band.bottom-band.top)<median*.55);
   const read=async(digits,binary,mode='7')=>{
    const left=digits?layout.divider+2:2,right=digits?layout.width-2:(title?layout.width-2:layout.divider-2);
    await worker.setParameters({tessedit_pageseg_mode:mode,tessedit_char_whitelist:digits?'0123456789':'',preserve_interword_spaces:'1',user_defined_dpi:'300'});
@@ -1086,13 +1103,17 @@ async function policyRecognizeCells(source,layout,ocr){
   };
   const nameCandidates=[await read(false,'original'),await read(false,false),await read(false,true)];
   if(new Set(nameCandidates.map(c=>c.text)).size>1||nameCandidates.some(c=>c.confidence<85||!/[가-힣]/.test(c.text)))nameCandidates.push(await read(false,'original','13'));
-  const name=policyChooseReading(nameCandidates,false);
+  let name=policyChooseReading(nameCandidates,false);
+  if(policyRegionSuspicious(name.text)||irregular){nameCandidates.push(await read(false,'original','6'));name=policyChooseReading(nameCandidates,false)}
+  name.review=name.review||policyRegionSuspicious(name.text)||irregular;
   if(title){policyInsurer=name.text+(name.review?' (확인 필요)':'');continue}
   const qtyCandidates=[await read(true,false),await read(true,true)];
   if(qtyCandidates[0].text!==qtyCandidates[1].text||Math.min(...qtyCandidates.map(c=>c.confidence))<85)qtyCandidates.push(await read(true,false,'8'));
-  const qty=policyChooseReading(qtyCandidates,true);
+  let qty=policyChooseReading(qtyCandidates,true);
+  if(qty.review){qtyCandidates.push(await read(true,'original'));qty=policyChooseReading(qtyCandidates,true)}
+  qty.review=qty.review||irregular;
   const validQty=/^\d+$/.test(qty.text),review=name.review||qty.review||!validQty;
-  rows.push([name.text||'확인 필요',validQty?qty.text:'확인 필요',policyQuantityStatus(qty.text,qty.review)+(name.review?' · 지역명 확인 필요':'')]);
+  rows.push([name.text||'확인 필요',validQty?qty.text:'확인 필요',policyQuantityStatus(qty.text,qty.review)+(name.review?' · 지역명 확인 필요':'')+(irregular?' · 행 구분 확인 필요':'')]);
   policyOcrProgress=Math.round(45+50*(index+1)/layout.bands.length);policyUpdateOcrProgress('정밀 인식 '+(index+1)+' / '+layout.bands.length+'행 · '+policyOcrProgress+'%');
  }
  return rows;
