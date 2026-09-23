@@ -354,7 +354,9 @@ function updateMapLabels(svg){
    if(scale<=0)continue;
    const enlargedScale=Math.min(scale*1.3,(right-left)/label.labelWidth,(bottom-top)/label.labelHeight);
    label.labelWidth*=enlargedScale;label.labelHeight*=enlargedScale;label.fontSize*=enlargedScale;
-   label.lx=Math.max(left,x1-boxOffset-label.labelWidth);
+   const originalLeft=Math.max(left,x1-boxOffset-label.labelWidth);
+   const horizontalGap=Math.max(0,x1-(originalLeft+label.labelWidth));
+   label.lx=originalLeft+horizontalGap*.5;
    label.ly=Math.max(top,y1-label.labelHeight);
   }
  }
