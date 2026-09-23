@@ -352,9 +352,10 @@ function updateMapLabels(svg){
    const spaceWidth=Math.max(0,x1-boxOffset-(dims[0]+dims[2]*.004)),spaceHeight=Math.max(0,y1-top);
    const scale=Math.min(1,spaceWidth/label.labelWidth,spaceHeight/label.labelHeight);
    if(scale<=0)continue;
-   label.labelWidth*=scale;label.labelHeight*=scale;label.fontSize*=scale;
-   label.lx=x1-boxOffset-label.labelWidth;
-   label.ly=y1-label.labelHeight;
+   const enlargedScale=Math.min(scale*1.3,(right-left)/label.labelWidth,(bottom-top)/label.labelHeight);
+   label.labelWidth*=enlargedScale;label.labelHeight*=enlargedScale;label.fontSize*=enlargedScale;
+   label.lx=Math.max(left,x1-boxOffset-label.labelWidth);
+   label.ly=Math.max(top,y1-label.labelHeight);
   }
  }
  const mapLabels=labels.map(({i,r,items,cx,cy,labelWidth,labelHeight,fontSize,lx,ly})=>{
