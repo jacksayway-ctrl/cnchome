@@ -944,7 +944,7 @@ function adminHome(){
  `<div class="notice">팀 목록에 새 팀을 추가하면 팀별 요약과 직원 현황 구역이 자동으로 확장됩니다.</div>`
 }
 let policyRows=[],policyRegisteredRows=[],policyImageData='',policyImageName='',policyRegistered=false,policyOcrRunning=false,policyOcrProgress=0,policyPaddleOcr=null,policyPaddlePromise=null,policyInsurer='';
-function policyCleanText(value){return String(value??'').replace(/[必#＃﹟]/g,'')}
+function policyCleanText(value){return String(value??'')}
 function policyCleanRows(rows){return rows.map(row=>row.map(policyCleanText))}
 function policyEscape(value){return policyCleanText(value).replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]))}
 function parsePolicyText(text){
