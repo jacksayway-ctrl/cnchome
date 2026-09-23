@@ -1023,7 +1023,7 @@ async function policyGetPaddleOcr(){
  if(policyPaddleOcr)return policyPaddleOcr;
  policyOcrProgress=18;policyUpdateOcrProgress('한국어 전용 로컬 모델 준비 · 18%');
  try{
-  const Tesseract=await policyLoadOcrScript(),worker=await policyOcrTimeout(Tesseract.createWorker('kor+eng',1,{workerPath:'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/worker.min.js',corePath:'https://cdn.jsdelivr.net/npm/tesseract.js-core@5.1.1/tesseract-core-simd-lstm.wasm.js',langPath:'https://raw.githubusercontent.com/tesseract-ocr/tessdata_best/main',gzip:false,cachePath:'policy-best-v1',logger:message=>{if(message.status==='loading language traineddata'||message.status==='initializing api'){policyOcrProgress=Math.max(policyOcrProgress,Math.round(18+(message.progress||0)*27));policyUpdateOcrProgress('한국어 모델 준비 · '+policyOcrProgress+'%')}else if(message.status==='recognizing text'){policyOcrProgress=Math.max(55,Math.round(55+(message.progress||0)*38));policyUpdateOcrProgress('정책표 글자 인식 · '+policyOcrProgress+'%')}}}),90000,'한국어 모델 준비 시간이 90초를 초과했습니다.');
+  const Tesseract=await policyLoadOcrScript(),worker=await policyOcrTimeout(Tesseract.createWorker('kor',1,{workerPath:'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/worker.min.js',corePath:'https://cdn.jsdelivr.net/npm/tesseract.js-core@5.1.1/tesseract-core-simd-lstm.wasm.js',langPath:'https://raw.githubusercontent.com/tesseract-ocr/tessdata_best/main',gzip:false,cachePath:'policy-best-v1',logger:message=>{if(message.status==='loading language traineddata'||message.status==='initializing api'){policyOcrProgress=Math.max(policyOcrProgress,Math.round(18+(message.progress||0)*27));policyUpdateOcrProgress('한국어 모델 준비 · '+policyOcrProgress+'%')}else if(message.status==='recognizing text'){policyOcrProgress=Math.max(55,Math.round(55+(message.progress||0)*38));policyUpdateOcrProgress('정책표 글자 인식 · '+policyOcrProgress+'%')}}}),90000,'한국어 모델 준비 시간이 90초를 초과했습니다.');
   policyPaddleOcr={worker,predict:async blob=>{const result=await worker.recognize(blob,{}, {blocks:true}),data=result?.data||{},parts=(data.words?.length?data.words:data.lines)||[],items=parts.filter(part=>String(part.text||'').trim()).map(part=>{const box=part.bbox||{};return {text:String(part.text).trim(),score:Number(part.confidence||0)/100,poly:[[box.x0||0,box.y0||0],[box.x1||0,box.y0||0],[box.x1||0,box.y1||0],[box.x0||0,box.y1||0]]}});return [{items}]},dispose:()=>worker.terminate()};
   return policyPaddleOcr;
  }catch(error){policyPaddleOcr=null;policyPaddlePromise=null;throw error}
@@ -1049,9 +1049,12 @@ function policyNormalizeCell(p,w,h,binary){
 }
 function policyCellImage(source,x0,y0,x1,y1,binary=false){
  const w=Math.max(1,x1-x0),h=Math.max(1,y1-y0),p=source.context.getImageData(x0,y0,w,h);
- const box=policyNormalizeCell(p,w,h,binary),small=document.createElement('canvas');small.width=w;small.height=h;small.getContext('2d').putImageData(p,0,0);
+ const original=binary==='original'?source.context.getImageData(x0,y0,w,h):null;
+ const box=policyNormalizeCell(p,w,h,binary===true),small=document.createElement('canvas');small.width=w;small.height=h;small.getContext('2d').putImageData(original||p,0,0);
+ // Keep the entire row height in the original-color pass so thin strokes are not cropped.
+ if(original){box.top=0;box.height=h;box.left=Math.max(0,box.left-3);box.width=Math.min(w-box.left,box.width+6)}
  const scale=Math.max(2,Math.min(5,64/box.height)),out=document.createElement('canvas');out.width=Math.ceil(box.width*scale)+32;out.height=Math.ceil(box.height*scale)+32;
- const ctx=out.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,out.width,out.height);ctx.imageSmoothingEnabled=!binary;ctx.imageSmoothingQuality='high';ctx.drawImage(small,box.left,box.top,box.width,box.height,16,16,box.width*scale,box.height*scale);return out;
+ const ctx=out.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,out.width,out.height);ctx.imageSmoothingEnabled=binary!==true;ctx.imageSmoothingQuality='high';ctx.drawImage(small,box.left,box.top,box.width,box.height,16,16,box.width*scale,box.height*scale);return out;
 }
 function policyQuantityStatus(text,review){
  if(review||!/^\d+$/.test(text))return '확인 필요';
@@ -1060,13 +1063,13 @@ function policyQuantityStatus(text,review){
 
 // Compare independent preprocessing/layout readings; do not guess region names.
 function policyChooseReading(candidates,digits){
- const usable=candidates.filter(c=>c.text&&(!digits||/^\d+$/.test(c.text)));
+ const usable=candidates.filter(c=>c.text&&(digits?/^\d+$/.test(c.text):/[가-힣]/.test(c.text)));
  if(!usable.length)return {text:'',confidence:0,review:true};
  const groups=new Map();
  for(const c of usable){const key=digits?c.text:c.text.replace(/\s/g,'');if(!groups.has(key))groups.set(key,[]);groups.get(key).push(c)}
  const ranked=[...groups.values()].sort((a,b)=>b.length-a.length||Math.max(...b.map(c=>c.confidence))-Math.max(...a.map(c=>c.confidence)));
  const best=ranked[0].slice().sort((a,b)=>b.confidence-a.confidence)[0];
- return {...best,review:groups.size>1||usable.length!==candidates.length||ranked[0].length<2||best.confidence<85};
+ return {...best,review:groups.size>1||usable.length!==candidates.length||ranked[0].length<2||best.confidence<85||(!digits&&/[A-Za-z=]/.test(best.text))};
 }
 
 async function policyRecognizeCells(source,layout,ocr){
@@ -1081,8 +1084,8 @@ async function policyRecognizeCells(source,layout,ocr){
    const result=await policyOcrTimeout(worker.recognize(policyCellImage(source,left,band.top,right,band.bottom,binary)),30000,'행 인식 제한 시간을 초과했습니다.');
    return {text:String(result.data?.text||'').trim().replace(/\s+/g,' '),confidence:Number(result.data?.confidence||0)};
   };
-  const nameCandidates=[await read(false,false),await read(false,true)];
-  if(nameCandidates[0].text!==nameCandidates[1].text||Math.min(...nameCandidates.map(c=>c.confidence))<85)nameCandidates.push(await read(false,false,'13'));
+  const nameCandidates=[await read(false,'original'),await read(false,false),await read(false,true)];
+  if(new Set(nameCandidates.map(c=>c.text)).size>1||nameCandidates.some(c=>c.confidence<85||!/[가-힣]/.test(c.text)))nameCandidates.push(await read(false,'original','13'));
   const name=policyChooseReading(nameCandidates,false);
   if(title){policyInsurer=name.text+(name.review?' (확인 필요)':'');continue}
   const qtyCandidates=[await read(true,false),await read(true,true)];
