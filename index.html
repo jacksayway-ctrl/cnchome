@@ -52,6 +52,10 @@
 #tm-preview #tm-region-map{cursor:grab;touch-action:none;user-select:none}
 #tm-preview #tm-region-map.map-dragging,#tm-preview #tm-region-map.map-dragging *{cursor:grabbing!important}
 #tm-preview .jeju-map-inset{cursor:default}
+#tm-preview .jeju-map-inset{width:35%;min-width:145px;padding:6px}
+#tm-preview .jeju-map-heading{display:flex;align-items:center;justify-content:space-between;padding:0 3px}
+#tm-preview .jeju-zero{color:#dc2626;font-size:22px;line-height:1.1}
+#tm-preview #tm-region-map .jeju-map-inset svg{aspect-ratio:auto}
 </style>
 </head><body>
 <div id="tm-preview">
@@ -239,7 +243,7 @@ function updateRegionMap(){
  const visibleShapes=mainlandShapes;
  const paths=visibleShapes.map(f=>{const on=available(f.group),hit=focused(f);return `<path d="${f.d}" class="region-shape ${on?'region-available':''} ${hit?'region-match':''}" data-map-group="${f.group}" ${f.group>=0?'tabindex="0" role="button"':''} aria-label="${f.name} · ${on?'접수 가능':'접수 불가 또는 자료 없음'}"><title>${f.name} · ${on?'접수 가능':'접수 불가 또는 자료 없음'}</title></path>`}).join('');
  const jb=jejuShapes.map(f=>f.b),jx=Math.min(...jb.map(b=>b[0])),jy=Math.min(...jb.map(b=>b[1])),jw=Math.max(...jb.map(b=>b[2]))-jx,jh=Math.max(...jb.map(b=>b[3]))-jy;
- const jejuInset=`<aside class="jeju-map-inset" aria-label="제주도 별도 지도"><strong>제주도</strong><svg viewBox="${jx-3} ${jy-3} ${jw+6} ${jh+6}" role="img" aria-label="제주시와 서귀포시 경계">${jejuShapes.map(f=>`<path d="${f.d}" fill="#e2e8f0" stroke="#718399" stroke-width=".8" vector-effect="non-scaling-stroke"><title>${f.name}</title></path>`).join('')}</svg><span>현재 등록된 접수 가능지역 없음</span></aside>`;
+ const jejuInset=`<aside class="jeju-map-inset" aria-label="제주도 별도 지도"><div class="jeju-map-heading"><strong>제주도</strong><b class="jeju-zero" aria-label="접수 가능 수량 0건">0</b></div><svg viewBox="${jx-.5} ${jy-.5} ${jw+1} ${jh+1}" role="img" aria-label="제주시와 서귀포시 경계">${jejuShapes.map(f=>`<path d="${f.d}" fill="#e2e8f0" stroke="#718399" stroke-width=".8" vector-effect="non-scaling-stroke"><title>${f.name}</title></path>`).join('')}</svg></aside>`;
  const dims=box.split(' ').map(Number);
  const inView=f=>f.b[2]>=dims[0]&&f.b[0]<=dims[0]+dims[2]&&f.b[3]>=dims[1]&&f.b[1]<=dims[1]+dims[3];
  const labelGroups=[...new Set(regionMapShapes.filter(f=>f.group>=0&&inView(f)).map(f=>f.group))];
