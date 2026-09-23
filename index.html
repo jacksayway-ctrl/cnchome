@@ -76,6 +76,21 @@
 #tm-preview .region-map-panel > .toolbar{margin:0;padding:0}
 #tm-preview .region-map-panel .map-carrier-buttons{margin-top:0}
 #tm-preview .region-map-panel #tm-region-map{margin:4px 0 0}
+
+#tm-preview .attendance-calendar{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));border:1px solid #dfe7f1;border-radius:10px;overflow:hidden}
+#tm-preview .attendance-weekday{padding:10px;text-align:center;background:#f3f6fb;font-weight:700}
+#tm-preview .attendance-date,#tm-preview .attendance-empty{min-height:105px;padding:10px;box-sizing:border-box;border-top:1px solid #e6edf5;border-right:1px solid #e6edf5}
+#tm-preview .attendance-date{display:flex;flex-direction:column;gap:5px;background:white}
+#tm-preview .attendance-date small{font-size:12px;color:#62748a}
+#tm-preview .attendance-date strong small{margin-left:6px;color:#2563eb}
+#tm-preview .attendance-calendar .sunday{color:#dc3545}
+#tm-preview .attendance-calendar .saturday{color:#2563eb}
+#tm-preview .attendance-calendar .is-today{background:#eff6ff;box-shadow:inset 0 0 0 2px #3b82f6}
+#tm-preview .attendance-status{font-size:12px;color:#245577;background:#eaf3fb;border-radius:4px;padding:3px 5px;width:fit-content}
+#tm-preview .attendance-history{border-top:1px solid #e6edf5;margin-top:16px;padding-top:14px}
+#tm-preview .attendance-history summary{cursor:pointer;font-weight:600;padding:6px 0 12px}
+#tm-preview .attendance-controls{justify-content:flex-start;gap:12px}
+@media(max-width:600px){#tm-preview .attendance-date,#tm-preview .attendance-empty{padding:5px;min-height:90px}#tm-preview .attendance-date small,#tm-preview .attendance-status{font-size:10px}}
 </style>
 </head><body>
 <div id="tm-preview">
@@ -509,7 +524,43 @@ function regionDisplayName(r){
  return r[1]+' '+r[0];
 }
 function filterRegions(){normalizeMapCarrier();const q=root.querySelector('#tm-region-search').value.trim(),general=root.querySelector('#tm-age').selectedIndex===0;const canReceive=r=>regionCanReceive(r,general);const rows=regions.filter(r=>r.join(' ').includes(q)).sort((a,b)=>Number(canReceive(b))-Number(canReceive(a))||a[0].localeCompare(b[0],'ko'));const carriers=visibleRegionCarriers().filter(c=>mapCarrier==='all'||mapCarrier===c.id).sort((a,b)=>['ga','hanwha','shinhan'].indexOf(a.id)-['ga','hanwha','shinhan'].indexOf(b.id));const columns=carriers.flatMap(c=>['general','silver'].map(kind=>({carrier:c,kind})));root.querySelector('#tm-region-results').innerHTML=carriers.length?regionPolicyTable(carriers,rows.map(r=>{const p=regionInsurancePolicies[regions.indexOf(r)];return [`<button type="button" class="region-select-button" data-region-select="${regions.indexOf(r)}" aria-pressed="${mapSelectedGroup===regions.indexOf(r)}">${regionDisplayName(r)}</button>`,...columns.map(({carrier:c,kind})=>p[c.id][kind]?pill(p[c.id][kind],Number(p[c.id][kind].split('/')[1])>0?'green':'pink'):pill(c.id==='hanwha'?'구분 확인':'자료 대기','amber')),r[0]===r[1]?r[4]:r[0]+' · '+r[4]];}))+(rows.length?'':'<p>검색 결과가 없습니다.</p>'):'<p>현재 공개된 접수 정책이 없습니다.</p>';updateRegionMap()}
-function attendance(){return `<h2>나의 출결</h2>`+stats([['오늘 출근','10:00',clockedOut?'퇴근 기록 완료':'정상 출근 · 기본 승인'],['오늘 예정 인정 시간','6시간','점심 제외 · 오후 휴식 포함'],['이번 달 인정 시간','92시간','9월 22일 기준 · 예시']])+panel('오늘 근무',`<div class="row"><span>${outing==='pending'?pill('외출 승인 대기','amber'):pill('근무 중','green')}</span><div class="row"><button class="secondary" data-action="outing" ${outing==='pending'?'disabled':''}>외출 신청</button><button class="action" data-action="clockout" ${clockedOut?'disabled':''}>${clockedOut?'퇴근 기록됨':'퇴근하기'}</button></div></div><p class="sub">외출은 사전 승인 후 시작할 수 있습니다.</p>`)+panel('출결 내역',table(['날짜','출근','퇴근','상태','인정 시간'],[['9월 22일','10:00',clockedOut?'16:40':'—',clockedOut?'퇴근':'근무 중',clockedOut?'6시간':'집계 중'],['9월 21일','10:00','17:00','출근','6시간'],['9월 18일','10:00','17:00','출근','6시간'],['9월 17일','10:10','17:00','지각 10분','6시간'],['9월 16일','10:00','15:00','휴가 2시간','근무 4 + 휴가 2'],['9월 9일','10:00','15:00','조퇴','4시간']]))+panel('외출 기록',outing==='pending'?table(['구분','예정 시간','상태'],[[root.dataset.outingKind||'개인 외출','관리자 확인 예정',pill('승인 대기','amber')]]):'<p class="sub">오늘 등록된 외출 기록이 없습니다.</p>')}
+const attendanceToday=new Date();
+let attendanceYear=attendanceToday.getFullYear(),attendanceMonth=attendanceToday.getMonth()+1;
+function attendanceRecords(){return [
+ {date:'2026-09-22',start:'10:00',end:clockedOut?'16:40':'—',status:clockedOut?'퇴근':'근무 중',hours:clockedOut?'6시간':'집계 중'},
+ {date:'2026-09-21',start:'10:00',end:'17:00',status:'출근',hours:'6시간'},
+ {date:'2026-09-18',start:'10:00',end:'17:00',status:'출근',hours:'6시간'},
+ {date:'2026-09-17',start:'10:10',end:'17:00',status:'지각 10분',hours:'6시간'},
+ {date:'2026-09-16',start:'10:00',end:'15:00',status:'휴가 2시간',hours:'근무 4 + 휴가 2'},
+ {date:'2026-09-09',start:'10:00',end:'15:00',status:'조퇴',hours:'4시간'}
+]}
+function attendanceMonthKey(){return attendanceYear+'-'+String(attendanceMonth).padStart(2,'0')}
+function attendanceRecordTable(records){return records.length?table(['날짜','출근','퇴근','상태','인정 시간'],records.slice().sort((a,b)=>b.date.localeCompare(a.date)).map(r=>[r.date,r.start,r.end,r.status,r.hours])):'<p class="sub">선택한 달의 출결 내역이 없습니다.</p>'}
+function attendanceCalendar(){
+ const records=attendanceRecords(),years=records.map(r=>Number(r.date.slice(0,4))),nowYear=attendanceToday.getFullYear();
+ const minYear=Math.min(nowYear-5,attendanceYear,...years),maxYear=Math.max(nowYear+5,attendanceYear,...years);
+ const yearOptions=Array.from({length:maxYear-minYear+1},(_,i)=>minYear+i).map(y=>`<option value="${y}" ${y===attendanceYear?'selected':''}>${y}년</option>`).join('');
+ const monthOptions=Array.from({length:12},(_,i)=>i+1).map(m=>`<option value="${m}" ${m===attendanceMonth?'selected':''}>${m}월</option>`).join('');
+ const first=new Date(attendanceYear,attendanceMonth-1,1).getDay(),days=new Date(attendanceYear,attendanceMonth,0).getDate(),key=attendanceMonthKey();
+ const todayKey=attendanceToday.getFullYear()+'-'+String(attendanceToday.getMonth()+1).padStart(2,'0')+'-'+String(attendanceToday.getDate()).padStart(2,'0');
+ let cells=Array.from({length:first},()=>'<div class="attendance-empty" aria-hidden="true"></div>').join('');
+ for(let d=1;d<=days;d++){
+  const date=key+'-'+String(d).padStart(2,'0'),dow=new Date(attendanceYear,attendanceMonth-1,d).getDay(),record=records.find(r=>r.date===date);
+  cells+=`<div class="attendance-date ${dow===0?'sunday':dow===6?'saturday':''} ${date===todayKey?'is-today':''}" ${date===todayKey?'aria-current="date"':''}><strong>${d}${date===todayKey?'<small>오늘</small>':''}</strong>${record?`<span class="attendance-status">${record.status}</span><small>${record.start} ~ ${record.end}</small><small>${record.hours}</small>`:''}</div>`;
+ }
+ return panel('출결 달력',`<div class="toolbar attendance-controls"><label>연도 <select id="tm-attendance-year">${yearOptions}</select></label><label>월 <select id="tm-attendance-month">${monthOptions}</select></label><button type="button" class="secondary" data-attendance-current>이번 달</button></div><div class="attendance-calendar" aria-label="${attendanceYear}년 ${attendanceMonth}월 출결 달력">${['일','월','화','수','목','금','토'].map((day,i)=>`<div class="attendance-weekday ${i===0?'sunday':i===6?'saturday':''}">${day}</div>`).join('')}${cells}</div>`);
+}
+function attendanceHistory(){
+ const records=attendanceRecords(),key=attendanceMonthKey(),current=records.filter(r=>r.date.slice(0,7)===key),before=records.filter(r=>r.date.slice(0,7)<key),after=records.filter(r=>r.date.slice(0,7)>key);
+ const expandable=(label,items)=>items.length?`<details class="attendance-history"><summary>${label} 출결 이력 (${items.length}건)</summary>${attendanceRecordTable(items)}</details>`:'';
+ return panel('출결 내역',`<p class="sub">${attendanceYear}년 ${attendanceMonth}월 · ${current.length}건</p>${attendanceRecordTable(current)}${expandable('이전',before)}${expandable('이후',after)}`);
+}
+root.addEventListener('change',e=>{
+ if(e.target.id!=='tm-attendance-year'&&e.target.id!=='tm-attendance-month')return;
+ attendanceYear=Number(root.querySelector('#tm-attendance-year').value);attendanceMonth=Number(root.querySelector('#tm-attendance-month').value);render();root.querySelector('#'+e.target.id)?.focus();
+});
+root.addEventListener('click',e=>{if(e.target.closest('[data-attendance-current]')){attendanceYear=new Date().getFullYear();attendanceMonth=new Date().getMonth()+1;render()}});
+function attendance(){return `<h2>나의 출결</h2>`+stats([['오늘 출근','10:00',clockedOut?'퇴근 기록 완료':'정상 출근 · 기본 승인'],['오늘 예정 인정 시간','6시간','점심 제외 · 오후 휴식 포함'],['이번 달 인정 시간','92시간','9월 22일 기준 · 예시']])+panel('오늘 근무',`<div class="row"><span>${outing==='pending'?pill('외출 승인 대기','amber'):pill('근무 중','green')}</span><div class="row"><button class="secondary" data-action="outing" ${outing==='pending'?'disabled':''}>외출 신청</button><button class="action" data-action="clockout" ${clockedOut?'disabled':''}>${clockedOut?'퇴근 기록됨':'퇴근하기'}</button></div></div><p class="sub">외출은 사전 승인 후 시작할 수 있습니다.</p>`)+attendanceCalendar()+attendanceHistory()+panel('외출 기록',outing==='pending'?table(['구분','예정 시간','상태'],[[root.dataset.outingKind||'개인 외출','관리자 확인 예정',pill('승인 대기','amber')]]):'<p class="sub">오늘 등록된 외출 기록이 없습니다.</p>')}
 function sales(){return `<h2>나의 실적</h2>`+calendar()+`<div class="toolbar"><label>접수 상태<select id="tm-sales-filter"><option>정상 접수</option><option>가접수</option></select></label></div><div id="tm-sales-list">${dayRows()}</div>`+`<div class="sales-pay">`+stats([['오늘까지 근로 급여 · 세전','1,380,000원','인정 92시간 × 예시 시급 15,000원'],['이번 달 예상 급여 · 세전','2,120,000원','예시 132시간·현재 월 성과급 유지'],['오늘 일그레이드',cashReceived?'수령 완료':'15,000원','정상 8건 · 기준 6건부터 5,000원']])+`</div><section class="sales-summary" aria-label="이번 달 실적 요약"><div><span>9월 정상 실적</span><strong>${total}건</strong></div><div><span>가접수</span><strong>2건</strong></div><div><span>A/S</span><strong>3건</strong></div></section>`+graph()}
 function daily(){return `<h2>일그레이드</h2>`+stats([['오늘 정상 실적','8건','팀 공통 기준 6건'],['오늘 발생 금액','15,000원','(8 − 6 + 1) × 5,000원'],['오늘 수령 금액',cashReceived?'15,000원':'0원',cashReceived?'직원 수령 확인 완료':'관리자 지급 승인 완료 · 예시']])+panel('오늘 현금 수령',`<div class="row"><div><h2>${cashReceived?'수령 확인이 완료되었습니다.':'15,000원 수령 대기'}</h2><div class="sub">현금을 실제 받은 후 확인해 주세요.</div></div><button class="action" data-action="cash" ${cashReceived?'disabled':''}>${cashReceived?'수령 완료':'수령 확인'}</button></div>`)+panel('날짜별 수령 내역',table(['날짜','발생 금액','수령 금액','상태'],[['9월 22일','15,000원',cashReceived?'15,000원':'0원',cashReceived?'수령 완료':'수령 대기'],['9월 21일','10,000원','10,000원','수령 완료'],['9월 17일','5,000원','5,000원','수령 완료']]))+`<div class="notice">이번 달 현금 보너스 수령 합계 <strong>${cashReceived?'30,000':'15,000'}원</strong> · 월 급여에 중복 지급하지 않습니다.</div>`}
 function weekly(){return `<h2>주그레이드</h2>`+stats([['이번 주 정상 실적','15건','9월 21~25일 · 현재 2일 집계'],['근무가능일 기준 평균','3.0건','15건 ÷ 회사 근무가능일 5일'],['현재 달성 금액','0원','주간 집계 진행 중']])+panel('이번 주 달성 현황',`<div class="row"><span>첫 기준까지 15건 남음</span><strong>15 / 30건</strong></div><div class="track"><span style="width:50%"></span></div><p class="sub">개인 결근은 분모를 줄이지 않습니다. 회사 휴무일은 제외합니다.</p>`)+panel('팀 공통 지급 기준',table(['주간 평균','주그레이드'],[['6건 이상 ~ 7건 미만','30,000원'],['7건 이상 ~ 8건 미만','40,000원'],['8건 이상','50,000원']]))+panel('주별 내역',table(['기간','정상 실적','평균','발생 금액'],[['9월 7~11일','25건','5.0건','0원'],['9월 14~18일','29건','5.8건','0원'],['9월 21~25일','15건','3.0건','집계 중']]))+`<div class="notice">주그레이드는 월 급여에 포함해 정산합니다. 아직 끝나지 않은 주는 확정 금액이 아닙니다.</div>`}
@@ -532,4 +583,5 @@ render();
 </div>
 
 </body></html>
+
 
