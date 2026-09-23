@@ -955,7 +955,7 @@ function parsePolicyText(text){
 }
 function policyPreviewMarkup(){
  if(policyRows.length){const width=Math.max(...policyRows.map(row=>row.length));const normalized=policyRows.map(row=>Array.from({length:width},(_,index)=>policyEscape(row[index]||'')));return '<div class="notice">'+(policyRegistered?'등록 완료':'전용 OCR 변환 완료')+(policyInsurer?' · 보험사 '+policyEscape(policyInsurer):'')+' · '+policyRows.length+'행 '+width+'열</div>'+table(normalized[0].map((heading,index)=>heading||'열 '+(index+1)),normalized.slice(1));}
- if(policyImageData)return '<div class="notice">정책표 전용 OCR이 표선으로 행과 수량 열을 먼저 나눈 뒤, 정리된 한글만 로컬에서 인식합니다.</div><img src="'+policyImageData+'" alt="붙여넣은 정책표 이미지" style="display:block;max-width:100%;max-height:420px;margin:12px auto;border:1px solid var(--tm-line);border-radius:8px"><p class="sub">파일: '+policyEscape(policyImageName||'클립보드 이미지')+' · 이미지는 외부 서버에 전송되지 않습니다.</p><div class="row"><button type="button" class="action" data-action="policy-ocr" '+(policyOcrRunning?'disabled':'')+'>'+(policyOcrRunning?'전용 OCR 분석 중':'정책표 최고정밀 OCR로 변환')+'</button><span id="tm-policy-ocr-status" class="sub">'+(policyOcrRunning?'표 구조 분석 중 · '+policyOcrProgress+'%':'행·수량·색상 전용 분석')+'</span></div><div class="track" aria-label="OCR 진행률"><span id="tm-policy-ocr-progress" style="width:'+policyOcrProgress+'%"></span></div>';
+ if(policyImageData)return '<div class="notice">정책표 전용 OCR이 표선으로 행과 수량 열을 먼저 나눈 뒤, 한글과 한문(번체·간체)을 로컬에서 인식합니다.</div><img src="'+policyImageData+'" alt="붙여넣은 정책표 이미지" style="display:block;max-width:100%;max-height:420px;margin:12px auto;border:1px solid var(--tm-line);border-radius:8px"><p class="sub">파일: '+policyEscape(policyImageName||'클립보드 이미지')+' · 이미지는 외부 서버에 전송되지 않습니다.</p><div class="row"><button type="button" class="action" data-action="policy-ocr" '+(policyOcrRunning?'disabled':'')+'>'+(policyOcrRunning?'전용 OCR 분석 중':'정책표 최고정밀 OCR로 변환')+'</button><span id="tm-policy-ocr-status" class="sub">'+(policyOcrRunning?'표 구조 분석 중 · '+policyOcrProgress+'%':'행·수량·색상 전용 분석')+'</span></div><div class="track" aria-label="OCR 진행률"><span id="tm-policy-ocr-progress" style="width:'+policyOcrProgress+'%"></span></div>';
  return '<p class="sub">아직 변환할 정책표가 없습니다. 엑셀 표·텍스트를 붙여넣거나 이미지를 선택해 주세요.</p>';
 }
 function policyRegisteredPreviewMarkup(){
@@ -1019,7 +1019,7 @@ function policyBuildRows(items,layout){
 function policyLoadOcrScript(){
  if(window.Tesseract)return Promise.resolve(window.Tesseract);
  if(policyPaddlePromise)return policyPaddlePromise;
- policyPaddlePromise=new Promise((resolve,reject)=>{const script=document.createElement('script');script.src='https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js';script.onload=()=>window.Tesseract?resolve(window.Tesseract):reject(new Error('한국어 OCR 실행 파일을 불러오지 못했습니다.'));script.onerror=()=>reject(new Error('한국어 OCR 실행 파일 다운로드에 실패했습니다.'));document.head.appendChild(script)});
+ policyPaddlePromise=new Promise((resolve,reject)=>{const script=document.createElement('script');script.src='https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js';script.onload=()=>window.Tesseract?resolve(window.Tesseract):reject(new Error('한국어·한문 OCR 실행 파일을 불러오지 못했습니다.'));script.onerror=()=>reject(new Error('한국어 OCR 실행 파일 다운로드에 실패했습니다.'));document.head.appendChild(script)});
  return policyPaddlePromise;
 }
 async function policyGetPaddleOcr(){
@@ -1038,10 +1038,10 @@ async function policyGetPaddleOcr(){
    logger:m=>{if(m.status==='loading language traineddata')policyUpdateOcrProgress(label+' 모델 다운로드 · '+Math.round((m.progress||0)*100)+'%')}
   });
   pending.then(w=>{if(expired)w.terminate().catch(()=>{})},()=>{});
-  try{const w=await policyOcrTimeout(pending,90000,label+' 모델 준비 제한 시간을 초과했습니다.');ready.push(w);return w}
+  try{const w=await policyOcrTimeout(pending,180000,label+' 모델 준비 제한 시간을 초과했습니다.');ready.push(w);return w}
   catch(error){expired=true;throw error}
  };
- const worker=await create('kor','한국어'),digitWorker=await create('eng','숫자');
+ const worker=await create('kor+chi_tra+chi_sim','한국어·한문(번체·간체)'),digitWorker=await create('eng','숫자');
  policyPaddleOcr={worker,digitWorker,dispose:async()=>{await Promise.allSettled(ready.map(w=>w.terminate()))}};
  return policyPaddleOcr;
  }catch(error){await Promise.allSettled(ready.map(w=>w.terminate()));policyPaddleOcr=null;policyPaddlePromise=null;throw error}
@@ -1078,8 +1078,8 @@ function policyRemoveCellRules(p,w,h){
  return p;
 }
 function policyRegionNoise(text){
- const value=String(text||'').replace(/\s/g,''),hangul=(value.match(/[가-힣]/g)||[]).length;
- return hangul<2||/[|=<>_]/.test(value)||(hangul>0&&(value.match(/[0-9]/g)||[]).length>=hangul);
+ const value=String(text||'').replace(/\s/g,''),letters=(value.match(/[가-힣\u3400-\u9fff\uf900-\ufaff]/g)||[]).length,hasHan=/[\u3400-\u9fff\uf900-\ufaff]/.test(value);
+ return letters<(hasHan?1:2)||/[|=<>_]/.test(value)||(letters>0&&(value.match(/[0-9]/g)||[]).length>=letters);
 }
 
 
@@ -1156,7 +1156,7 @@ function policyQuantityStatus(text,review){
 
 // Compare independent preprocessing/layout readings; do not guess region names.
 function policyChooseReading(candidates,digits){
- const usable=candidates.filter(c=>c.text&&(digits?/^\d+$/.test(c.text):/[가-힣]/.test(c.text)));
+ const usable=candidates.filter(c=>c.text&&(digits?/^\d+$/.test(c.text):/[가-힣\u3400-\u9fff\uf900-\ufaff]/.test(c.text)));
  if(!usable.length)return {text:'',confidence:0,review:true};
  const groups=new Map();
  for(const c of usable){const key=digits?c.text:c.text.replace(/\s/g,'');if(!groups.has(key))groups.set(key,[]);groups.get(key).push(c)}
@@ -1203,7 +1203,7 @@ function policyAnalyzeExisting(){
  toast(policyAnalysis.length?'아래 분석 내역에서 판독 후보를 비교해 주세요.':'이전 결과에는 분석 기록이 없습니다. 원본 이미지를 다시 변환해 주세요.');
 }
 function policySelectRegion(candidates){
- const usable=candidates.filter(c=>/[가-힣]/.test(c.text)&&!policyRegionNoise(c.text));
+ const usable=candidates.filter(c=>/[가-힣\u3400-\u9fff\uf900-\ufaff]/.test(c.text)&&!policyRegionNoise(c.text));
  if(!usable.length)return {text:'',confidence:0,review:true};
  const groups=new Map();
  for(const c of usable){
@@ -1255,7 +1255,7 @@ async function policyRecognizeCells(source,layout,ocr){
   const nameCandidates=[await read(false,'original'),await read(false,'color'),await read(false,'channel')];
   if(whiteInk)nameCandidates.push(await read(false,'white'));
   if(nameCandidates.some(c=>c.confidence<85)||new Set(nameCandidates.map(c=>c.text)).size>1)nameCandidates.push(await read(false,'pixel'));
-  if(new Set(nameCandidates.map(c=>c.text)).size>1||nameCandidates.some(c=>c.confidence<85||!/[가-힣]/.test(c.text)))nameCandidates.push(await read(false,'original','13'));
+  if(new Set(nameCandidates.map(c=>c.text)).size>1||nameCandidates.some(c=>c.confidence<85||!/[가-힣\u3400-\u9fff\uf900-\ufaff]/.test(c.text)))nameCandidates.push(await read(false,'original','13'));
   if(index===0&&(title||nameCandidates.some(c=>policyTitleShape(c.text)))){
    // Same-height title cells are detected by their content, not row height alone.
    const probe=policyChooseReading([await read(true,'color'),await read(true,'channel')],true);
