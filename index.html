@@ -647,7 +647,7 @@ function attendanceStatusMarkup(date,dow,holiday,record,request,today){
  if(request?.status==='approved'){label=request.kind+' 확인';tone=request.kind==='병가'?'sick':'leave';}
  else if(record){label=record.status;tone=label.includes('지각')?'late':label==='결근'?'absent':label.includes('병가')?'sick':label.includes('휴가')?'leave':label==='조퇴'?'early':label==='외출'?'outing':'present';}
  else if(holiday){label='공휴일';tone='rest';}
- else if(dow===0||dow===6){return '';}
+ else if(dow===0||dow===6){label='공휴일';tone='rest';}
  else if(date>today){label='근무 예정';tone='scheduled';}
  else{return '';}
  return `<span class="attendance-status attendance-status-${tone}">${label}</span>${record&&request?.status!=='approved'?(record.start!=='—'?`<small>${record.start} ~ ${record.end}</small>`:'')+`<small>${record.hours}</small>`:''}`;
