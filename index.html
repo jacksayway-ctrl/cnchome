@@ -1138,14 +1138,14 @@ function policyWhiteInk(p,w,h,convert=false){
 function policyCellImage(source,x0,y0,x1,y1,binary=false){
  const w=Math.max(1,x1-x0),h=Math.max(1,y1-y0),p=source.context.getImageData(x0,y0,w,h);
  if(binary==='rules')policyRemoveCellRules(p,w,h);
- if(binary==='color'||binary==='channel')policyColorForeground(p,w,h,binary==='channel');
+ if(binary==='color'||binary==='channel'||binary==='stroke')policyColorForeground(p,w,h,binary==='channel');
  if(binary==='white'||binary==='whitepixel')policyWhiteInk(p,w,h,true);
  const original=(binary==='original'||binary==='pixel'||binary==='title')?source.context.getImageData(x0,y0,w,h):null;
  const box=policyNormalizeCell(p,w,h,binary===true),small=document.createElement('canvas');small.width=w;small.height=h;small.getContext('2d').putImageData(original||p,0,0);
  // Keep the entire row height in the original-color pass so thin strokes are not cropped.
- if(original){box.top=0;box.height=h;box.left=0;box.width=w}
- const scale=binary==='whitepixel'?4:binary==='title'?3:binary==='pixel'?4:Math.max(2,Math.min(5,64/box.height)),out=document.createElement('canvas');out.width=Math.ceil(box.width*scale)+32;out.height=Math.ceil(box.height*scale)+32;
- const ctx=out.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,out.width,out.height);ctx.imageSmoothingEnabled=binary!=='whitepixel'&&binary!==true&&binary!=='pixel'&&binary!=='title';ctx.imageSmoothingQuality='high';ctx.drawImage(small,box.left,box.top,box.width,box.height,16,16,box.width*scale,box.height*scale);return out;
+ if(original||binary==='stroke'){box.top=0;box.height=h;box.left=0;box.width=w}
+ const scale=binary==='stroke'?6:binary==='whitepixel'?4:binary==='title'?3:binary==='pixel'?4:Math.max(2,Math.min(5,64/box.height)),out=document.createElement('canvas');out.width=Math.ceil(box.width*scale)+32;out.height=Math.ceil(box.height*scale)+32;
+ const ctx=out.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,out.width,out.height);ctx.imageSmoothingEnabled=binary!=='stroke'&&binary!=='whitepixel'&&binary!==true&&binary!=='pixel'&&binary!=='title';ctx.imageSmoothingQuality='high';ctx.drawImage(small,box.left,box.top,box.width,box.height,16,16,box.width*scale,box.height*scale);return out;
 }
 function policyQuantityStatus(text,review){
  if(review||!/^\d+$/.test(text))return '확인 필요';
@@ -1164,9 +1164,17 @@ function policyChooseReading(candidates,digits){
 }
 
 
+// Validate actual OCR candidates against map names and standard province aliases.
+// This dictionary never generates or substitutes a missing OCR reading.
+function policyKnownRegion(text){
+ const value=String(text||'').replace(/\s/g,'');
+ const aliases=['서울','부산','대구','인천','광주','대전','울산','세종','세종특별자치시','경기','강원','강원특별자치도','충북','충남','전북','전남','경북','경남','제주','제주도','제주특별자치도','전북특별자치도'];
+ return aliases.includes(value)||regionHierarchyLabels.some(r=>r.name===value||r.name.replace(/[시군구]$/,'')===value);
+}
 function policyRegionSuspicious(text){
  if(!/[가-힣]{2}/.test(String(text).replace(/\s/g,'')))return true;
  if(/[A-Za-z0-9=<>_]/.test(text))return true;
+ if(/^[가-힣]{2,5}$/.test(String(text).trim())&&!policyKnownRegion(text))return true;
  let depth=0;for(const ch of text){if(ch==='(')depth++;if(ch===')'&&--depth<0)return true}
  return depth!==0;
 }
@@ -1206,8 +1214,8 @@ function policySelectRegion(candidates){
  const readings=[...families.values()],best=readings.slice().sort((a,b)=>b.confidence-a.confidence)[0];
  // Repeated segmentation of the same pixels is not an independent vote.
  const mean=readings.reduce((sum,c)=>sum+c.confidence,0)/readings.length;
- return {best,score:mean+Math.min(2,readings.length-1)*8,count:readings.length};
- }).sort((a,b)=>b.score-a.score);
+ return {best,known:policyKnownRegion(best.text)&&readings.length>=2&&mean>=70,score:mean+Math.min(2,readings.length-1)*8,count:readings.length};
+ }).sort((a,b)=>Number(b.known)-Number(a.known)||b.score-a.score);
  const top=ranking[0];
  return {...top.best,review:usable.length!==candidates.length||groups.size>1||top.count<2||top.best.confidence<85||policyRegionSuspicious(top.best.text)};
 }
@@ -1238,7 +1246,7 @@ async function policyRecognizeCells(source,layout,ocr){
    const reader=digits?ocr.digitWorker:worker;
    await reader.setParameters({tessedit_pageseg_mode:mode,tessedit_char_whitelist:digits?'0123456789':'',preserve_interword_spaces:'1',user_defined_dpi:'300'});
    const result=await policyOcrTimeout(reader.recognize(policyCellImage(source,left,band.top,right,band.bottom,binary)),30000,'행 인식 제한 시간을 초과했습니다.');
-   return {text:String(result.data?.text||'').replace(/必/g,'').trim().replace(/\s+/g,' '),confidence:Number(result.data?.confidence||0),family:(binary==='whitepixel'?'white':String(binary)),mode};
+   return {text:String(result.data?.text||'').replace(/必/g,'').trim().replace(/\s+/g,' '),confidence:Number(result.data?.confidence||0),family:(binary==='whitepixel'?'white':binary==='stroke'?'color':String(binary)),mode};
   };
   const regionRight=title?layout.width-2:layout.divider-2,regionWidth=Math.max(1,regionRight-2),regionHeight=Math.max(1,band.bottom-band.top);
   const whiteInk=policyWhiteInk(source.context.getImageData(2,band.top,regionWidth,regionHeight),regionWidth,regionHeight);
@@ -1260,6 +1268,13 @@ async function policyRecognizeCells(source,layout,ocr){
   }
   let name=policySelectRegion(nameCandidates);
   if(name.review||policyRegionSuspicious(name.text)||irregular){nameCandidates.push(await read(false,'rules','7'));if(policyRegionNoise(name.text))nameCandidates.push(await read(false,'rules','8'));name=policySelectRegion(nameCandidates)}
+  if(name.review||policyRegionSuspicious(name.text)){
+   // Word segmentation and nearest-neighbor enlargement preserve detached top strokes.
+   nameCandidates.push(await read(false,'stroke','8'));
+   nameCandidates.push(await read(false,'pixel','8'));
+   nameCandidates.push(await read(false,'channel','8'));
+   name=policySelectRegion(nameCandidates);
+  }
   name.review=name.review||policyRegionSuspicious(name.text)||irregular;
   if(title){policyInsurer=name.text+(name.review?' (확인 필요)':'');continue}
   policyAnalysis.push({row:rows.length+1,text:name.text||'판독 실패',alternatives:nameCandidates.map(c=>c.text+' ['+c.family+'/'+c.mode+', '+Math.round(c.confidence)+']').join(' / '),reason:name.review?'판독 불일치 또는 저신뢰 · 원본 확인 필요':'서로 다른 전처리의 결과 일치'});
@@ -1363,6 +1378,7 @@ render();
 </div>
 
 </body></html>
+
 
 
 
