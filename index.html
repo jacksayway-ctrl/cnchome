@@ -385,16 +385,23 @@ function highlightMapRegionRow(group){
   button.closest('tr')?.classList.toggle('map-row-highlight',group!==null&&Number(button.dataset.regionSelect)===group);
  });
 }
+function mapRegionHoverTarget(target){
+ return target?.closest?.('#tm-region-map [data-map-label-group], #tm-region-map [data-map-group]')??null;
+}
+function mapRegionHoverGroup(target){
+ if(!target)return null;
+ const group=Number(target.dataset.mapLabelGroup??target.dataset.mapGroup);
+ return Number.isInteger(group)&&group>=0?group:null;
+}
 root.addEventListener('mouseover',e=>{
- const label=e.target.closest('[data-map-label-group]');
- if(!label||label.contains(e.relatedTarget))return;
- highlightMapRegionRow(Number(label.dataset.mapLabelGroup));
+ const target=mapRegionHoverTarget(e.target);
+ if(!target||target.contains(e.relatedTarget))return;
+ highlightMapRegionRow(mapRegionHoverGroup(target));
 });
 root.addEventListener('mouseout',e=>{
- const label=e.target.closest('[data-map-label-group]');
- if(!label||label.contains(e.relatedTarget))return;
- const next=e.relatedTarget?.closest?.('[data-map-label-group]');
- highlightMapRegionRow(next?Number(next.dataset.mapLabelGroup):null);
+ const target=mapRegionHoverTarget(e.target);
+ if(!target||target.contains(e.relatedTarget))return;
+ highlightMapRegionRow(mapRegionHoverGroup(mapRegionHoverTarget(e.relatedTarget)));
 });
 root.addEventListener('mouseover',previewTableRegion);
 
