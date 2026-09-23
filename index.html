@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://cdn.jsdelivr.net https://tessdata.projectnaptha.com; media-src 'self' data: blob:; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'self'; worker-src 'self' blob: https://cdn.jsdelivr.net">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://cdn.jsdelivr.net https://tessdata.projectnaptha.com https://raw.githubusercontent.com; media-src 'self' data: blob:; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'self'; worker-src 'self' blob: https://cdn.jsdelivr.net">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
@@ -953,7 +953,7 @@ function parsePolicyText(text){
 }
 function policyPreviewMarkup(){
  if(policyRows.length){const width=Math.max(...policyRows.map(row=>row.length));const normalized=policyRows.map(row=>Array.from({length:width},(_,index)=>policyEscape(row[index]||'')));return '<div class="notice">'+(policyRegistered?'등록 완료':'전용 OCR 변환 완료')+(policyInsurer?' · 보험사 '+policyEscape(policyInsurer):'')+' · '+policyRows.length+'행 '+width+'열</div>'+table(normalized[0].map((heading,index)=>heading||'열 '+(index+1)),normalized.slice(1));}
- if(policyImageData)return '<div class="notice">정책표 전용 OCR이 표선으로 행과 수량 열을 먼저 나눈 뒤, 정리된 한글만 로컬에서 인식합니다.</div><img src="'+policyImageData+'" alt="붙여넣은 정책표 이미지" style="display:block;max-width:100%;max-height:420px;margin:12px auto;border:1px solid var(--tm-line);border-radius:8px"><p class="sub">파일: '+policyEscape(policyImageName||'클립보드 이미지')+' · 이미지는 외부 서버에 전송되지 않습니다.</p><div class="row"><button type="button" class="action" data-action="policy-ocr" '+(policyOcrRunning?'disabled':'')+'>'+(policyOcrRunning?'전용 OCR 분석 중':'정책표 정밀 OCR로 변환')+'</button><span id="tm-policy-ocr-status" class="sub">'+(policyOcrRunning?'표 구조 분석 중 · '+policyOcrProgress+'%':'행·수량·색상 전용 분석')+'</span></div><div class="track" aria-label="OCR 진행률"><span id="tm-policy-ocr-progress" style="width:'+policyOcrProgress+'%"></span></div>';
+ if(policyImageData)return '<div class="notice">정책표 전용 OCR이 표선으로 행과 수량 열을 먼저 나눈 뒤, 정리된 한글만 로컬에서 인식합니다.</div><img src="'+policyImageData+'" alt="붙여넣은 정책표 이미지" style="display:block;max-width:100%;max-height:420px;margin:12px auto;border:1px solid var(--tm-line);border-radius:8px"><p class="sub">파일: '+policyEscape(policyImageName||'클립보드 이미지')+' · 이미지는 외부 서버에 전송되지 않습니다.</p><div class="row"><button type="button" class="action" data-action="policy-ocr" '+(policyOcrRunning?'disabled':'')+'>'+(policyOcrRunning?'전용 OCR 분석 중':'정책표 최고정밀 OCR로 변환')+'</button><span id="tm-policy-ocr-status" class="sub">'+(policyOcrRunning?'표 구조 분석 중 · '+policyOcrProgress+'%':'행·수량·색상 전용 분석')+'</span></div><div class="track" aria-label="OCR 진행률"><span id="tm-policy-ocr-progress" style="width:'+policyOcrProgress+'%"></span></div>';
  return '<p class="sub">아직 변환할 정책표가 없습니다. 엑셀 표·텍스트를 붙여넣거나 이미지를 선택해 주세요.</p>';
 }
 function policyRegisteredPreviewMarkup(){
@@ -1023,7 +1023,7 @@ async function policyGetPaddleOcr(){
  if(policyPaddleOcr)return policyPaddleOcr;
  policyOcrProgress=18;policyUpdateOcrProgress('한국어 전용 로컬 모델 준비 · 18%');
  try{
-  const Tesseract=await policyLoadOcrScript(),worker=await policyOcrTimeout(Tesseract.createWorker('kor+eng',1,{workerPath:'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/worker.min.js',corePath:'https://cdn.jsdelivr.net/npm/tesseract.js-core@5.1.1/tesseract-core-simd-lstm.wasm.js',langPath:'https://tessdata.projectnaptha.com/4.0.0',logger:message=>{if(message.status==='loading language traineddata'||message.status==='initializing api'){policyOcrProgress=Math.max(policyOcrProgress,Math.round(18+(message.progress||0)*27));policyUpdateOcrProgress('한국어 모델 준비 · '+policyOcrProgress+'%')}else if(message.status==='recognizing text'){policyOcrProgress=Math.max(55,Math.round(55+(message.progress||0)*38));policyUpdateOcrProgress('정책표 글자 인식 · '+policyOcrProgress+'%')}}}),90000,'한국어 모델 준비 시간이 90초를 초과했습니다.');
+  const Tesseract=await policyLoadOcrScript(),worker=await policyOcrTimeout(Tesseract.createWorker('kor+eng',1,{workerPath:'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/worker.min.js',corePath:'https://cdn.jsdelivr.net/npm/tesseract.js-core@5.1.1/tesseract-core-simd-lstm.wasm.js',langPath:'https://raw.githubusercontent.com/tesseract-ocr/tessdata_best/main',gzip:false,cachePath:'policy-best-v1',logger:message=>{if(message.status==='loading language traineddata'||message.status==='initializing api'){policyOcrProgress=Math.max(policyOcrProgress,Math.round(18+(message.progress||0)*27));policyUpdateOcrProgress('한국어 모델 준비 · '+policyOcrProgress+'%')}else if(message.status==='recognizing text'){policyOcrProgress=Math.max(55,Math.round(55+(message.progress||0)*38));policyUpdateOcrProgress('정책표 글자 인식 · '+policyOcrProgress+'%')}}}),90000,'한국어 모델 준비 시간이 90초를 초과했습니다.');
   policyPaddleOcr={worker,predict:async blob=>{const result=await worker.recognize(blob,{}, {blocks:true}),data=result?.data||{},parts=(data.words?.length?data.words:data.lines)||[],items=parts.filter(part=>String(part.text||'').trim()).map(part=>{const box=part.bbox||{};return {text:String(part.text).trim(),score:Number(part.confidence||0)/100,poly:[[box.x0||0,box.y0||0],[box.x1||0,box.y0||0],[box.x1||0,box.y1||0],[box.x0||0,box.y1||0]]}});return [{items}]},dispose:()=>worker.terminate()};
   return policyPaddleOcr;
  }catch(error){policyPaddleOcr=null;policyPaddlePromise=null;throw error}
@@ -1041,24 +1041,38 @@ function policyCellImage(source,x0,y0,x1,y1,binary=false){
  const scale=Math.max(2,Math.min(4,56/h)),out=document.createElement('canvas');out.width=Math.ceil(w*scale)+32;out.height=Math.ceil(h*scale)+24;
  const ctx=out.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,out.width,out.height);ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';ctx.drawImage(small,16,12,w*scale,h*scale);return out;
 }
+
+// Compare independent preprocessing/layout readings; do not guess region names.
+function policyChooseReading(candidates,digits){
+ const usable=candidates.filter(c=>c.text&&(!digits||/^\d+$/.test(c.text)));
+ if(!usable.length)return {text:'',confidence:0,review:true};
+ const groups=new Map();
+ for(const c of usable){const key=digits?c.text:c.text.replace(/\s/g,'');if(!groups.has(key))groups.set(key,[]);groups.get(key).push(c)}
+ const ranked=[...groups.values()].sort((a,b)=>b.length-a.length||Math.max(...b.map(c=>c.confidence))-Math.max(...a.map(c=>c.confidence)));
+ const best=ranked[0].slice().sort((a,b)=>b.confidence-a.confidence)[0];
+ return {...best,review:groups.size>1||usable.length!==candidates.length||ranked[0].length<2||best.confidence<85};
+}
+
 async function policyRecognizeCells(source,layout,ocr){
  const rows=[['지역','수량','상태']],worker=ocr.worker;
  const heights=layout.bands.map(b=>b.bottom-b.top).sort((a,b)=>a-b),median=heights[Math.floor(heights.length/2)];
  policyInsurer='';
  for(let index=0;index<layout.bands.length;index++){
   const band=layout.bands[index],title=index===0&&(band.bottom-band.top)>median*1.5;
-  const read=async(digits,binary)=>{
+  const read=async(digits,binary,mode='7')=>{
    const left=digits?layout.divider+2:2,right=digits?layout.width-2:(title?layout.width-2:layout.divider-2);
-   await worker.setParameters({tessedit_pageseg_mode:'7',tessedit_char_whitelist:digits?'0123456789':'',preserve_interword_spaces:'1',user_defined_dpi:'300'});
+   await worker.setParameters({tessedit_pageseg_mode:mode,tessedit_char_whitelist:digits?'0123456789':'',preserve_interword_spaces:'1',user_defined_dpi:'300'});
    const result=await policyOcrTimeout(worker.recognize(policyCellImage(source,left,band.top,right,band.bottom,binary)),30000,'행 인식 제한 시간을 초과했습니다.');
    return {text:String(result.data?.text||'').trim().replace(/\s+/g,' '),confidence:Number(result.data?.confidence||0)};
   };
-  let name=await read(false,false);
-  if(name.confidence<65||!name.text){const retry=await read(false,true);if(retry.confidence>name.confidence)name=retry}
-  if(title){policyInsurer=name.text;continue}
-  let qty=await read(true,false);
-  if(qty.confidence<75||!/^\d+$/.test(qty.text)){const retry=await read(true,true);if((/^\d+$/.test(retry.text)&&retry.confidence>=qty.confidence)||!/^\d+$/.test(qty.text))qty=retry}
-  const validQty=/^\d+$/.test(qty.text),review=!name.text||name.confidence<65||!validQty||qty.confidence<65;
+  const nameCandidates=[await read(false,false),await read(false,true)];
+  if(nameCandidates[0].text!==nameCandidates[1].text||Math.min(...nameCandidates.map(c=>c.confidence))<85)nameCandidates.push(await read(false,false,'13'));
+  const name=policyChooseReading(nameCandidates,false);
+  if(title){policyInsurer=name.text+(name.review?' (확인 필요)':'');continue}
+  const qtyCandidates=[await read(true,false),await read(true,true)];
+  if(qtyCandidates[0].text!==qtyCandidates[1].text||Math.min(...qtyCandidates.map(c=>c.confidence))<85)qtyCandidates.push(await read(true,false,'8'));
+  const qty=policyChooseReading(qtyCandidates,true);
+  const validQty=/^\d+$/.test(qty.text),review=name.review||qty.review||!validQty;
   rows.push([name.text||'확인 필요',validQty?qty.text:'확인 필요',band.status+(review?' · 확인 필요':'')]);
   policyOcrProgress=Math.round(45+50*(index+1)/layout.bands.length);policyUpdateOcrProgress('정밀 인식 '+(index+1)+' / '+layout.bands.length+'행 · '+policyOcrProgress+'%');
  }
