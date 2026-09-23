@@ -50,6 +50,27 @@ html,body{height:100%;overflow:hidden}
 #tm-preview .header-grades th,#tm-preview .header-grades td,#tm-preview .header-grades th:not(:first-child),#tm-preview .header-grades td:not(:first-child){text-align:center;padding:9px 10px;white-space:nowrap}
 #tm-preview .header-grades td{font-size:17px}
 @media(max-width:760px){#tm-preview .header-grades{min-width:0}#tm-preview .header-grades th,#tm-preview .header-grades td{white-space:normal;padding:6px 4px}#tm-preview .header-grades td{font-size:14px}}
+
+/* Align greeting and grade summary as one full-width header row. */
+#tm-preview header{display:grid;grid-template-columns:max-content minmax(0,1fr) max-content;align-items:stretch;gap:24px}
+#tm-preview header>div:first-child{display:flex;flex-direction:column;justify-content:center}
+#tm-preview header h1{margin:0 0 5px}
+#tm-preview .header-grades{width:100%;min-width:0;margin:0;align-self:stretch;border-radius:8px}
+#tm-preview .header-grades table{height:100%;width:100%}
+#tm-preview .header-grades th,#tm-preview .header-grades td,#tm-preview .header-grades th:not(:first-child),#tm-preview .header-grades td:not(:first-child){padding:6px 10px}
+#tm-preview .header-grades th{font-size:13px}
+#tm-preview .header-grades td{font-size:16px}
+#tm-preview header>.action{align-self:center;white-space:nowrap}
+@media(max-width:1000px){
+ #tm-preview header{gap:14px}
+ #tm-preview header h1{font-size:19px}
+ #tm-preview header>.action{padding:9px 11px}
+}
+@media(max-width:760px){
+ #tm-preview header{grid-template-columns:minmax(0,1fr) max-content;gap:12px}
+ #tm-preview .header-grades{grid-column:1/-1;order:initial;min-height:58px}
+ #tm-preview header>.action{grid-column:2;grid-row:1}
+}
 </style>
 <div class="shell">
 <aside><div class="brand"><b>▥</b> TM OFFICE</div><div class="team">보험영업 1팀 · 상담원</div><div class="mobile-note">PC용 화면 미리보기</div><nav aria-label="직원 메뉴">
