@@ -80,6 +80,7 @@
 #tm-preview .region-shape{stroke-width:.05625}
 #tm-preview .map-city-border{stroke-width:.1125}
 #tm-preview .region-shape.region-match,#tm-preview .region-shape.region-match:hover,#tm-preview .region-shape.region-match:focus{stroke-width:.0625}
+#tm-preview .region-shape.region-county.region-match,#tm-preview .region-shape.region-county.region-match:hover,#tm-preview .region-shape.region-county.region-match:focus{stroke-width:.03125}
 /* Keep geographic names subtle and quota labels translucent. */
 #tm-preview .map-region-name{fill:#7e8b99;font-weight:400;stroke:rgba(255,255,255,.48);stroke-width:1px;opacity:.78}
 #tm-preview .map-item-label rect{fill:#fff;fill-opacity:.8;stroke:#eab308;stroke-opacity:1;stroke-width:1}
@@ -294,7 +295,7 @@ function updateRegionMap(){
  const extent=combinedShapes.map(f=>f.b);const minX=Math.min(...extent.map(b=>b[0])),minY=Math.min(...extent.map(b=>b[1])),maxX=Math.max(...extent.map(b=>b[2])),maxY=Math.max(...extent.map(b=>b[3]));let box=[minX-3,minY-3,maxX-minX+6,maxY-minY+6].join(' ');
  if(selected.length){const b=selected.map(f=>f.b),x=Math.min(...b.map(a=>a[0])),y=Math.min(...b.map(a=>a[1])),w=Math.max(...b.map(a=>a[2]))-x,h=Math.max(...b.map(a=>a[3]))-y;const ratio=(maxX-minX+6)/(maxY-minY+6);let vw=Math.max(w*2*Math.sqrt(3),8),vh=Math.max(h*2*Math.sqrt(3),8);if(vw/vh<ratio)vw=vh*ratio;else vh=vw/ratio;box=[x+w/2-vw/2,y+h/2-vh/2,vw,vh].join(' ')}
  const visibleShapes=combinedShapes;
- const paths=visibleShapes.map(f=>{const on=available(f.group),hit=focused(f);return `<path d="${f.d}" class="region-shape ${on?'region-available':''} ${hit?'region-match':''}" data-map-group="${f.group}" ${f.group>=0?'tabindex="0" role="button"':''} aria-label="${f.name} · ${on?'접수 가능':'접수 불가 또는 자료 없음'}"><title>${f.name} · ${on?'접수 가능':'접수 불가 또는 자료 없음'}</title></path>`}).join('');
+ const paths=visibleShapes.map(f=>{const on=available(f.group),hit=focused(f);return `<path d="${f.d}" class="region-shape ${f.name.endsWith('군')?'region-county':''} ${on?'region-available':''} ${hit?'region-match':''}" data-map-group="${f.group}" ${f.group>=0?'tabindex="0" role="button"':''} aria-label="${f.name} · ${on?'접수 가능':'접수 불가 또는 자료 없음'}"><title>${f.name} · ${on?'접수 가능':'접수 불가 또는 자료 없음'}</title></path>`}).join('');
  const jb=jejuShapes.map(f=>f.b),jx=Math.min(...jb.map(b=>b[0])),jy=Math.min(...jb.map(b=>b[1])),jw=Math.max(...jb.map(b=>b[2]))-jx,jh=Math.max(...jb.map(b=>b[3]))-jy;
  const jejuLabel=`<text x="${jx+jw*.5}" y="${jy+jh*.51}" text-anchor="middle" dominant-baseline="middle" font-size="${jw*.12}" font-weight="700" fill="#174265" stroke="#fff" stroke-width="${jw*.008}" paint-order="stroke" pointer-events="none">제주도 <tspan fill="#dc2626">0</tspan></text>`;
  const dims=box.split(' ').map(Number);
