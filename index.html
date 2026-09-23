@@ -343,16 +343,16 @@ function updateMapLabels(svg){
    label.ly=top+Math.floor(index/best.cols)*best.ch+(best.ch-label.labelHeight)/2;
   });
  }
- // Place the hover card above the selected region, centered horizontally.
+ // Place the hover card at the selected region's upper left, within the viewport.
  if(mapHoveredGroup!==null&&labels.length){
   const bounds=regionMapShapes.filter(f=>f.group===mapHoveredGroup).map(f=>f.b);
-  const y1=Math.min(...bounds.map(b=>b[1]));
+  const x1=Math.min(...bounds.map(b=>b[0])),y1=Math.min(...bounds.map(b=>b[1]));
   for(const label of labels){
    const spaceHeight=Math.max(0,Math.min(bottom,y1-gap)-top);
    const scale=Math.min(1,(right-left)/label.labelWidth,spaceHeight/label.labelHeight);
    if(scale<=0)continue;
    label.labelWidth*=scale;label.labelHeight*=scale;label.fontSize*=scale;
-   label.lx=Math.max(left,Math.min(label.cx-label.labelWidth/2,right-label.labelWidth));
+   label.lx=Math.max(left,Math.min(x1-gap-label.labelWidth,right-label.labelWidth));
    label.ly=Math.min(bottom,y1-gap)-label.labelHeight;
   }
  }
