@@ -215,12 +215,35 @@ function updateRegionMap(){
  const focused=f=>activeGroup!==null?f.group===activeGroup:!!q&&matches.includes(f.group);
  const selected=regionMapShapes.filter(focused);
  const extent=regionMapShapes.map(f=>f.b);const minX=Math.min(...extent.map(b=>b[0])),minY=Math.min(...extent.map(b=>b[1])),maxX=Math.max(...extent.map(b=>b[2])),maxY=Math.max(...extent.map(b=>b[3]));let box=[minX-3,minY-3,maxX-minX+6,maxY-minY+6].join(' ');
- if(selected.length){const b=selected.map(f=>f.b),x=Math.min(...b.map(a=>a[0])),y=Math.min(...b.map(a=>a[1])),w=Math.max(...b.map(a=>a[2]))-x,h=Math.max(...b.map(a=>a[3]))-y;const ratio=(maxX-minX+6)/(maxY-minY+6);let vw=Math.max(w*2,8),vh=Math.max(h*2,8);if(vw/vh<ratio)vw=vh*ratio;else vh=vw/ratio;box=[x+w/2-vw/2,y+h/2-vh/2,vw,vh].join(' ')}
+ if(selected.length){const b=selected.map(f=>f.b),x=Math.min(...b.map(a=>a[0])),y=Math.min(...b.map(a=>a[1])),w=Math.max(...b.map(a=>a[2]))-x,h=Math.max(...b.map(a=>a[3]))-y;const ratio=(maxX-minX+6)/(maxY-minY+6);let vw=Math.max(w*2*Math.SQRT2,8),vh=Math.max(h*2*Math.SQRT2,8);if(vw/vh<ratio)vw=vh*ratio;else vh=vw/ratio;box=[x+w/2-vw/2,y+h/2-vh/2,vw,vh].join(' ')}
  const visibleShapes=regionMapShapes;
  const paths=visibleShapes.map(f=>{const on=available(f.group),hit=focused(f);return `<path d="${f.d}" class="region-shape ${on?'region-available':''} ${hit?'region-match':''}" data-map-group="${f.group}" ${f.group>=0?'tabindex="0" role="button"':''} aria-label="${f.name} · ${on?'접수 가능':'접수 불가 또는 자료 없음'}"><title>${f.name} · ${on?'접수 가능':'접수 불가 또는 자료 없음'}</title></path>`}).join('');
- const dims=box.split(' ').map(Number);host.style.aspectRatio=Math.max(.65,Math.min(1.8,dims[2]/dims[3]));host.innerHTML=`<svg viewBox="${box}" preserveAspectRatio="xMidYMid meet" role="group" aria-label="전국 접수 가능지역 지도">${paths}<defs><clipPath id="tm-selected-map-clip">${visibleShapes.map(f=>`<path d="${f.d}"/>`).join('')}</clipPath></defs><g clip-path="url(#tm-selected-map-clip)"><path d="${regionBorders.city}" class="map-city-border"/><path d="${regionBorders.province}" class="map-province-border"/></g>${visibleShapes.filter(f=>available(f.group)||focused(f)).map(f=>`<path d="${f.d}" class="map-availability-border ${focused(f)?'map-search-border':''}"/>`).join('')}</svg>`;
+ const dims=box.split(' ').map(Number);
+ const inView=f=>f.b[2]>=dims[0]&&f.b[0]<=dims[0]+dims[2]&&f.b[3]>=dims[1]&&f.b[1]<=dims[1]+dims[3];
+ const labelGroups=[...new Set(regionMapShapes.filter(f=>f.group>=0&&inView(f)).map(f=>f.group))];
+ const labelWidth=dims[2]*.29,labelHeight=dims[3]*.115,fontSize=dims[2]*.021;
+ const occupied=[];
+ const mapLabels=labelGroups.map(i=>{
+  const r=regions[i],items=[];
+  const hw=Number(r[2].split('/')[1]),ga=Number(r[3].split('/')[1]);
+  if(hw>0)items.push('한화 '+hw+'건');
+  if(!general&&ga>0)items.push('GA 실버 '+ga+'건');
+  if(!items.length)return '';
+  const visible=regionMapShapes.filter(f=>f.group===i&&inView(f)),bb=visible.map(f=>f.b);
+  const cx=(Math.max(dims[0],Math.min(...bb.map(b=>b[0])))+Math.min(dims[0]+dims[2],Math.max(...bb.map(b=>b[2]))))/2;
+  const cy=(Math.max(dims[1],Math.min(...bb.map(b=>b[1])))+Math.min(dims[1]+dims[3],Math.max(...bb.map(b=>b[3]))))/2;
+  const margin=dims[2]*.012;
+  let lx=Math.max(dims[0]+margin,Math.min(cx-labelWidth/2,dims[0]+dims[2]-labelWidth-margin));
+  let ly=Math.max(dims[1]+margin,Math.min(cy-labelHeight/2,dims[1]+dims[3]-labelHeight-margin));
+  const candidates=[{x:lx,y:ly}];
+  for(let row=0;row<8;row++)for(let col=0;col<3;col++)candidates.push({x:dims[0]+margin+col*(labelWidth+margin),y:dims[1]+margin+row*(labelHeight+margin)});
+  const fits=p=>p.x+labelWidth<=dims[0]+dims[2]&&p.y+labelHeight<=dims[1]+dims[3]&&!occupied.some(b=>p.x<b.x+labelWidth+margin&&p.x+labelWidth+margin>b.x&&p.y<b.y+labelHeight+margin&&p.y+labelHeight+margin>b.y);
+  const spot=candidates.find(fits)||{x:lx,y:ly};lx=spot.x;ly=spot.y;occupied.push(spot);
+  return `<g class="map-item-label" pointer-events="none"><line x1="${cx}" y1="${cy}" x2="${lx+labelWidth/2}" y2="${ly+labelHeight/2}" stroke="#526b86" stroke-width="1" vector-effect="non-scaling-stroke"/><rect x="${lx}" y="${ly}" width="${labelWidth}" height="${labelHeight}" rx="${fontSize*.5}" fill="#fff" fill-opacity=".96" stroke="#7894b5" stroke-width="1" vector-effect="non-scaling-stroke"/><text x="${lx+fontSize*.55}" y="${ly+fontSize*1.35}" font-size="${fontSize}" font-weight="700" fill="#173653">${r[0]}</text><text x="${lx+fontSize*.55}" y="${ly+fontSize*2.7}" font-size="${fontSize}" fill="#1457bb">${items.join(' · ')}</text><text x="${lx+fontSize*.55}" y="${ly+fontSize*3.9}" font-size="${fontSize*.8}" fill="#61738b">남은 수량 · 묶음 공유</text></g>`;
+ }).join('');
+ host.style.aspectRatio=Math.max(.65,Math.min(1.8,dims[2]/dims[3]));host.innerHTML=`<svg viewBox="${box}" preserveAspectRatio="xMidYMid meet" role="group" aria-label="전국 접수 가능지역 지도">${paths}<defs><clipPath id="tm-selected-map-clip">${visibleShapes.map(f=>`<path d="${f.d}"/>`).join('')}</clipPath></defs><g clip-path="url(#tm-selected-map-clip)"><path d="${regionBorders.city}" class="map-city-border"/><path d="${regionBorders.province}" class="map-province-border"/></g>${visibleShapes.filter(f=>available(f.group)||focused(f)).map(f=>`<path d="${f.d}" class="map-availability-border ${focused(f)?'map-search-border':''}"/>`).join('')}${mapLabels}</svg>`;
  root.querySelector('#tm-map-status').textContent=(mapCarrier==='ga'&&general)?'GA 일반은 자료 대기 중입니다.':q?(matches.length?'검색한 지역을 확대해 표시합니다.':'검색 결과가 없습니다.'):'파란 테두리 지역을 선택하면 남은 수량을 확인할 수 있습니다.';
- root.querySelector('#tm-map-detail').textContent='지역명에 마우스를 올리면 미리보기 · 클릭하면 선택 유지 · 주변 지도 함께 표시';
+ root.querySelector('#tm-map-detail').textContent='마지막 미리보기 유지 · 다른 지역에 마우스를 올리면 변경 · 지도 표시는 아이템별 남은 공유 수량';
  if(activeGroup!==null){root.querySelector('#tm-map-status').textContent=regions[activeGroup][0]+(mapHoveredGroup!==null?' 미리보기':' 선택 유지')+' · 주변 지역 함께 보기';showMapRegion(activeGroup)}
 }
 root.addEventListener('click',e=>{const choice=e.target.closest('[data-region-select]');if(choice){mapSelectedGroup=Number(choice.dataset.regionSelect);mapHoveredGroup=null;filterRegions();return}if(e.target.closest('[data-map-reset]')){mapSelectedGroup=null;mapHoveredGroup=null;root.querySelector('#tm-region-search').value='';filterRegions();}});
@@ -228,9 +251,9 @@ root.addEventListener('input',e=>{if(e.target.id==='tm-region-search'){mapSelect
 function previewTableRegion(e){const button=e.target.closest('[data-region-select]');if(!button||button.contains(e.relatedTarget))return;mapHoveredGroup=Number(button.dataset.regionSelect);updateRegionMap();}
 function leaveTableRegion(e){const button=e.target.closest('[data-region-select]');if(!button||button.contains(e.relatedTarget))return;mapHoveredGroup=null;updateRegionMap();}
 root.addEventListener('mouseover',previewTableRegion);
-root.addEventListener('mouseout',leaveTableRegion);
+
 root.addEventListener('focusin',previewTableRegion);
-root.addEventListener('focusout',leaveTableRegion);
+
 function showMapRegion(i){if(i<0)return;const r=regions[i],general=root.querySelector('#tm-age').selectedIndex===0;root.querySelector('#tm-map-detail').textContent=r[0]+' · '+(mapCarrier==='hanwha'?'한화':general?'GA 일반':'GA 실버')+' · '+(mapCarrier==='ga'&&general?'자료 대기':'배정 / 남은 수량 '+r[mapCarrier==='ga'?3:2])+' · 묶음 내 공유 수량';}
 root.addEventListener('click',e=>{const f=e.target.closest('[data-map-group]');if(f)showMapRegion(Number(f.dataset.mapGroup));});
 root.addEventListener('keydown',e=>{const f=e.target.closest('[data-map-group]');if(f&&(e.key==='Enter'||e.key===' ')){e.preventDefault();showMapRegion(Number(f.dataset.mapGroup));}});
