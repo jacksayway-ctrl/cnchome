@@ -1104,6 +1104,18 @@ function policyBandHasDivider(source,layout,band){
  return total>0&&hits/total>.65;
 }
 
+
+// User-confirmed OCR confusions: match whole region tokens only.
+function policyCorrectRegion(text){
+ const original=String(text||''),changes=[],aliases={'경추':'경주','중남':'충남','공수':'공주','중북':'충북'};
+ const corrected=original.replace(/[가-힣]+/g,token=>{
+  const match=/^(경추|중남|공수|중북)(시|도)?$/.exec(token);
+  if(!match)return token;
+  const next=aliases[match[1]]+(match[2]||'');changes.push(token+' → '+next);return next;
+ });
+ return {text:corrected,original,changes};
+}
+
 async function policyRecognizeCells(source,layout,ocr){
  const rows=[['지역','수량','상태']],worker=ocr.worker;
  const heights=layout.bands.map(b=>b.bottom-b.top).sort((a,b)=>a-b),median=heights[Math.floor(heights.length/2)];
@@ -1123,13 +1135,15 @@ async function policyRecognizeCells(source,layout,ocr){
   if(policyRegionSuspicious(name.text)||irregular){nameCandidates.push(await read(false,'original','6'));name=policyChooseReading(nameCandidates,false)}
   name.review=name.review||policyRegionSuspicious(name.text)||irregular;
   if(title){policyInsurer=name.text+(name.review?' (확인 필요)':'');continue}
+  const correction=policyCorrectRegion(name.text);
+  name.text=correction.text;
   const qtyCandidates=[await read(true,false),await read(true,true)];
   if(qtyCandidates[0].text!==qtyCandidates[1].text||Math.min(...qtyCandidates.map(c=>c.confidence))<85)qtyCandidates.push(await read(true,false,'8'));
   let qty=policyChooseReading(qtyCandidates,true);
   if(qty.review){qtyCandidates.push(await read(true,'original'));if(!qty.text)qtyCandidates.push(await read(true,true,'10'));qty=policyChooseReading(qtyCandidates,true)}
   qty.review=qty.review||irregular;
   const validQty=/^\d+$/.test(qty.text),review=name.review||qty.review||!validQty;
-  rows.push([name.text||'확인 필요',validQty?qty.text:'확인 필요',policyQuantityStatus(qty.text,qty.review)+(name.review?' · 지역명 확인 필요':'')+(irregular?' · 행 구분 확인 필요':'')]);
+  rows.push([name.text||'확인 필요',validQty?qty.text:'확인 필요',policyQuantityStatus(qty.text,qty.review)+(name.review?' · 지역명 확인 필요':'')+(irregular?' · 행 구분 확인 필요':'')+(correction.changes.length?' · 지역명 보정 확인: '+correction.changes.join(', '):'')]);
   policyOcrProgress=Math.round(45+50*(index+1)/layout.bands.length);policyUpdateOcrProgress('정밀 인식 '+(index+1)+' / '+layout.bands.length+'행 · '+policyOcrProgress+'%');
  }
  return rows;
