@@ -9,3 +9,10 @@
 - 실제 업무 데이터는 공개 저장소에 저장하지 않습니다.
 
 자체 운영 구조와 구현 범위는 [자체 운영 설계](docs/SELF_HOSTED_ARCHITECTURE.md)를 참고하세요.
+
+## 급여 계산 개발
+
+- [급여 계산 검토 화면](payroll.html): 변경 가능한 예시로 확정 운영 기준을 확인합니다. 실제 지급·저장은 수행하지 않습니다.
+- [전체 운영 기준](docs/payroll-requirements.md)과 [구현 현황](docs/PAYROLL_IMPLEMENTATION.md)을 함께 관리합니다.
+- 계산 검증: `node --test payroll-engine.test.cjs`
+- 기존 직원 그레이드 화면은 이전 참고표의 계산입니다. 새 급여 계산 모듈과 운영 서버 연동은 구분합니다.
