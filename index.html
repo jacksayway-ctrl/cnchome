@@ -1260,12 +1260,39 @@ function policyDisplayCell(rows,r,c){
  const value=r>0&&String(rows[0]?.[c]||'').trim()==='상태'?raw.replace(/지역명 확인 필요/g,'지역확인'):raw;
  return r>0&&String(rows[0]?.[c]||'').trim()==='상태'?value.split(/[·ㆍ]/).map(part=>part.trim()).filter(part=>part&&!/^(?:접수\s*가능|마감)$/.test(part)).join(' · '):value;
 }
+
+let policyRegionReviewDraft=null;
+root.addEventListener('click',e=>{
+ const button=e.target.closest('[data-region-review]');if(!button||policyOcrRunning)return;
+ const row=Number(button.dataset.regionReview);if(!Number.isInteger(row)||row<1||!policyRows[row])return;
+ policyCancelAutoConvert();
+ policyRegionReviewDraft={row,record:policyRows[row],before:String(policyRows[row][0]||'')};
+ open('지역명 수정','<form id="tm-region-review-form"><p>'+row+'행의 지역명을 확인하고 수정해 주세요.</p><label>수정할 지역명<input id="tm-region-review-name" name="region" required value="'+policyEscape(policyRegionReviewDraft.before)+'" style="width:100%;box-sizing:border-box"></label><p class="sub">수정 내용은 변환 표에 반영됩니다. 정책표 등록을 누르면 최종 적용됩니다.</p><button type="submit" class="action">수정 적용</button><button type="button" class="secondary" data-action="close">취소</button></form>');
+ const input=root.querySelector('#tm-region-review-name');input.focus();input.select();
+});
+root.addEventListener('submit',e=>{
+ if(e.target.id!=='tm-region-review-form')return;e.preventDefault();
+ const draft=policyRegionReviewDraft,value=String(new FormData(e.target).get('region')||'').trim();
+ if(!value){root.querySelector('#tm-region-review-name').focus();return}
+ if(policyOcrRunning||!draft||policyRows[draft.row]!==draft.record||String(draft.record[0]||'')!==draft.before){toast('표가 변경되었습니다. 지역확인을 다시 눌러 주세요.');modal.close();return}
+ const record=draft.record;record[0]=value;policyCityDrafts.delete(draft.row);
+ policyCityAudit.push({row:draft.row,from:draft.before,to:value,reason:'지역확인 버튼에서 직접 확인'});
+ const status=policyRows[0].findIndex(h=>String(h).trim()==='상태');
+ if(status>=0)record[status]=String(record[status]||'').split(/[·ㆍ]/).map(x=>x.trim()).filter(x=>x&&!/^(?:지역명 확인 필요|지역\s*확인)$/.test(x)).join(' · ');
+ policyRegistered=false;policySyncCityText();policyRegionReviewDraft=null;modal.close();policyRefreshPreview();
+ toast('지역명을 수정했습니다. 정책표 등록을 누르면 적용됩니다.');
+});
+
 function policySheetMarkup(rows){
  const columns=policyDisplayColumns(rows);
  const letter=index=>{let name='';for(let n=index+1;n>0;n=Math.floor((n-1)/26))name=String.fromCharCode(65+(n-1)%26)+name;return name};
  const cells=(r,header)=>columns.map(c=>{
   const value=policyDisplayCell(rows,r,c),tag=header?'th':'td';
-  const content=header?policyEscape(value):'<input type="text" data-policy-cell="'+r+':'+c+'" aria-label="'+r+'행 '+policyEscape(rows[0]?.[c]||'열 '+(c+1))+'" value="'+policyEscape(value)+'" style="box-sizing:border-box;width:100%;min-width:0;border:1px solid #b8cbbc;border-radius:4px;padding:5px;background:#fff">';
+  let content=header?policyEscape(value):'<input type="text" data-policy-cell="'+r+':'+c+'" aria-label="'+r+'행 '+policyEscape(rows[0]?.[c]||'열 '+(c+1))+'" value="'+policyEscape(value)+'" style="box-sizing:border-box;width:100%;min-width:0;border:1px solid #b8cbbc;border-radius:4px;padding:5px;background:#fff">';
+  if(!header&&String(rows[0]?.[c]||'').trim()==='상태'&&/지역\s*확인/.test(value)){
+   const rest=value.split(' · ').filter(part=>!/지역\s*확인/.test(part)).join(' · ');
+   content='<button type="button" class="secondary" data-region-review="'+r+'" aria-label="'+r+'행 지역확인">지역확인</button>'+(rest?'<span style="display:block;margin-top:4px">'+policyEscape(rest)+'</span>':'');
+  }
   return '<'+tag+(header?' scope="col"':'')+' class="'+(header?'sheet-heading ':'')+(c===0?'sheet-region':'')+'">'+content+'</'+tag+'>';
  }).join('');
  return '<p class="sub">표 안의 내용을 바로 수정할 수 있습니다. 수정 후 정책표 등록을 누르면 적용됩니다.</p><div class="policy-sheet-wrap" tabindex="0" role="region" aria-label="정책표 변환 결과. 스크롤하여 전체 행과 열 확인"><table class="policy-sheet" aria-label="정책표 엑셀형 결과"><colgroup><col style="width:44px">'+columns.map(c=>'<col'+(c===0?'':' style="width:'+(c===1?'64px':String(rows[0]?.[c]||'').trim()==='상태'?'164px':'120px')+'"')+'>').join('')+'</colgroup><thead><tr><th class="sheet-number" aria-label="행 번호"></th>'+columns.map((_,i)=>'<th class="sheet-letter">'+letter(i)+'</th>').join('')+'</tr><tr><th class="sheet-number" scope="row">1</th>'+cells(0,true)+'</tr></thead><tbody>'+rows.slice(1).map((row,i)=>'<tr><th class="sheet-number" scope="row">'+(i+2)+'</th>'+cells(i+1,false)+'</tr>').join('')+'</tbody></table></div>';
