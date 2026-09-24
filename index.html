@@ -1406,11 +1406,13 @@ root.addEventListener('keydown',e=>{
 root.addEventListener('copy',e=>{
  const sheet=root.querySelector('.policy-sheet.is-all-selected');
  if(!sheet||!sheet.contains(document.activeElement)||!e.clipboardData)return;
- const lines=Array.from(sheet.tBodies[0]?.rows||[]).map(row=>Array.from(row.cells).slice(1).map(cell=>{
+ const cells=Array.from(sheet.tBodies[0]?.rows||[]).map(row=>Array.from(row.cells).slice(1).map(cell=>{
   const input=cell.querySelector('input');
   return String(input?input.value:cell.textContent).replace(/[\t\r\n]+/g,' ').trim();
- }).join('\t'));
- e.clipboardData.setData('text/plain',lines.join('\n'));
+ }));
+ // Preserve every data column, including empty cells, and every data row.
+ e.clipboardData.setData('text/plain',cells.map(row=>row.join('\t')).join('\r\n'));
+ e.clipboardData.setData('text/html','<table><tbody>'+cells.map(row=>'<tr>'+row.map(value=>'<td>'+policyEscape(value)+'</td>').join('')+'</tr>').join('')+'</tbody></table>');
  e.preventDefault();
 });
 
