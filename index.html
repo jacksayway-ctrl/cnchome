@@ -1203,8 +1203,8 @@ async function policyGetPaddleOcr(){
   catch(error){expired=true;throw error}
  };
  const worker=await create('kor+chi_tra+chi_sim','한국어·한문(번체·간체)'),digitWorker=await create('eng','숫자');
- let regionWorkerPromise;
- policyPaddleOcr={worker,digitWorker,getRegionWorker:()=>regionWorkerPromise||(regionWorkerPromise=create('kor','지역명 전용 한국어')),dispose:async()=>{await Promise.allSettled(ready.map(w=>w.terminate()))}};
+ let regionWorkerPromise,hanWorkerPromise;
+ policyPaddleOcr={worker,digitWorker,getRegionWorker:()=>regionWorkerPromise||(regionWorkerPromise=create('kor','지역명 전용 한국어')),getHanWorker:()=>hanWorkerPromise||(hanWorkerPromise=create('chi_tra','한자 전용')),dispose:async()=>{await Promise.allSettled(ready.map(w=>w.terminate()))}};
  return policyPaddleOcr;
  }catch(error){await Promise.allSettled(ready.map(w=>w.terminate()));policyPaddleOcr=null;policyPaddlePromise=null;throw error}
 }
@@ -1582,7 +1582,7 @@ function policyUnpackLines(data,pack){
  const groups=pack.slots.map(()=>[]);
  const lines=data.lines||data.blocks?.flatMap(b=>b.paragraphs?.flatMap(p=>p.lines||[])||[])||[];
  for(const line of lines){if(!line.bbox)continue;const center=(line.bbox.y0+line.bbox.y1)/2,index=pack.slots.findIndex(s=>center>=s.top&&center<=s.bottom);if(index>=0)groups[index].push(line)}
- return groups.map(lines=>({text:lines.sort((a,b)=>a.bbox.y0-b.bbox.y0||a.bbox.x0-b.bbox.x0).map(l=>l.text.trim()).join(' ').replace(/\s+/g,' ').trim(),confidence:lines.length?lines.reduce((n,l)=>n+Number(l.confidence||0),0)/lines.length:0}));
+ return groups.map(lines=>({words:lines.flatMap(l=>l.words||[]),text:lines.sort((a,b)=>a.bbox.y0-b.bbox.y0||a.bbox.x0-b.bbox.x0).map(l=>l.text.trim()).join(' ').replace(/\s+/g,' ').trim(),confidence:lines.length?lines.reduce((n,l)=>n+Number(l.confidence||0),0)/lines.length:0}));
 }
 async function policyBatchRead(worker,pack,whitelist=''){
  await worker.setParameters({tessedit_pageseg_mode:'6',tessedit_char_whitelist:whitelist,preserve_interword_spaces:'1',user_defined_dpi:'300'});
@@ -1601,7 +1601,8 @@ async function policyRecognizeBatch(source,layout,ocr){
   const a=kor[i],b=mixed[i];
   // Only OCR readings are candidates. Never synthesize a place name from a gazetteer.
   const hasHan=/[\u3400-\u9fff\uf900-\ufaff]/.test(b.text);
-  const chosen=hasHan&&b.confidence>=65?b:a.text?a:b;
+  let chosen=hasHan&&b.confidence>=65?b:a.text?a:b;
+  const repairs=[];
   let quantity=quantityWords[i].text.replace(/\s/g,'')==='불가'?'불가':qty[i].text.replace(/\s/g,''),quantityReview=quantity!=='불가'&&(!/^\d+$/.test(quantity)||qty[i].confidence<65);
   if(i===0&&!/^\d+$/.test(quantity)&&/^(?:한화|신한|삼성|현대|메리츠|흥국|동양|교보|라이나|DB|KB|GA|G\/A)/.test(chosen.text)){
    policyInsurer=chosen.text;policyAnalysis.push({row:1,text:chosen.text,alternatives:a.text+' / '+b.text,reason:'제목 영역 일괄 판독'});continue;
@@ -1614,8 +1615,36 @@ async function policyRecognizeBatch(source,layout,ocr){
    if(text==='불가'){quantity='불가';quantityReview=false}
    else if(/^\d+$/.test(text)&&r.data.confidence>=80){quantity=text;quantityReview=false}
   }
-  const review=!chosen.text||chosen.confidence<85||a.text.replace(/\s/g,'')!==b.text.replace(/\s/g,'');
-  policyAnalysis.push({row:rows.length+1,text:chosen.text||'판독 실패',alternatives:'한국어: '+a.text+' ['+Math.round(a.confidence)+'] / 한국어·한문: '+b.text+' ['+Math.round(b.confidence)+']',reason:review?'판독 불일치 또는 저신뢰 · 원본 확인 필요':'두 인식기의 실제 판독 일치'});
+  // Isolate uncertain glyphs using OCR pixel boxes, never neighboring place names.
+  if(/[＃#]/.test(chosen.text)){
+   const symbols=(chosen.words||[]).filter(w=>/^[＃#]$/.test(w.text.trim()));
+   for(const symbol of symbols){
+    const band=layout.bands[i],cell=policyCellImage(source,2,band.top,layout.divider-2,band.bottom,'color');
+    const scale=(cell.width-32)/(layout.divider-4);
+    const left=Math.max(2,Math.floor((symbol.bbox.x0-32)/scale)+2-2),right=Math.min(layout.divider-2,Math.ceil((symbol.bbox.x1-32)/scale)+2+2);
+    if(right<=left)continue;
+    const han=await ocr.getHanWorker(),readings=[];
+    for(const variant of ['color','original']){
+     await han.setParameters({tessedit_pageseg_mode:'10',tessedit_char_whitelist:'',user_defined_dpi:'300'});
+     const r=await policyOcrTimeout(han.recognize(policyCellImage(source,left,band.top,right,band.bottom,variant)),30000,'개별 문자 인식 제한 시간');
+     readings.push({text:String(r.data?.text||'').trim(),confidence:Number(r.data?.confidence||0)});
+    }
+    repairs.push('문자 영역: '+readings.map(r=>r.text+' ['+Math.round(r.confidence)+']').join(' / '));
+    if(readings[0].text===readings[1].text&&/^[\u3400-\u9fff\uf900-\ufaff]$/.test(readings[0].text)&&readings.every(r=>r.confidence>=70))chosen={...chosen,text:chosen.text.replace(/[＃#]/,readings[0].text)};
+   }
+  }
+  if(chosen.confidence<85&&/^[가-힣]{2,4}$/.test(chosen.text)){
+   const band=layout.bands[i],readings=[];
+   for(const variant of ['whitepixel','original']){
+    await korean.setParameters({tessedit_pageseg_mode:'7',tessedit_char_whitelist:'',preserve_interword_spaces:'1',user_defined_dpi:'300'});
+    const r=await policyOcrTimeout(korean.recognize(policyCellImage(source,2,band.top,layout.divider-2,band.bottom,variant)),30000,'짧은 행 재인식 제한 시간');
+    readings.push({text:String(r.data?.text||'').trim(),confidence:Number(r.data?.confidence||0)});
+   }
+   repairs.push('행 확대: '+readings.map(r=>r.text+' ['+Math.round(r.confidence)+']').join(' / '));
+   if(readings[0].text===readings[1].text&&readings.every(r=>r.confidence>=85))chosen={...chosen,...readings[0]};
+  }
+  const review=!chosen.text||chosen.confidence<85||/[＃#]/.test(chosen.text)||a.text.replace(/\s/g,'')!==b.text.replace(/\s/g,'');
+  policyAnalysis.push({row:rows.length+1,text:chosen.text||'판독 실패',alternatives:'한국어: '+a.text+' ['+Math.round(a.confidence)+'] / 한국어·한문: '+b.text+' ['+Math.round(b.confidence)+']'+(repairs.length?' / '+repairs.join(' / '):''),reason:review?'판독 불일치 또는 저신뢰 · 원본 확인 필요':'두 인식기의 실제 판독 일치'});
   rows.push([chosen.text||'확인 필요',quantity||'확인 필요',(quantity==='불가'?'마감':policyQuantityStatus(quantity,quantityReview))+(review?' · 지역명 확인 필요':'')]);
  }
  policyOcrTiming=(Date.now()-started)/1000;
