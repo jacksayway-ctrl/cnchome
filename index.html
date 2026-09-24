@@ -1257,7 +1257,7 @@ function policyDisplayColumns(rows){
 }
 function policyDisplayCell(rows,r,c){
  const value=String(rows[r]?.[c]??'');
- return r>0&&String(rows[0]?.[c]||'').trim()==='상태'?value.split(/[·ㆍ]/).map(part=>part.trim()).filter(part=>part&&!/^(?:접수\\s*가능|마감)$/.test(part)).join(' · '):value;
+ return r>0&&String(rows[0]?.[c]||'').trim()==='상태'?value.split(/[·ㆍ]/).map(part=>part.trim()).filter(part=>part&&!/^(?:접수\s*가능|마감)$/.test(part)).join(' · '):value;
 }
 function policySheetMarkup(rows){
  const columns=policyDisplayColumns(rows);
