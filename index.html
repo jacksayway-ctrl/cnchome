@@ -1102,7 +1102,7 @@ function policyCityIssues(text){
  const province=policyCityProvince(text),issues=[];
  for(const match of String(text).matchAll(/[가-힣]+/g)){
   const token=match[0];if(token.length<2){if(token==='수')issues.push({token,start:match.index,end:match.index+token.length,kind:'unknown',choices:[]});continue}
-  if(PolicyRegionRules.catalog.some(c=>c.kind==='county'&&c.aliases.includes(token)))continue;
+  if(Object.values(policyProvinceNames).includes(token)||PolicyRegionRules.catalog.some(c=>c.kind==='county'&&c.aliases.includes(token)))continue;
   let exact=policyCityData.filter(c=>c.aliases.includes(token)||(c.province!=='광주'&&c.name.endsWith('시')&&c.name.replace(/(?:특별자치시|특별시|광역시)$/,'시')===token));
   if(province&&exact.some(c=>c.province===province))exact=exact.filter(c=>c.province===province);
   if(exact.length){if(exact.length>1)issues.push({token,start:match.index,end:match.index+token.length,kind:'ambiguous',choices:exact});continue}
@@ -1366,7 +1366,7 @@ function policyWhiteInk(p,w,h,convert=false){
 function policyCellImage(source,x0,y0,x1,y1,binary=false){
  const w=Math.max(1,x1-x0),h=Math.max(1,y1-y0),p=source.context.getImageData(x0,y0,w,h);
  if(binary==='rules')policyRemoveCellRules(p,w,h);
- if(binary==='color'||binary==='channel'||binary==='stroke'||binary==='detail')policyColorForeground(p,w,h,binary==='channel');
+ if(binary==='color'||binary==='channel'||binary==='stroke'||binary==='detail'||binary==='channelcrop'||binary==='whitecrop')policyColorForeground(p,w,h,binary==='channel'||binary==='channelcrop');
  if(binary==='white'||binary==='whitepixel')policyWhiteInk(p,w,h,true);
  const original=(binary==='original'||binary==='pixel'||binary==='title')?source.context.getImageData(x0,y0,w,h):null;
  const box=binary==='detail'?{left:0,top:0,width:w,height:h}:policyNormalizeCell(p,w,h,binary===true),small=document.createElement('canvas');small.width=w;small.height=h;small.getContext('2d').putImageData(original||p,0,0);
@@ -1650,6 +1650,40 @@ async function policyVerifyDisputedRows(source,layout,ocr,koreanRows,mixedRows){
  return verified;
 }
 
+// A place reference only selects a crop for another OCR pass. It never supplies output text.
+async function policyAuditLiteralRows(source,layout,ocr,koreanRows,mixedRows,verified){
+ const audited=new Map(),korean=await ocr.getRegionWorker();
+ for(let index=0;index<layout.bands.length;index++){
+  const initial=verified.get(index)?.confirmed?verified.get(index):policyInitialName(koreanRows[index],mixedRows[index]);
+  if(/[\u3400-\u9fff\uf900-\ufaff]/.test(initial.text)||!policyCityIssues(initial.text).some(issue=>issue.kind==='unknown'))continue;
+  const band=layout.bands[index],readings=[];
+  policyUpdateOcrProgress('미확인 표기의 원본 획 재판독 · '+(index+1)+'행');
+  for(const variant of ['channel','white','original','channelcrop','whitecrop']){
+   try{
+    await korean.setParameters({tessedit_pageseg_mode:'7',tessedit_char_whitelist:'',preserve_interword_spaces:'1',user_defined_dpi:'300'});
+    const result=await policyOcrTimeout(korean.recognize(policyCellImage(source,2,band.top,layout.divider-2,band.bottom,variant)),30000,'원본 행 재판독 제한 시간');
+    readings.push({text:String(result.data?.text||'').trim(),confidence:Number(result.data?.confidence||0),family:variant,model:'한국어'});
+   }catch(error){readings.push({text:'',confidence:0,family:variant,model:'한국어'})}
+   if(policyConfirmedRowReading(readings))break;
+  }
+  const confirmed=policyConfirmedRowReading(readings);
+  audited.set(index,{...(confirmed||initial),confirmed:!!confirmed,readings,audit:true});
+ }
+ return audited;
+}
+function policyQuantityCellReading(numeric,unrestricted){
+ const text=String(unrestricted?.text||'').trim(),compact=text.replace(/\s/g,''),digits=String(numeric?.text||'').replace(/\s/g,'');
+ const confidence=Number(unrestricted?.confidence||0);
+ // An unrestricted reading protects printed conditions from digit-only hallucinations.
+ if(/[가-힣\u3400-\u9fff]/u.test(text))return {text,review:compact!=='불가'||confidence<85,kind:compact==='불가'?'blocked':'text'};
+ const valid=/^\d+$/.test(digits),conflict=/^\d+$/.test(compact)&&compact!==digits;
+ return {text:valid?digits:text,review:!valid||Number(numeric?.confidence||0)<65||conflict,kind:valid?'number':'unknown'};
+}
+function policyIsCodeTitle(index,name,quantityWords,quantity){
+ if(index!==0||!policyCodeHeader(name))return false;
+ const text=String(quantityWords?.text||'').replace(/\s/g,'');
+ return /^(?:이월|수량|배정|건수|인원|한도)$/.test(text)||(!text&&!/^\d+$/.test(quantity));
+}
 async function policyRecognizeBatch(source,layout,ocr){
  const started=Date.now();
  const names=policyPackCells(source,layout,false,'color'),numbers=policyPackCells(source,layout,true,'color');
@@ -1659,24 +1693,30 @@ async function policyRecognizeBatch(source,layout,ocr){
  const failed=results.find(r=>r.status==='rejected');if(failed)throw failed.reason;
  const [kor,mixed,qty]=results.map(r=>r.value),quantityWords=await policyBatchRead(korean,numbers),rows=[['지역','수량','상태']];policyIntakeTitle='';
  const verifiedRows=await policyVerifyDisputedRows(source,layout,ocr,kor,mixed);
+ const auditedRows=await policyAuditLiteralRows(source,layout,ocr,kor,mixed,verifiedRows);
  for(let i=0;i<layout.bands.length;i++){
   const a=kor[i],b=mixed[i];
   // Only OCR readings are candidates. Never synthesize a place name from a gazetteer.
-  const verification=verifiedRows.get(i);
+  const verification=auditedRows.get(i)||verifiedRows.get(i);
   let chosen=verification?.confirmed?verification:policyInitialName(a,b);
   const repairs=[];let nameRereadConfirmed=!!verification?.confirmed,glyphRereadUncertain=false;
   if(verification)repairs.push('획 재확인: '+verification.readings.filter(r=>r.family!=='color').map(r=>r.family+' '+r.model+': '+r.text+' ['+Math.round(r.confidence)+']').join(' / '));
-  let quantity=quantityWords[i].text.replace(/\s/g,'')==='불가'?'불가':qty[i].text.replace(/\s/g,''),quantityReview=quantity!=='불가'&&(!/^\d+$/.test(quantity)||qty[i].confidence<65);
-  if(i===0&&!/^\d+$/.test(quantity)&&policyCodeHeader(chosen.text)){
-   policyIntakeTitle=chosen.text;policyAnalysis.push({row:1,text:chosen.text,alternatives:a.text+' / '+b.text,reason:'제목 영역 일괄 판독'});continue;
+  let quantityReading=policyQuantityCellReading(qty[i],quantityWords[i]);
+  let quantity=quantityReading.text,quantityReview=quantityReading.review;
+  if(policyIsCodeTitle(i,chosen.text,quantityWords[i],quantity)){
+   policyIntakeTitle=chosen.text;policyAnalysis.push({row:1,text:chosen.text,alternatives:a.text+' / '+b.text+' · 수량 열 표제: '+quantityWords[i].text,reason:'접수 코드·열 제목 분리'});continue;
   }
-  // Read words such as 불가 from the quantity cell itself, not from its background color.
   if(quantityReview){
    await korean.setParameters({tessedit_pageseg_mode:'7',tessedit_char_whitelist:'',preserve_interword_spaces:'1',user_defined_dpi:'300'});
-   const band=layout.bands[i],r=await policyOcrTimeout(korean.recognize(policyCellImage(source,layout.divider+2,band.top,layout.width-2,band.bottom,'color')),30000,'수량 문자 재판독 제한 시간');
-   const text=String(r.data?.text||'').replace(/\s/g,'');
-   if(text==='불가'){quantity='불가';quantityReview=false}
-   else if(/^\d+$/.test(text)&&r.data.confidence>=80){quantity=text;quantityReview=false}
+   const band=layout.bands[i],r=await policyOcrTimeout(korean.recognize(policyCellImage(source,layout.divider+2,band.top,layout.width-2,band.bottom,'channel')),30000,'수량·조건 문자 재판독 제한 시간');
+   const reread={text:String(r.data?.text||'').trim(),confidence:Number(r.data?.confidence||0)},retry=policyQuantityCellReading(qty[i],reread);
+   repairs.push('수량·조건 원문: '+quantityWords[i].text+' ['+Math.round(quantityWords[i].confidence)+'] / '+reread.text+' ['+Math.round(reread.confidence)+']');
+   if(quantityReading.kind==='text'&&quantityWords[i].confidence>=85){
+    // Preserve text even if the second pass fails; never replace a condition by a guessed digit.
+    if(retry.kind==='text'&&reread.confidence>quantityWords[i].confidence)quantity=reread.text;
+   }else if(retry.kind==='blocked'&&!retry.review){quantity=retry.text;quantityReview=false}
+   else if(retry.kind==='text'){quantity=retry.text;quantityReview=true}
+   else if(/^\d+$/.test(reread.text)&&reread.confidence>=80&&reread.text===qty[i].text.replace(/\s/g,'')){quantity=reread.text;quantityReview=false}
   }
   // Isolate uncertain glyphs using OCR pixel boxes, never neighboring place names.
   if(/[＃#]/.test(chosen.text)){
@@ -1707,9 +1747,9 @@ async function policyRecognizeBatch(source,layout,ocr){
    const supported=policyConfirmedCropReading(readings,/^[가-힣]{2,4}$/);
    if(supported){chosen={...chosen,...supported};nameRereadConfirmed=true}
   }
-  const review=policyNameNeedsReview(chosen,a,b,nameRereadConfirmed,glyphRereadUncertain);
+  const review=!!(verification?.audit&&!verification.confirmed)||policyNameNeedsReview(chosen,a,b,nameRereadConfirmed,glyphRereadUncertain);
   policyAnalysis.push({row:rows.length+1,text:chosen.text||'판독 실패',alternatives:'한국어: '+a.text+' ['+Math.round(a.confidence)+'] / 한국어·한문: '+b.text+' ['+Math.round(b.confidence)+']'+(repairs.length?' / '+repairs.join(' / '):''),reason:review?'판독 불일치 또는 저신뢰 · 원본 확인 필요':nameRereadConfirmed?'서로 다른 확대 영상의 실제 판독 일치':repairs.length?'글자 영역 재판독 결과 적용':'두 인식기의 실제 판독 일치'});
-  rows.push([chosen.text||'확인 필요',quantity||'확인 필요',(quantity==='불가'?'마감':policyQuantityStatus(quantity,quantityReview))+(review?' · 지역명 확인 필요':'')]);
+  rows.push([chosen.text||'확인 필요',quantity||'확인 필요',(quantity.replace(/\s/g,'')==='불가'?'마감':/[가-힣]/.test(quantity)?'확인 필요 · 수량 대신 조건 표기':policyQuantityStatus(quantity,quantityReview))+(review?' · 지역명 확인 필요':'')]);
  }
  policyOcrTiming=(Date.now()-started)/1000;
  return rows;
@@ -2080,6 +2120,7 @@ render();
 </div>
 
 </body></html>
+
 
 
 
