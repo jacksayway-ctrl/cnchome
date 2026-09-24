@@ -1541,7 +1541,28 @@ function policyRefreshScopeResult(){
  target.innerHTML=policyResultPill(result)+' · '+policyEscape(result.reason);
 }
 function policyRefreshRegistered(){const target=root.querySelector('#tm-policy-registered-preview');if(target){target.innerHTML=policyRegisteredPreviewMarkup();policyRefreshScopeResult()}}
-function policyRefreshPreview(){const source=root.querySelector('#tm-policy-source');if(source)source.open=!policyRows.length;const target=root.querySelector('#tm-policy-preview');if(target)target.innerHTML=policyPreviewMarkup();const register=root.querySelector('[data-action="policy-register"]');if(register)register.disabled=!policyRows.length;policyRefreshAnalysis()}
+function policyProvinceQualifiedRegion(raw,scope){
+ const text=String(raw||'').trim();
+ if(!text||!scope||scope.errors?.length)return text;
+ const provinces=[...new Set([...(scope.include||[]),...(scope.exclude||[])].map(t=>t.province))];
+ if(provinces.length!==1)return text;
+ const province=provinces[0];
+ if(!['경기','강원','충북','충남','전북','전남','경북','경남','제주'].includes(province))return text;
+ const aliases=[province,PolicyRegionRules.provinceNames[province],...({강원:['강원도'],전북:['전라북도']}[province]||[])].filter(Boolean);
+ if(aliases.some(name=>text.startsWith(name)))return text;
+ return province+' : '+text;
+}
+function policyFillMissingProvinces(){
+ let changed=false;
+ for(const scope of policyScopesForRows(policyRows)){
+  const row=policyRows[scope.index];if(!row)continue;
+  const before=String(row[0]||''),after=policyProvinceQualifiedRegion(before,scope);
+  if(after!==before){row[0]=after;changed=true}
+ }
+ if(changed)policySyncCityText();
+}
+
+function policyRefreshPreview(){policyFillMissingProvinces();const source=root.querySelector('#tm-policy-source');if(source)source.open=!policyRows.length;const target=root.querySelector('#tm-policy-preview');if(target)target.innerHTML=policyPreviewMarkup();const register=root.querySelector('[data-action="policy-register"]');if(register)register.disabled=!policyRows.length;policyRefreshAnalysis()}
 let policyTimerStarted=0,policyTimerElapsed=0,policyTimerInterval=null,policyTimerPhase='';
 function policyTimerText(){return policyTimerPhase+' · '+((policyTimerInterval!==null?window.performance.now()-policyTimerStarted:policyTimerElapsed)/1000).toFixed(1)+'초'}
 function policyTimerMarkup(){return '<div id="tm-policy-timer" role="timer" aria-live="off" aria-label="정책표 변환 경과 시간" style="margin:12px 0;padding:10px 14px;border-radius:8px;background:#eef4ff;color:#174e90;font-variant-numeric:tabular-nums;font-weight:700;'+(policyTimerPhase?'':'display:none')+'">'+(policyTimerPhase?policyTimerText():'')+'</div>'}
