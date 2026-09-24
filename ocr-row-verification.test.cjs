@@ -23,6 +23,7 @@ test('same image across models counts as one family',()=>assert.equal(choose([r(
 test('Hangul agreement across different image families',()=>assert.equal(choose([r('성주'),r('성주','stroke')]).text,'성주'));
 test('two supported Hangul groups remain unresolved',()=>assert.equal(choose([r('성주'),r('성주','stroke'),r('성수'),r('성수','stroke')]),null));
 test('repeated Han reading resolves Korean omission',()=>assert.equal(choose(hanEvidence()).text,han));
+test('two incomplete rereads cannot silently drop a detected Han condition',()=>assert.equal(choose([r(ko),r(han,'color',M),r(ko,'stroke',K),r(ko,'stroke',M),r(ko,'channel',M)]),null));
 test('Korean hash at Han position never enters output',()=>assert.equal(choose(hanEvidence(ko+' #')).text,han));
 test('Korean digit at Han position never enters output',()=>assert.equal(choose(hanEvidence(ko+' 4')).text,han));
 test('unverified extra Hangul glyph retains warning',()=>assert.equal(choose(hanEvidence(ko+' 필')),null));
