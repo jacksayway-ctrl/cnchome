@@ -1254,7 +1254,11 @@ function policyScopeTable(rows){
   if(scope.quantityReview||scope.quantity===null)notes.push('수량 확인 필요');
   if(scope.quantity===0)notes.push('수량 0');
   else if(scope.unavailable)notes.push('접수 불가');
-  if(!unavailable&&scope.exclude.length)notes.push('제외 지역은 이 행에서 불가 · 별도 가능 정책은 별도 적용');
+  if(!unavailable&&scope.exclude.length){
+   const explicit=scope.explicitBlocks||[];
+   if(explicit.length)notes.push('접수 불가로 지정된 지역');
+   if(scope.exclude.some(target=>!explicit.some(block=>JSON.stringify([block.province,block.name,block.path])===JSON.stringify([target.province,target.name,target.path]))))notes.push('제외 지역은 이 행에서 불가 · 별도 가능 정책은 별도 적용');
+  }
   if(!unavailable&&(scope.only||scope.listedOnly))notes.push('기재 지역만 가능 · 나머지 불가');
   return [policyEscape(uncertain&&allowed.length?'확인 필요: '+allowedText:allowedText),policyEscape(deniedText),scope.quantity===null?'—':String(scope.quantity),policyEscape(notes.join(' · ')||'기재 범위')];
  }));
