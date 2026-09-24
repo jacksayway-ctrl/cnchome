@@ -1512,7 +1512,8 @@ function policyConfirmedRowReading(readings){
  // Korean-only models cannot supply or disprove Han characters. Require the
  // mixed model to repeat the complete printed text across different images.
  const confirmed=policyConfirmedCropReading(mixed,pattern);
- if(!confirmed)return null;
+ // Never silently drop a Han condition that appeared in an actual reading.
+ if(!confirmed||!hasHan(confirmed.text))return null;
  const hangul=text=>(String(text||'').match(/[가-힣]/gu)||[]).join('');
  const expected=hangul(confirmed.text);
  if(!expected)return hasHan(confirmed.text)?confirmed:null;
