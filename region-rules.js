@@ -57,6 +57,21 @@
     for(const p of provinceAliases){if(value.startsWith(p.alias)){choices=resolvePlace(value.slice(p.alias.length).replace(/(?:전체|전역)$/,''),p.province);if(choices.length===1)return {province:p.province,region:'',parent:choices[0],broad:true}}}
     return null;
   }
+  // Read a directional heading only at exact catalog/token boundaries. The
+  // heading supplies province context, never an allow for the whole province.
+  function directionalPrefix(text) {
+    for(const p of provinceAliases){
+      if(!text.startsWith(p.alias))continue;
+      const rest=text.slice(p.alias.length).trimStart();
+      for(const direction of [...directions].sort((a,b)=>b.length-a.length)){
+        if(!rest.startsWith(direction))continue;
+        const tail=rest.slice(direction.length);
+        if(tail&&!/^[\s:：(]/.test(tail))continue;
+        return {province:p.province,region:direction,parent:null,broad:false,body:tail.replace(/^\s*[:：]?\s*/, '')};
+      }
+    }
+    return null;
+  }
   function listTargets(text,context={}) {
     const targets=[],errors=[],candidates=[];
     let explicitProvince=context.province||'',lastParent=context.parent||null,lastPath=context.path?[...context.path]:[],pending=null;
@@ -140,13 +155,14 @@
     if(/^(?:접수\s*)?(?:불가|제외)\s*지역\s*[:：]/.test(work)){unavailable=true;work=work.replace(/^[^:]+:/,'').trim()}
     if(/^(?:접수\s*)?가능\s*지역\s*[:：]/.test(work))work=work.replace(/^[^:]+:/,'').trim();
     const only=/必|(?:만\s*가능|한정)/.test(work);
-    let context={province:options.province||'',parent:null,path:[]},region='';
+    let context={province:options.province||'',parent:null,path:[]},region=options.region||'';
     const colon=work.indexOf(':'),pre=colon>=0?work.slice(0,colon):work.split('(')[0];
-    const h=heading(pre);
+    const prefix=colon<0?directionalPrefix(work):null;
+    const h=heading(pre)||prefix;
     if(h){context={province:h.province,parent:h.parent,path:[]};region=h.region}
     const baseTarget=h&&h.broad?(h.parent&&!h.parent.metropolitan?{province:h.parent.province,name:h.parent.name,path:[]}:{province:h.province,name:'',path:[]}):null;
     const parens=[];work=work.replace(/\(([^()]*)\)/g,(_,value)=>{parens.push(value);return ' '});
-    let body=colon>=0?work.slice(work.indexOf(':')+1):work;
+    let body=colon>=0?work.slice(work.indexOf(':')+1):prefix?directionalPrefix(work).body:work;
     const exclusions=[];const addExclusion=(text,explicit=false)=>exclusions.push({text,explicit});
     for(const part of parens){if(/제외|불가/.test(part))addExclusion(part.replace(/접수\s*불가|불가|제외/g,' '),/불가/.test(part));else body+=' '+part}
     // A separate inline exclusion label (e.g. 서산시 전체; 접수 불가: 대산읍).
@@ -157,12 +173,13 @@
       if(allMatch&&heading(allMatch[1])){const bh=heading(allMatch[1]);context={province:bh.province,parent:bh.parent,path:[]};include.push(bh.parent?{province:bh.parent.province,name:bh.parent.name,path:[]}:{province:bh.province,name:'',path:[]});addExclusion(allMatch[2].replace(/제외|불가/g,' '),/불가/.test(allMatch[2]));body=''}
       else {addExclusion(body.replace(/접수\s*불가|불가|제외/g,' '),true);body=''}
     }
-    if(colon<0&&h){
+    if(colon<0&&h&&!prefix){
       // A direction is metadata only. It does not imply administrative membership.
       if(h.broad&&(!parens.length||exclusions.length))include.push(baseTarget);
       if(!h.broad&&!body.replace(pre,'').trim())errors.push('권역에 속하는 시·군 목록 필요: '+pre.trim());
       body=body.replace(pre,'').trim();
     }
+    if(prefix&&!body.trim())errors.push('권역에 속하는 시·군 목록 필요: '+pre.trim());
     if(colon>=0&&baseTarget&&/^(?:전체|전역|모든 지역)$/.test(body.trim()))include.push(baseTarget);
     const parsed=listTargets(body,context);include.push(...parsed.targets);errors.push(...parsed.errors);candidates.push(...parsed.candidates);
     if(!context.parent&&include.length===1&&include[0].name&&!include[0].path.length)context.parent=catalog.find(c=>c.province===include[0].province&&c.name===include[0].name)||null;
@@ -181,24 +198,44 @@
     if(/[#＃]/.test(text))errors.push('# 기호의 적용 의미 확인 필요');
     if(!include.length&&!exclude.length)errors.push('적용할 시·군 또는 하위 지역 필요');
     const quantityReview=/^확인\s*필요/.test(status);
-    return {index,text,row:[...row],province:h?.province||options.province||'',region,quantity,quantityText,quantityReview,unavailable,only,mode:unavailable?'blocked':exclude.length?'exclude':only?'only':include.some(t=>!t.name)?'all':'listed',include,exclude,explicitBlocks,candidates:dedupe(candidates),errors:unique(errors),sharedQuantity:true};
+    return {index,text,row:[...row],province:h?.province||options.province||'',region,quantity,quantityText,quantityReview,unavailable,only,listedOnly:!!(region&&region!=='전체'&&include.length),mode:unavailable?'blocked':exclude.length?'exclude':only?'only':include.some(t=>!t.name)?'all':'listed',include,exclude,explicitBlocks,candidates:dedupe(candidates),errors:unique(errors),sharedQuantity:true};
   }
   function parseRows(rows,options={}) {
     if(!Array.isArray(rows))return [];
     const legacyHeaders=Array.isArray(options);let headers=legacyHeaders?options:(options?.headers||[]);
     const intakeCodes=legacyHeaders?intakeCatalog.defaults:(options?.intakeCodes||intakeCatalog.defaults);
     const isTableHeader=row=>row.some(cell=>/^(?:수량|인원|배정|이월|건수|한도)$/.test(compact(cell)))&&row.some(cell=>/^(?:(?:접수)?가능지역|지역|지역명|적용범위|범위|시.?군(?:.?구)?)$/.test(compact(cell)));
-    const result=[];let unavailable=false,province='';
+    const result=[];let unavailable=false,province='',region='';
     for(let i=0;i<rows.length;i++){
       const row=rows[i];if(!Array.isArray(row)||!row.some(cell=>String(cell||'').trim()))continue;
       if(isTableHeader(row)){headers=row;continue}
       const nonempty=row.filter(cell=>String(cell||'').trim());const text=String(nonempty[0]||'').trim();
       if(nonempty.length===1&&readIntakeCodeHeader(text,intakeCodes))continue;
       if(nonempty.length===1&&/^(?:접수\s*)?(?:가능|불가|제외)\s*지역\s*[:：]?$/.test(text)){unavailable=/불가|제외/.test(text);continue}
-      if(nonempty.length===1&&/[:：]$/.test(text)){const h=heading(text.slice(0,-1));if(h&&!h.parent&&h.broad){province=h.province;continue}}
-      result.push(parseRow(row,i,headers,{unavailable,province}));
+      if(nonempty.length===1){
+        const h=heading(text.replace(/[:：]$/, ''));
+        if(h&&!h.parent){province=h.province;region=h.broad?'':h.region;continue}
+      }
+      result.push(parseRow(row,i,headers,{unavailable,province,region}));
     }
     return result;
+  }
+  // Categories come from policy declarations, never inferred direction membership.
+  // An unsectioned policy remains directly under its province.
+  function categories(scopes) {
+    const groups=new Map();
+    for(const scope of scopes){
+      const provinces=unique([scope.province,...scope.include.map(t=>t.province),...scope.exclude.map(t=>t.province)].filter(Boolean));
+      if(!provinces.length)provinces.push('');
+      for(const province of provinces){
+        if(!groups.has(province))groups.set(province,{province,label:provinceNames[province]||province||'지역 확인 필요',sections:[]});
+        const group=groups.get(province),region=scope.region&&scope.region!=='전체'&&(!scope.province||scope.province===province)?scope.region:'';
+        let section=group.sections.find(s=>s.region===region);
+        if(!section){section={region,label:region?province+region:'권역 구분 없음',scopes:[]};group.sections.push(section)}
+        section.scopes.push(scope);
+      }
+    }
+    return [...groups.values()].sort((a,b)=>a.label.localeCompare(b.label,'ko'));
   }
   function normalizePlace(place) {
     if(!place)return null;
@@ -248,7 +285,7 @@
     if(!directAllow.length||childBlock.length)return response('partial',!directAllow.length&&!partialAllow.length?'명시된 구·읍·면·동·리만 접수 가능합니다. 나머지는 불가합니다.':'일부 구·읍·면·동·리가 제외됩니다. 하위 지역을 확인해 주세요.',[...allowed,...childBlock],restrictions);
     return response('possible','등록된 적용 범위입니다. 수량은 원문 정책 행의 지역들이 공유합니다.',directAllow,restrictions);
   }
-  const api={version:1,referenceUrl:'https://www.mois.go.kr/frt/sub/a04/localGovernment/screen.do',provinceNames,catalog,districts,readIntakeCodeHeader,resolvePlace,resolveProvince,heading,parseRow,parseRows,evaluate,contains,label};
+  const api={version:1,referenceUrl:'https://www.mois.go.kr/frt/sub/a04/localGovernment/screen.do',provinceNames,catalog,districts,readIntakeCodeHeader,resolvePlace,resolveProvince,heading,parseRow,parseRows,categories,evaluate,contains,label};
   if(typeof module!=='undefined'&&module.exports)module.exports=api;
   root.PolicyRegionRules=api;
 })(typeof window!=='undefined'?window:globalThis);

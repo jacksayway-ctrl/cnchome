@@ -20,6 +20,7 @@ app = app.replace(closing, `globalThis.integrationHooks = {
   },
   publish(carrier, kind = 'general') {
     if (carrier !== undefined) policyPublicationCarrier = carrier;
+    if (!policyPublicationClient) policyPublicationClient = 'legacy';
     policyPublicationKind = kind;
     return policyPublishRows();
   },
@@ -35,6 +36,12 @@ app = app.replace(closing, `globalThis.integrationHooks = {
     const scopes = policyPublishedScopes.get(id + ':' + kind);
     return scopes ? JSON.parse(JSON.stringify(PolicyRegionRules.evaluate(scopes, {province, name, path: []}))) : null;
   },
+  addClient: policyClientSave,
+  publishWithoutClient() { policyPublicationClient=''; return policyPublishRows(); },
+  selectedKeys() { return [...policySelectedKeys()]; },
+  client(id) { policyPublicationClient=id; policyViewClient=id; },
+  clientResult(id, carrier, province, name) { return JSON.parse(JSON.stringify(PolicyRegionRules.evaluate(policyPublishedScopes.get(policyClientKey(carrier,'general',id)),{province,name,path:[]}))); },
+  scopeMarkup() { return policyScopeTable(policyRows); },
   label: policyKeyLabel,
   markup() {
     intake();
@@ -113,7 +120,7 @@ test('default codes survive adding, renaming and reloading a custom code', () =>
   assert.equal(a.api.save({id: code.id, label: '새접수이름', aliases: ['TEST']}), true);
   const renamed = a.api.snapshot().codes.find(item => item.id === code.id);
   assert.equal(renamed.label, '새접수이름');
-  assert.equal(a.api.label(code.id + ':general'), '새접수이름 일반');
+  assert.equal(a.api.label(code.id + ':general'), '메타버스 · 새접수이름 일반');
   assert.equal(a.api.result(code.id, '경북', '성주군').quantity, 7);
   assert.equal(a.api.parse('테스트접수\n지역\t수량\n성주군\t7').carrier, code.id,
     'the old code name remains an alias without the administrator reentering it');
@@ -216,7 +223,7 @@ test('custom registry and policy updates reach an already-open second tab', () =
   assert.equal(b.api.result(code.id, '경북', '성주군').quantity, 7);
   assert.equal(a.api.save({id: code.id, label: '변경접수', aliases: ['TEST']}), true);
   b.storageEvent(a.api.codeStorageKey, a.storage.get(a.api.codeStorageKey));
-  assert.equal(b.api.label(code.id + ':general'), '변경접수 일반');
+  assert.equal(b.api.label(code.id + ':general'), '메타버스 · 변경접수 일반');
   assert.equal(b.api.result(code.id, '경북', '성주군').quantity, 7);
 });
 
@@ -232,4 +239,50 @@ test('editable code labels are escaped in administrator, map and intake markup',
     assert.ok(!text.includes(label), surface + ' never interpolates the raw label');
   }
   assert.equal(a.api.result(code.id, '충남', '서산시').quantity, 4);
+});
+
+
+test('policy region categories render and publish only listed municipalities', () => {
+  const a=boot();
+  a.api.parse('한화\n지역\t수량\n충남북부: 천안 아산\t4\n충남서부: 서산 태안\t3\n충남: 공주\t2\n경기남부: 용인 안성\t5');
+  const markup=a.api.scopeMarkup();
+  for(const label of ['충청남도','충남북부','충남서부','권역 구분 없음','경기남부','기재 지역만 가능']) assert.ok(markup.includes(label),label);
+  assert.equal(a.api.publish('hanwha'),true);
+  for(const name of ['용인시','안성시']) assert.equal(a.api.result('hanwha','경기',name).state,'possible');
+  assert.equal(a.api.result('hanwha','경기','수원시').state,'blocked');
+  assert.equal(a.api.result('hanwha','충남','논산시').state,'blocked');
+  const b=boot(a.storage);
+  assert.equal(b.api.result('hanwha','경기','안성시').state,'possible');
+  assert.equal(b.api.result('hanwha','경기','수원시').state,'blocked');
+});
+
+test('same code policies remain independent across clients and survive reload and rename',()=>{
+ const a=boot(),first=a.api.addClient({label:'거래처 A'}),second=a.api.addClient({label:'거래처 B'});
+ assert.ok(first);assert.ok(second);assert.notEqual(first,second);
+ a.api.client(first);a.api.parse('한화\n지역\t수량\n경기남부: 용인 안성\t5');assert.equal(a.api.publish('hanwha'),true);
+ a.api.client(second);a.api.parse('한화\n지역\t수량\n경기동부: 구리 하남\t2');assert.equal(a.api.publish('hanwha'),true);
+ assert.equal(a.api.clientResult(first,'hanwha','경기','용인시').state,'possible');
+ assert.equal(a.api.clientResult(second,'hanwha','경기','용인시').state,'blocked');
+ assert.equal(a.api.clientResult(second,'hanwha','경기','구리시').quantity,2);
+ assert.deepEqual(plain(a.api.selectedKeys()),['hanwha:'+second+':general']);
+ assert.equal(a.api.publishWithoutClient(),false);
+ const ui=a.api.markup();assert.ok(ui.admin.includes('거래처 관리'));assert.ok(ui.admin.includes('tm-policy-publication-client'));assert.ok(ui.map.includes('tm-region-client'));
+ assert.equal(a.api.addClient({id:first,label:'거래처 A 수정'}),first);
+ const b=boot(a.storage);
+ assert.equal(b.api.clientResult(first,'hanwha','경기','용인시').quantity,5);
+ assert.equal(b.api.clientResult(second,'hanwha','경기','용인시').state,'blocked');
+ assert.ok(b.api.label('hanwha:'+first+':general').includes('거래처 A 수정'));
+});
+
+test('existing two-part policy keys are attributed to Metaverse without changing their rows',()=>{
+ const a=boot();a.api.parse('한화\n지역\t수량\n경기남부: 용인 안성\t5');assert.equal(a.api.publish('hanwha'),true);
+ const original=a.api.snapshot().policies['hanwha:general'];
+ const b=boot(a.storage);
+ assert.equal(b.api.label('hanwha:general'),'메타버스 · 한화 일반');
+ assert.deepEqual(plain(b.api.snapshot().policies['hanwha:general'].rows),plain(original.rows));
+ assert.equal(b.api.clientResult('legacy','hanwha','경기','용인시').quantity,5);
+ const newClient=b.api.addClient({label:'다른 거래처'});b.api.client(newClient);
+ b.api.parse('한화\n지역\t수량\n구리\t2');assert.equal(b.api.publish('hanwha'),true);
+ assert.equal(b.api.clientResult('legacy','hanwha','경기','용인시').quantity,5);
+ assert.equal(b.api.clientResult(newClient,'hanwha','경기','용인시').state,'blocked');
 });
