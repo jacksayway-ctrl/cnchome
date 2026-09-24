@@ -1084,7 +1084,7 @@ function policyCityIssues(text){
  const province=policyCityProvince(text),issues=[];
  for(const match of String(text).matchAll(/[가-힣]+/g)){
   const token=match[0];if(token.length<2){if(token==='수')issues.push({token,start:match.index,end:match.index+token.length,kind:'unknown',choices:[]});continue}
-  if(PolicyRegionRules.catalog.some(c=>c.kind==='county'&&c.aliases.includes(token)))continue;
+  if(Object.values(policyProvinceNames).includes(token)||PolicyRegionRules.catalog.some(c=>c.kind==='county'&&c.aliases.includes(token)))continue;
   let exact=policyCityData.filter(c=>c.aliases.includes(token)||(c.province!=='광주'&&c.name.endsWith('시')&&c.name.replace(/(?:특별자치시|특별시|광역시)$/,'시')===token));
   if(province&&exact.some(c=>c.province===province))exact=exact.filter(c=>c.province===province);
   if(exact.length){if(exact.length>1)issues.push({token,start:match.index,end:match.index+token.length,kind:'ambiguous',choices:exact});continue}
@@ -1348,7 +1348,7 @@ function policyWhiteInk(p,w,h,convert=false){
 function policyCellImage(source,x0,y0,x1,y1,binary=false){
  const w=Math.max(1,x1-x0),h=Math.max(1,y1-y0),p=source.context.getImageData(x0,y0,w,h);
  if(binary==='rules')policyRemoveCellRules(p,w,h);
- if(binary==='color'||binary==='channel'||binary==='stroke'||binary==='detail')policyColorForeground(p,w,h,binary==='channel');
+ if(binary==='color'||binary==='channel'||binary==='stroke'||binary==='detail'||binary==='channelcrop'||binary==='whitecrop')policyColorForeground(p,w,h,binary==='channel'||binary==='channelcrop');
  if(binary==='white'||binary==='whitepixel')policyWhiteInk(p,w,h,true);
  const original=(binary==='original'||binary==='pixel'||binary==='title')?source.context.getImageData(x0,y0,w,h):null;
  const box=binary==='detail'?{left:0,top:0,width:w,height:h}:policyNormalizeCell(p,w,h,binary===true),small=document.createElement('canvas');small.width=w;small.height=h;small.getContext('2d').putImageData(original||p,0,0);
@@ -1640,12 +1640,13 @@ async function policyAuditLiteralRows(source,layout,ocr,koreanRows,mixedRows,ver
   if(/[\u3400-\u9fff\uf900-\ufaff]/.test(initial.text)||!policyCityIssues(initial.text).some(issue=>issue.kind==='unknown'))continue;
   const band=layout.bands[index],readings=[];
   policyUpdateOcrProgress('미확인 표기의 원본 획 재판독 · '+(index+1)+'행');
-  for(const variant of ['channel','white','original']){
+  for(const variant of ['channel','white','original','channelcrop','whitecrop']){
    try{
     await korean.setParameters({tessedit_pageseg_mode:'7',tessedit_char_whitelist:'',preserve_interword_spaces:'1',user_defined_dpi:'300'});
     const result=await policyOcrTimeout(korean.recognize(policyCellImage(source,2,band.top,layout.divider-2,band.bottom,variant)),30000,'원본 행 재판독 제한 시간');
     readings.push({text:String(result.data?.text||'').trim(),confidence:Number(result.data?.confidence||0),family:variant,model:'한국어'});
    }catch(error){readings.push({text:'',confidence:0,family:variant,model:'한국어'})}
+   if(policyConfirmedRowReading(readings))break;
   }
   const confirmed=policyConfirmedRowReading(readings);
   audited.set(index,{...(confirmed||initial),confirmed:!!confirmed,readings,audit:true});
