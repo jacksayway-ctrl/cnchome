@@ -1585,7 +1585,7 @@ function adminIntake(){
  const policyPanel=panel('정책표 등록',`<p class="sub">엑셀에서 복사한 표, 일반 텍스트 또는 정책표 이미지를 붙여넣을 수 있습니다. 입력 형식을 확인해 표로 변환한 뒤 등록합니다.</p>${policyPublicationControls()}<label>정책표 붙여넣기<textarea id="tm-policy-paste" rows="7" placeholder="여기에 엑셀 표나 텍스트를 붙여넣으세요. 이미지도 Ctrl+V로 붙여넣을 수 있습니다."></textarea></label><div class="toolbar"><label class="secondary" style="display:inline-flex;align-items:center;cursor:pointer">이미지 선택<input id="tm-policy-image" type="file" accept="image/png,image/jpeg,image/webp" hidden></label><button type="button" class="secondary" data-action="policy-parse">텍스트 표로 변환</button><button type="button" class="secondary" data-action="policy-analyze">OCR 분석 내역</button><button type="button" class="secondary" data-action="policy-clear">초기화</button><button type="button" class="action" data-action="policy-register" ${policyRows.length?'':'disabled'}>정책표 등록</button></div><div id="tm-policy-preview" aria-live="polite">${policyPreviewMarkup()}</div><div id="tm-policy-analysis" aria-live="polite">${policyAnalysisMarkup()}</div>`);
  const registeredPanel=panel('등록 결과 미리보기',`<p class="sub">등록된 정책표의 행·열과 실제 내용을 확인할 수 있습니다.</p><div id="tm-policy-registered-preview" aria-live="polite">${policyRegisteredPreviewMarkup()}</div>`);
  return `<div class="row"><div><h2>접수 관리</h2><p class="sub">접수 내역·가능지역·수량·정책표를 한 화면에서 관리합니다.</p></div><span class="pill">관리자 전용</span></div>`+
- stats([['오늘 전체 접수','11건','정상 8 · 가접수 2 · A/S 1'],['운영 지역','24곳','보험사별 적용'],['등록 정책표',policyRegistered?'1건':'0건',policyRegistered?'현재 적용 중':'등록 대기']])+policyPanel+registeredPanel+policyNationalCatalogPanel()+management;
+ stats([['오늘 전체 접수','11건','정상 8 · 가접수 2 · A/S 1'],['전국 시·군·구',KoreaRegionCatalog.entries.length+'개','업로드와 독립된 기본 목록'],['등록 정책표',Object.keys(policyPublications).length+'건',policyHasPublications()?'직원 화면 적용 중':'등록 대기']])+policyPanel+registeredPanel+policyNationalCatalogPanel()+management;
 }
 function adminPerformance(){return adminPage('실적 관리','직원별·팀별 정상 실적과 기간별 집계를 확인하고 정정합니다.',[['이번 달 정상 실적',`${total}건`,'A/S 제외'],['오늘 팀 실적','8건','목표 대비'],['정정 요청','1건','관리자 확인']],[
  ['개인 실적','직원별 일·주·월 실적 조회','저실적·급증'],
@@ -1854,7 +1854,10 @@ root.addEventListener('change',e=>{
  if(e.target.id==='tm-policy-publication-kind')policyPublicationKind=e.target.value;
  if(e.target.id==='tm-region-status'){policyRegionStatus=e.target.value;policyFilterPublishedRegions()}
 });
-root.addEventListener('input',e=>{if(e.target.id==='tm-policy-catalog-search'){root.querySelector('#tm-policy-catalog-results').innerHTML=policyNationalCatalogRows(e.target.value)}});
+root.addEventListener('input',e=>{
+ if(e.target.id==='tm-policy-catalog-search')root.querySelector('#tm-policy-catalog-results').innerHTML=policyNationalCatalogRows(e.target.value);
+ if(e.target.id==='tm-policy-scope-detail'){policyScopeDetail=e.target.value;policyRefreshScopeResult()}
+});
 function policyPublishedSearchMatch(index,q){
  const place=PolicyRegionRules.catalog[index];if(!place)return false;
  const paths=policySelectedKeys().flatMap(key=>policyPathsForPlace(policyPublishedScopes.get(key),place));
