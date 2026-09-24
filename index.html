@@ -1252,21 +1252,54 @@ function policyScopeChecker(){
  return '<section style="margin-top:16px"><h3>등록 정책의 시·군 / 상세 지역 확인</h3><div class="row"><label>확인할 시·군<select id="tm-policy-scope-city"><option value="">시·군 선택</option>'+PolicyRegionRules.catalog.map(c=>'<option value="'+policyEscape(c.province+'|'+c.name)+'" '+(policyScopeCity===c.province+'|'+c.name?'selected':'')+'>'+policyEscape(c.province+' '+c.name)+'</option>').join('')+'</select></label><label>구·읍·면·동·리 (선택)<input id="tm-policy-scope-detail" value="'+policyEscape(policyScopeDetail)+'" placeholder="예: 의창구 북면"></label></div><div role="status" id="tm-policy-scope-result">시·군을 선택해 주세요.</div></section>';
 }
 
-function policySheetMarkup(rows){
+function policyDisplayColumns(rows){
  const width=Math.max(0,...rows.map(row=>row.length));
- const letter=index=>{let name='';for(let n=index+1;n>0;n=Math.floor((n-1)/26))name=String.fromCharCode(65+(n-1)%26)+name;return name};
- const cells=(row,header)=>Array.from({length:width},(_,i)=>{const value=String(row[i]??'');const tag=header?'th':'td';return '<'+tag+(header?' scope="col"':'')+' class="'+(header?'sheet-heading ':'')+(i===0?'sheet-region':/^\s*\d+(?:[,.]\d+)*\s*$/.test(value)?'sheet-quantity':'')+'">'+policyEscape(value)+'</'+tag+'>'}).join('');
- return '<div class="policy-sheet-wrap" tabindex="0" role="region" aria-label="정책표 변환 결과. 스크롤하여 전체 행과 열 확인"><table class="policy-sheet" aria-label="정책표 엑셀형 결과"><thead><tr><th class="sheet-number" aria-label="행 번호"></th>'+Array.from({length:width},(_,i)=>'<th class="sheet-letter">'+letter(i)+'</th>').join('')+'</tr><tr><th class="sheet-number" scope="row">1</th>'+cells(rows[0]||[],true)+'</tr></thead><tbody>'+rows.slice(1).map((row,i)=>'<tr><th class="sheet-number" scope="row">'+(i+2)+'</th>'+cells(row,false)+'</tr>').join('')+'</tbody></table></div>';
+ return Array.from({length:width},(_,i)=>i).filter(i=>String(rows[0]?.[i]||'').trim()!=='상태'||rows.slice(1).some(row=>!['','접수 가능','접수가능','마감'].includes(String(row[i]||'').trim())));
 }
+function policyDisplayCell(rows,r,c){
+ const value=String(rows[r]?.[c]??'');
+ return r>0&&String(rows[0]?.[c]||'').trim()==='상태'&&['접수 가능','접수가능','마감'].includes(value.trim())?'':value;
+}
+function policySheetMarkup(rows){
+ const columns=policyDisplayColumns(rows);
+ const letter=index=>{let name='';for(let n=index+1;n>0;n=Math.floor((n-1)/26))name=String.fromCharCode(65+(n-1)%26)+name;return name};
+ const cells=(r,header)=>columns.map(c=>{
+  const value=policyDisplayCell(rows,r,c),tag=header?'th':'td';
+  const content=header?policyEscape(value):'<input type="text" data-policy-cell="'+r+':'+c+'" aria-label="'+r+'행 '+policyEscape(rows[0]?.[c]||'열 '+(c+1))+'" value="'+policyEscape(value)+'" style="box-sizing:border-box;width:100%;min-width:'+(c===0?'260':'80')+'px;border:1px solid #b8cbbc;border-radius:4px;padding:7px;background:#fff">';
+  return '<'+tag+(header?' scope="col"':'')+' class="'+(header?'sheet-heading ':'')+(c===0?'sheet-region':'')+'">'+content+'</'+tag+'>';
+ }).join('');
+ return '<p class="sub">표 안의 내용을 바로 수정할 수 있습니다. 수정 후 정책표 등록을 누르면 적용됩니다.</p><div class="policy-sheet-wrap" tabindex="0" role="region" aria-label="정책표 변환 결과. 스크롤하여 전체 행과 열 확인"><table class="policy-sheet" aria-label="정책표 엑셀형 결과"><thead><tr><th class="sheet-number" aria-label="행 번호"></th>'+columns.map((_,i)=>'<th class="sheet-letter">'+letter(i)+'</th>').join('')+'</tr><tr><th class="sheet-number" scope="row">1</th>'+cells(0,true)+'</tr></thead><tbody>'+rows.slice(1).map((row,i)=>'<tr><th class="sheet-number" scope="row">'+(i+2)+'</th>'+cells(i+1,false)+'</tr>').join('')+'</tbody></table></div>';
+}
+root.addEventListener('change',e=>{
+ const cell=e.target.closest('[data-policy-cell]');
+ if(cell&&!policyOcrRunning){
+  const [r,c]=cell.dataset.policyCell.split(':').map(Number);
+  if(!Number.isInteger(r)||!Number.isInteger(c)||r<1||c<0||!policyRows[r])return;
+  const value=cell.value.trim(),before=String(policyRows[r][c]||'');
+  if(value===before)return;
+  policyRows[r][c]=value;policyRegistered=false;
+  if(c===0){policyCityDrafts.delete(r);policyCityAudit.push({row:r,from:before,to:value,reason:'변환 표에서 직접 수정'})}
+  if(c===1){
+   const status=policyRows[0].findIndex(h=>String(h).trim()==='상태');
+   if(status>=0&&/^(?:접수 ?가능|마감|확인 필요.*)?$/.test(String(policyRows[r][status]||'')))
+    policyRows[r][status]=/^\d+$/.test(value)?Number(value)===0?'마감':'접수 가능':'확인 필요 · 수량 확인';
+  }
+  policySyncCityText();policyRefreshPreview();
+ }
+ if(e.target.id==='tm-policy-edit-title'&&!policyOcrRunning){
+  policyIntakeTitle=e.target.value.trim();policyCodeTitles=policyIntakeTitle?[policyIntakeTitle]:[];
+  policyRememberCodes(policyCodeTitles.map(title=>policyCodeHeader(title)));policyRegistered=false;policyRefreshPreview();
+ }
+});
 function policyPreviewMarkup(){
- if(policyRows.length){const width=Math.max(...policyRows.map(row=>row.length));return '<div class="notice">'+(policyRegistered?'등록 완료':'정책표 변환 완료')+(policyIntakeTitle?' · 접수 코드 표제 '+policyEscape(policyIntakeTitle):'')+' · '+policyRows.length+'행 '+width+'열</div>'+policySheetMarkup(policyRows)+policyCityReviewMarkup()+policyScopeTable(policyRows);}
+ if(policyRows.length){const width=policyDisplayColumns(policyRows).length;return '<div class="notice">'+(policyRegistered?'등록 완료':'정책표 변환 완료')+' · <label>접수 코드 표제 <input id="tm-policy-edit-title" value="'+policyEscape(policyIntakeTitle)+'" placeholder="접수 코드" style="width:180px"></label>'+' · '+policyRows.length+'행 '+width+'열</div>'+policySheetMarkup(policyRows)+policyCityReviewMarkup()+policyScopeTable(policyRows);}
  if(policyImageData)return '<div class="notice">정책표 전용 OCR이 표선으로 행과 수량 열을 먼저 나눈 뒤, 한글과 한문(번체·간체)을 로컬에서 인식합니다.</div><img src="'+policyImageData+'" alt="붙여넣은 정책표 이미지" style="display:block;max-width:100%;max-height:420px;margin:12px auto;border:1px solid var(--tm-line);border-radius:8px"><p class="sub">파일: '+policyEscape(policyImageName||'클립보드 이미지')+' · 이미지는 외부 서버에 전송되지 않습니다.</p><div class="row"><button type="button" class="action" data-action="policy-ocr" '+(policyOcrRunning?'disabled':'')+'>'+(policyOcrRunning?'전용 OCR 분석 중':'정책표 최고정밀 OCR로 변환')+'</button><span id="tm-policy-ocr-status" class="sub">'+(policyOcrRunning?'표 구조 분석 중 · '+policyOcrProgress+'%':'행·수량·색상 전용 분석')+'</span></div><div class="track" aria-label="OCR 진행률"><span id="tm-policy-ocr-progress" style="width:'+policyOcrProgress+'%"></span></div>';
  return '<p class="sub">아직 변환할 정책표가 없습니다. 엑셀 표·텍스트를 붙여넣거나 이미지를 선택해 주세요.</p>';
 }
 function policyRegisteredPreviewMarkup(){
  if(policyRegisteredKey)policyRegisteredCode=policyKeyLabel(policyRegisteredKey);
  if(!policyRegisteredRows.length)return '<div class="notice">아직 등록된 정책표가 없습니다. 위에서 내용을 변환하고 확인한 뒤 등록해 주세요.</div>';
- const width=Math.max(...policyRegisteredRows.map(row=>row.length)),normalized=policyRegisteredRows.map(row=>Array.from({length:width},(_,index)=>policyEscape(row[index]||'')));
+ const columns=policyDisplayColumns(policyRegisteredRows),width=columns.length,normalized=policyRegisteredRows.map((row,r)=>columns.map(c=>policyEscape(policyDisplayCell(policyRegisteredRows,r,c))));
  return '<div class="notice">정상 등록 확인'+(policyRegisteredCode?' · '+policyEscape(policyRegisteredCode):'')+' · '+policyRegisteredRows.length+'행 '+width+'열</div>'+table(normalized[0].map((heading,index)=>heading||'열 '+(index+1)),normalized.slice(1))+policyScopeTable(policyRegisteredRows)+policyScopeChecker();
 }
 function policyRefreshScopeResult(){
