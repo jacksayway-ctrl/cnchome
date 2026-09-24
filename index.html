@@ -1302,10 +1302,10 @@ function policyColorName(r,g,b){
 function policyAnalyzeTable(source){
  const {canvas,context,data}=source,w=canvas.width,h=canvas.height,p=data.data,dark=(x,y)=>{const i=(y*w+x)*4;return p[i]+p[i+1]+p[i+2]<210};
  const horizontal=[];for(let y=0;y<h;y++){let count=0;for(let x=0;x<w;x+=2)if(dark(x,y))count++;if(count>w*.36)horizontal.push(y)}
- let lines=policyGroups(horizontal,2);if(lines.length<3)throw new Error('표의 가로선을 찾지 못했습니다. 이미지 여백을 줄여 다시 시도해 주세요.');
+ let lines=policyGroups(horizontal,2);if(lines.length<2)throw new Error('표의 위·아래 가로선을 찾지 못했습니다. 한 줄 표도 위·아래 테두리를 포함해 주세요.');
  if(lines[0]>5)lines.unshift(0);if(lines[lines.length-1]<h-5)lines.push(h-1);
  const bands=[];for(let i=0;i<lines.length-1;i++){const top=lines[i]+1,bottom=lines[i+1]-1;if(bottom-top>=7)bands.push({top,bottom,center:(top+bottom)/2})}
- if(bands.length<3)throw new Error('정책표 행을 충분히 찾지 못했습니다.');
+ if(!bands.length)throw new Error('읽을 수 있는 정책표 행을 찾지 못했습니다.');
  let divider=Math.round(w*.88),best=-1;for(let x=Math.round(w*.65);x<Math.round(w*.97);x++){let count=0;for(let y=0;y<h;y+=2)if(dark(x,y))count++;if(count>best){best=count;divider=x}}
  if(best<h*.22)throw new Error('수량 열의 세로선이 불명확합니다. 표 전체가 포함된 선명한 이미지를 사용해 주세요.');
  const clean=document.createElement('canvas');clean.width=w;clean.height=h;const cc=clean.getContext('2d',{alpha:false});cc.fillStyle='#fff';cc.fillRect(0,0,w,h);
@@ -1881,7 +1881,7 @@ async function policyRunOcr(){
   recognitionStarted=Date.now();policyRows=policyCleanRows(await policyRecognizeBatch(source,layout,ocr));policyCodeTitles=policyIntakeTitle?[policyIntakeTitle]:[];policyRememberCodes(policyCodeTitles.map(title=>policyCodeHeader(title)));policyOcrTiming=(Date.now()-recognitionStarted)/1000;policyOcrTotalTiming=(Date.now()-totalStarted)/1000;policyPrepareCityReview();if(policyRows.length<2)throw new Error('정책표 내용을 찾지 못했습니다.');
   const recognized=policyRows.map(row=>row.join('\t')).join('\n'),textarea=root.querySelector('#tm-policy-paste');if(textarea)textarea.value=recognized;
   policyOcrProgress=100;policyRegistered=false;policyImageData='';policyImageName='';policyRefreshPreview();toast('정책표 OCR 완료 · 인식 '+policyOcrTiming.toFixed(1)+'초. 확인이 필요한 셀을 확인해 주세요.');
- }catch(error){await policyResetPaddleOcr();policyOcrProgress=0;policyRefreshPreview();toast('전용 OCR 오류: '+(error?.message||'변환 실패'))}
+ }catch(error){await policyResetPaddleOcr();policyOcrProgress=0;policyOcrRunning=false;policyRefreshPreview();const message='전용 OCR 오류: '+(error?.message||'변환 실패');policyUpdateOcrProgress(message);toast(message)}
  finally{policyOcrRunning=false;const button=root.querySelector('[data-action="policy-ocr"]');if(button){button.disabled=false;button.textContent='정책표 전용 OCR로 다시 변환'}}
 }
 function adminIntake(){
