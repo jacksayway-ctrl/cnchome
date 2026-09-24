@@ -1310,7 +1310,7 @@ function policySheetMarkup(rows){
  const scopes=policyScopesForRows(rows),byRow=new Map(scopes.map(scope=>[scope.index,scope]));
  const fmt=t=>(t.name||t.province+'전체')+(t.path.length?' '+t.path.join(' '):'');
  const label=c=>c===0?'가능지역':c===-1?'불가지역':c===1?'가능수량':rows[0]?.[c]||'';
- const input=(r,c,value,extra='')=>'<input type="text" data-policy-cell="'+r+':'+c+'" '+extra+' aria-label="'+r+'행 '+label(c)+'" value="'+policyEscape(c===0?policyVisibleRegion(value):value)+'" style="box-sizing:border-box;width:100%;min-width:0;border:1px solid #b8cbbc;border-radius:4px;padding:5px;background:#fff">';
+ const input=(r,c,value,extra='')=>'<input type="text" data-policy-cell="'+r+':'+c+'" '+((c===0&&String(rows[r]?.[0]||'').includes('必'))?'data-policy-only="true" ':'')+extra+' aria-label="'+r+'행 '+label(c)+'" value="'+policyEscape(c===0?policyVisibleRegion(value):value)+'" style="box-sizing:border-box;width:100%;min-width:0;border:1px solid #b8cbbc;border-radius:4px;padding:5px;background:#fff">';
  const cells=(r,header)=>columns.map(c=>{
   const scope=byRow.get(r),raw=String(rows[r]?.[0]||''),zero=scope&&(scope.unavailable||scope.quantity===0);
   const exclusion=raw.match(/\s*[（(][^()（）]*(?:제외|불가)[^()（）]*[)）]/g)||[];
