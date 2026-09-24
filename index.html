@@ -1590,19 +1590,19 @@ async function policyBatchRead(worker,pack,whitelist=''){
  return policyUnpackLines(result.data,pack);
 }
 async function policyRecognizeBatch(source,layout,ocr){
- const started=performance.now();
+ const started=Date.now();
  const names=policyPackCells(source,layout,false,'color'),numbers=policyPackCells(source,layout,true,'color');
  const korean=await ocr.getRegionWorker();
  policyUpdateOcrProgress('표 전체의 한글·한자·수량을 병렬 인식 중');
  const results=await Promise.allSettled([policyBatchRead(korean,names),policyBatchRead(ocr.worker,names),policyBatchRead(ocr.digitWorker,numbers,'0123456789')]);
  const failed=results.find(r=>r.status==='rejected');if(failed)throw failed.reason;
- const [kor,mixed,qty]=results.map(r=>r.value),rows=[['지역','수량','상태']];policyInsurer='';
+ const [kor,mixed,qty]=results.map(r=>r.value),quantityWords=await policyBatchRead(korean,numbers),rows=[['지역','수량','상태']];policyInsurer='';
  for(let i=0;i<layout.bands.length;i++){
   const a=kor[i],b=mixed[i];
   // Only OCR readings are candidates. Never synthesize a place name from a gazetteer.
   const hasHan=/[\u3400-\u9fff\uf900-\ufaff]/.test(b.text);
   const chosen=hasHan&&b.confidence>=65?b:a.text?a:b;
-  let quantity=qty[i].text.replace(/\s/g,''),quantityReview=!/^\d+$/.test(quantity)||qty[i].confidence<65;
+  let quantity=quantityWords[i].text.replace(/\s/g,'')==='불가'?'불가':qty[i].text.replace(/\s/g,''),quantityReview=quantity!=='불가'&&(!/^\d+$/.test(quantity)||qty[i].confidence<65);
   if(i===0&&!/^\d+$/.test(quantity)&&/^(?:한화|신한|삼성|현대|메리츠|흥국|동양|교보|라이나|DB|KB|GA|G\/A)/.test(chosen.text)){
    policyInsurer=chosen.text;policyAnalysis.push({row:1,text:chosen.text,alternatives:a.text+' / '+b.text,reason:'제목 영역 일괄 판독'});continue;
   }
@@ -1618,17 +1618,17 @@ async function policyRecognizeBatch(source,layout,ocr){
   policyAnalysis.push({row:rows.length+1,text:chosen.text||'판독 실패',alternatives:'한국어: '+a.text+' ['+Math.round(a.confidence)+'] / 한국어·한문: '+b.text+' ['+Math.round(b.confidence)+']',reason:review?'판독 불일치 또는 저신뢰 · 원본 확인 필요':'두 인식기의 실제 판독 일치'});
   rows.push([chosen.text||'확인 필요',quantity||'확인 필요',(quantity==='불가'?'마감':policyQuantityStatus(quantity,quantityReview))+(review?' · 지역명 확인 필요':'')]);
  }
- policyOcrTiming=(performance.now()-started)/1000;
+ policyOcrTiming=(Date.now()-started)/1000;
  return rows;
 }
 let policyOcrTiming=0;
 
 async function policyRunOcr(){
- if(!policyImageData||policyOcrRunning)return;policyOcrRunning=true;policyAnalysis=[];policyRefreshAnalysis();policyOcrProgress=3;policyRefreshPreview();
+ if(!policyImageData||policyOcrRunning)return;const totalStarted=Date.now();let recognitionStarted=0;policyOcrTiming=0;policyOcrRunning=true;policyAnalysis=[];policyRefreshAnalysis();policyOcrProgress=3;policyRefreshPreview();
  try{
   policyUpdateOcrProgress('표선·숫자 열 분석 · 3%');const source=await policyLoadCanvas(policyImageData),layout=await policyAnalyzeTable(source);policyOcrProgress=12;policyUpdateOcrProgress('행 '+layout.bands.length+'개 감지 · 12%');
   const ocr=await policyGetPaddleOcr();policyOcrProgress=55;policyUpdateOcrProgress('정리된 글자만 로컬 인식 · 55%');
-  policyRows=policyCleanRows(await (new URLSearchParams(location.search).get('ocr')==='batch'?policyRecognizeBatch:policyRecognizeCells)(source,layout,ocr));policyPrepareCityReview();if(policyRows.length<2)throw new Error('정책표 내용을 찾지 못했습니다.');
+  recognitionStarted=Date.now();policyRows=policyCleanRows(await (new URLSearchParams(location.search).get('ocr')==='batch'?policyRecognizeBatch:policyRecognizeCells)(source,layout,ocr));policyOcrTiming=(Date.now()-recognitionStarted)/1000;policyPrepareCityReview();if(policyRows.length<2)throw new Error('정책표 내용을 찾지 못했습니다.');
   const recognized=policyRows.map(row=>row.join('\t')).join('\n'),textarea=root.querySelector('#tm-policy-paste');if(textarea)textarea.value=recognized;
   policyOcrProgress=100;policyRegistered=false;policyImageData='';policyImageName='';policyRefreshPreview();toast('정책표 OCR 완료 · 인식 '+policyOcrTiming.toFixed(1)+'초. 확인이 필요한 셀을 확인해 주세요.');
  }catch(error){await policyResetPaddleOcr();policyOcrProgress=0;policyRefreshPreview();toast('전용 OCR 오류: '+(error?.message||'변환 실패'))}
