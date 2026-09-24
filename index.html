@@ -113,6 +113,18 @@
 #tm-preview .policy-child-regions{margin:6px 0;padding-left:18px}
 #tm-preview .policy-child-regions li{margin:5px 0}
 #tm-preview .policy-map-legend{line-height:1.6}
+
+#tm-preview .work > header[hidden]{display:none}
+#tm-preview .team-performance-calendar .day{min-height:136px;text-align:left}
+#tm-preview .team-performance-calendar .day small{font-size:13px;white-space:normal}
+#tm-preview .team-performance-count,#tm-preview .team-performance-total{display:flex;justify-content:space-between;gap:6px;padding:4px 6px;border-radius:4px;margin-top:4px}
+#tm-preview .team-tone-0{background:#dbeafe;color:#1e40af}
+#tm-preview .team-tone-1{background:#ede9fe;color:#5b21b6}
+#tm-preview .team-tone-2{background:#dcfce7;color:#166534}
+#tm-preview .team-tone-3{background:#fef3c7;color:#92400e}
+#tm-preview .team-performance-total{border-top:1px solid #cbd5e1;font-weight:700;color:#17324d}
+#tm-preview .team-performance-scroll{overflow-x:auto}
+#tm-preview .team-performance-calendar{min-width:700px}
 </style>
 </head><body>
 <div id="tm-preview">
@@ -1724,12 +1736,38 @@ function adminIntake(){
  return `<div class="row"><div><h2>접수 관리</h2><p class="sub">접수 내역·가능지역·수량·정책표를 한 화면에서 관리합니다.</p></div><span class="pill">관리자 전용</span></div>`+
  stats([['오늘 전체 접수','11건','정상 8 · 가접수 2 · A/S 1'],['전국 시·군·구',KoreaRegionCatalog.entries.length+'개','업로드와 독립된 기본 목록'],['등록 정책표',Object.keys(policyPublications).length+'건',policyHasPublications()?'직원 화면 적용 중':'등록 대기']])+intakeCodeManagerPanel()+policyPanel+registeredPanel+policyNationalCatalogPanel()+management;
 }
-function adminPerformance(){return adminPage('실적 관리','직원별·팀별 정상 실적과 기간별 집계를 확인하고 정정합니다.',[['이번 달 정상 실적',`${total}건`,'A/S 제외'],['오늘 팀 실적','8건','목표 대비'],['정정 요청','1건','관리자 확인']],[
- ['개인 실적','직원별 일·주·월 실적 조회','저실적·급증'],
- ['팀 실적','팀별 합계와 평균 비교','목표 달성률'],
- ['실적 정정','누락·중복·취소 건 반영','정정 이력'],
- ['자료 내보내기','기간별 실적표 다운로드','마감 자료']
- ])}
+let adminPerformanceMonth='2026-09',adminPerformanceDay=22;
+function adminPerformanceDaily(teamId){return adminPerformanceMonth==='2026-09'?(adminTeamPerformance[teamId]||{}):{}}
+function adminPerformance(){
+ const [year,month]=adminPerformanceMonth.split('-').map(Number),days=new Date(year,month,0).getDate(),first=new Date(year,month-1,1).getDay();
+ const rows=adminTeams.map(team=>({team,daily:adminPerformanceDaily(team.id)}));
+ const monthSum=row=>Object.values(row.daily).reduce((sum,n)=>sum+n,0);
+ const dailySum=day=>rows.reduce((sum,row)=>sum+(row.daily[day]||0),0);
+ const totalCount=rows.reduce((sum,row)=>sum+monthSum(row),0),hasData=rows.some(row=>Object.keys(row.daily).length);
+ const cutoff=adminPerformanceMonth==='2026-09'?22:0;
+ let cells=Array.from({length:first},()=>'<div class="day sales-outside-month" aria-hidden="true"></div>').join('');
+ for(let day=1;day<=days;day++){
+  const dow=new Date(year,month-1,day).getDay(),date=adminPerformanceMonth+'-'+String(day).padStart(2,'0'),holiday=calendarHolidays[date];
+  const available=hasData&&day<=cutoff;
+  cells+=`<button type="button" class="day ${holiday||dow===0?'day-red':dow===6?'day-blue':''} ${day===adminPerformanceDay?'active':''}" data-admin-performance-day="${day}" aria-pressed="${day===adminPerformanceDay}"><span class="date-number">${day}</span>${available?rows.map((row,i)=>`<small class="team-performance-count team-tone-${i%4}">${policyEscape(row.team.name)} <b>${row.daily[day]||0}건</b></small>`).join('')+`<small class="team-performance-total">전체 <b>${dailySum(day)}건</b></small>`:'<small>집계 내역 없음</small>'}</button>`;
+ }
+ const pad=(7-(first+days)%7)%7;cells+=Array.from({length:pad},()=>'<div class="day sales-outside-month" aria-hidden="true"></div>').join('');
+ const summary=rows.map(row=>[policyEscape(row.team.name),hasData?monthSum(row)+'건':'—']);
+ if(rows.length)summary.push(['<strong>전체 합계</strong>','<strong>'+ (hasData?totalCount+'건':'—')+'</strong>']);
+ const selectedAvailable=hasData&&adminPerformanceDay<=cutoff;
+ return `<div class="row"><h2>실적 관리</h2><span class="pill">관리자 전용</span></div>
+ <div class="toolbar"><button type="button" class="secondary" data-admin-performance-month="-1">이전 달</button><strong>${year}년 ${month}월</strong><button type="button" class="secondary" data-admin-performance-month="1">다음 달</button></div>`+
+ stats([['전체 정상 실적',hasData?totalCount+'건':'—','선택 월 · 가접수와 A/S 제외'],...rows.map(row=>[policyEscape(row.team.name),hasData?monthSum(row)+'건':'—','선택 월 정상접수 합계'])])+
+ panel('팀별 성과 · 월 합계',table(['팀','정상접수 합계'],summary))+
+ panel('팀별 실적 달력',`<div class="row" style="margin-bottom:12px"><strong>${year}년 ${month}월</strong><span class="sub">날짜별 정상접수 · 팀별 수량과 전체 합계</span></div><div class="team-performance-scroll"><div class="calendar team-performance-calendar">${['일','월','화','수','목','금','토'].map((name,i)=>`<div class="weekday ${i===0?'weekday-red':i===6?'weekday-blue':''}">${name}</div>`).join('')}${cells}</div></div>`)+
+ panel(`${month}월 ${adminPerformanceDay}일 · 팀별 합계`,selectedAvailable?table(['팀','정상접수'],rows.map(row=>[policyEscape(row.team.name),(row.daily[adminPerformanceDay]||0)+'건']).concat([['<strong>전체 합계</strong>','<strong>'+dailySum(adminPerformanceDay)+'건</strong>']])):'<p class="sub">해당 날짜의 집계 내역이 없습니다.</p>');
+}
+root.addEventListener('click',event=>{
+ const button=event.target.closest('[data-admin-performance-day],[data-admin-performance-month]');if(!button)return;
+ if(button.dataset.adminPerformanceDay)adminPerformanceDay=Number(button.dataset.adminPerformanceDay);
+ else{const [year,month]=adminPerformanceMonth.split('-').map(Number),date=new Date(year,month-1+Number(button.dataset.adminPerformanceMonth),1);adminPerformanceMonth=date.getFullYear()+'-'+String(date.getMonth()+1).padStart(2,'0');adminPerformanceDay=1}
+ render();
+});
 function adminGrade(){return adminPage('그레이드 관리','일·주·월 그레이드 기준과 수당 구간을 설정하고 적용 이력을 관리합니다.',[['적용 중 기준','3개','일·주·월'],['변경 예정','0건','현재 없음'],['확인 필요','1건','월 기준']],[
  ['일그레이드','건별 지급 기준과 수령 처리','현금 지급'],
  ['주그레이드','근무가능일 평균과 주간 수당','주 마감'],
@@ -1767,7 +1805,7 @@ function adminSettings(){return adminPage('운영 설정','공지, 팀 구성, �
  ['상태 설정','접수 및 A/S 상태값 관리','사용 중 항목'],
  ['변경 이력','관리자별 설정 변경 기록','최근 변경']
  ])+intakeCodeManagerPanel()}
-function render(){const noticeButton=root.querySelector('.notice-confirm');noticeButton.disabled=noticeRead;noticeButton.textContent=noticeRead?'확인 완료':'확인했습니다';main.innerHTML=({home,regions:regionPage,attendance,sales,grade,as:asPage,adminHome,adminIntake,adminPerformance,adminGrade,adminAttendance,adminAs,adminStaff,adminSettings})[page]();root.querySelectorAll('[data-page]').forEach(b=>{b.classList.toggle('active',b.dataset.page===page);if(b.dataset.page===page)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current')});if(page==='regions')filterRegions()}
+function render(){root.querySelector('.work > header').hidden=page==='adminPerformance';const noticeButton=root.querySelector('.notice-confirm');noticeButton.disabled=noticeRead;noticeButton.textContent=noticeRead?'확인 완료':'확인했습니다';main.innerHTML=({home,regions:regionPage,attendance,sales,grade,as:asPage,adminHome,adminIntake,adminPerformance,adminGrade,adminAttendance,adminAs,adminStaff,adminSettings})[page]();root.querySelectorAll('[data-page]').forEach(b=>{b.classList.toggle('active',b.dataset.page===page);if(b.dataset.page===page)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current')});if(page==='regions')filterRegions()}
 function toast(s){const t=root.querySelector('#tm-toast');t.textContent=s;t.hidden=false}
 function open(title,html){root.querySelector('#tm-dialog-title').textContent=title;body.innerHTML=html;modal.showModal()}
 function intake(){open('보험 접수 등록',`<p class="sub">입력 체험용입니다. 실제 접수나 저장은 되지 않습니다.</p><form id="tm-intake-form"><div class="fields"><label>접수 코드<select id="tm-intake-code" required>${intakeCodeOptions()}</select></label><label>상품 구분<select required><option>일반</option><option>실버</option></select></label><label>고객명<input required placeholder="예시 이름"></label><label>전화번호<input type="tel" required pattern="[0-9-]{10,13}" placeholder="010-0000-0000"></label><label>출생연도<input type="number" min="1920" max="2026" required placeholder="1965"></label><label class="full">상담받을 주소<input required placeholder="시·군·구 및 상세 주소"></label><label>통화 가능시간<input type="time" required></label><label>방문 가능시간<input type="time" required></label><label class="full">상담 메모<textarea rows="2"></textarea></label></div><button class="action" type="submit">입력 완료 체험</button></form>`)}
