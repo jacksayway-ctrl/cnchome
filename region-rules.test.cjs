@@ -58,3 +58,53 @@ test('unknown district is not treated as a valid child',()=>{const s=scope('서�
 for(const city of R.catalog)test('catalog municipality '+city.id,()=>{const s=scope(city.province+': '+city.name,3);assert.deepEqual(s.errors,[]);assert.equal(state(s,city),'possible')});
 for(const district of R.districts)test('catalog district hierarchy '+district.id,()=>{const s=scope(district.province+' '+district.parent+' '+district.name,3);assert.deepEqual(s.errors,[]);assert.equal(state(s,p(district.province,district.parent,district.name)),'possible');assert.equal(state(s,p(district.province,district.parent)),'partial');assert.ok(s.include.every(t=>t.path.length>0))});
 console.log(count+' region rule tests passed');
+
+for(const [heading,names,unlisted] of [
+  ['경기동부',['구리시','남양주시','하남시','양평군','이천시'],'광주시'],
+  ['경기남부',['용인시','안성시'],'수원시']
+]) for(const separator of [': ', '：', ' ']) test('directional explicit list '+heading+separator,()=>{
+  const short=names.map(n=>n.replace(/[시군]$/,''));
+  for(const list of [short.join(' '),short.join(', '),names.join(', ')]){
+    const text=heading+separator+list,s=scope(text);
+    assert.deepEqual(s.errors,[]);assert.equal(s.text,text);assert.equal(s.listedOnly,true);
+    assert.deepEqual(s.include.map(t=>t.name),names);assert.ok(s.include.every(t=>t.name));
+    for(const name of names)assert.equal(state(s,p('경기',name)),'possible');
+    assert.equal(state(s,p('경기',unlisted)),'blocked');
+  }
+});
+test('spaced direction heading restricts children and preserves exclusions',()=>{
+  const s=scope('경기 남부 용인시 처인구 포곡읍, 안성시 (안성시 제외)');
+  assert.deepEqual(s.errors,[]);
+  assert.equal(state(s,p('경기','용인시','처인구','포곡읍')),'possible');
+  assert.equal(state(s,p('경기','용인시','기흥구')),'blocked');
+  assert.equal(state(s,p('경기','안성시')),'blocked');
+});
+test('unknown directional list member still requires review',()=>{
+  const s=scope('경기남부 용인, 없는지역');assert.ok(s.errors.length);
+  assert.notEqual(state(s,p('경기','용인시')),'possible');
+});
+console.log('Directional list regression tests passed');
+
+test('categories follow explicit directions and leave unsectioned rows at province level',()=>{
+ const scopes=R.parseRows([['지역','수량'],['충남북부: 천안 아산','4'],['충남서부: 서산 태안','3'],['충남: 공주','2'],['경기남부: 용인 안성','5']]);
+ const groups=R.categories(scopes),chungnam=groups.find(g=>g.province==='충남');
+ assert.deepEqual(chungnam.sections.map(s=>s.label),['충남북부','충남서부','권역 구분 없음']);
+ assert.equal(chungnam.sections[0].scopes[0].quantity,4);
+ assert.deepEqual(chungnam.sections[0].scopes[0].include.map(t=>t.name),['천안시','아산시']);
+ assert.equal(groups.find(g=>g.province==='경기').sections[0].label,'경기남부');
+});
+test('standalone directional headings supply category and context without a province-wide allow',()=>{
+ const scopes=R.parseRows([['지역','수량'],['충남 북부:'],['천안, 아산','4'],['충남서부'],['서산 태안','3'],['충남:'],['공주','2']]);
+ assert.equal(scopes.length,3);assert.ok(scopes.every(s=>!s.errors.length));
+ assert.deepEqual(scopes.map(s=>s.region),['북부','서부','']);
+ assert.equal(state(scopes,p('충남','천안시')),'possible');
+ assert.equal(state(scopes,p('충남','논산시')),'blocked');
+ assert.equal(R.categories(scopes)[0].sections.length,3);
+});
+test('an unsectioned mixed province policy does not invent regional categories or split quota',()=>{
+ const scopes=R.parseRows([['지역','수량'],['인천/김포','5']]);
+ const groups=R.categories(scopes);assert.equal(groups.length,2);
+ assert.ok(groups.every(g=>g.sections.length===1&&g.sections[0].region===''));
+ assert.ok(groups.every(g=>g.sections[0].scopes[0]===scopes[0]));
+});
+console.log('Policy category regression tests passed');
