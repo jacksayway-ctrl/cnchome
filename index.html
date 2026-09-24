@@ -1920,6 +1920,14 @@ async function policyRunOcr(){
  }catch(error){await policyResetPaddleOcr();policyOcrProgress=0;policyOcrRunning=false;policyRefreshPreview();const message='전용 OCR 오류: '+(error?.message||'변환 실패');policyUpdateOcrProgress(message);toast(message)}
  finally{policyOcrRunning=false;const button=root.querySelector('[data-action="policy-ocr"]');if(button){button.disabled=false;button.textContent='정책표 전용 OCR로 다시 변환'}}
 }
+let adminIntakeSection='policy';
+root.addEventListener('click',e=>{
+ const button=e.target.closest('[data-intake-section-button]');if(!button)return;
+ const key=button.dataset.intakeSectionButton;if(!['policy','clients','codes'].includes(key))return;
+ adminIntakeSection=key;
+ root.querySelectorAll('[data-intake-section-button]').forEach(item=>{const selected=item.dataset.intakeSectionButton===key;item.setAttribute('aria-pressed',String(selected));item.className=selected?'action':'secondary'});
+ root.querySelectorAll('[data-intake-section-panel]').forEach(item=>{const selected=item.dataset.intakeSectionPanel===key;item.hidden=!selected;item.style.display=selected?'':'none'});
+});
 function adminIntake(){
  const management=panel('접수·지역 관리 항목',table(['구분','관리 내용','우선 확인'],[
   ['접수 목록','기간·직원·접수 코드·상태별 조회','오늘 접수'],
@@ -1932,7 +1940,8 @@ function adminIntake(){
  ]));
  const policyPanel=panel('정책표 등록',`<p class="sub">엑셀에서 복사한 표, 일반 텍스트 또는 정책표 이미지를 붙여넣을 수 있습니다. 입력 형식을 확인해 표로 변환한 뒤 등록합니다.</p>${policyPublicationControls()}<details id="tm-policy-source" class="policy-paste-source" ${policyRows.length?'':'open'}><summary>정책표 붙여넣기 · 원문 텍스트</summary><label>엑셀 표·텍스트·이미지 붙여넣기<textarea id="tm-policy-paste" rows="7" placeholder="여기에 엑셀 표나 텍스트를 붙여넣으세요. 이미지도 Ctrl+V로 붙여넣을 수 있습니다."></textarea></label></details><div class="toolbar"><label class="secondary" style="display:inline-flex;align-items:center;cursor:pointer">이미지 선택<input id="tm-policy-image" type="file" accept="image/png,image/jpeg,image/webp" hidden></label><button type="button" class="secondary" data-action="policy-parse">텍스트 표로 변환</button><button type="button" class="secondary" data-action="policy-analyze">OCR 분석 내역</button><button type="button" class="secondary" data-action="policy-clear">초기화</button><button type="button" class="action" data-action="policy-register" ${policyRows.length?'':'disabled'}>정책표 등록</button></div><div id="tm-policy-preview" aria-live="polite">${policyPreviewMarkup()}</div><div id="tm-policy-analysis" aria-live="polite">${policyAnalysisMarkup()}</div>`);
  const registeredPanel=panel('등록 결과 미리보기',`<p class="sub">등록된 정책표의 행·열과 실제 내용을 확인할 수 있습니다. 한화·신한·G/A는 접수 코드이며 지역명과 별도로 관리합니다.</p><div id="tm-policy-registered-preview" aria-live="polite">${policyRegisteredPreviewMarkup()}</div>`);
- return policyPanel+registeredPanel+policyNationalCatalogPanel()+management+policyClientManagerPanel()+intakeCodeManagerPanel();
+ const items=[['policy','정책표 등록',policyPanel+registeredPanel+policyNationalCatalogPanel()+management],['clients','거래처 관리',policyClientManagerPanel()],['codes','접수 코드 관리',intakeCodeManagerPanel()]];
+ return '<div class="toolbar" role="group" aria-label="접수 관리 메뉴">'+items.map(([key,label])=>'<button type="button" class="'+(adminIntakeSection===key?'action':'secondary')+'" data-intake-section-button="'+key+'" aria-pressed="'+(adminIntakeSection===key)+'" aria-controls="tm-intake-section-'+key+'">'+label+'</button>').join('')+'</div>'+items.map(([key,label,content])=>'<section id="tm-intake-section-'+key+'" data-intake-section-panel="'+key+'" aria-label="'+label+'"'+(adminIntakeSection===key?'':' hidden style="display:none"')+'>'+content+'</section>').join('');
 }
 
 /* Preview records: historical aggregates have no recorded employee/customer detail. */
