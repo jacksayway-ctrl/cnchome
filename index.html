@@ -181,6 +181,7 @@
 #tm-preview .policy-sheet.is-all-selected tbody td{background:#dcebe3!important}
 
 #tm-preview .policy-sheet tbody td.sheet-selected{background:#dcebe3!important}
+#tm-preview .policy-cell-menu button{display:block;width:100%;padding:8px 12px;background:white;color:#172941;border:0;border-radius:0;text-align:left}#tm-preview .policy-cell-menu button:hover{background:#e6f1eb}
 </style>
 </head><body>
 <div id="tm-preview">
@@ -1399,6 +1400,7 @@ root.addEventListener('mousedown',e=>{
  if((e.shiftKey||e.ctrlKey||e.metaKey)&&e.target.closest('.policy-sheet tbody td'))e.preventDefault();
 });
 root.addEventListener('click',e=>{
+ if(e.target.closest('.policy-cell-menu'))return;
  const sheet=e.target.closest('.policy-sheet');
  if(!sheet){
   root.querySelectorAll('.policy-sheet').forEach(policyClearSelection);
@@ -1438,10 +1440,9 @@ root.addEventListener('keydown',e=>{
   policyClearSelection(sheet);policySelectionAnchor=null;
  }
 });
-root.addEventListener('copy',e=>{
- const sheet=document.activeElement?.closest('.policy-sheet');
+function policySelectedMatrix(sheet){
  const selected=sheet?Array.from(sheet.querySelectorAll('tbody td.sheet-selected')):[];
- if(!selected.length||!e.clipboardData)return;
+ if(!selected.length)return [];
  const rowIndices=selected.map(c=>c.parentElement.sectionRowIndex),colIndices=selected.map(c=>c.cellIndex);
  const cells=[];
  for(let r=Math.min(...rowIndices);r<=Math.max(...rowIndices);r++){
@@ -1452,10 +1453,73 @@ root.addEventListener('copy',e=>{
   }
   cells.push(row);
  }
+
+ return cells;
+}
+
+root.addEventListener('copy',e=>{
+ const sheet=document.activeElement?.closest('.policy-sheet'),cells=policySelectedMatrix(sheet);
+ if(!cells.length||!e.clipboardData)return;
  e.clipboardData.setData('text/plain',cells.map(row=>row.join('\t')).join('\r\n'));
  e.clipboardData.setData('text/html','<table><tbody>'+cells.map(row=>'<tr>'+row.map(value=>'<td>'+policyEscape(value)+'</td>').join('')+'</tr>').join('')+'</tbody></table>');
  e.preventDefault();
 });
+let policyContextSheet=null;
+function policyCloseCellMenu(){root.querySelector('.policy-cell-menu')?.remove()}
+function policyPasteCells(sheet,text){
+ if(policyOcrRunning||!sheet||!sheet.isConnected)return;
+ const selected=Array.from(sheet.querySelectorAll('tbody td.sheet-selected'));
+ const anchor=selected.length?selected.reduce((a,b)=>a.parentElement.sectionRowIndex<b.parentElement.sectionRowIndex||a.parentElement.sectionRowIndex===b.parentElement.sectionRowIndex&&a.cellIndex<b.cellIndex?a:b):policySelectionAnchor;
+ if(!anchor||!sheet.contains(anchor))return;
+ const rows=String(text).replace(/\r\n?/g,'\n').replace(/\n$/,'').split('\n').map(line=>line.split('\t'));
+ const changes=[];
+ for(let r=0;r<rows.length;r++)for(let c=0;c<rows[r].length;c++){
+  const cell=sheet.tBodies[0].rows[anchor.parentElement.sectionRowIndex+r]?.cells[anchor.cellIndex+c];
+  if(!cell){alert('붙여넣을 내용이 표 범위를 벗어납니다.');return}
+  const input=cell.querySelector('input[data-policy-cell]');
+  if(!input){if(rows[r][c].trim()){alert('불가지역 조건은 해당 셀을 눌러 수정해 주세요. 붙여넣기는 직접 수정 가능한 셀에 사용할 수 있습니다.');return}continue}
+  changes.push([input,rows[r][c]]);
+ }
+ changes.forEach(([input,value])=>{input.value=value;input.dispatchEvent(new Event('input',{bubbles:true}))});
+ const feedback=root.querySelector('#tm-policy-edit-feedback');
+ if(feedback)feedback.innerHTML=policyCityReviewMarkup()+policyScopeTable(policyRows);
+}
+root.addEventListener('paste',e=>{
+ const sheet=e.target.closest('.policy-sheet');
+ if(!sheet||!e.clipboardData)return;
+ const text=e.clipboardData.getData('text/plain');
+ if(!sheet.querySelector('.sheet-selected')&&!/[\t\r\n]/.test(text))return;
+ e.preventDefault();e.stopImmediatePropagation();policyPasteCells(sheet,text);
+},true);
+root.addEventListener('contextmenu',e=>{
+ const cell=e.target.closest('.policy-sheet tbody td');
+ if(!cell)return;
+ e.preventDefault();policyCloseCellMenu();
+ const sheet=cell.closest('.policy-sheet');policyContextSheet=sheet;
+ if(!cell.classList.contains('sheet-selected')){policyClearSelection(sheet);cell.classList.add('sheet-selected');policySelectionAnchor=cell}
+ const menu=document.createElement('div');
+ menu.className='policy-cell-menu';menu.setAttribute('role','menu');
+ menu.style.cssText='position:fixed;z-index:10000;background:white;border:1px solid #bbc9c0;box-shadow:0 4px 16px #0002;padding:4px;min-width:160px;left:'+Math.min(e.clientX,window.innerWidth-180)+'px;top:'+Math.min(e.clientY,window.innerHeight-100)+'px';
+ menu.innerHTML='<button type="button" role="menuitem" data-policy-clipboard="copy">복사　Ctrl+C</button><button type="button" role="menuitem" data-policy-clipboard="paste">붙여넣기　Ctrl+V</button>';
+ root.appendChild(menu);
+ menu.querySelector('button').focus();
+});
+root.addEventListener('click',async e=>{
+ const action=e.target.closest('[data-policy-clipboard]');
+ if(!action){policyCloseCellMenu();return}
+ const sheet=policyContextSheet;policyCloseCellMenu();
+ if(!sheet?.isConnected)return;
+ sheet.tabIndex=0;sheet.focus();
+ try{
+  if(action.dataset.policyClipboard==='copy'){
+   const cells=policySelectedMatrix(sheet);
+   await navigator.clipboard.writeText(cells.map(row=>row.join('\t')).join('\r\n'));
+  }else policyPasteCells(sheet,await navigator.clipboard.readText());
+ }catch(error){
+  alert(action.dataset.policyClipboard==='copy'?'브라우저에서 클립보드 접근을 허용하거나 Ctrl+C를 눌러 복사해 주세요.':'브라우저에서 클립보드 접근을 허용하거나 Ctrl+V를 눌러 붙여넣어 주세요.');
+ }
+});
+root.addEventListener('keydown',e=>{if(e.key==='Escape')policyCloseCellMenu()});
 
 function policyPreviewMarkup(){
  if(policyRows.length){return policySheetMarkup(policyRows)+'<div id="tm-policy-edit-feedback">'+policyCityReviewMarkup()+policyScopeTable(policyRows)+'</div>';}
