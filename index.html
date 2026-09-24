@@ -1657,7 +1657,7 @@ function policyRefreshAnalysis(){const el=root.querySelector('#tm-policy-analysi
 function policyAnalyzeExisting(){
  if(policyOcrRunning){toast('OCR 완료 후 확인해 주세요.');return}
  policyRefreshAnalysis();
- toast(policyAnalysis.length?'아래 분석 내역에서 판독 후보를 비교해 주세요.':'이전 결과에는 분석 기록이 없습니다. 원본 이미지를 다시 변환해 주세요.');
+ if(!policyAnalysis.length)toast('이전 결과에는 분석 기록이 없습니다. 원본 이미지를 다시 변환해 주세요.');
 }
 function policySelectRegion(candidates){
  const usable=candidates.filter(c=>/[가-힣\u3400-\u9fff\uf900-\ufaff]/.test(c.text)&&!policyRegionNoise(c.text));
