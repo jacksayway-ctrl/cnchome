@@ -147,7 +147,7 @@
     const childText=childIndices.map(i=>String(row[i]||'').trim()).filter(Boolean).join(' ');
     const regionText=[provinceIndex>=0?String(row[provinceIndex]||'').trim():'',sourceText].filter(Boolean).join(' ');
     const text=regionText+(childText?' : '+childText:'');
-    const parsedQuantity=/^\d+$/.test(quantityText)?Number(quantityText):null;
+    const parsedQuantity=isBlocked(quantityText)?0:/^\d+$/.test(quantityText)?Number(quantityText):null;
     const quantity=Number.isSafeInteger(parsedQuantity)&&parsedQuantity>=0?parsedQuantity:null;
     const errors=[],candidates=[];let include=[],exclude=[],explicitBlocks=[];
     let work=text.replace(/（/g,'(').replace(/）/g,')').replace(/：/g,':');
