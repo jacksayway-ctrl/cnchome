@@ -1739,12 +1739,19 @@ async function policyVerifyDisputedRows(source,layout,ocr,koreanRows,mixedRows){
  return verified;
 }
 
+function policyNeedsLiteralAudit(text){
+ if(policyCityIssues(text).some(issue=>issue.kind==='unknown'))return true;
+ // A condition word occupying a list item may itself be an OCR error.
+ // Re-read its pixels; never assume which place or condition was printed.
+ const parts=String(text).split(/[,，、/·]/u).map(part=>part.trim());
+ return parts.length>1&&parts.some(part=>/^(?:포함|제외|전체|일부|지역|가능|불가|일반|실버|접수|마감|확인|필요|일원)$/.test(part));
+}
 // A place reference only selects a crop for another OCR pass. It never supplies output text.
 async function policyAuditLiteralRows(source,layout,ocr,koreanRows,mixedRows,verified){
  const audited=new Map(),korean=await ocr.getRegionWorker();
  for(let index=0;index<layout.bands.length;index++){
   const initial=verified.get(index)?.confirmed?verified.get(index):policyInitialName(koreanRows[index],mixedRows[index]);
-  if(/[\u3400-\u9fff\uf900-\ufaff]/.test(initial.text)||!policyCityIssues(initial.text).some(issue=>issue.kind==='unknown'))continue;
+  if(/[\u3400-\u9fff\uf900-\ufaff]/.test(initial.text)||!policyNeedsLiteralAudit(initial.text))continue;
   const band=layout.bands[index],readings=[];
   policyUpdateOcrProgress('미확인 표기의 원본 획 재판독 · '+(index+1)+'행');
   for(const variant of ['channel','white','original','channelcrop','whitecrop']){
