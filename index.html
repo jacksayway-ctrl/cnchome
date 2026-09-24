@@ -130,13 +130,13 @@
 #tm-preview .team-performance-calendar .day.team-performance-today.active{background:#fff3cd;outline:2px solid #1464ec;outline-offset:-4px}
 
 #tm-preview .policy-sheet-wrap{max-height:560px;overflow:auto;border:1px solid #a9bdb2;border-radius:4px;margin:12px 0;background:#fff;isolation:isolate}
-#tm-preview .policy-sheet{border-collapse:separate;border-spacing:0;width:100%;min-width:640px;table-layout:auto;font-size:13px}
-#tm-preview .policy-sheet th,#tm-preview .policy-sheet td{border:0;border-right:1px solid #d4dfd8;border-bottom:1px solid #d4dfd8;padding:9px 12px;min-width:90px;max-width:420px;white-space:pre-wrap;overflow-wrap:anywhere;vertical-align:middle;color:#243b30;background:#fff}
+#tm-preview .policy-sheet{border-collapse:separate;border-spacing:0;width:100%;min-width:480px;table-layout:fixed;font-size:13px}
+#tm-preview .policy-sheet th,#tm-preview .policy-sheet td{border:0;border-right:1px solid #d4dfd8;border-bottom:1px solid #d4dfd8;padding:9px 8px;min-width:0;max-width:none;white-space:pre-wrap;overflow-wrap:anywhere;vertical-align:middle;color:#243b30;background:#fff}
 #tm-preview .policy-sheet thead{position:sticky;top:0;z-index:3}
 #tm-preview .policy-sheet .sheet-letter{background:#e8efeb;color:#587064;text-align:center;padding:5px 12px;font-size:12px;font-weight:500}
 #tm-preview .policy-sheet .sheet-heading{background:#dceee2;color:#165c37;font-weight:700}
 #tm-preview .policy-sheet .sheet-number{position:sticky;left:0;min-width:44px;width:44px;max-width:44px;padding:8px 6px;text-align:center;background:#e8efeb;color:#587064;font-weight:400;z-index:2;box-sizing:border-box}
-#tm-preview .policy-sheet .sheet-region{position:sticky;left:44px;min-width:180px;background:#f4f9f6;z-index:1;border-right:2px solid #a9bdb2}
+#tm-preview .policy-sheet .sheet-region{position:sticky;left:44px;min-width:0;background:#f4f9f6;z-index:1;border-right:2px solid #a9bdb2}
 #tm-preview .policy-sheet thead .sheet-region{background:#dceee2}
 #tm-preview .policy-sheet tbody tr:hover td{background:#edf7f0}
 #tm-preview .policy-sheet .sheet-quantity{text-align:right;font-variant-numeric:tabular-nums}
@@ -1264,10 +1264,10 @@ function policySheetMarkup(rows){
  const letter=index=>{let name='';for(let n=index+1;n>0;n=Math.floor((n-1)/26))name=String.fromCharCode(65+(n-1)%26)+name;return name};
  const cells=(r,header)=>columns.map(c=>{
   const value=policyDisplayCell(rows,r,c),tag=header?'th':'td';
-  const content=header?policyEscape(value):'<input type="text" data-policy-cell="'+r+':'+c+'" aria-label="'+r+'행 '+policyEscape(rows[0]?.[c]||'열 '+(c+1))+'" value="'+policyEscape(value)+'" style="box-sizing:border-box;width:100%;min-width:'+(c===0?'260':'80')+'px;border:1px solid #b8cbbc;border-radius:4px;padding:7px;background:#fff">';
+  const content=header?policyEscape(value):'<input type="text" data-policy-cell="'+r+':'+c+'" aria-label="'+r+'행 '+policyEscape(rows[0]?.[c]||'열 '+(c+1))+'" value="'+policyEscape(value)+'" style="box-sizing:border-box;width:100%;min-width:0;border:1px solid #b8cbbc;border-radius:4px;padding:5px;background:#fff">';
   return '<'+tag+(header?' scope="col"':'')+' class="'+(header?'sheet-heading ':'')+(c===0?'sheet-region':'')+'">'+content+'</'+tag+'>';
  }).join('');
- return '<p class="sub">표 안의 내용을 바로 수정할 수 있습니다. 수정 후 정책표 등록을 누르면 적용됩니다.</p><div class="policy-sheet-wrap" tabindex="0" role="region" aria-label="정책표 변환 결과. 스크롤하여 전체 행과 열 확인"><table class="policy-sheet" aria-label="정책표 엑셀형 결과"><thead><tr><th class="sheet-number" aria-label="행 번호"></th>'+columns.map((_,i)=>'<th class="sheet-letter">'+letter(i)+'</th>').join('')+'</tr><tr><th class="sheet-number" scope="row">1</th>'+cells(0,true)+'</tr></thead><tbody>'+rows.slice(1).map((row,i)=>'<tr><th class="sheet-number" scope="row">'+(i+2)+'</th>'+cells(i+1,false)+'</tr>').join('')+'</tbody></table></div>';
+ return '<p class="sub">표 안의 내용을 바로 수정할 수 있습니다. 수정 후 정책표 등록을 누르면 적용됩니다.</p><div class="policy-sheet-wrap" tabindex="0" role="region" aria-label="정책표 변환 결과. 스크롤하여 전체 행과 열 확인"><table class="policy-sheet" aria-label="정책표 엑셀형 결과"><colgroup><col style="width:44px">'+columns.map(c=>'<col'+(c===0?'':' style="width:'+(c===1?'64px':String(rows[0]?.[c]||'').trim()==='상태'?'164px':'120px')+'"')+'>').join('')+'</colgroup><thead><tr><th class="sheet-number" aria-label="행 번호"></th>'+columns.map((_,i)=>'<th class="sheet-letter">'+letter(i)+'</th>').join('')+'</tr><tr><th class="sheet-number" scope="row">1</th>'+cells(0,true)+'</tr></thead><tbody>'+rows.slice(1).map((row,i)=>'<tr><th class="sheet-number" scope="row">'+(i+2)+'</th>'+cells(i+1,false)+'</tr>').join('')+'</tbody></table></div>';
 }
 root.addEventListener('input',e=>{
  const cell=e.target.closest('[data-policy-cell]');
