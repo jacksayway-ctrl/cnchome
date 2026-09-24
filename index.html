@@ -180,6 +180,7 @@
 #tm-preview .policy-sheet .sheet-select-all:focus-visible{outline:2px solid #21834d;outline-offset:-2px}
 #tm-preview .policy-sheet.is-all-selected tbody td{background:#dcebe3!important}
 
+#tm-preview .policy-sheet tbody td.sheet-selected{background:#dcebe3!important}
 </style>
 </head><body>
 <div id="tm-preview">
@@ -1382,35 +1383,75 @@ root.addEventListener('input',e=>{
 });
 root.addEventListener('focusout',e=>{if(e.target.matches('[data-policy-cell],#tm-policy-edit-title')&&!policyOcrRunning){const feedback=root.querySelector('#tm-policy-edit-feedback');if(feedback)feedback.innerHTML=policyCityReviewMarkup()+policyScopeTable(policyRows)}});
 
-root.addEventListener('click',e=>{
- const trigger=e.target.closest('[data-policy-select-all]');
- root.querySelectorAll('.policy-sheet.is-all-selected').forEach(sheet=>{
-  if(trigger&&sheet.contains(trigger))return;
-  sheet.classList.remove('is-all-selected');
-  sheet.querySelector('[data-policy-select-all]')?.setAttribute('aria-pressed','false');
- });
- if(!trigger)return;
- const sheet=trigger.closest('.policy-sheet');
- if(!sheet)return;
- sheet.classList.add('is-all-selected');
- trigger.setAttribute('aria-pressed','true');
- trigger.focus();
-});
-root.addEventListener('keydown',e=>{
- if(e.key!=='Escape')return;
- const sheet=e.target.closest('.policy-sheet.is-all-selected');
- if(!sheet)return;
+let policySelectionAnchor=null;
+function policyClearSelection(sheet){
  sheet.classList.remove('is-all-selected');
+ sheet.querySelectorAll('.sheet-selected').forEach(cell=>cell.classList.remove('sheet-selected'));
  sheet.querySelector('[data-policy-select-all]')?.setAttribute('aria-pressed','false');
+}
+function policySelectEveryCell(sheet){
+ policyClearSelection(sheet);
+ sheet.querySelectorAll('tbody td').forEach(cell=>cell.classList.add('sheet-selected'));
+ sheet.querySelector('[data-policy-select-all]')?.setAttribute('aria-pressed','true');
+ sheet.tabIndex=0;sheet.focus();
+}
+root.addEventListener('mousedown',e=>{
+ if((e.shiftKey||e.ctrlKey||e.metaKey)&&e.target.closest('.policy-sheet tbody td'))e.preventDefault();
+});
+root.addEventListener('click',e=>{
+ const sheet=e.target.closest('.policy-sheet');
+ if(!sheet){
+  root.querySelectorAll('.policy-sheet').forEach(policyClearSelection);
+  policySelectionAnchor=null;return;
+ }
+ if(e.target.closest('[data-policy-select-all]')){
+  policySelectEveryCell(sheet);policySelectionAnchor=sheet.querySelector('tbody td');return;
+ }
+ const cell=e.target.closest('tbody td');
+ if(!cell)return;
+ if(e.shiftKey||e.ctrlKey||e.metaKey){
+  e.preventDefault();e.stopImmediatePropagation();
+  if(e.shiftKey){
+   const anchor=policySelectionAnchor&&sheet.contains(policySelectionAnchor)?policySelectionAnchor:cell;
+   if(!e.ctrlKey&&!e.metaKey)policyClearSelection(sheet);
+   const firstRow=Math.min(anchor.parentElement.sectionRowIndex,cell.parentElement.sectionRowIndex);
+   const lastRow=Math.max(anchor.parentElement.sectionRowIndex,cell.parentElement.sectionRowIndex);
+   const firstCol=Math.min(anchor.cellIndex,cell.cellIndex),lastCol=Math.max(anchor.cellIndex,cell.cellIndex);
+   Array.from(sheet.tBodies[0].rows).slice(firstRow,lastRow+1).forEach(row=>{
+    Array.from(row.cells).slice(firstCol,lastCol+1).forEach(c=>c.classList.add('sheet-selected'));
+   });
+   policySelectionAnchor=anchor;
+  }else{
+   cell.classList.toggle('sheet-selected');policySelectionAnchor=cell;
+  }
+  sheet.tabIndex=0;sheet.focus();
+ }else{
+  policyClearSelection(sheet);policySelectionAnchor=cell;
+ }
+},true);
+root.addEventListener('keydown',e=>{
+ const sheet=e.target.closest('.policy-sheet');
+ if(!sheet)return;
+ if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='a'){
+  e.preventDefault();policySelectEveryCell(sheet);policySelectionAnchor=sheet.querySelector('tbody td');
+ }else if(e.key==='Escape'){
+  policyClearSelection(sheet);policySelectionAnchor=null;
+ }
 });
 root.addEventListener('copy',e=>{
- const sheet=root.querySelector('.policy-sheet.is-all-selected');
- if(!sheet||!sheet.contains(document.activeElement)||!e.clipboardData)return;
- const cells=Array.from(sheet.tBodies[0]?.rows||[]).map(row=>Array.from(row.cells).slice(1).map(cell=>{
-  const input=cell.querySelector('input');
-  return String(input?input.value:cell.textContent).replace(/[\t\r\n]+/g,' ').trim();
- }));
- // Preserve every data column, including empty cells, and every data row.
+ const sheet=document.activeElement?.closest('.policy-sheet');
+ const selected=sheet?Array.from(sheet.querySelectorAll('tbody td.sheet-selected')):[];
+ if(!selected.length||!e.clipboardData)return;
+ const rowIndices=selected.map(c=>c.parentElement.sectionRowIndex),colIndices=selected.map(c=>c.cellIndex);
+ const cells=[];
+ for(let r=Math.min(...rowIndices);r<=Math.max(...rowIndices);r++){
+  const row=[];
+  for(let c=Math.min(...colIndices);c<=Math.max(...colIndices);c++){
+   const cell=sheet.tBodies[0].rows[r].cells[c],input=cell.querySelector('input');
+   row.push(cell.classList.contains('sheet-selected')?String(input?input.value:cell.textContent).replace(/[\t\r\n]+/g,' ').trim():'');
+  }
+  cells.push(row);
+ }
  e.clipboardData.setData('text/plain',cells.map(row=>row.join('\t')).join('\r\n'));
  e.clipboardData.setData('text/html','<table><tbody>'+cells.map(row=>'<tr>'+row.map(value=>'<td>'+policyEscape(value)+'</td>').join('')+'</tr>').join('')+'</tbody></table>');
  e.preventDefault();
