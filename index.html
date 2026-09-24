@@ -389,6 +389,15 @@ html,body{height:100%;overflow:hidden}
 #tm-preview .policy-child-regions{margin:6px 0;padding-left:18px}
 #tm-preview .policy-child-regions li{margin:5px 0}
 #tm-preview .policy-map-legend{line-height:1.6}
+
+/* Keep weekly navigation and inline field labels aligned in one row. */
+#tm-preview .toolbar.performance-week-toolbar{display:flex;align-items:center;flex-wrap:nowrap;gap:10px;overflow-x:auto;padding:3px 2px 8px}
+#tm-preview .performance-week-toolbar>button,#tm-preview .performance-week-toolbar>strong,#tm-preview .performance-week-toolbar>label{flex:0 0 auto;white-space:nowrap;margin:0}
+#tm-preview .performance-week-toolbar>label{display:inline-flex;flex-direction:row;align-items:center;gap:7px}
+#tm-preview .performance-week-toolbar>label:first-of-type{margin-left:12px}
+#tm-preview .performance-week-toolbar input,#tm-preview .performance-week-toolbar select,#tm-preview .performance-week-toolbar button{height:36px;box-sizing:border-box}
+#tm-preview .performance-week-toolbar input{flex:0 0 auto;width:150px;min-width:150px}
+#tm-preview .performance-week-toolbar select{width:100px;min-width:100px}
 </style>
 <div class="shell">
 <aside><div class="brand"><b>▥</b> TM OFFICE</div><div class="team">보험영업 1팀 · 상담원</div><div class="mobile-note">PC용 화면 미리보기</div><nav aria-label="직원 메뉴">
@@ -1888,7 +1897,7 @@ function performanceWeekly(){
  const count=items=>items.reduce((n,r)=>n+performanceRecordCount(r),0);
  const rows=groups.map(([name,filter])=>{const items=records.filter(filter);return [name,...dates.map(date=>count(items.filter(r=>r.firstDate===date))+'건'),'<strong>'+count(items)+'건</strong>',items.filter(r=>r.status==='as').length+'건']});
  rows.push(['<strong>전체 합계</strong>',...dates.map(date=>count(records.filter(r=>r.firstDate===date))+'건'),'<strong>'+count(records)+'건</strong>',records.filter(r=>r.status==='as').length+'건']);
- return panel('상품별 주간 실적',`<div class="toolbar"><button class="secondary" data-performance-week="-1">이전 주</button><strong>${dates[0]} ~ ${dates[6]}</strong><button class="secondary" data-performance-week="1">다음 주</button><button class="secondary" data-performance-week="today">이번 주</button><label>기준일 <input type="date" id="performance-week-date" value="${performanceWeekAnchor}"></label><label>주 시작 요일 <select id="performance-week-start">${['일','월','화','수','목','금','토'].map((name,i)=>`<option value="${i}" ${i===performanceWeekStart?'selected':''}>${name}요일</option>`).join('')}</select></label></div><p class="sub">최초 접수일 기준 정상 실적 · A/S 전환 시 차감, 완료 시 복구 · 주 시작 요일은 이 브라우저에 저장됩니다.</p>`+
+ return panel('상품별 주간 실적',`<div class="toolbar performance-week-toolbar"><button class="secondary" data-performance-week="-1">이전 주</button><strong>${dates[0]} ~ ${dates[6]}</strong><button class="secondary" data-performance-week="1">다음 주</button><button class="secondary" data-performance-week="today">이번 주</button><label>기준일 <input type="date" id="performance-week-date" value="${performanceWeekAnchor}"></label><label>주 시작 요일 <select id="performance-week-start">${['일','월','화','수','목','금','토'].map((name,i)=>`<option value="${i}" ${i===performanceWeekStart?'selected':''}>${name}요일</option>`).join('')}</select></label></div><p class="sub">최초 접수일 기준 정상 실적 · A/S 전환 시 차감, 완료 시 복구 · 주 시작 요일은 이 브라우저에 저장됩니다.</p>`+
  '<div class="scroll">'+table(['상품 구분',...dates.map(date=>date.slice(5)+' ('+['일','월','화','수','목','금','토'][new Date(date+'T00:00:00Z').getUTCDay()]+')'),'주간 정상 합계','A/S'],rows)+'</div>'+
  '<p class="sub">기존 보험 예시 자료에는 일반·실버 구분이 없어 미지정으로 집계합니다. 건강보조식품은 등록된 접수가 없습니다.</p>');
 }
