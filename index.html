@@ -1130,7 +1130,7 @@ function policyHandleImage(file){
  if(policyOcrRunning){toast('OCR 분석이 끝난 뒤 이미지를 변경해 주세요.');return}
  if(!file||!file.type.startsWith('image/'))return;
  const reader=new FileReader();
- reader.onload=()=>{if(policyOcrRunning)return;policyCityDrafts.clear();policyCityOriginalRows=[];policyCityAudit=[];policyImageData=String(reader.result||'');policyImageName=file.name||'클립보드 이미지';policyAnalysis=[];policyRows=[];policyInsurer='';policyRegistered=false;policyRefreshPreview();toast('정책표 이미지를 확인했습니다. 전용 OCR 변환을 눌러 주세요.');};
+ reader.onload=()=>{if(policyOcrRunning)return;policyOcrTiming=policyOcrTotalTiming=0;policyCityDrafts.clear();policyCityOriginalRows=[];policyCityAudit=[];policyImageData=String(reader.result||'');policyImageName=file.name||'클립보드 이미지';policyAnalysis=[];policyRows=[];policyInsurer='';policyRegistered=false;policyRefreshPreview();toast('정책표 이미지를 확인했습니다. 전용 OCR 변환을 눌러 주세요.');};
  reader.readAsDataURL(file);
 }
 function policyUpdateOcrProgress(message){const status=root.querySelector('#tm-policy-ocr-status'),bar=root.querySelector('#tm-policy-ocr-progress');if(status)status.textContent=message;if(bar)bar.style.width=policyOcrProgress+'%'}
@@ -1441,7 +1441,7 @@ function policyBandHasDivider(source,layout,band){
 
 let policyAnalysis=[];
 function policyAnalysisMarkup(){
- return '<div class="notice">'+(policyOcrTiming?'일괄 인식 '+policyOcrTiming.toFixed(1)+'초 · ':'')+'획 보존 분석 · 원본 확대, 배경색 대비, RGB 채널 분리 결과를 비교합니다. 글자색에 관계없이 분석합니다. 점수는 OCR 신뢰도이며 정답 확률은 아닙니다.</div>'+
+ return '<div class="notice">'+(policyOcrTiming?'인식 '+policyOcrTiming.toFixed(1)+'초 · 전체 '+policyOcrTotalTiming.toFixed(1)+'초(모델 준비 포함) · ':'')+'획 보존 분석 · 원본 확대, 배경색 대비, RGB 채널 분리 결과를 비교합니다. 글자색에 관계없이 분석합니다. 점수는 OCR 신뢰도이며 정답 확률은 아닙니다.</div>'+
  (policyAnalysis.length?table(['행','선택 결과','다른 판독 결과','분석'],policyAnalysis.map(item=>[String(item.row),policyEscape(item.text),policyEscape(item.alternatives),policyEscape(item.reason)])):'<p class="sub">이미지를 다시 변환하면 행별 판독 결과를 확인할 수 있습니다.</p>');
 }
 function policyRefreshAnalysis(){const el=root.querySelector('#tm-policy-analysis');if(el)el.innerHTML=policyAnalysisMarkup()}
@@ -1495,81 +1495,6 @@ function policySelectTitle(candidates){
  return {...best,review:!valid.length||best.support<2||best.confidence<85||new Set(readable.map(c=>c.text.replace(/\s/g,''))).size>1};
 }
 
-async function policyRecognizeCells(source,layout,ocr){
- const rows=[['지역','수량','상태']],worker=ocr.worker;
- const heights=layout.bands.map(b=>b.bottom-b.top).sort((a,b)=>a-b),median=heights[Math.floor(heights.length/2)];
- policyInsurer='';
- for(let index=0;index<layout.bands.length;index++){
-  const band=layout.bands[index];let title=index===0&&(band.bottom-band.top)>median*1.5&&!policyBandHasDivider(source,layout,band);const irregular=!title&&((band.bottom-band.top)>median*1.6||(band.bottom-band.top)<median*.55);
-  const readingCache=new Map();
-  const read=(digits,binary,mode='7')=>{
-   const key=JSON.stringify([digits,binary,mode]);
-   if(readingCache.has(key))return readingCache.get(key);
-   const pending=(async()=>{
-   const left=digits?layout.divider+2:2,right=digits?layout.width-2:(title?layout.width-2:layout.divider-2);
-   const reader=digits?ocr.digitWorker:worker;
-   await reader.setParameters({tessedit_pageseg_mode:mode,tessedit_char_whitelist:digits?'0123456789':'',preserve_interword_spaces:'1',user_defined_dpi:'300'});
-   const result=await policyOcrTimeout(reader.recognize(policyCellImage(source,left,band.top,right,band.bottom,binary)),30000,'행 인식 제한 시간을 초과했습니다.');
-   return {text:policyCleanText(result.data?.text||'').trim().replace(/\s+/g,' '),confidence:Number(result.data?.confidence||0),family:(binary==='whitepixel'?'white':binary==='stroke'?'color':String(binary)),mode};
-   })();readingCache.set(key,pending);return pending;
-  };
-  const quantityTask=(async()=>{
-  const qtyCandidates=[await read(true,'original'),await read(true,'color'),await read(true,'channel')];
-  if(qtyCandidates[0].text!==qtyCandidates[1].text||Math.min(...qtyCandidates.map(c=>c.confidence))<85)qtyCandidates.push(await read(true,false,'8'));
-  let qty=policyChooseReading(qtyCandidates,true);
-  if(qty.review){qtyCandidates.push(await read(true,true));if(!qty.text)qtyCandidates.push(await read(true,true,'10'));qty=policyChooseReading(qtyCandidates,true)}
-   return qty;
-  })().then(value=>({value}),error=>({error}));
-  try{
-  const regionRight=title?layout.width-2:layout.divider-2,regionWidth=Math.max(1,regionRight-2),regionHeight=Math.max(1,band.bottom-band.top);
-  const whiteInk=policyWhiteInk(source.context.getImageData(2,band.top,regionWidth,regionHeight),regionWidth,regionHeight);
-  const nameCandidates=[await read(false,'original'),await read(false,'color'),await read(false,'channel')];
-  if(whiteInk)nameCandidates.push(await read(false,'white'));
-  if(nameCandidates.some(c=>c.confidence<85)||new Set(nameCandidates.map(c=>c.text)).size>1)nameCandidates.push(await read(false,'pixel'));
-  if(new Set(nameCandidates.map(c=>c.text)).size>1||nameCandidates.some(c=>c.confidence<85||!/[가-힣\u3400-\u9fff\uf900-\ufaff]/.test(c.text)))nameCandidates.push(await read(false,'original','13'));
-  if(index===0&&(title||nameCandidates.some(c=>policyTitleShape(c.text)))){
-   // Same-height title cells are detected by their content, not row height alone.
-   const firstQuantity=await quantityTask;if(firstQuantity.error)throw firstQuantity.error;
-   const probe=policyChooseReading([await read(true,'color'),await read(true,'channel')],true);
-   if(title||!/^\d+$/.test(probe.text)){
-    nameCandidates.push(await read(false,'title','7'));
-    nameCandidates.push(await read(false,'color','8'));
-    const heading=policySelectTitle(nameCandidates);
-    policyInsurer=heading.text+(heading.review?' (확인 필요)':'');
-    policyAnalysis.push({row:1,text:heading.text||'제목 판독 실패',alternatives:nameCandidates.map(c=>c.text+' ['+c.family+', '+Math.round(c.confidence)+']').join(' / '),reason:heading.review?'제목 월 표기 후보 비교 · 원본 확인 필요':'제목 월 표기와 판독 결과 일치'});
-    continue;
-   }
-  }
-  let name=policySelectRegion(nameCandidates);
-  if(name.review||policyRegionSuspicious(name.text)||irregular){nameCandidates.push(await read(false,'rules','7'));if(policyRegionNoise(name.text))nameCandidates.push(await read(false,'rules','8'));name=policySelectRegion(nameCandidates)}
-  if(name.review||policyRegionSuspicious(name.text)){
-   // Word segmentation and nearest-neighbor enlargement preserve detached top strokes.
-   nameCandidates.push(await read(false,'detail','7'));
-   nameCandidates.push(await read(false,'stroke','8'));
-   nameCandidates.push(await read(false,'pixel','8'));
-   nameCandidates.push(await read(false,'channel','8'));
-   name=policySelectRegion(nameCandidates);
-  }
-  let headingReadings=[];
-  if(!title&&(name.review||policyRegionSuspicious(name.text))){
-   const heading=await policyReadHeading(source,layout,band,ocr,name.text);
-   headingReadings=heading.candidates;
-   name=policyApplyHeading(name,heading.selected);
-  }
-  name.review=name.review||policyRegionSuspicious(name.text)||irregular;
-  if(title){policyInsurer=name.text+(name.review?' (확인 필요)':'');continue}
-  policyAnalysis.push({row:rows.length+1,text:name.text||'판독 실패',alternatives:[...nameCandidates,...headingReadings].map(c=>c.text+' ['+c.family+'/'+c.mode+', '+Math.round(c.confidence)+']').join(' / '),reason:name.headingCorrected?'지역명 원본 영역을 한국어 전용으로 재판독 · 도시명·한자는 원문 판독 유지 · 확인 필요':name.review?'판독 불일치 또는 저신뢰 · 원본 확인 필요':'서로 다른 전처리의 결과 일치'});
-  const qtyResult=await quantityTask;
-  if(qtyResult.error)throw qtyResult.error;
-  let qty=qtyResult.value;
-  qty.review=qty.review||irregular;
-  const validQty=/^\d+$/.test(qty.text),review=name.review||qty.review||!validQty;
-  rows.push([name.text||'확인 필요',validQty?qty.text:'확인 필요',policyQuantityStatus(qty.text,qty.review)+(name.review?' · 지역명 확인 필요':'')+(irregular?' · 행 구분 확인 필요':'')]);
-  policyOcrProgress=Math.round(45+50*(index+1)/layout.bands.length);policyUpdateOcrProgress('정밀 인식 '+(index+1)+' / '+layout.bands.length+'행 · '+policyOcrProgress+'%');
-  }finally{await quantityTask}
- }
- return rows;
-}
 // Pack cell images into a column; OCR bounding boxes map back to the original rows.
 function policyPackCells(source,layout,digits,variant){
  const cells=layout.bands.map((band,index)=>{
@@ -1648,20 +1573,20 @@ async function policyRecognizeBatch(source,layout,ocr){
    if(supported.length)chosen={...chosen,...supported.sort((a,b)=>b.confidence-a.confidence)[0]};
   }
   const review=!chosen.text||chosen.confidence<85||/[＃#]/.test(chosen.text)||a.text.replace(/\s/g,'')!==b.text.replace(/\s/g,'');
-  policyAnalysis.push({row:rows.length+1,text:chosen.text||'판독 실패',alternatives:'한국어: '+a.text+' ['+Math.round(a.confidence)+'] / 한국어·한문: '+b.text+' ['+Math.round(b.confidence)+']'+(repairs.length?' / '+repairs.join(' / '):''),reason:review?'판독 불일치 또는 저신뢰 · 원본 확인 필요':'두 인식기의 실제 판독 일치'});
+  policyAnalysis.push({row:rows.length+1,text:chosen.text||'판독 실패',alternatives:'한국어: '+a.text+' ['+Math.round(a.confidence)+'] / 한국어·한문: '+b.text+' ['+Math.round(b.confidence)+']'+(repairs.length?' / '+repairs.join(' / '):''),reason:review?'판독 불일치 또는 저신뢰 · 원본 확인 필요':repairs.length?'글자 영역 재판독 결과 적용':'두 인식기의 실제 판독 일치'});
   rows.push([chosen.text||'확인 필요',quantity||'확인 필요',(quantity==='불가'?'마감':policyQuantityStatus(quantity,quantityReview))+(review?' · 지역명 확인 필요':'')]);
  }
  policyOcrTiming=(Date.now()-started)/1000;
  return rows;
 }
-let policyOcrTiming=0;
+let policyOcrTiming=0,policyOcrTotalTiming=0;
 
 async function policyRunOcr(){
  if(!policyImageData||policyOcrRunning)return;const totalStarted=Date.now();let recognitionStarted=0;policyOcrTiming=0;policyOcrRunning=true;policyAnalysis=[];policyRefreshAnalysis();policyOcrProgress=3;policyRefreshPreview();
  try{
   policyUpdateOcrProgress('표선·숫자 열 분석 · 3%');const source=await policyLoadCanvas(policyImageData),layout=await policyAnalyzeTable(source);policyOcrProgress=12;policyUpdateOcrProgress('행 '+layout.bands.length+'개 감지 · 12%');
   const ocr=await policyGetPaddleOcr();policyOcrProgress=55;policyUpdateOcrProgress('정리된 글자만 로컬 인식 · 55%');
-  recognitionStarted=Date.now();policyRows=policyCleanRows(await (new URLSearchParams(location.search).get('ocr')==='batch'?policyRecognizeBatch:policyRecognizeCells)(source,layout,ocr));policyOcrTiming=(Date.now()-recognitionStarted)/1000;policyPrepareCityReview();if(policyRows.length<2)throw new Error('정책표 내용을 찾지 못했습니다.');
+  recognitionStarted=Date.now();policyRows=policyCleanRows(await policyRecognizeBatch(source,layout,ocr));policyOcrTiming=(Date.now()-recognitionStarted)/1000;policyOcrTotalTiming=(Date.now()-totalStarted)/1000;policyPrepareCityReview();if(policyRows.length<2)throw new Error('정책표 내용을 찾지 못했습니다.');
   const recognized=policyRows.map(row=>row.join('\t')).join('\n'),textarea=root.querySelector('#tm-policy-paste');if(textarea)textarea.value=recognized;
   policyOcrProgress=100;policyRegistered=false;policyImageData='';policyImageName='';policyRefreshPreview();toast('정책표 OCR 완료 · 인식 '+policyOcrTiming.toFixed(1)+'초. 확인이 필요한 셀을 확인해 주세요.');
  }catch(error){await policyResetPaddleOcr();policyOcrProgress=0;policyRefreshPreview();toast('전용 OCR 오류: '+(error?.message||'변환 실패'))}
@@ -1739,7 +1664,7 @@ root.addEventListener('click',e=>{const button=e.target.closest('[data-action^="
  }else if(action==='policy-city-suggest'){
  const index=Number(button.dataset.row),start=Number(button.dataset.start),end=Number(button.dataset.end),current=policyRows[index]?.[0];
  if(policyCityDrafts.has(index)&&policyCityDrafts.get(index)!==current){toast('입력한 지역명을 먼저 수정 적용해 주세요.');return}if(typeof current==='string'&&current.slice(start,end)===button.dataset.token&&policyCityData.some(c=>c.name===button.dataset.city))policyUpdateCityRow(index,current.slice(0,start)+button.dataset.city+current.slice(end),'후보 선택');
- }else if(action==='policy-analyze'){policyAnalyzeExisting();}else if(action==='policy-ocr'){policyRunOcr();}else if(action==='policy-parse'){const text=root.querySelector('#tm-policy-paste')?.value||'';policyRows=policyCleanRows(parsePolicyText(text));policyPrepareCityReview();policyInsurer='';policyAnalysis=[];policyImageData='';policyImageName='';policyRegistered=false;policyRefreshPreview();toast(policyRows.length?'붙여넣은 내용을 표로 변환했습니다.':'변환할 텍스트를 붙여넣어 주세요.');}else if(action==='policy-clear'){policyInsurer='';policyCityDrafts.clear();policyCityOriginalRows=[];policyCityAudit=[];policyAnalysis=[];policyRows=[];policyImageData='';policyImageName='';policyRegistered=false;const input=root.querySelector('#tm-policy-paste');if(input)input.value='';const file=root.querySelector('#tm-policy-image');if(file)file.value='';policyRefreshPreview();}else if(action==='policy-register'){if(!policyRows.length){toast('먼저 정책표를 표로 변환해 주세요.');return}if([...root.querySelectorAll('[data-city-row]')].some(input=>!input.value.trim())){toast('지역명이 빈 행을 확인해 주세요.');return}for(const input of root.querySelectorAll('[data-city-row]')){const index=Number(input.dataset.cityRow),value=input.value.trim();if(policyRows[index]&&policyRows[index][0]!==value){policyCityAudit.push({row:index,from:policyRows[index][0],to:value,reason:'등록 시 직접 수정'});policyRows[index][0]=value}}policyCityDrafts.clear();policySyncCityText();policyRegistered=true;policyRegisteredRows=policyCleanRows(policyRows);policyRegisteredInsurer=policyInsurer;policyScopeSelected=0;policyScopeCity='';policyRefreshPreview();policyRefreshRegistered();toast('정책표가 정상 등록되었습니다. 아래 등록 결과 표를 확인해 주세요.');}});
+ }else if(action==='policy-analyze'){policyAnalyzeExisting();}else if(action==='policy-ocr'){policyRunOcr();}else if(action==='policy-parse'){const text=root.querySelector('#tm-policy-paste')?.value||'';policyRows=policyCleanRows(parsePolicyText(text));policyPrepareCityReview();policyInsurer='';policyAnalysis=[];policyImageData='';policyImageName='';policyRegistered=false;policyRefreshPreview();toast(policyRows.length?'붙여넣은 내용을 표로 변환했습니다.':'변환할 텍스트를 붙여넣어 주세요.');}else if(action==='policy-clear'){policyOcrTiming=policyOcrTotalTiming=0;policyInsurer='';policyCityDrafts.clear();policyCityOriginalRows=[];policyCityAudit=[];policyAnalysis=[];policyRows=[];policyImageData='';policyImageName='';policyRegistered=false;const input=root.querySelector('#tm-policy-paste');if(input)input.value='';const file=root.querySelector('#tm-policy-image');if(file)file.value='';policyRefreshPreview();}else if(action==='policy-register'){if(!policyRows.length){toast('먼저 정책표를 표로 변환해 주세요.');return}if([...root.querySelectorAll('[data-city-row]')].some(input=>!input.value.trim())){toast('지역명이 빈 행을 확인해 주세요.');return}for(const input of root.querySelectorAll('[data-city-row]')){const index=Number(input.dataset.cityRow),value=input.value.trim();if(policyRows[index]&&policyRows[index][0]!==value){policyCityAudit.push({row:index,from:policyRows[index][0],to:value,reason:'등록 시 직접 수정'});policyRows[index][0]=value}}policyCityDrafts.clear();policySyncCityText();policyRegistered=true;policyRegisteredRows=policyCleanRows(policyRows);policyRegisteredInsurer=policyInsurer;policyScopeSelected=0;policyScopeCity='';policyRefreshPreview();policyRefreshRegistered();toast('정책표가 정상 등록되었습니다. 아래 등록 결과 표를 확인해 주세요.');}});
 root.addEventListener('input',e=>{if(e.target.id==='tm-region-search')filterRegions()});
 root.addEventListener('change',e=>{if(e.target.id==='tm-age')filterRegions();if(e.target.id==='tm-map-carrier'){mapCarrier=e.target.value;filterRegions();}});
 root.addEventListener('submit',e=>{e.preventDefault();if(e.target.id==='tm-staff-add-form'){if(!e.target.reportValidity())return;const f=new FormData(e.target);adminEmployees.push({name:String(f.get('name')).trim(),phone:String(f.get('phone')).trim(),team:String(f.get('team')),role:String(f.get('role')),startDate:String(f.get('startDate')),attendance:String(f.get('attendance')),normal:0,pending:0,as:0,monthly:0,grade:'60건 이하'});modal.close();page='adminStaff';render();toast('직원이 등록되었습니다. · 미리보기에서만 반영됩니다.');return}if(e.target.id==='tm-outing-form'){const f=new FormData(e.target);if(f.get('end')<=f.get('start')){toast('복귀 예정 시간은 외출 예정 시간 이후로 입력해 주세요.');return}outing='pending';root.dataset.outingKind=f.get('kind');modal.close();render();toast('외출 신청 체험 완료 · 관리자 승인 대기 상태입니다.')}else if(e.target.id==='tm-intake-form'){modal.close();toast('접수 입력 체험 완료 · 실제 접수·수량·실적에는 반영되지 않습니다.')}});
