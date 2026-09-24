@@ -1211,8 +1211,7 @@ function policyCityReviewMarkup(){
   const note=audit.map(a=>policyEscape(a.from+' → '+a.to+' · '+a.reason)).join('<br>');
   return [String(index),policyEscape(policyCityOriginalRows[index]?.[0]??text),'<input aria-label="'+index+'행 최종 지역명" data-city-row="'+index+'" value="'+policyEscape(policyCityDrafts.get(index)??text)+'" style="width:100%;min-width:250px;box-sizing:border-box"><button type="button" class="secondary" data-action="policy-city-save" data-row="'+index+'">수정 적용</button>',(note?'<div>'+note+'</div>':'')+(choices||'전국 지명 대조 완료 · 권역·하위 지명은 원문 유지')];
  });
- const bulk='<div class="row"><button type="button" class="action" data-action="policy-city-save-all">일괄 적용</button></div>';
- return '<section style="margin-top:20px"><h3>마지막 지명 확인 · 수정</h3><p class="sub">전국 시·군·구 '+policyCityData.length+'개 기준 항목을 비교합니다. OCR 판독과 별도로 원문의 행정구역 표기를 확인합니다. 기준 명칭과 다른 원문은 직접 확인한 뒤 수정 적용을 누르세요. 수량과 한자·기호는 유지됩니다. 입력한 수정 내용은 일괄 적용으로 한 번에 반영할 수 있습니다.</p>'+bulk+table(['행','원문 판독','최종 지역명','지명 확인 · 후보'],rows)+bulk+'<details><summary>전국 시·군·구 기준 보기</summary><p class="sub">기준 확인: 2026-09-24 · 행정안전부 및 지자체 공식 자료 · 광역시·제주 행정시 포함</p>'+table(['시도','기본 시'],policyCityGroups.map(([p,n])=>[policyEscape(policyProvinceNames[p]),policyEscape(n)]))+'</details></section>';
+ return '<section style="margin-top:20px"><h3>마지막 지명 확인 · 수정</h3><p class="sub">전국 시·군·구 '+policyCityData.length+'개 기준 항목을 비교합니다. OCR 판독과 별도로 원문의 행정구역 표기를 확인합니다. 기준 명칭과 다른 원문은 직접 확인한 뒤 수정 적용을 누르세요. 수량과 한자·기호는 유지됩니다.</p>'+table(['행','원문 판독','최종 지역명','지명 확인 · 후보'],rows)+'<details><summary>전국 시·군·구 기준 보기</summary><p class="sub">기준 확인: 2026-09-24 · 행정안전부 및 지자체 공식 자료 · 광역시·제주 행정시 포함</p>'+table(['시도','기본 시'],policyCityGroups.map(([p,n])=>[policyEscape(policyProvinceNames[p]),policyEscape(n)]))+'</details></section>';
 }
 function policyApplyAllCityRows(){
  if(policyOcrRunning)return;
@@ -1258,7 +1257,7 @@ function policyDisplayColumns(rows){
 }
 function policyDisplayCell(rows,r,c){
  const value=String(rows[r]?.[c]??'');
- return r>0&&String(rows[0]?.[c]||'').trim()==='상태'&&['접수 가능','접수가능','마감'].includes(value.trim())?'':value;
+ return r>0&&String(rows[0]?.[c]||'').trim()==='상태'?value.split(/[·ㆍ]/).map(part=>part.trim()).filter(part=>part&&!/^(?:접수\\s*가능|마감)$/.test(part)).join(' · '):value;
 }
 function policySheetMarkup(rows){
  const columns=policyDisplayColumns(rows);
