@@ -1739,12 +1739,33 @@ async function policyVerifyDisputedRows(source,layout,ocr,koreanRows,mixedRows){
  return verified;
 }
 
+function policyLiteralConditionSlots(text){
+ const parts=String(text).split(/([,，、/·])/u);
+ return parts.length>1?parts.flatMap((part,index)=>index%2===0&&/^(?:포함|제외|전체|일부|지역|가능|불가|일반|실버|접수|마감|확인|필요|일원)$/.test(part.trim())?[index]:[]):[];
+}
+function policyConfirmedLiteralAudit(readings,initial){
+ const slots=policyLiteralConditionSlots(initial),parts=String(initial).split(/([,，、/·])/u);
+ if(!slots.length)return policyConfirmedRowReading(readings);
+ const output=parts.slice(),confirmed=[];
+ for(const slot of slots){
+  const candidates=readings.flatMap(reading=>{
+   const tokens=String(reading.text||'').split(/([,，、/·])/u);
+   if(tokens.length!==parts.length||parts.some((part,i)=>i%2===1&&part!==tokens[i]))return [];
+   return [{...reading,text:tokens[slot].trim()}];
+  });
+  const chosen=policyConfirmedCropReading(candidates,/^[가-힣]+$/u);
+  if(!chosen)return null;
+  output[slot]=parts[slot].replace(/\S(?:[\s\S]*\S)?/,chosen.text);confirmed.push(chosen);
+ }
+ // Each replacement is actual OCR evidence at the same list position.
+ // Never replace unaffected names with a less accurate whole-row retry.
+ return {text:output.join(''),confidence:Math.min(...confirmed.map(item=>item.confidence))};
+}
 function policyNeedsLiteralAudit(text){
  if(policyCityIssues(text).some(issue=>issue.kind==='unknown'))return true;
  // A condition word occupying a list item may itself be an OCR error.
  // Re-read its pixels; never assume which place or condition was printed.
- const parts=String(text).split(/[,，、/·]/u).map(part=>part.trim());
- return parts.length>1&&parts.some(part=>/^(?:포함|제외|전체|일부|지역|가능|불가|일반|실버|접수|마감|확인|필요|일원)$/.test(part));
+ return policyLiteralConditionSlots(text).length>0;
 }
 // A place reference only selects a crop for another OCR pass. It never supplies output text.
 async function policyAuditLiteralRows(source,layout,ocr,koreanRows,mixedRows,verified){
@@ -1760,9 +1781,9 @@ async function policyAuditLiteralRows(source,layout,ocr,koreanRows,mixedRows,ver
     const result=await policyOcrTimeout(korean.recognize(policyCellImage(source,2,band.top,layout.divider-2,band.bottom,variant)),30000,'원본 행 재판독 제한 시간');
     readings.push({text:String(result.data?.text||'').trim(),confidence:Number(result.data?.confidence||0),family:variant,model:'한국어'});
    }catch(error){readings.push({text:'',confidence:0,family:variant,model:'한국어'})}
-   if(policyConfirmedRowReading(readings))break;
+   if(policyConfirmedLiteralAudit(readings,initial.text))break;
   }
-  const confirmed=policyConfirmedRowReading(readings);
+  const confirmed=policyConfirmedLiteralAudit(readings,initial.text);
   audited.set(index,{...(confirmed||initial),confirmed:!!confirmed,readings,audit:true});
  }
  return audited;
@@ -2359,7 +2380,6 @@ render();
 </div>
 
 </body></html>
-
 
 
 
