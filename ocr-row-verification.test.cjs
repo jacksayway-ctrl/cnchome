@@ -1,0 +1,59 @@
+const fs=require('node:fs');
+const vm=require('node:vm');
+const assert=require('node:assert/strict');
+const path=require('node:path');
+const html=fs.readFileSync(path.join(__dirname,'index.html'),'utf8');
+const cropStart=html.indexOf('function policyConfirmedCropReading(');
+const helpersEnd=html.indexOf('// Recheck only rows',cropStart);
+assert.ok(cropStart>=0&&helpersEnd>cropStart,'OCR confidence helpers must exist');
+const ctx={};
+vm.runInNewContext(html.slice(cropStart,helpersEnd),ctx);
+const verificationEnd=html.indexOf('async function policyRecognizeBatch(',helpersEnd);
+assert.ok(verificationEnd>helpersEnd,'Selective row verification must exist');
+vm.runInNewContext(html.slice(helpersEnd,verificationEnd),ctx);
+const K='한국어',M='한국어·한문';
+const r=(text,family='color',model=K,confidence=90)=>({text,family,model,confidence});
+const han='충남북부 : 천안시, 아산시 必';
+const ko='충남북부 : 천안시, 아산시';
+let count=0;
+function test(name,fn){fn();count++;console.log('PASS '+name)}
+const choose=readings=>ctx.policyConfirmedRowReading(readings);
+function hanEvidence(korean=ko){return [r(ko),r(han,'color',M),r(korean,'stroke',K),r(han,'stroke',M)]}
+test('same image across models counts as one family',()=>assert.equal(choose([r('서울'),r('서울','color',M)]),null));
+test('Hangul agreement across different image families',()=>assert.equal(choose([r('성주'),r('성주','stroke')]).text,'성주'));
+test('two supported Hangul groups remain unresolved',()=>assert.equal(choose([r('성주'),r('성주','stroke'),r('성수'),r('성수','stroke')]),null));
+test('repeated Han reading resolves Korean omission',()=>assert.equal(choose(hanEvidence()).text,han));
+test('Korean hash at Han position never enters output',()=>assert.equal(choose(hanEvidence(ko+' #')).text,han));
+test('Korean digit at Han position never enters output',()=>assert.equal(choose(hanEvidence(ko+' 4')).text,han));
+test('unverified extra Hangul glyph retains warning',()=>assert.equal(choose(hanEvidence(ko+' 필')),null));
+test('different Korean place name cannot clear warning',()=>assert.equal(choose(hanEvidence(ko.replace('천안시','찬안시'))),null));
+test('only color Korean evidence cannot confirm Han row',()=>assert.equal(choose([r(ko),r(han,'color',M),r(han,'stroke',M)]),null));
+test('low confidence Korean reread cannot confirm',()=>{const evidence=hanEvidence();evidence[2].confidence=84;assert.equal(choose(evidence),null)});
+test('low confidence mixed reread cannot confirm',()=>{const evidence=hanEvidence();evidence[3].confidence=84;assert.equal(choose(evidence),null)});
+test('conflicting supported mixed groups remain unresolved',()=>{const evidence=hanEvidence(),other=han.replace('천안시','찬안시');evidence.push(r(other,'color',M),r(other,'stroke',M));assert.equal(choose(evidence),null)});
+test('pure Han needs no invented Korean text',()=>assert.equal(choose([r('必','color',M),r('必','stroke',M)]).text,'必'));
+test('punctuation is preserved in mixed consensus',()=>{const evidence=hanEvidence();evidence[3].text=han.replace(',','/');assert.equal(choose(evidence),null)});
+test('excluded area condition cannot disappear',()=>assert.equal(choose([r('경남전체 (창원 제외)'),r('경남전체 (창원)','stroke')]),null));
+test('whitespace only comparison retains actual candidate text',()=>assert.ok(choose([r('경남 전체'),r('경남전체','stroke')])));
+test('literal hash is never rewritten by confirmation',()=>assert.equal(choose([r('서산시 #'),r('서산시 #','stroke')]),null));
+test('source typo is not replaced from a dictionary',()=>assert.equal(choose([r('연천시'),r('연천시','stroke')]).text,'연천시'));
+test('digits alone cannot become a confirmed region name',()=>assert.equal(choose([r('123'),r('123','stroke')]),null));
+const kr={id:'kor'},mix={id:'mixed'},ocr={getRegionWorker:async()=>kr,worker:mix};
+let calls=[];
+ctx.policyUpdateOcrProgress=()=>{};
+ctx.policyPackCells=(_source,_layout,_digits,variant,indices)=>({variant,indices:[...indices]});
+async function batchTest(name,a,b,read,verify){
+ calls=[];ctx.policyBatchRead=async(worker,pack)=>{calls.push({worker:worker.id,variant:pack.variant,indices:[...pack.indices]});return read(worker,pack)};
+ const got=await ctx.policyVerifyDisputedRows({}, {bands:a.map(()=>({}))},ocr,a,b);
+ verify(got,calls);count++;console.log('PASS '+name);
+}
+(async()=>{
+ await batchTest('reliable rows skip all additional OCR',[r('서울'),r('대전')],[r('서울'),r('대전')],()=>{throw Error('must not call')},(got,calls)=>{assert.equal(got.size,0);assert.equal(calls.length,0)});
+ const names=['서울',ko,'대전','충남서부 : 서산시 #','부산'];
+ const hanNames=['서울',han,'대전','충남서부 : 서산시 必','부산'];
+ await batchTest('subset slots map to original row indices',names.map(x=>r(x)),hanNames.map(x=>r(x)),(worker,pack)=>pack.indices.map(i=>r(worker===mix?hanNames[i]:names[i])),(got,calls)=>{assert.deepEqual([...got.keys()],[1,3]);assert.equal(got.get(1).text,han);assert.equal(got.get(3).text,hanNames[3]);assert.ok([...got.values()].every(x=>x.confirmed));assert.equal(calls.length,2);assert.ok(calls.every(c=>c.indices.join(',')==='1,3'))});
+ await batchTest('unresolved row receives one second image variant',[r('성주')],[r('성수')],(_worker,pack)=>[r(pack.variant==='stroke'?'성쥬':'성주')],(got,calls)=>{assert.equal(got.get(0).text,'성주');assert.equal(got.get(0).confirmed,true);assert.equal(calls.length,4)});
+ await batchTest('retry failures retain initial evidence and review',[r(ko)],[r(han)],()=>{throw Error('simulated worker timeout')},(got,calls)=>{assert.equal(got.get(0).confirmed,false);assert.equal(got.get(0).readings.length,2);assert.equal(got.get(0).readings[1].text,han);assert.equal(calls.length,4)});
+ await batchTest('one failed worker does not discard another result',[r(ko)],[r(han)],(worker,pack)=>{if(worker===mix&&pack.variant==='stroke')throw Error('one failed retry');return [r(worker===mix?han:ko)]},(got,calls)=>{assert.equal(got.get(0).confirmed,true);assert.equal(got.get(0).text,han);assert.equal(calls.length,4)});
+ console.log(count+' OCR verification safety checks passed');
+})().catch(error=>{console.error(error);process.exitCode=1});
