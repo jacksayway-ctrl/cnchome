@@ -1456,15 +1456,16 @@ function policySelectTitle(candidates){
 }
 
 // Pack cell images into a column; OCR bounding boxes map back to the original rows.
-function policyPackCells(source,layout,digits,variant){
- const cells=layout.bands.map((band,index)=>{
+function policyPackCells(source,layout,digits,variant,indices=null){
+ const selected=indices||layout.bands.map((_,index)=>index);
+ const cells=selected.map(index=>{const band=layout.bands[index];
   const left=digits?layout.divider+2:2,right=digits?layout.width-2:layout.divider-2;
   return policyCellImage(source,left,band.top,right,band.bottom,variant);
  });
  const canvas=document.createElement('canvas');canvas.width=Math.max(...cells.map(c=>c.width))+32;
  canvas.height=cells.reduce((n,c)=>n+c.height+24,24);const context=canvas.getContext('2d');context.fillStyle='#fff';context.fillRect(0,0,canvas.width,canvas.height);
  let y=24;const slots=cells.map(cell=>{const slot={top:y,bottom:y+cell.height};context.drawImage(cell,16,y);y+=cell.height+24;return slot});
- return {canvas,slots};
+ return {canvas,slots,indices:selected};
 }
 function policyUnpackLines(data,pack){
  const groups=pack.slots.map(()=>[]);
@@ -1497,6 +1498,58 @@ function policyNameNeedsReview(chosen,korean,mixed,cropConfirmed,glyphUncertain)
  return !chosen.text||chosen.confidence<85||glyphUncertain||/[＃#]/.test(chosen.text)||
   (!cropConfirmed&&korean.text.replace(/\s/g,'')!==mixed.text.replace(/\s/g,''));
 }
+// Recheck only rows whose actual OCR readings disagree. Names never come from a dictionary.
+function policyInitialName(korean,mixed){
+ const hasHan=/[\u3400-\u9fff\uf900-\ufaff]/.test(mixed.text);
+ return hasHan&&mixed.confidence>=65?mixed:korean.text?korean:mixed;
+}
+function policyConfirmedRowReading(readings){
+ // Keep punctuation and all characters when comparing; ignore whitespace only.
+ const pattern=/^(?=.*[가-힣\u3400-\u9fff\uf900-\ufaff])[가-힣\u3400-\u9fff\uf900-\ufaff0-9\s,:：，、/·()（）.\-]+$/u;
+ const hasHan=text=>/[\u3400-\u9fff\uf900-\ufaff]/u.test(String(text||''));
+ const mixed=readings.filter(reading=>reading.model==='한국어·한문');
+ if(!mixed.some(reading=>hasHan(reading.text)))return policyConfirmedCropReading(readings,pattern);
+ // Korean-only models cannot supply or disprove Han characters. Require the
+ // mixed model to repeat the complete printed text across different images.
+ const confirmed=policyConfirmedCropReading(mixed,pattern);
+ if(!confirmed)return null;
+ const hangul=text=>(String(text||'').match(/[가-힣]/gu)||[]).join('');
+ const expected=hangul(confirmed.text);
+ if(!expected)return hasHan(confirmed.text)?confirmed:null;
+ // This comparison verifies Korean strokes only. Never use the reduced text
+ // as output, and never hide an extra Hangul syllable mistaken for a Han glyph.
+ const koreanConfirmed=readings.some(reading=>reading.model==='한국어'&&reading.family&&reading.family!=='color'&&reading.confidence>=85&&hangul(reading.text)===expected);
+ return koreanConfirmed?confirmed:null;
+}
+async function policyVerifyDisputedRows(source,layout,ocr,koreanRows,mixedRows){
+ const pending=[],evidence=new Map(),verified=new Map(),korean=await ocr.getRegionWorker();
+ for(let i=0;i<layout.bands.length;i++){
+  const a=koreanRows[i],b=mixedRows[i],chosen=policyInitialName(a,b);
+  if(!policyNameNeedsReview(chosen,a,b,false,false))continue;
+  pending.push(i);evidence.set(i,[{...a,family:'color',model:'한국어'},{...b,family:'color',model:'한국어·한문'}]);
+ }
+ let remaining=pending;
+ for(const variant of ['stroke','channel']){
+  if(!remaining.length)break;
+  policyUpdateOcrProgress('판독이 엇갈린 '+remaining.length+'개 행의 글자 획 재확인');
+  const pack=policyPackCells(source,layout,false,variant,remaining);
+  const results=await Promise.allSettled([policyBatchRead(korean,pack),policyBatchRead(ocr.worker,pack)]);
+  // A retry failure keeps the original reading and review flag, rather than losing the table.
+  results.forEach((result,modelIndex)=>{
+   if(result.status!=='fulfilled')return;
+   result.value.forEach((reading,offset)=>evidence.get(remaining[offset]).push({...reading,family:variant,model:modelIndex?'한국어·한문':'한국어'}));
+  });
+  const next=[];
+  for(const index of remaining){
+   const readings=evidence.get(index),confirmed=policyConfirmedRowReading(readings);
+   if(confirmed)verified.set(index,{...confirmed,confirmed:true,readings});else next.push(index);
+  }
+  remaining=next;
+ }
+ for(const index of remaining)verified.set(index,{confirmed:false,readings:evidence.get(index)});
+ return verified;
+}
+
 async function policyRecognizeBatch(source,layout,ocr){
  const started=Date.now();
  const names=policyPackCells(source,layout,false,'color'),numbers=policyPackCells(source,layout,true,'color');
@@ -1505,12 +1558,14 @@ async function policyRecognizeBatch(source,layout,ocr){
  const results=await Promise.allSettled([policyBatchRead(korean,names),policyBatchRead(ocr.worker,names),policyBatchRead(ocr.digitWorker,numbers,'0123456789')]);
  const failed=results.find(r=>r.status==='rejected');if(failed)throw failed.reason;
  const [kor,mixed,qty]=results.map(r=>r.value),quantityWords=await policyBatchRead(korean,numbers),rows=[['지역','수량','상태']];policyInsurer='';
+ const verifiedRows=new URLSearchParams(window.location.search).get('ocr')==='verify'?await policyVerifyDisputedRows(source,layout,ocr,kor,mixed):new Map();
  for(let i=0;i<layout.bands.length;i++){
   const a=kor[i],b=mixed[i];
   // Only OCR readings are candidates. Never synthesize a place name from a gazetteer.
-  const hasHan=/[\u3400-\u9fff\uf900-\ufaff]/.test(b.text);
-  let chosen=hasHan&&b.confidence>=65?b:a.text?a:b;
-  const repairs=[];let nameRereadConfirmed=false,glyphRereadUncertain=false;
+  const verification=verifiedRows.get(i);
+  let chosen=verification?.confirmed?verification:policyInitialName(a,b);
+  const repairs=[];let nameRereadConfirmed=!!verification?.confirmed,glyphRereadUncertain=false;
+  if(verification)repairs.push('획 재확인: '+verification.readings.filter(r=>r.family!=='color').map(r=>r.family+' '+r.model+': '+r.text+' ['+Math.round(r.confidence)+']').join(' / '));
   let quantity=quantityWords[i].text.replace(/\s/g,'')==='불가'?'불가':qty[i].text.replace(/\s/g,''),quantityReview=quantity!=='불가'&&(!/^\d+$/.test(quantity)||qty[i].confidence<65);
   if(i===0&&!/^\d+$/.test(quantity)&&/^(?:한화|신한|삼성|현대|메리츠|흥국|동양|교보|라이나|DB|KB|GA|G\/A)/.test(chosen.text)){
    policyInsurer=chosen.text;policyAnalysis.push({row:1,text:chosen.text,alternatives:a.text+' / '+b.text,reason:'제목 영역 일괄 판독'});continue;
@@ -1553,7 +1608,7 @@ async function policyRecognizeBatch(source,layout,ocr){
    if(supported){chosen={...chosen,...supported};nameRereadConfirmed=true}
   }
   const review=policyNameNeedsReview(chosen,a,b,nameRereadConfirmed,glyphRereadUncertain);
-  policyAnalysis.push({row:rows.length+1,text:chosen.text||'판독 실패',alternatives:'한국어: '+a.text+' ['+Math.round(a.confidence)+'] / 한국어·한문: '+b.text+' ['+Math.round(b.confidence)+']'+(repairs.length?' / '+repairs.join(' / '):''),reason:review?'판독 불일치 또는 저신뢰 · 원본 확인 필요':repairs.length?'글자 영역 재판독 결과 적용':'두 인식기의 실제 판독 일치'});
+  policyAnalysis.push({row:rows.length+1,text:chosen.text||'판독 실패',alternatives:'한국어: '+a.text+' ['+Math.round(a.confidence)+'] / 한국어·한문: '+b.text+' ['+Math.round(b.confidence)+']'+(repairs.length?' / '+repairs.join(' / '):''),reason:review?'판독 불일치 또는 저신뢰 · 원본 확인 필요':nameRereadConfirmed?'서로 다른 확대 영상의 실제 판독 일치':repairs.length?'글자 영역 재판독 결과 적용':'두 인식기의 실제 판독 일치'});
   rows.push([chosen.text||'확인 필요',quantity||'확인 필요',(quantity==='불가'?'마감':policyQuantityStatus(quantity,quantityReview))+(review?' · 지역명 확인 필요':'')]);
  }
  policyOcrTiming=(Date.now()-started)/1000;
