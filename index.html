@@ -1242,7 +1242,7 @@ let policyRegisteredCode='',policyRegisteredKey='',policyScopeSelected=0,policyS
 function policyScopeTable(rows){
  if(rows.length<2)return '';
  const scopes=policyScopesForRows(rows),fmt=t=>(t.name||t.province+' 전체')+(t.path.length?' → '+t.path.join(' → '):'');
- const renderTable=items=>table(['가능지역','불가능지역','행 수량','적용 조건'],items.map(scope=>{
+ const renderTable=items=>table(['가능지역','불가지역','가능수량','적용 조건'],items.map(scope=>{
   const unavailable=scope.unavailable||scope.quantity===0;
   const uncertain=scope.errors.length||scope.quantityReview||scope.quantity===null;
   const allowed=unavailable?[]:scope.include;
@@ -1304,25 +1304,42 @@ root.addEventListener('submit',e=>{
 });
 
 function policySheetMarkup(rows){
- const columns=policyDisplayColumns(rows);
- const letter=index=>{let name='';for(let n=index+1;n>0;n=Math.floor((n-1)/26))name=String.fromCharCode(65+(n-1)%26)+name;return name};
+ const originalColumns=policyDisplayColumns(rows),columns=[0,-1,1,...originalColumns.filter(c=>c>1)];
+ const scopes=policyScopesForRows(rows),byRow=new Map(scopes.map(scope=>[scope.index,scope]));
+ const fmt=t=>(t.name||t.province+'전체')+(t.path.length?' '+t.path.join(' '):'');
+ const label=c=>c===0?'가능지역':c===-1?'불가지역':c===1?'가능수량':rows[0]?.[c]||'';
+ const input=(r,c,value,extra='')=>'<input type="text" data-policy-cell="'+r+':'+c+'" '+extra+' aria-label="'+r+'행 '+label(c)+'" value="'+policyEscape(value)+'" style="box-sizing:border-box;width:100%;min-width:0;border:1px solid #b8cbbc;border-radius:4px;padding:5px;background:#fff">';
  const cells=(r,header)=>columns.map(c=>{
-  const value=policyDisplayCell(rows,r,c),tag=header?'th':'td';
-  let content=header?policyEscape(value):'<input type="text" data-policy-cell="'+r+':'+c+'" aria-label="'+r+'행 '+policyEscape(rows[0]?.[c]||'열 '+(c+1))+'" value="'+policyEscape(value)+'" style="box-sizing:border-box;width:100%;min-width:0;border:1px solid #b8cbbc;border-radius:4px;padding:5px;background:#fff">';
-  if(!header&&String(rows[0]?.[c]||'').trim()==='상태'&&/지역\s*확인/.test(value)){
-   const rest=value.split(' · ').filter(part=>!/지역\s*확인/.test(part)).join(' · ');
-   content='<button type="button" class="secondary" data-region-review="'+r+'" aria-label="'+r+'행 지역확인">지역확인</button>'+(rest?'<span style="display:block;margin-top:4px">'+policyEscape(rest)+'</span>':'');
+  const scope=byRow.get(r),raw=String(rows[r]?.[0]||''),zero=scope&&(scope.unavailable||scope.quantity===0);
+  const exclusion=raw.match(/\s*[（(][^()（）]*(?:제외|불가)[^()（）]*[)）]/g)||[];
+  let content='';
+  if(header)content=policyEscape(label(c));
+  else if(c===0)content=zero?'—':input(r,0,exclusion.length?raw.replace(/\s*[（(][^()（）]*(?:제외|불가)[^()（）]*[)）]/g,'').trim():raw,'data-policy-suffix="'+policyEscape(exclusion.join(''))+'"');
+  else if(c===-1){
+   if(zero)content=input(r,0,raw).replace('aria-label="'+r+'행 가능지역"','aria-label="'+r+'행 불가지역"');
+   else {
+    const text=scope?.exclude?.map(fmt).join(', ')||'';
+    content=text?'<button type="button" class="secondary" data-region-review="'+r+'" aria-label="'+r+'행 불가지역 수정" style="width:100%;text-align:left;white-space:normal">'+policyEscape(text)+'</button>':'—';
+   }
+  }else{
+   const value=policyDisplayCell(rows,r,c);
+   content=input(r,c,value);
+   if(String(rows[0]?.[c]||'').trim()==='상태'&&/지역\s*확인/.test(value)){
+    const rest=value.split(' · ').filter(part=>!/지역\s*확인/.test(part)).join(' · ');
+    content='<button type="button" class="secondary" data-region-review="'+r+'" aria-label="'+r+'행 지역확인">지역확인</button>'+(rest?'<span>'+policyEscape(rest)+'</span>':'');
+   }
   }
+  const tag=header?'th':'td';
   return '<'+tag+(header?' scope="col"':'')+' class="'+(header?'sheet-heading ':'')+(c===0?'sheet-region':'')+'">'+content+'</'+tag+'>';
  }).join('');
- return '<p class="sub">표 안의 내용을 바로 수정할 수 있습니다. 수정 후 정책표 등록을 누르면 적용됩니다.</p><div class="policy-sheet-wrap" tabindex="0" role="region" aria-label="정책표 변환 결과. 스크롤하여 전체 행과 열 확인"><table class="policy-sheet" aria-label="정책표 엑셀형 결과"><colgroup><col style="width:44px">'+columns.map(c=>'<col'+(c===0?'':' style="width:'+(c===1?'64px':String(rows[0]?.[c]||'').trim()==='상태'?'164px':'120px')+'"')+'>').join('')+'</colgroup><thead><tr><th class="sheet-number" aria-label="행 번호"></th>'+columns.map((_,i)=>'<th class="sheet-letter">'+letter(i)+'</th>').join('')+'</tr><tr><th class="sheet-number" scope="row">1</th>'+cells(0,true)+'</tr></thead><tbody>'+rows.slice(1).map((row,i)=>'<tr><th class="sheet-number" scope="row">'+(i+2)+'</th>'+cells(i+1,false)+'</tr>').join('')+'</tbody></table></div>';
+ return '<p class="sub">가능지역과 수량은 바로 수정할 수 있습니다. 불가지역을 누르면 제외 조건을 수정합니다. 수정 후 정책표 등록을 눌러 주세요.</p><div class="policy-sheet-wrap" tabindex="0" role="region" aria-label="정책표 변환 결과"><table class="policy-sheet" aria-label="정책표 엑셀형 결과"><colgroup><col style="width:44px">'+columns.map(c=>'<col'+(c===0?'':' style="width:'+(c===1?'64px':c===-1?'24%':'164px')+'"')+'>').join('')+'</colgroup><thead><tr><th class="sheet-number">1</th>'+cells(0,true)+'</tr></thead><tbody>'+rows.slice(1).map((row,i)=>'<tr><th class="sheet-number" scope="row">'+(i+2)+'</th>'+cells(i+1,false)+'</tr>').join('')+'</tbody></table></div>';
 }
 root.addEventListener('input',e=>{
  const cell=e.target.closest('[data-policy-cell]');
  if(cell&&!policyOcrRunning){
   const [r,c]=cell.dataset.policyCell.split(':').map(Number);
   if(!Number.isInteger(r)||!Number.isInteger(c)||r<1||c<0||!policyRows[r])return;
-  const value=cell.value.trim(),before=String(policyRows[r][c]||'');
+  const value=cell.value.trim()+(c===0&&cell.dataset.policySuffix?' '+cell.dataset.policySuffix.trim():''),before=String(policyRows[r][c]||'');
   if(value===before)return;
   policyRows[r][c]=value;policyRegistered=false;
   if(c===0){policyCityDrafts.delete(r);policyCityAudit.push({row:r,from:before,to:value,reason:'변환 표에서 직접 수정'})}
@@ -1340,7 +1357,7 @@ root.addEventListener('input',e=>{
 });
 root.addEventListener('focusout',e=>{if(e.target.matches('[data-policy-cell],#tm-policy-edit-title')&&!policyOcrRunning){const feedback=root.querySelector('#tm-policy-edit-feedback');if(feedback)feedback.innerHTML=policyCityReviewMarkup()+policyScopeTable(policyRows)}});
 function policyPreviewMarkup(){
- if(policyRows.length){const width=policyDisplayColumns(policyRows).length;return '<div class="notice">'+(policyRegistered?'등록 완료':'정책표 변환 완료')+' · <label>접수 코드 표제 <input id="tm-policy-edit-title" value="'+policyEscape(policyIntakeTitle)+'" placeholder="접수 코드" style="width:180px"></label>'+' · '+policyRows.length+'행 '+width+'열</div>'+policySheetMarkup(policyRows)+'<div id="tm-policy-edit-feedback">'+policyCityReviewMarkup()+policyScopeTable(policyRows)+'</div>';}
+ if(policyRows.length){const width=policyDisplayColumns(policyRows).length+1;return '<div class="notice">'+(policyRegistered?'등록 완료':'정책표 변환 완료')+' · <label>접수 코드 표제 <input id="tm-policy-edit-title" value="'+policyEscape(policyIntakeTitle)+'" placeholder="접수 코드" style="width:180px"></label>'+' · '+policyRows.length+'행 '+width+'열</div>'+policySheetMarkup(policyRows)+'<div id="tm-policy-edit-feedback">'+policyCityReviewMarkup()+policyScopeTable(policyRows)+'</div>';}
  if(policyImageData)return '<div class="notice">정책표 전용 OCR이 표선으로 행과 수량 열을 먼저 나눈 뒤, 한글과 한문(번체·간체)을 로컬에서 인식합니다.</div><img src="'+policyImageData+'" alt="붙여넣은 정책표 이미지" style="display:block;max-width:100%;max-height:420px;margin:12px auto;border:1px solid var(--tm-line);border-radius:8px"><p class="sub">파일: '+policyEscape(policyImageName||'클립보드 이미지')+' · 이미지는 외부 서버에 전송되지 않습니다.</p><div class="row"><button type="button" class="action" data-action="policy-ocr" '+(policyOcrRunning?'disabled':'')+'>'+(policyOcrRunning?'전용 OCR 분석 중':'정책표 최고정밀 OCR로 변환')+'</button><span id="tm-policy-ocr-status" class="sub">'+(policyOcrRunning?'표 구조 분석 중 · '+policyOcrProgress+'%':'행·수량·색상 전용 분석')+'</span></div><div class="track" aria-label="OCR 진행률"><span id="tm-policy-ocr-progress" style="width:'+policyOcrProgress+'%"></span></div>';
  return '<p class="sub">아직 변환할 정책표가 없습니다. 엑셀 표·텍스트를 붙여넣거나 이미지를 선택해 주세요.</p>';
 }
