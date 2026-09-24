@@ -1248,8 +1248,8 @@ function policyScopeTable(rows){
   const allowed=unavailable?[]:scope.include;
   const denied=unavailable?[...scope.include,...scope.exclude]:scope.exclude;
   const unique=targets=>[...new Map(targets.map(target=>[JSON.stringify([target.province,target.name,target.path]),target])).values()];
-  const allowedText=allowed.length?unique(allowed).map(fmt).join(', '):'—';
-  const deniedText=denied.length?unique(denied).map(fmt).join(', '):'—';
+  const allowedText=allowed.length?unique(allowed).map(fmt).join(', '):'';
+  const deniedText=denied.length?unique(denied).map(fmt).join(', '):'';
   const notes=[...scope.errors.map(error=>error.replace(/^지역명 확인 필요:/,'지역확인:'))];
   if(scope.quantityReview||scope.quantity===null)notes.push('수량 확인 필요');
   if(scope.quantity===0)notes.push('수량 0');
@@ -1260,7 +1260,7 @@ function policyScopeTable(rows){
    if(scope.exclude.some(target=>!explicit.some(block=>JSON.stringify([block.province,block.name,block.path])===JSON.stringify([target.province,target.name,target.path]))))notes.push('제외 지역은 이 행에서 불가 · 별도 가능 정책은 별도 적용');
   }
   if(!unavailable&&(scope.only||scope.listedOnly))notes.push('기재 지역만 가능 · 나머지 불가');
-  return [policyEscape(uncertain&&allowed.length?'확인 필요: '+allowedText:allowedText),policyEscape(deniedText),scope.quantity===null?'—':String(scope.quantity),policyEscape(notes.join(' · ')||'기재 범위')];
+  return [policyEscape(uncertain&&allowed.length?'확인 필요: '+allowedText:allowedText),policyEscape(deniedText),scope.quantity===null?'':String(scope.quantity),policyEscape(notes.join(' · ')||'기재 범위')];
  }));
 
  const groups=PolicyRegionRules.categories(scopes);
@@ -1314,12 +1314,12 @@ function policySheetMarkup(rows){
   const exclusion=raw.match(/\s*[（(][^()（）]*(?:제외|불가)[^()（）]*[)）]/g)||[];
   let content='';
   if(header)content=policyEscape(label(c));
-  else if(c===0)content=zero?'—':input(r,0,exclusion.length?raw.replace(/\s*[（(][^()（）]*(?:제외|불가)[^()（）]*[)）]/g,'').trim():raw,'data-policy-suffix="'+policyEscape(exclusion.join(''))+'"');
+  else if(c===0)content=zero?'<span aria-label="빈 칸" style="display:block;min-height:30px;width:100%;box-sizing:border-box;border:1px solid #b8cbbc;border-radius:4px;background:#fff"></span>':input(r,0,exclusion.length?raw.replace(/\s*[（(][^()（）]*(?:제외|불가)[^()（）]*[)）]/g,'').trim():raw,'data-policy-suffix="'+policyEscape(exclusion.join(''))+'"');
   else if(c===-1){
    if(zero)content=input(r,0,raw).replace('aria-label="'+r+'행 가능지역"','aria-label="'+r+'행 불가지역"');
    else {
     const text=scope?.exclude?.map(fmt).join(', ')||'';
-    content=text?'<button type="button" class="secondary" data-region-review="'+r+'" aria-label="'+r+'행 불가지역 수정" style="width:100%;text-align:left;white-space:normal">'+policyEscape(text)+'</button>':'—';
+    content=text?'<button type="button" class="secondary" data-region-review="'+r+'" aria-label="'+r+'행 불가지역 수정" style="width:100%;text-align:left;white-space:normal">'+policyEscape(text)+'</button>':'<span aria-label="빈 칸" style="display:block;min-height:30px;width:100%;box-sizing:border-box;border:1px solid #b8cbbc;border-radius:4px;background:#fff"></span>';
    }
   }else{
    const value=policyDisplayCell(rows,r,c);
