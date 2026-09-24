@@ -7,6 +7,8 @@
   'use strict';
   const reference=root.KoreaRegionCatalog||(typeof require==='function'?require('./korea-regions.js'):null);
   if(!reference)throw new Error('KoreaRegionCatalog must be loaded before PolicyRegionRules.');
+  const intakeCatalog=root.IntakeCodeCatalog||(typeof require==='function'?require('./intake-codes.js'):null);
+  if(!intakeCatalog)throw new Error('IntakeCodeCatalog must be loaded before PolicyRegionRules.');
   const provinceNames=reference.provinceNames;
   const catalog=reference.municipalities;
   const districts=reference.districts;
@@ -17,6 +19,18 @@
   const stopWords = new Set(['전체','전역','모든','지역','일부','및','또는','포함','제외','만','가능','불가','접수','접수가능','접수불가','가능지역','불가지역','접수가능지역','접수불가지역','필수','한정']);
   const childLevel = token => /구$/.test(token)?1:/[읍면동]$/.test(token)?2:/리$/.test(token)?3:0;
   const compact = value => String(value||'').replace(/\s/g,'');
+  // Intake codes describe a policy, never an administrative place. Match a complete
+  // metadata heading only; do not erase code-like words from geographic text.
+  const intakeHeaderDate='(?:[1-9]\\d{3}년(?:(?:0?[1-9]|1[0-2])월)?|(?:0?[1-9]|1[0-2])월)';
+  const intakeHeaderSuffix=new RegExp('^(?:(?:일반|실버)(?:'+intakeHeaderDate+')?|'+intakeHeaderDate+'(?:일반|실버)?)?$','i');
+  function readIntakeCodeHeader(text,codes=intakeCatalog.defaults) {
+    const title=String(text??'').trim(),value=intakeCatalog.normalize(title),values=[value,value.replace(/^접수코드[:：]?/,'')];
+    if(!Array.isArray(codes))return null;
+    const exact=codes.filter(code=>[code.label,...(code.aliases||[])].some(alias=>values.includes(intakeCatalog.normalize(alias))));
+    const matches=exact.length?exact:codes.filter(code=>[code.label,...(code.aliases||[])].some(alias=>{const key=intakeCatalog.normalize(alias);return key&&values.some(text=>text.startsWith(key)&&intakeHeaderSuffix.test(text.slice(key.length)))}));
+    if(matches.length!==1)return null;
+    return {id:matches[0].id,label:matches[0].label,title};
+  }
   const unique = values => [...new Set(values)];
   const cloneTarget = target => ({province:target.province,name:target.name||'',path:[...(target.path||[])]});
   const targetKey = target => [target.province,target.name,...target.path].join('|');
@@ -169,15 +183,17 @@
     const quantityReview=/^확인\s*필요/.test(status);
     return {index,text,row:[...row],province:h?.province||options.province||'',region,quantity,quantityText,quantityReview,unavailable,only,mode:unavailable?'blocked':exclude.length?'exclude':only?'only':include.some(t=>!t.name)?'all':'listed',include,exclude,explicitBlocks,candidates:dedupe(candidates),errors:unique(errors),sharedQuantity:true};
   }
-  function parseRows(rows,headers=[]) {
+  function parseRows(rows,options={}) {
     if(!Array.isArray(rows))return [];
-    let start=0;
-    if(!headers.length&&rows[0]?.some(cell=>/수량|배정|이월|건수/.test(String(cell)))&&rows[0]?.some(cell=>/지역|범위/.test(String(cell)))){headers=rows[0];start=1}
+    const legacyHeaders=Array.isArray(options);let headers=legacyHeaders?options:(options?.headers||[]);
+    const intakeCodes=legacyHeaders?intakeCatalog.defaults:(options?.intakeCodes||intakeCatalog.defaults);
+    const isTableHeader=row=>row.some(cell=>/^(?:수량|인원|배정|이월|건수|한도)$/.test(compact(cell)))&&row.some(cell=>/^(?:(?:접수)?가능지역|지역|지역명|적용범위|범위|시.?군(?:.?구)?)$/.test(compact(cell)));
     const result=[];let unavailable=false,province='';
-    for(let i=start;i<rows.length;i++){
+    for(let i=0;i<rows.length;i++){
       const row=rows[i];if(!Array.isArray(row)||!row.some(cell=>String(cell||'').trim()))continue;
-      if(row.some(cell=>/^(?:접수\s*가능)?지역$/.test(String(cell).trim()))&&row.some(cell=>/^(?:수량|배정|이월|건수)$/.test(String(cell).trim())))continue;
+      if(isTableHeader(row)){headers=row;continue}
       const nonempty=row.filter(cell=>String(cell||'').trim());const text=String(nonempty[0]||'').trim();
+      if(nonempty.length===1&&readIntakeCodeHeader(text,intakeCodes))continue;
       if(nonempty.length===1&&/^(?:접수\s*)?(?:가능|불가|제외)\s*지역\s*[:：]?$/.test(text)){unavailable=/불가|제외/.test(text);continue}
       if(nonempty.length===1&&/[:：]$/.test(text)){const h=heading(text.slice(0,-1));if(h&&!h.parent&&h.broad){province=h.province;continue}}
       result.push(parseRow(row,i,headers,{unavailable,province}));
@@ -232,7 +248,7 @@
     if(!directAllow.length||childBlock.length)return response('partial',!directAllow.length&&!partialAllow.length?'명시된 구·읍·면·동·리만 접수 가능합니다. 나머지는 불가합니다.':'일부 구·읍·면·동·리가 제외됩니다. 하위 지역을 확인해 주세요.',[...allowed,...childBlock],restrictions);
     return response('possible','등록된 적용 범위입니다. 수량은 원문 정책 행의 지역들이 공유합니다.',directAllow,restrictions);
   }
-  const api={version:1,referenceUrl:'https://www.mois.go.kr/frt/sub/a04/localGovernment/screen.do',provinceNames,catalog,districts,resolvePlace,resolveProvince,heading,parseRow,parseRows,evaluate,contains,label};
+  const api={version:1,referenceUrl:'https://www.mois.go.kr/frt/sub/a04/localGovernment/screen.do',provinceNames,catalog,districts,readIntakeCodeHeader,resolvePlace,resolveProvince,heading,parseRow,parseRows,evaluate,contains,label};
   if(typeof module!=='undefined'&&module.exports)module.exports=api;
   root.PolicyRegionRules=api;
 })(typeof window!=='undefined'?window:globalThis);
