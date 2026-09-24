@@ -1354,8 +1354,8 @@ function policyCellImage(source,x0,y0,x1,y1,binary=false){
  const box=binary==='detail'?{left:0,top:0,width:w,height:h}:policyNormalizeCell(p,w,h,binary===true),small=document.createElement('canvas');small.width=w;small.height=h;small.getContext('2d').putImageData(original||p,0,0);
  // Keep the entire row height in the original-color pass so thin strokes are not cropped.
  if(original||['stroke','color','channel','white','whitepixel'].includes(binary)){box.top=0;box.height=h;box.left=0;box.width=w}
- const scale=(binary==='stroke'||binary==='detail')?6:binary==='color'?4:binary==='whitepixel'?4:binary==='title'?3:binary==='pixel'?4:Math.max(2,Math.min(5,64/box.height)),out=document.createElement('canvas');out.width=Math.ceil(box.width*scale)+32;out.height=Math.ceil(box.height*scale)+32;
- const ctx=out.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,out.width,out.height);ctx.imageSmoothingEnabled=binary!=='color'&&binary!=='detail'&&binary!=='stroke'&&binary!=='whitepixel'&&binary!==true&&binary!=='pixel'&&binary!=='title';ctx.imageSmoothingQuality='high';ctx.drawImage(small,box.left,box.top,box.width,box.height,16,16,box.width*scale,box.height*scale);return out;
+ const scale=(binary==='stroke'||binary==='detail')?6:binary==='whitepixel'?4:binary==='title'?3:binary==='pixel'?4:Math.max(2,Math.min(5,64/box.height)),out=document.createElement('canvas');out.width=Math.ceil(box.width*scale)+32;out.height=Math.ceil(box.height*scale)+32;
+ const ctx=out.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,out.width,out.height);ctx.imageSmoothingEnabled=binary!=='detail'&&binary!=='stroke'&&binary!=='whitepixel'&&binary!==true&&binary!=='pixel'&&binary!=='title';ctx.imageSmoothingQuality='high';ctx.drawImage(small,box.left,box.top,box.width,box.height,16,16,box.width*scale,box.height*scale);return out;
 }
 // Locate the printed colon from two vertically aligned ink components.
 // Coordinates come from the source pixels, never a guessed/corrected region name.
@@ -1632,6 +1632,26 @@ async function policyVerifyDisputedRows(source,layout,ocr,koreanRows,mixedRows){
  return verified;
 }
 
+// A place reference only selects a crop for another OCR pass. It never supplies output text.
+async function policyAuditLiteralRows(source,layout,ocr,koreanRows,mixedRows,verified){
+ const audited=new Map(),korean=await ocr.getRegionWorker();
+ for(let index=0;index<layout.bands.length;index++){
+  const initial=verified.get(index)?.confirmed?verified.get(index):policyInitialName(koreanRows[index],mixedRows[index]);
+  if(/[\u3400-\u9fff\uf900-\ufaff]/.test(initial.text)||!policyCityIssues(initial.text).some(issue=>issue.kind==='unknown'))continue;
+  const band=layout.bands[index],readings=[];
+  policyUpdateOcrProgress('미확인 표기의 원본 획 재판독 · '+(index+1)+'행');
+  for(const variant of ['channel','white','original']){
+   try{
+    await korean.setParameters({tessedit_pageseg_mode:'7',tessedit_char_whitelist:'',preserve_interword_spaces:'1',user_defined_dpi:'300'});
+    const result=await policyOcrTimeout(korean.recognize(policyCellImage(source,2,band.top,layout.divider-2,band.bottom,variant)),30000,'원본 행 재판독 제한 시간');
+    readings.push({text:String(result.data?.text||'').trim(),confidence:Number(result.data?.confidence||0),family:variant,model:'한국어'});
+   }catch(error){readings.push({text:'',confidence:0,family:variant,model:'한국어'})}
+  }
+  const confirmed=policyConfirmedRowReading(readings);
+  audited.set(index,{...(confirmed||initial),confirmed:!!confirmed,readings,audit:true});
+ }
+ return audited;
+}
 function policyQuantityCellReading(numeric,unrestricted){
  const text=String(unrestricted?.text||'').trim(),compact=text.replace(/\s/g,''),digits=String(numeric?.text||'').replace(/\s/g,'');
  const confidence=Number(unrestricted?.confidence||0);
@@ -1654,10 +1674,11 @@ async function policyRecognizeBatch(source,layout,ocr){
  const failed=results.find(r=>r.status==='rejected');if(failed)throw failed.reason;
  const [kor,mixed,qty]=results.map(r=>r.value),quantityWords=await policyBatchRead(korean,numbers),rows=[['지역','수량','상태']];policyIntakeTitle='';
  const verifiedRows=await policyVerifyDisputedRows(source,layout,ocr,kor,mixed);
+ const auditedRows=await policyAuditLiteralRows(source,layout,ocr,kor,mixed,verifiedRows);
  for(let i=0;i<layout.bands.length;i++){
   const a=kor[i],b=mixed[i];
   // Only OCR readings are candidates. Never synthesize a place name from a gazetteer.
-  const verification=verifiedRows.get(i);
+  const verification=auditedRows.get(i)||verifiedRows.get(i);
   let chosen=verification?.confirmed?verification:policyInitialName(a,b);
   const repairs=[];let nameRereadConfirmed=!!verification?.confirmed,glyphRereadUncertain=false;
   if(verification)repairs.push('획 재확인: '+verification.readings.filter(r=>r.family!=='color').map(r=>r.family+' '+r.model+': '+r.text+' ['+Math.round(r.confidence)+']').join(' / '));
@@ -1671,7 +1692,7 @@ async function policyRecognizeBatch(source,layout,ocr){
    const band=layout.bands[i],r=await policyOcrTimeout(korean.recognize(policyCellImage(source,layout.divider+2,band.top,layout.width-2,band.bottom,'channel')),30000,'수량·조건 문자 재판독 제한 시간');
    const reread={text:String(r.data?.text||'').trim(),confidence:Number(r.data?.confidence||0)},retry=policyQuantityCellReading(qty[i],reread);
    repairs.push('수량·조건 원문: '+quantityWords[i].text+' ['+Math.round(quantityWords[i].confidence)+'] / '+reread.text+' ['+Math.round(reread.confidence)+']');
-   if(quantityReading.kind==='text'){
+   if(quantityReading.kind==='text'&&quantityWords[i].confidence>=85){
     // Preserve text even if the second pass fails; never replace a condition by a guessed digit.
     if(retry.kind==='text'&&reread.confidence>quantityWords[i].confidence)quantity=reread.text;
    }else if(retry.kind==='blocked'&&!retry.review){quantity=retry.text;quantityReview=false}
@@ -1707,7 +1728,7 @@ async function policyRecognizeBatch(source,layout,ocr){
    const supported=policyConfirmedCropReading(readings,/^[가-힣]{2,4}$/);
    if(supported){chosen={...chosen,...supported};nameRereadConfirmed=true}
   }
-  const review=policyNameNeedsReview(chosen,a,b,nameRereadConfirmed,glyphRereadUncertain);
+  const review=!!(verification?.audit&&!verification.confirmed)||policyNameNeedsReview(chosen,a,b,nameRereadConfirmed,glyphRereadUncertain);
   policyAnalysis.push({row:rows.length+1,text:chosen.text||'판독 실패',alternatives:'한국어: '+a.text+' ['+Math.round(a.confidence)+'] / 한국어·한문: '+b.text+' ['+Math.round(b.confidence)+']'+(repairs.length?' / '+repairs.join(' / '):''),reason:review?'판독 불일치 또는 저신뢰 · 원본 확인 필요':nameRereadConfirmed?'서로 다른 확대 영상의 실제 판독 일치':repairs.length?'글자 영역 재판독 결과 적용':'두 인식기의 실제 판독 일치'});
   rows.push([chosen.text||'확인 필요',quantity||'확인 필요',(quantity.replace(/\s/g,'')==='불가'?'마감':/[가-힣]/.test(quantity)?'확인 필요 · 수량 대신 조건 표기':policyQuantityStatus(quantity,quantityReview))+(review?' · 지역명 확인 필요':'')]);
  }
