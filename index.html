@@ -128,6 +128,9 @@ Warning: truncated output (original token count: 264220)
 #tm-preview .team-performance-total{border-top:1px solid #cbd5e1;font-weight:700;color:#17324d}
 #tm-preview .team-performance-scroll{overflow-x:auto}
 #tm-preview .team-performance-calendar{min-width:700px}
+#tm-preview .team-performance-calendar .day.team-performance-today{background:#fff3cd;border:2px solid #d18b00}
+#tm-preview .team-performance-calendar .day.team-performance-today .date-number{display:inline-block;background:#b76b00;color:#fff;border-radius:6px;padding:2px 7px}
+#tm-preview .team-performance-calendar .day.team-performance-today.active{background:#fff3cd;outline:2px solid #1464ec;outline-offset:-4px}
 </style>
 </head><body>
 <div id="tm-preview">
@@ -1744,6 +1747,9 @@ function adminIntake(){
 let adminPerformanceMonth='2026-09',adminPerformanceDay=22;
 function adminPerformanceDaily(teamId){return adminPerformanceMonth==='2026-09'?(adminTeamPerformance[teamId]||{}):{}}
 function adminPerformance(){
+ const todayParts=new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());
+ const todayPart=type=>todayParts.find(part=>part.type===type).value;
+ const todayDate=todayPart('year')+'-'+todayPart('month')+'-'+todayPart('day');
  const [year,month]=adminPerformanceMonth.split('-').map(Number),days=new Date(year,month,0).getDate(),first=new Date(year,month-1,1).getDay();
  const rows=adminTeams.map(team=>({team,daily:adminPerformanceDaily(team.id)}));
  const monthSum=row=>Object.values(row.daily).reduce((sum,n)=>sum+n,0);
@@ -1754,7 +1760,7 @@ function adminPerformance(){
  for(let day=1;day<=days;day++){
   const dow=new Date(year,month-1,day).getDay(),date=adminPerformanceMonth+'-'+String(day).padStart(2,'0'),holiday=calendarHolidays[date];
   const available=hasData&&day<=cutoff;
-  cells+=`<button type="button" class="day ${holiday||dow===0?'day-red':dow===6?'day-blue':''} ${day===adminPerformanceDay?'active':''}" data-admin-performance-day="${day}" aria-pressed="${day===adminPerformanceDay}"><span class="date-number">${day}</span>${available?rows.map((row,i)=>`<small class="team-performance-count team-tone-${i%4}">${policyEscape(row.team.name)} <b>${row.daily[day]||0}건</b></small>`).join('')+`<small class="team-performance-total">전체 <b>${dailySum(day)}건</b></small>`:'<small>집계 내역 없음</small>'}</button>`;
+  cells+=`<button type="button" class="day ${holiday||dow===0?'day-red':dow===6?'day-blue':''} ${day===adminPerformanceDay?'active':''} ${date===todayDate?'team-performance-today':''}" ${date===todayDate?'aria-current="date"':''} data-admin-performance-day="${day}" aria-pressed="${day===adminPerformanceDay}"><span class="date-number">${day}</span>${available?rows.map((row,i)=>`<small class="team-performance-count team-tone-${i%4}">${policyEscape(row.team.name)} <b>${row.daily[day]||0}건</b></small>`).join('')+`<small class="team-performance-total">전체 <b>${dailySum(day)}건</b></small>` :''}</button>`;
  }
  const pad=(7-(first+days)%7)%7;cells+=Array.from({length:pad},()=>'<div class="day sales-outside-month" aria-hidden="true"></div>').join('');
  const summary=rows.map(row=>[policyEscape(row.team.name),hasData?monthSum(row)+'건':'—']);
@@ -1765,7 +1771,7 @@ function adminPerformance(){
  stats([['전체 정상 실적',hasData?totalCount+'건':'—','선택 월 · 가접수와 A/S 제외'],...rows.map(row=>[policyEscape(row.team.name),hasData?monthSum(row)+'건':'—','선택 월 정상접수 합계'])])+
  panel('팀별 성과 · 월 합계',table(['팀','정상접수 합계'],summary))+
  panel('팀별 실적 달력',`<div class="row" style="margin-bottom:12px"><strong>${year}년 ${month}월</strong><span class="sub">날짜별 정상접수 · 팀별 수량과 전체 합계</span></div><div class="team-performance-scroll"><div class="calendar team-performance-calendar">${['일','월','화','수','목','금','토'].map((name,i)=>`<div class="weekday ${i===0?'weekday-red':i===6?'weekday-blue':''}">${name}</div>`).join('')}${cells}</div></div>`)+
- panel(`${month}월 ${adminPerformanceDay}일 · 팀별 합계`,selectedAvailable?table(['팀','정상접수'],rows.map(row=>[policyEscape(row.team.name),(row.daily[adminPerformanceDay]||0)+'건']).concat([['<strong>전체 합계</strong>','<strong>'+dailySum(adminPerformanceDay)+'건</strong>']])):'<p class="sub">해당 날짜의 집계 내역이 없습니다.</p>');
+ panel(`${month}월 ${adminPerformanceDay}일 · 팀별 합계`,selectedAvailable?table(['팀','정상접수'],rows.map(row=>[policyEscape(row.team.name),(row.daily[adminPerformanceDay]||0)+'건']).concat([['<strong>전체 합계</strong>','<strong>'+dailySum(adminPerformanceDay)+'건</strong>']])):'');
 }
 root.addEventListener('click',event=>{
  const button=event.target.closest('[data-admin-performance-day],[data-admin-performance-month]');if(!button)return;
