@@ -1796,7 +1796,7 @@ function adminPerformanceDetails(){
  return panel(date+' · 접수 목록', '<p class="sub">최초 접수일 기준 · A/S 전환 시 차감, 완료 시 최초 접수일 실적으로 복구합니다. 기존 월별 예시 합계에는 직원·고객 원자료가 없어 담당자는 미지정으로 표시합니다. 상태 변경은 현재 미리보기에서만 유지됩니다.</p>'+adminTeams.map(team=>{
  const items=records.filter(r=>r.team===team.id);if(!items.length)return '';
  const people=[...new Set(items.map(r=>r.employee))];
- return '<details open><summary>'+policyEscape(team.name)+' · 정상접수 '+items.reduce((n,r)=>n+performanceRecordCount(r),0)+'건</summary>'+table(['직원','정상접수','A/S'],people.map(name=>[policyEscape(name),items.filter(r=>r.employee===name&&r.status==='normal').length+'건',items.filter(r=>r.employee===name&&r.status==='as').length+'건']))+table(['접수번호','최초 접수일','직원','접수','상태','처리','변경 이력'],items.map(r=>[policyEscape(r.id),r.firstDate,policyEscape(r.employee),policyEscape(r.customer),r.status==='as'?pill('A/S','amber'):pill('정상접수','green'),'<button class="secondary" data-performance-record="'+r.id+'">'+(r.status==='as'?'A/S 완료 · 실적 복구':'A/S 전환 · 실적 차감')+'</button>',r.history.map(h=>policyEscape(h)).join('<br>')||'—']))+'</details>';
+ return '<details open><summary>'+policyEscape(team.name)+' · 정상접수 '+items.reduce((n,r)=>n+performanceRecordCount(r),0)+'건</summary>'+table(['직원','정상접수','A/S'],people.map(name=>[policyEscape(name),items.filter(r=>r.employee===name&&r.status==='normal').length+'건',items.filter(r=>r.employee===name&&r.status==='as').length+'건']))+table(['접수번호','최초 접수일','직원','접수','상품 구분','상태','처리','변경 이력'],items.map(r=>[policyEscape(r.id),r.firstDate,policyEscape(r.employee),policyEscape(r.customer),performanceProduct(r)==='insurance'?'<select aria-label="보험 상품 구분" data-performance-kind="'+r.id+'">'+[['','미지정'],['general','일반'],['silver','실버']].map(([key,label])=>'<option value="'+key+'" '+((r.insuranceKind||'')===key?'selected':'')+'>'+label+'</option>').join('')+'</select>':performanceProduct(r)==='cosmetics'?'화장품':performanceProduct(r)==='supplements'?'건강보조식품':'기타',r.status==='as'?pill('A/S','amber'):pill('정상접수','green'),'<button class="secondary" data-performance-record="'+r.id+'">'+(r.status==='as'?'A/S 완료 · 실적 복구':'A/S 전환 · 실적 차감')+'</button>',r.history.map(h=>policyEscape(h)).join('<br>')||'—']))+'</details>';
  }).join(''));
 }
 root.addEventListener('click',event=>{
@@ -1809,6 +1809,39 @@ root.addEventListener('click',event=>{
 
 let adminPerformanceMonth='2026-09',adminPerformanceDay=22;
 function adminPerformanceDaily(teamId){const daily={};adminPerformanceRecords.filter(r=>r.team===teamId&&r.firstDate.slice(0,7)===adminPerformanceMonth).forEach(r=>{const day=Number(r.firstDate.slice(8));daily[day]=(daily[day]||0)+performanceRecordCount(r)});return daily}
+
+let performanceWeekStart=1;
+try{const saved=localStorage.getItem('tm-performance-week-start');if(saved!==null&&/^[0-6]$/.test(saved))performanceWeekStart=Number(saved)}catch(error){}
+let performanceWeekAnchor=new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+function performanceWeekDates(anchor,startDay){
+ const date=new Date(anchor+'T00:00:00Z');date.setUTCDate(date.getUTCDate()-(date.getUTCDay()-startDay+7)%7);
+ return Array.from({length:7},(_,i)=>{const day=new Date(date);day.setUTCDate(day.getUTCDate()+i);return day.toISOString().slice(0,10)});
+}
+function performanceProduct(record){return record.productCategory||({insurance:'insurance',cosmetics:'cosmetics',supplements:'supplements'})[record.team]||'other'}
+function performanceWeekly(){
+ const dates=performanceWeekDates(performanceWeekAnchor,performanceWeekStart);
+ const records=adminPerformanceRecords.filter(r=>dates.includes(r.firstDate));
+ const groups=[['보험 · 일반',r=>performanceProduct(r)==='insurance'&&r.insuranceKind==='general'],['보험 · 실버',r=>performanceProduct(r)==='insurance'&&r.insuranceKind==='silver'],['보험 · 구분 미지정',r=>performanceProduct(r)==='insurance'&&!['general','silver'].includes(r.insuranceKind)],['화장품',r=>performanceProduct(r)==='cosmetics'],['건강보조식품',r=>performanceProduct(r)==='supplements']];
+ if(records.some(r=>performanceProduct(r)==='other'))groups.push(['기타',r=>performanceProduct(r)==='other']);
+ const count=items=>items.reduce((n,r)=>n+performanceRecordCount(r),0);
+ const rows=groups.map(([name,filter])=>{const items=records.filter(filter);return [name,...dates.map(date=>count(items.filter(r=>r.firstDate===date))+'건'),'<strong>'+count(items)+'건</strong>',items.filter(r=>r.status==='as').length+'건']});
+ rows.push(['<strong>전체 합계</strong>',...dates.map(date=>count(records.filter(r=>r.firstDate===date))+'건'),'<strong>'+count(records)+'건</strong>',records.filter(r=>r.status==='as').length+'건']);
+ return panel('상품별 주간 실적',`<div class="toolbar"><button class="secondary" data-performance-week="-1">이전 주</button><strong>${dates[0]} ~ ${dates[6]}</strong><button class="secondary" data-performance-week="1">다음 주</button><button class="secondary" data-performance-week="today">이번 주</button><label>기준일 <input type="date" id="performance-week-date" value="${performanceWeekAnchor}"></label><label>주 시작 요일 <select id="performance-week-start">${['일','월','화','수','목','금','토'].map((name,i)=>`<option value="${i}" ${i===performanceWeekStart?'selected':''}>${name}요일</option>`).join('')}</select></label></div><p class="sub">최초 접수일 기준 정상 실적 · A/S 전환 시 차감, 완료 시 복구 · 주 시작 요일은 이 브라우저에 저장됩니다.</p>`+
+ '<div class="scroll">'+table(['상품 구분',...dates.map(date=>date.slice(5)+' ('+['일','월','화','수','목','금','토'][new Date(date+'T00:00:00Z').getUTCDay()]+')'),'주간 정상 합계','A/S'],rows)+'</div>'+
+ '<p class="sub">기존 보험 예시 자료에는 일반·실버 구분이 없어 미지정으로 집계합니다. 건강보조식품은 등록된 접수가 없습니다.</p>');
+}
+root.addEventListener('change',event=>{
+ if(event.target.dataset.performanceKind){const record=adminPerformanceRecords.find(r=>r.id===event.target.dataset.performanceKind);if(record&&['','general','silver'].includes(event.target.value)){record.insuranceKind=event.target.value;render()}return}
+ if(event.target.id==='performance-week-start'){performanceWeekStart=Number(event.target.value);try{localStorage.setItem('tm-performance-week-start',String(performanceWeekStart))}catch(error){}render()}
+ if(event.target.id==='performance-week-date'&&/^\d{4}-\d{2}-\d{2}$/.test(event.target.value)){performanceWeekAnchor=event.target.value;render()}
+});
+root.addEventListener('click',event=>{
+ const button=event.target.closest('[data-performance-week]');if(!button)return;
+ if(button.dataset.performanceWeek==='today')performanceWeekAnchor=new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+ else{const date=new Date(performanceWeekAnchor+'T00:00:00Z');date.setUTCDate(date.getUTCDate()+Number(button.dataset.performanceWeek)*7);performanceWeekAnchor=date.toISOString().slice(0,10)}
+ render();
+});
+
 function adminPerformance(){
  const todayParts=new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());
  const todayPart=type=>todayParts.find(part=>part.type===type).value;
@@ -1832,6 +1865,7 @@ function adminPerformance(){
  return `<div class="row"><h2>실적 관리</h2><span class="pill">관리자 전용</span></div>
  <div class="toolbar"><button type="button" class="secondary" data-admin-performance-month="-1">이전 달</button><strong>${year}년 ${month}월</strong><button type="button" class="secondary" data-admin-performance-month="1">다음 달</button></div>`+
  stats([['전체 정상 실적',hasData?totalCount+'건':'—','선택 월 · 가접수와 A/S 제외'],...rows.map(row=>[policyEscape(row.team.name),hasData?monthSum(row)+'건':'—','선택 월 정상접수 합계'])])+
+ performanceWeekly()+
  panel('팀별 성과 · 월 합계',table(['팀','정상접수 합계'],summary))+
  panel('팀별 실적 달력',`<div class="row" style="margin-bottom:12px"><strong>${year}년 ${month}월</strong><span class="sub">날짜별 정상접수 · 팀별 수량과 전체 합계</span></div><div class="team-performance-scroll"><div class="calendar team-performance-calendar">${['일','월','화','수','목','금','토'].map((name,i)=>`<div class="weekday ${i===0?'weekday-red':i===6?'weekday-blue':''}">${name}</div>`).join('')}${cells}</div></div>`)+
  panel(`${month}월 ${adminPerformanceDay}일 · 팀별 합계`,selectedAvailable?table(['팀','정상접수'],rows.map(row=>[policyEscape(row.team.name),(row.daily[adminPerformanceDay]||0)+'건']).concat([['<strong>전체 합계</strong>','<strong>'+dailySum(adminPerformanceDay)+'건</strong>']])):'')+adminPerformanceDetails();
