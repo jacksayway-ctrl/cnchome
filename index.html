@@ -1070,10 +1070,11 @@ function policyParseScope(row,index){
  if(excluded&&(!category.province||category.region!=='전체'||!cities.length))errors.push('제외할 전체 범위 확인 필요');
  if(/[#＃]/.test(text))errors.push('# 기호가 必인지 원본 확인 필요');
  if(mode==='unresolved')errors.push('권역에 포함되는 시 목록 필요');
- return {index,text,...category,cities,mode,quantity,quantityReview:/확인 필요/.test(String(row[2]||'').split('·')[0]),errors};
+ return {index,text,...category,cities,mode,quantity,unavailable:String(row[1]).trim()==='불가',quantityReview:/확인 필요/.test(String(row[2]||'').split('·')[0]),errors};
 }
 function policyScopeEligibility(scope,city){
  if(!scope||!city)return {state:'확인 필요',reason:'정책 권역과 시를 선택해 주세요.'};
+ if(scope.unavailable)return {state:'불가',reason:'정책 원문에 접수 불가로 표시되어 있습니다.'};
  if(scope.province&&scope.province!==city.province)return {state:'불가',reason:'선택한 정책의 시도가 아닙니다.'};
  const included=scope.cities.some(c=>c.name===city.name&&c.province===city.province);
  if(scope.mode==='only'&&!included)return {state:'불가',reason:'必: 나열된 시만 가능하며 다른 시로 확대하지 않습니다.'};
@@ -1096,7 +1097,7 @@ function policyScopeDescription(scope){
 function policyScopeTable(rows){
  if(rows.length<2)return '';
  const scopes=rows.slice(1).map((row,index)=>policyParseScope(row,index));
- return '<section style="margin-top:20px"><h3>권역별 적용 범위</h3><p class="sub">1차 분류: 시도·권역 → 2차 분류: 시. 必는 기재한 시만 허용합니다. 권역의 경계는 정책에 명시된 범위를 사용합니다.</p>'+table(['1차 분류','정책 원문','적용 조건','행 수량','확인'],scopes.map(scope=>[policyEscape(scope.label),policyEscape(scope.text),policyEscape(policyScopeDescription(scope)),scope.quantity===null?'확인 필요':String(scope.quantity),policyEscape(scope.errors.join(' · ')||'범위 분석 완료')]))+'</section>';
+ return '<section style="margin-top:20px"><h3>권역별 적용 범위</h3><p class="sub">1차 분류: 시도·권역 → 2차 분류: 시. 必는 기재한 시만 허용합니다. 권역의 경계는 정책에 명시된 범위를 사용합니다.</p>'+table(['1차 분류','정책 원문','적용 조건','행 수량','확인'],scopes.map(scope=>[policyEscape(scope.label),policyEscape(scope.text),policyEscape(policyScopeDescription(scope)),scope.unavailable?'불가':scope.quantity===null?'확인 필요':String(scope.quantity),policyEscape(scope.errors.join(' · ')||'범위 분석 완료')]))+'</section>';
 }
 function policyScopeChecker(){
  const policyRegisteredScopes=policyRegisteredRows.slice(1).map((row,index)=>policyParseScope(row,index));
@@ -1202,8 +1203,10 @@ async function policyGetPaddleOcr(){
   try{const w=await policyOcrTimeout(pending,180000,label+' 모델 준비 제한 시간을 초과했습니다.');ready.push(w);return w}
   catch(error){expired=true;throw error}
  };
- const worker=await create('kor+chi_tra+chi_sim','한국어·한문(번체·간체)'),digitWorker=await create('eng','숫자');
- let regionWorkerPromise,hanWorkerPromise;
+ const prepared=await Promise.allSettled([create('kor+chi_tra+chi_sim','한국어·한문(번체·간체)'),create('eng','숫자'),create('kor','한국어')]);
+ const failure=prepared.find(r=>r.status==='rejected');if(failure)throw failure.reason;
+ const [worker,digitWorker,regionWorker]=prepared.map(r=>r.value);
+ let regionWorkerPromise=Promise.resolve(regionWorker),hanWorkerPromise;
  policyPaddleOcr={worker,digitWorker,getRegionWorker:()=>regionWorkerPromise||(regionWorkerPromise=create('kor','지역명 전용 한국어')),getHanWorker:()=>hanWorkerPromise||(hanWorkerPromise=create('chi_tra','한자 전용')),dispose:async()=>{await Promise.allSettled(ready.map(w=>w.terminate()))}};
  return policyPaddleOcr;
  }catch(error){await Promise.allSettled(ready.map(w=>w.terminate()));policyPaddleOcr=null;policyPaddlePromise=null;throw error}
@@ -1635,13 +1638,14 @@ async function policyRecognizeBatch(source,layout,ocr){
   }
   if(chosen.confidence<85&&/^[가-힣]{2,4}$/.test(chosen.text)){
    const band=layout.bands[i],readings=[];
-   for(const variant of ['whitepixel','original']){
+   for(const variant of ['whitepixel','white','color']){
     await korean.setParameters({tessedit_pageseg_mode:'7',tessedit_char_whitelist:'',preserve_interword_spaces:'1',user_defined_dpi:'300'});
     const r=await policyOcrTimeout(korean.recognize(policyCellImage(source,2,band.top,layout.divider-2,band.bottom,variant)),30000,'짧은 행 재인식 제한 시간');
     readings.push({text:String(r.data?.text||'').trim(),confidence:Number(r.data?.confidence||0)});
    }
    repairs.push('행 확대: '+readings.map(r=>r.text+' ['+Math.round(r.confidence)+']').join(' / '));
-   if(readings[0].text===readings[1].text&&readings.every(r=>r.confidence>=85))chosen={...chosen,...readings[0]};
+   const supported=readings.filter(r=>r.confidence>=85&&/^[가-힣]{2,4}$/.test(r.text)&&readings.filter(x=>x.text===r.text&&x.confidence>=85).length>=2);
+   if(supported.length)chosen={...chosen,...supported.sort((a,b)=>b.confidence-a.confidence)[0]};
   }
   const review=!chosen.text||chosen.confidence<85||/[＃#]/.test(chosen.text)||a.text.replace(/\s/g,'')!==b.text.replace(/\s/g,'');
   policyAnalysis.push({row:rows.length+1,text:chosen.text||'판독 실패',alternatives:'한국어: '+a.text+' ['+Math.round(a.confidence)+'] / 한국어·한문: '+b.text+' ['+Math.round(b.confidence)+']'+(repairs.length?' / '+repairs.join(' / '):''),reason:review?'판독 불일치 또는 저신뢰 · 원본 확인 필요':'두 인식기의 실제 판독 일치'});
