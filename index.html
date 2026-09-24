@@ -1275,8 +1275,9 @@ function policyDisplayColumns(rows){
  const width=Math.max(0,...rows.map(row=>row.length));
  return Array.from({length:width},(_,i)=>i).filter(i=>String(rows[0]?.[i]||'').trim()!=='상태'||rows.slice(1).some(row=>!['','접수 가능','접수가능','마감'].includes(String(row[i]||'').trim())));
 }
+function policyVisibleRegion(value){return String(value??'').replace(/必/g,'').replace(/ {2,}/g,' ').trim()}
 function policyDisplayCell(rows,r,c){
- const raw=String(rows[r]?.[c]??'');
+ const raw=c===0&&r>0?policyVisibleRegion(rows[r]?.[c]):String(rows[r]?.[c]??'');
  const value=r>0&&String(rows[0]?.[c]||'').trim()==='상태'?raw.replace(/지역명 확인 필요/g,'지역확인'):raw;
  return r>0&&String(rows[0]?.[c]||'').trim()==='상태'?value.split(/[·ㆍ]/).map(part=>part.trim()).filter(part=>part&&!/^(?:접수\s*가능|마감)$/.test(part)).join(' · '):value;
 }
@@ -1308,7 +1309,7 @@ function policySheetMarkup(rows){
  const scopes=policyScopesForRows(rows),byRow=new Map(scopes.map(scope=>[scope.index,scope]));
  const fmt=t=>(t.name||t.province+'전체')+(t.path.length?' '+t.path.join(' '):'');
  const label=c=>c===0?'가능지역':c===-1?'불가지역':c===1?'가능수량':rows[0]?.[c]||'';
- const input=(r,c,value,extra='')=>'<input type="text" data-policy-cell="'+r+':'+c+'" '+extra+' aria-label="'+r+'행 '+label(c)+'" value="'+policyEscape(value)+'" style="box-sizing:border-box;width:100%;min-width:0;border:1px solid #b8cbbc;border-radius:4px;padding:5px;background:#fff">';
+ const input=(r,c,value,extra='')=>'<input type="text" data-policy-cell="'+r+':'+c+'" '+extra+' aria-label="'+r+'행 '+label(c)+'" value="'+policyEscape(c===0?policyVisibleRegion(value):value)+'" style="box-sizing:border-box;width:100%;min-width:0;border:1px solid #b8cbbc;border-radius:4px;padding:5px;background:#fff">';
  const cells=(r,header)=>columns.map(c=>{
   const scope=byRow.get(r),raw=String(rows[r]?.[0]||''),zero=scope&&(scope.unavailable||scope.quantity===0);
   const exclusion=raw.match(/\s*[（(][^()（）]*(?:제외|불가)[^()（）]*[)）]/g)||[];
@@ -1339,7 +1340,8 @@ root.addEventListener('input',e=>{
  if(cell&&!policyOcrRunning){
   const [r,c]=cell.dataset.policyCell.split(':').map(Number);
   if(!Number.isInteger(r)||!Number.isInteger(c)||r<1||c<0||!policyRows[r])return;
-  const value=cell.value.trim()+(c===0&&cell.dataset.policySuffix?' '+cell.dataset.policySuffix.trim():''),before=String(policyRows[r][c]||'');
+  const edited=cell.value.trim()+(c===0&&cell.dataset.policySuffix?' '+cell.dataset.policySuffix.trim():'');
+  const value=edited+(c===0&&cell.dataset.policyOnly==='true'&&!edited.includes('必')?' 必':''),before=String(policyRows[r][c]||'');
   if(value===before)return;
   policyRows[r][c]=value;policyRegistered=false;
   if(c===0){policyCityDrafts.delete(r);policyCityAudit.push({row:r,from:before,to:value,reason:'변환 표에서 직접 수정'})}
