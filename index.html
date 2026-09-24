@@ -1256,7 +1256,8 @@ function policyDisplayColumns(rows){
  return Array.from({length:width},(_,i)=>i).filter(i=>String(rows[0]?.[i]||'').trim()!=='상태'||rows.slice(1).some(row=>!['','접수 가능','접수가능','마감'].includes(String(row[i]||'').trim())));
 }
 function policyDisplayCell(rows,r,c){
- const value=String(rows[r]?.[c]??'');
+ const raw=String(rows[r]?.[c]??'');
+ const value=r>0&&String(rows[0]?.[c]||'').trim()==='상태'?raw.replace(/지역명 확인 필요/g,'지역확인'):raw;
  return r>0&&String(rows[0]?.[c]||'').trim()==='상태'?value.split(/[·ㆍ]/).map(part=>part.trim()).filter(part=>part&&!/^(?:접수\s*가능|마감)$/.test(part)).join(' · '):value;
 }
 function policySheetMarkup(rows){
@@ -1924,7 +1925,7 @@ async function policyRecognizeBatch(source,layout,ocr){
   }
   const review=!!(verification?.audit&&!verification.confirmed)||policyNameNeedsReview(chosen,a,b,nameRereadConfirmed,glyphRereadUncertain);
   policyAnalysis.push({row:rows.length+1,text:chosen.text||'판독 실패',alternatives:'한국어: '+a.text+' ['+Math.round(a.confidence)+'] / 한국어·한문: '+b.text+' ['+Math.round(b.confidence)+']'+(repairs.length?' / '+repairs.join(' / '):''),reason:review?'판독 불일치 또는 저신뢰 · 원본 확인 필요':nameRereadConfirmed?'서로 다른 확대 영상의 실제 판독 일치':repairs.length?'글자 영역 재판독 결과 적용':'두 인식기의 실제 판독 일치'});
-  rows.push([chosen.text||'확인 필요',quantity||'확인 필요',(quantity.replace(/\s/g,'')==='불가'?'마감':/[가-힣]/.test(quantity)?'확인 필요 · 수량 대신 조건 표기':policyQuantityStatus(quantity,quantityReview))+(review?' · 지역명 확인 필요':'')]);
+  rows.push([chosen.text||'확인 필요',quantity||'확인 필요',(quantity.replace(/\s/g,'')==='불가'?'마감':/[가-힣]/.test(quantity)?'확인 필요 · 수량 대신 조건 표기':policyQuantityStatus(quantity,quantityReview))+(review?' · 지역확인':'')]);
  }
  policyOcrTiming=(Date.now()-started)/1000;
  return rows;
