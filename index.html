@@ -2081,7 +2081,8 @@ function policyQuantityCellReading(numeric,unrestricted){
  const text=String(unrestricted?.text||'').trim(),compact=text.replace(/\s/g,''),digits=String(numeric?.text||'').replace(/\s/g,'');
  const confidence=Number(unrestricted?.confidence||0);
  // An unrestricted reading protects printed conditions from digit-only hallucinations.
- if(/[가-힣\u3400-\u9fff]/u.test(text))return {text,review:compact!=='불가'||confidence<85,kind:compact==='불가'?'blocked':'text'};
+ if(/^(?:접수)?불가$/.test(compact))return {text:'0',sourceText:text,review:confidence<85,kind:'blocked'};
+ if(/[가-힣\u3400-\u9fff]/u.test(text))return {text,review:true,kind:'text'};
  const valid=/^\d+$/.test(digits),conflict=/^\d+$/.test(compact)&&compact!==digits;
  return {text:valid?digits:text,review:!valid||Number(numeric?.confidence||0)<65||conflict,kind:valid?'number':'unknown'};
 }
