@@ -160,6 +160,21 @@
 #tm-preview .grade-preview-fields label{display:grid;gap:6px;max-width:200px}
 #tm-preview #tm-grade-error,#tm-preview #tm-grade-confirm-error{color:#b42318}
 #tm-preview .policy-sheet input[data-policy-only="true"]{color:#c62828;font-weight:700;border-color:#ef9a9a!important;background:#fff5f5!important}
+
+/* Compact spreadsheet cells for the converted policy editor. */
+#tm-preview .policy-sheet-wrap{border-radius:0}
+#tm-preview .policy-sheet th,#tm-preview .policy-sheet td{padding:0;height:30px;border-color:#cbd5ce;white-space:normal}
+#tm-preview .policy-sheet .sheet-heading{padding:5px 4px;font-size:12px;white-space:nowrap}
+#tm-preview .policy-sheet .sheet-letter{height:24px;padding:2px 4px;background:#eef1ef}
+#tm-preview .policy-sheet .sheet-number{padding:2px 4px}
+#tm-preview .policy-sheet .sheet-region{background:#fff;border-right:1px solid #cbd5ce}
+#tm-preview .policy-sheet td input,#tm-preview .policy-sheet td button[data-region-review],#tm-preview .policy-sheet td span[aria-label="빈 칸"]{display:block;box-sizing:border-box;width:100%;min-width:0;min-height:30px;height:30px;margin:0;border:0!important;border-radius:0!important;padding:4px 7px!important;background:transparent!important;box-shadow:none;font:inherit;line-height:22px}
+#tm-preview .policy-sheet td input{outline:none}
+#tm-preview .policy-sheet td button[data-region-review]{text-align:left;white-space:nowrap!important;overflow:hidden;text-overflow:ellipsis;color:inherit}
+#tm-preview .policy-sheet td:focus-within{outline:2px solid #21834d;outline-offset:-2px}
+#tm-preview .policy-sheet td input:focus,#tm-preview .policy-sheet td button:focus{outline:none}
+#tm-preview .policy-sheet input[data-policy-only="true"]{color:#c62828;font-weight:700;background:transparent!important}
+#tm-preview .policy-sheet td:nth-child(4) input{text-align:right;font-variant-numeric:tabular-nums}
 </style>
 </head><body>
 <div id="tm-preview">
@@ -1336,7 +1351,7 @@ function policySheetMarkup(rows){
   const tag=header?'th':'td';
   return '<'+tag+(header?' scope="col"':'')+' class="'+(header?'sheet-heading ':'')+(c===0?'sheet-region':'')+'">'+content+'</'+tag+'>';
  }).join('');
- return '<p class="sub">가능지역과 수량은 바로 수정할 수 있습니다. 불가지역을 누르면 제외 조건을 수정합니다. 수정 후 정책표 등록을 눌러 주세요.</p><div class="policy-sheet-wrap" tabindex="0" role="region" aria-label="정책표 변환 결과"><table class="policy-sheet" aria-label="정책표 엑셀형 결과"><colgroup><col style="width:44px">'+columns.map(c=>'<col'+(c===0?'':' style="width:'+(c===1?'64px':c===-1?'24%':'164px')+'"')+'>').join('')+'</colgroup><thead><tr><th class="sheet-number">1</th>'+cells(0,true)+'</tr></thead><tbody>'+rows.slice(1).map((row,i)=>'<tr><th class="sheet-number" scope="row">'+(i+2)+'</th>'+cells(i+1,false)+'</tr>').join('')+'</tbody></table></div>';
+ return '<p class="sub">가능지역과 수량은 바로 수정할 수 있습니다. 불가지역을 누르면 제외 조건을 수정합니다. 수정 후 정책표 등록을 눌러 주세요.</p><div class="policy-sheet-wrap" tabindex="0" role="region" aria-label="정책표 변환 결과"><table class="policy-sheet" aria-label="정책표 엑셀형 결과"><colgroup><col style="width:44px">'+columns.map(c=>'<col'+(c===0?'':' style="width:'+(c===1?'64px':c===-1?'24%':'164px')+'"')+'>').join('')+'</colgroup><thead><tr><th class="sheet-number sheet-letter"></th>'+columns.map((c,i)=>'<th class="sheet-letter" scope="col">'+String.fromCharCode(65+i)+'</th>').join('')+'</tr><tr><th class="sheet-number">1</th>'+cells(0,true)+'</tr></thead><tbody>'+rows.slice(1).map((row,i)=>'<tr><th class="sheet-number" scope="row">'+(i+2)+'</th>'+cells(i+1,false)+'</tr>').join('')+'</tbody></table></div>';
 }
 root.addEventListener('input',e=>{
  const cell=e.target.closest('[data-policy-cell]');
