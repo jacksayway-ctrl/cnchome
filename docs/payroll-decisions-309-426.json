@@ -1,0 +1,841 @@
+{
+  "updated": "2026-09-24",
+  "firstQuestion": 309,
+  "lastQuestion": 426,
+  "decisionPolicy": {
+    "scope": "이후 미정 운영 항목은 기존 확정 기준에 맞춰 추천안을 선택해 진행한다.",
+    "authorization": "사용자: 질문의 답변은 모두 추천대로 해줘",
+    "preserve": "기존 명시적 답변을 일괄 추천안으로 바꾸지 않는다. 명시적으로 문서 검토·제도 결정까지 보류한 산식과 실제 운영 금액은 임의 확정하지 않는다.",
+    "implementation": "요구사항 반영이며 계산 엔진·운영 서버 구현 완료를 뜻하지 않는다."
+  },
+  "decisions": [
+    {
+      "question": 309,
+      "section": "L",
+      "item": "팀원 급여 확정 취소",
+      "decision": "팀원 급여의 확정을 취소하면 미확정 팀장수당은 최신 팀원 실적으로 다시 계산한다. 팀원이 재확정하면 그 시점 실적으로 다시 고정한다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 310,
+      "section": "C",
+      "item": "항목별 음수 보정",
+      "decision": "개별 급여 항목은 보정으로 음수가 될 수 있다. 전체 실지급액이 음수이면 확정을 차단하며 다른 확정 조건도 유지한다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 311,
+      "section": "L",
+      "item": "관리직 전환 월 수당",
+      "decision": "월중 일반직에서 관리직으로 바뀌면 관리직 월 수당에 관리직 재직 달력 일수 ÷ 월 전체 달력 일수를 적용한다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 312,
+      "section": "W",
+      "item": "퇴사자 정산 지급 전 취소",
+      "decision": "퇴사자 별도 정산을 확정했어도 실제 지급 전에는 취소·수정·재확정할 수 있다. 실적은 재확정 시점으로 다시 계산한다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 313,
+      "section": "W",
+      "item": "퇴사자 정산 일부 지급 후",
+      "decision": "일부라도 지급했다면 지급 기록은 유지하고 미지급분만 수정·재확정한다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 314,
+      "section": "W",
+      "item": "미지급분 재정산 실적",
+      "decision": "일부 지급 후 미지급분을 재정산할 때 최초 정산 확정 시점의 실적을 유지한다. 이후 실적 변동은 제외하고 입력 오류·공제·보정만 수정한다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 315,
+      "section": "C",
+      "item": "반환금 관리 범위",
+      "decision": "과지급 등 돌려받을 금액과 사유만 기록한다. 실제 반환 진행은 시스템 밖에서 관리한다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 316,
+      "section": "C",
+      "item": "정정 요청 기한",
+      "decision": "본인이 조회할 수 있는 명세서라면 별도 기한 없이 급여 정정을 요청할 수 있다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 317,
+      "section": "C",
+      "item": "복수 정정 요청",
+      "decision": "같은 명세서에 처리 중인 요청이 있어도 추가 요청을 허용한다. 요청별 상태·답변을 관리한다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 318,
+      "section": "C",
+      "item": "직원 정정 요청 편집",
+      "decision": "접수 상태에서는 직원이 본인의 급여 정정 요청을 수정·취소할 수 있다. 검토 시작 후에는 관리자에게 요청한다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 319,
+      "section": "C",
+      "item": "정정 요청 증빙",
+      "decision": "급여 정정 요청은 글만 작성한다. 증빙은 별도로 전달하고 시스템 첨부는 지원하지 않는다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 320,
+      "section": "L",
+      "item": "월 기본급 변경 적용일",
+      "decision": "월급제 관리직의 월 기본급 변경은 적용일부터 기존 금액과 새 금액의 기간을 나누어 계산한다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 321,
+      "section": "L",
+      "item": "월 기본급 변경 비율",
+      "decision": "각 월급 × 해당 금액 적용 예정 근무일수 ÷ 월 전체 예정 근무일수를 합산한다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 322,
+      "section": "L",
+      "item": "입퇴사와 월급 변경",
+      "decision": "중도 입퇴사와 월 기본급 변경이 겹치면 예정 근무일수만 적용한다. 각 월급 × 재직 중 해당 금액 적용 예정 근무일수 ÷ 월 전체 예정 근무일수를 합산한다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 323,
+      "section": "L",
+      "item": "입퇴사·월급·방식 변경",
+      "decision": "입퇴사·월 기본급 변경·월급제와 시급제 전환이 모두 겹치면 월급제 부분은 각 월급 × 해당 금액으로 월급제 근무한 예정 일수 ÷ 월 전체 예정 근무일수를 합산한다. 시급제 부분은 별도로 계산한다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 324,
+      "section": "L",
+      "item": "팀장·관리직 시급 변경",
+      "decision": "팀장과 시급제 관리직의 시급 변경은 적용일부터 전후 인정 근무시간에 각각 기존·새 시급을 적용한다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 325,
+      "section": "W",
+      "item": "임금 소급 적용",
+      "decision": "직원별 시급·월 기본급의 과거 날짜 적용을 허용한다. 미확정 급여에만 소급 적용하고 확정 급여는 유지한다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 326,
+      "section": "W",
+      "item": "퇴사 정산 후 임금 소급",
+      "decision": "퇴사자 별도 정산은 확정됐으나 월 급여가 미확정이면 새 임금 기준으로 월 급여를 계산하고 기지급액을 차감한다. 실적은 별도 정산 때 고정한 기준을 유지한다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 327,
+      "section": "R",
+      "item": "임금 변경 알림",
+      "decision": "직원의 기본시급·월 기본급 변경 시 본인에게 변경 전후 금액과 적용 시작일을 시스템 내 알림으로 안내한다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 328,
+      "section": "R",
+      "item": "미래 임금 변경 알림",
+      "decision": "미래 날짜 임금 변경은 등록 시점이 아니라 적용 시작일에 알린다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 329,
+      "section": "R",
+      "item": "부서 그레이드 변경 알림",
+      "decision": "일·주·월 그레이드표 변경은 적용 시작일에 해당 부서 직원에게 알린다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 330,
+      "section": "R",
+      "item": "소급 변경 알림",
+      "decision": "과거 날짜로 등록한 시급·월급·그레이드표 변경은 등록 즉시 변경 내용과 소급 적용일을 알린다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 331,
+      "section": "C",
+      "item": "정정 접수 알림",
+      "decision": "직원의 급여 정정 요청 접수는 최고관리자·급여 관리자 전체에게 알린다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 332,
+      "section": "C",
+      "item": "정정 검토 인계",
+      "decision": "한 관리자가 검토 중인 요청도 처리 권한이 있는 다른 급여 관리자가 이어서 처리할 수 있다. 변경 이력을 기록한다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 333,
+      "section": "C",
+      "item": "퇴사자 정정 대리 접수",
+      "decision": "로그인이 차단된 퇴사자가 별도로 전달한 요청은 급여 관리자가 대리 등록하고 상태·결과를 관리한다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 334,
+      "section": "A",
+      "item": "근무요일 변경 분모",
+      "decision": "월중 근무요일 변경 시 월 전체 예정 근무일수는 적용일 전 기존 일정과 적용일부터 새 일정을 합산한다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 335,
+      "section": "K",
+      "item": "미서명 직원 업무 이용",
+      "decision": "입사 후 계약서 서명이 미완료여도 본인 권한의 업무 기능을 이용할 수 있다. 서명 대기 안내를 표시한다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 336,
+      "section": "K",
+      "item": "종이 서명 완료 확인",
+      "decision": "최고관리자가 종이 서명을 확인하면 파일 없이도 서명 완료 처리할 수 있다. 서명본 파일은 나중에 등록 가능하다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 337,
+      "section": "K",
+      "item": "서명본 미등록 열람",
+      "decision": "종이 서명 완료 후 파일이 없으면 내용 조회만 제공하고 서명본 미등록 안내를 표시한다. PDF 다운로드는 서명본 등록 후 허용한다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 338,
+      "section": "K",
+      "item": "전자서명 형식",
+      "decision": "본인 이름을 입력하고 계약 내용 동의를 확인한다. 서명 직전 비밀번호 재입력 기준도 유지한다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 339,
+      "section": "K",
+      "item": "전자서명 마감",
+      "decision": "별도 서명 마감일은 없다. 서명하거나 최고관리자가 요청을 취소할 때까지 대기한다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 340,
+      "section": "K",
+      "item": "서명 재알림",
+      "decision": "추가 재알림 없이 최초 요청 알림과 접속 시 서명 대기 안내만 제공한다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 341,
+      "section": "A",
+      "item": "출결 소급 신청",
+      "decision": "직원은 오늘 이후 날짜의 연차·휴가·조퇴·외출만 신청한다. 지난 날짜는 관리자에게 요청하여 관리자가 소급 등록한다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 342,
+      "section": "A",
+      "item": "확정 급여 영향 알림",
+      "decision": "소급 출결 등록·수정이 확정 급여에 영향을 주면 확정 급여를 유지하고 최고관리자·급여 관리자에게 변경 내용과 정정 검토 필요 알림을 제공한다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 343,
+      "section": "A",
+      "item": "휴가 신청 날짜 단위",
+      "decision": "여러 날의 연차·휴가도 날짜별로 각각 신청한다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 344,
+      "section": "A",
+      "item": "출결 일괄 처리",
+      "decision": "관리자가 여러 신청을 일괄 승인·반려할 수 있다. 신청별 조건을 검사해 가능한 건만 처리하고 제외 사유를 표시한다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 345,
+      "section": "A",
+      "item": "일괄 승인 잔여 부족",
+      "decision": "연차 잔여분이 부족하면 사용일이 빠른 순서로 승인한다. 잔여 범위를 넘는 신청은 대기 상태로 유지한다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 346,
+      "section": "A",
+      "item": "출결 반려 사유",
+      "decision": "반려 사유 입력은 필수이며 직원에게도 표시한다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 347,
+      "section": "A",
+      "item": "출결 접수 알림",
+      "decision": "출결 신청 접수는 출결 관리 권한이 있는 관리자 전체에게 알린다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 348,
+      "section": "A",
+      "item": "출퇴근 참고 기록",
+      "decision": "직원 출근·퇴근 버튼과 시각 기록을 제공한다. 급여는 기존대로 기본 근무시간과 승인 출결 변동으로 계산한다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 349,
+      "section": "A",
+      "item": "출퇴근 기록 정정",
+      "decision": "직원이 잘못되거나 누락된 출퇴근 시각과 사유를 정정 신청하고 출결 관리자 승인 후 기록에 반영한다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 350,
+      "section": "A",
+      "item": "과거 출퇴근 정정",
+      "decision": "지난 날짜의 출퇴근 누락·오류도 직원이 시스템에서 정정 신청할 수 있다. 휴가 소급 신청 제한과 구별한다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 351,
+      "section": "A",
+      "item": "지각·조퇴 확인 대상",
+      "decision": "출퇴근 시각과 기본 일정을 비교해 지각·조퇴 의심을 관리자 확인 대상으로 표시한다. 급여는 관리자가 출결 변동을 확정한 뒤 반영한다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 352,
+      "section": "A",
+      "item": "외출 차감 시간",
+      "decision": "승인된 외출·복귀 예정 시각으로 계산한다. 시간 변경은 관리자 확인 후 반영한다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 353,
+      "section": "A",
+      "item": "조퇴 차감 시간",
+      "decision": "승인된 조퇴 예정 시각부터 기본 퇴근 시각까지 계산한다. 변경은 관리자 확인 후 반영한다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 354,
+      "section": "A",
+      "item": "병가·자체 휴가 단위",
+      "decision": "병가와 회사 자체 휴가는 하루 전체 또는 시작·종료 시각으로 신청한다. 연차는 계속 하루 단위다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 355,
+      "section": "A",
+      "item": "시간 휴가 무급 내림",
+      "decision": "시간 단위 무급 병가·회사 자체 휴가도 건별 10분 단위 내림을 적용한다. 21분 중 20분만 무급이고 1분은 유급이다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 356,
+      "section": "A",
+      "item": "자체 휴가 한도",
+      "decision": "회사 자체 휴가의 별도 횟수·일수 한도는 두지 않고 관리자가 건별 승인한다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 357,
+      "section": "R",
+      "item": "휴가 종류 관리 권한",
+      "decision": "최고관리자·급여 관리자만 회사 자체 휴가 종류와 유급·무급 기본값을 관리한다. 출결 관리자는 사유를 입력하여 개별 신청의 예외만 변경할 수 있다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 358,
+      "section": "A",
+      "item": "휴가 기본값 변경",
+      "decision": "변경된 유급·무급 기본값은 새 신청부터 적용한다. 기존 신청은 승인 여부와 관계없이 접수 당시 기준을 유지한다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 359,
+      "section": "A",
+      "item": "휴무일로 바뀐 휴가",
+      "decision": "일정 변경으로 승인된 휴가일이 휴무일이 되면 관리자 확인 대상으로 표시한다. 관리자가 취소하면 사용 연차도 복구한다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 360,
+      "section": "A",
+      "item": "공휴일 달력 등록",
+      "decision": "공휴일·대체공휴일은 관리자가 연도별로 직접 등록한다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 361,
+      "section": "W",
+      "item": "달력 확인과 확정",
+      "decision": "해당 연도의 공휴일 등록 완료 확인이 있어야 급여를 확정할 수 있다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 362,
+      "section": "R",
+      "item": "달력 관리 권한",
+      "decision": "공휴일 달력 등록·수정·완료 확인은 최고관리자·급여 관리자만 가능하다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 363,
+      "section": "W",
+      "item": "달력 수정 재확인",
+      "decision": "확인 완료한 연도 달력을 수정하면 확인 대기로 되돌리고 재확인 전 해당 연도 미확정 급여의 확정을 차단한다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 364,
+      "section": "W",
+      "item": "지급 연도 달력",
+      "decision": "근무일수 계산 연도와 지급일 계산 연도가 다르면 두 연도 모두 달력 확인 완료가 필요하다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 365,
+      "section": "W",
+      "item": "전월 내역 불러오기",
+      "decision": "공제액·관리직수당의 전월 내역을 불러와 당월 금액을 확인·수정할 수 있다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 366,
+      "section": "W",
+      "item": "불러온 금액 반영",
+      "decision": "전월에서 불러온 금액은 임시 보관하고 관리자 당월 확인 후 급여 계산·직원 예상 금액에 반영한다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 367,
+      "section": "W",
+      "item": "기존 당월 내역 교체",
+      "decision": "이미 입력된 당월 내역이 있으면 교체될 내용을 보여주고 관리자 확인 후 전월 내역으로 교체하며 이력을 보존한다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 368,
+      "section": "W",
+      "item": "불러오기 원본 상태",
+      "decision": "전월 급여가 미확정이어도 관리자가 금액 확인을 마친 내역은 불러올 수 있다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 369,
+      "section": "L",
+      "item": "같은 팀 접수 중복",
+      "decision": "같은 접수가 이전으로 두 팀원의 급여에 인정되어도 미확정 팀장수당에서는 접수 기준 1건만 계산한다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 370,
+      "section": "L",
+      "item": "겸임 팀 접수 중복",
+      "decision": "한 팀장이 겸임하는 두 팀에 같은 접수가 인정되면 미확정 팀장수당은 팀장당 한 번만 반영한다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 371,
+      "section": "L",
+      "item": "중복 접수 팀 선택",
+      "decision": "겸임 팀 간 중복 접수는 최초 인정된 팀의 구간표·초과수당·담당 비율을 적용한다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 372,
+      "section": "L",
+      "item": "확정 팀장수당 재인정",
+      "decision": "해당 팀장의 확정 계산에 포함된 접수는 다른 팀·다른 월로 이동해도 추가 실적에서 제외한다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 373,
+      "section": "L",
+      "item": "0원 팀장수당 확정",
+      "decision": "팀장수당이 최저 구간 미달로 0원이었어도 확정 계산에 포함된 접수는 재인정을 차단한다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 374,
+      "section": "P",
+      "item": "차감 A/S 미리 이전",
+      "decision": "차감 중인 A/S 접수의 실적 귀속을 미리 이전할 수 있다. 복구 전까지 0건이고 정상 복구되면 이전받은 직원에게 인정한다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 375,
+      "section": "P",
+      "item": "차감 A/S 복구 반영일",
+      "decision": "차감 중 이전한 A/S가 복구되면 실적 이전일 기준으로 일·주·월 실적에 반영한다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 376,
+      "section": "P",
+      "item": "가접수 미리 이전",
+      "decision": "가접수도 정상 전환 전에 실적 귀속을 이전할 수 있다. 전환 전 0건이며 전환되면 이전받은 직원에게 인정한다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 377,
+      "section": "P",
+      "item": "이전 가접수 반영일",
+      "decision": "미리 이전한 가접수가 정상 전환되면 이전받은 직원의 최초 접수일 실적으로 반영한다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 378,
+      "section": "P",
+      "item": "입사 전 날짜 예외",
+      "decision": "최초 접수일이 이전받은 직원의 입사일보다 앞서면 실적 이전일을 적용한다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 379,
+      "section": "P",
+      "item": "다른 부서 날짜 예외",
+      "decision": "이전받은 일반 직원이 최초 접수일에 다른 부서 소속이었다면 해당 상품 부서로 옮겨 실적을 이전받은 날로 반영한다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 380,
+      "section": "W",
+      "item": "지급용 최신 계좌",
+      "decision": "급여 확정 후 지급 전 계좌가 변경되면 엑셀 다운로드 시점의 최신 계좌를 사용하고 확정된 급여 금액은 유지한다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 381,
+      "section": "A",
+      "item": "출결 시간 중복",
+      "decision": "이미 승인된 출결 시간과 겹치는 신청은 중복 승인을 차단한다. 기존 내역 수정 후 처리한다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 382,
+      "section": "P",
+      "item": "부서 이동 실적 분리",
+      "decision": "보험 부서에서 화장품 부서로 이동하면 보험 실적은 이전 보험팀, 화장품 실적은 화장품팀에 반영한다.",
+      "basis": "user_confirmed",
+      "consolidated_by": 384
+    },
+    {
+      "question": 383,
+      "section": "P",
+      "item": "복수 팀 후 부서 이동",
+      "decision": "보험 A팀에서 B팀을 거쳐 화장품팀으로 이동하면 보험 실적은 발생 당시 A팀·B팀에 각각 반영한다.",
+      "basis": "user_confirmed",
+      "consolidated_by": 384
+    },
+    {
+      "question": 384,
+      "section": "P",
+      "item": "팀 귀속 기준 통일",
+      "decision": "부서 이동 유무와 관계없이 모든 팀 이동은 실적 발생 당시 소속 팀에 반영한다. 월말 소속 팀에 월 전체 실적을 합산하던 기준을 대체한다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 385,
+      "section": "P",
+      "item": "이전 가접수의 팀 귀속",
+      "decision": "이전받은 가접수를 최초 접수일 실적으로 인정할 때 팀장수당은 이전받은 직원이 그 실적 반영일에 소속됐던 팀에 반영한다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 386,
+      "section": "K",
+      "item": "미서명 임금 변경",
+      "decision": "변경 계약서 서명이 대기 중이어도 등록된 임금 적용일부터 새 시급·월급으로 계산하고 서명 대기 안내를 표시한다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 387,
+      "section": "W",
+      "item": "미서명 급여 확정",
+      "decision": "해당 계약서가 미서명이어도 등록된 급여 기준으로 확정을 허용한다. 서명 대기 안내는 유지한다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 388,
+      "section": "R",
+      "item": "복수 최고관리자",
+      "decision": "최고관리자를 여러 명 지정할 수 있다. 각자 계정으로 처리하고 작업자별 이력을 기록한다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 389,
+      "section": "R",
+      "item": "최고관리자 권한 관리",
+      "decision": "모든 최고관리자가 다른 계정의 최고관리자 권한을 부여·회수할 수 있다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 390,
+      "section": "R",
+      "item": "관리자 전용 계정",
+      "decision": "대표 등은 급여 계산용 직원 정보 없이 관리자 전용 계정만 생성할 수 있다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 391,
+      "section": "R",
+      "item": "최고관리자 암호 초기화",
+      "decision": "최고관리자 계정은 다른 최고관리자만 본인 확인 후 임시 비밀번호를 발급할 수 있다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 392,
+      "section": "A",
+      "item": "출결 증빙 첨부",
+      "decision": "병가·경조사 등 출결 신청에 증빙 파일을 선택적으로 첨부하고 출결 관리자가 확인한다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 393,
+      "section": "R",
+      "item": "증빙 조회 권한",
+      "decision": "출결 증빙은 신청자 본인·최고관리자·출결 관리자만 조회한다. 급여 관리자는 출결 관리 권한도 있어야 조회할 수 있다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 394,
+      "section": "A",
+      "item": "증빙 나중에 추가",
+      "decision": "직원은 승인 전후 모두 본인 신청에 증빙 파일을 추가할 수 있다. 신청 내용 수정은 기존대로 관리자만 처리한다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 395,
+      "section": "A",
+      "item": "증빙 삭제·교체",
+      "decision": "승인 대기 중에는 직원이 본인이 첨부한 파일을 삭제·교체할 수 있다. 처리 완료 후에는 관리자만 가능하다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 396,
+      "section": "R",
+      "item": "관리자 전용 계정 관리",
+      "decision": "관리자 전용 계정의 생성·사용 중지·재활성화는 최고관리자만 처리한다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 397,
+      "section": "W",
+      "item": "지급 완료 오표시 취소",
+      "decision": "실제 지급 없이 월 급여를 지급 완료로 잘못 표시하면 급여 관리자가 사유를 입력해 미지급으로 되돌릴 수 있다. 변경 이력을 보존한다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 398,
+      "section": "C",
+      "item": "정산 지급 기록 오류",
+      "decision": "별도 정산의 지급 날짜·금액 입력 오류는 급여 관리자가 사유를 입력해 수정·취소할 수 있다. 원래 내용과 이력을 보존한다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 399,
+      "section": "R",
+      "item": "재입사 새 계정",
+      "decision": "재입사 시 새 아이디를 발급한다. 이전 재직 기록과의 연결은 해당 기록 조회 권한이 있는 관리자만 확인한다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 400,
+      "section": "P",
+      "item": "재입사 개인 실적",
+      "decision": "개인 급여의 실적 중복은 재직기간별로 판단한다. 재입사 후 같은 접수를 다시 이전받으면 새 실적으로 인정할 수 있다. 같은 재직기간 내 중복 차단은 유지한다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 401,
+      "section": "L",
+      "item": "재입사 팀장 실적",
+      "decision": "팀장수당은 동일인 기준으로 계속 중복 차단한다. 이전 재직기간의 확정 계산에 포함된 접수는 재입사 후에도 제외한다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 402,
+      "section": "R",
+      "item": "재입사 권한 재부여",
+      "decision": "이전 관리자 권한은 새 계정에 승계하지 않는다. 필요한 권한은 기존 부여 절차에 따라 새로 지정한다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 403,
+      "section": "G",
+      "item": "현금 일수당 전액",
+      "decision": "일수당은 지급 시점 계산된 전액을 현금으로 지급한 뒤 지급 완료로 기록한다. 일부 지급 기록은 지원하지 않는다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 404,
+      "section": "W",
+      "item": "실제 지급일",
+      "decision": "월 급여·일수당 지급 완료 기록의 지급일은 오늘을 기본값으로 하되 이미 지급한 건의 과거 실제 지급일을 선택할 수 있다. 처리 시각은 따로 기록한다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 405,
+      "section": "W",
+      "item": "공개 후 지급 완료",
+      "decision": "월 급여는 확정 명세서를 먼저 공개해야 지급 완료 처리할 수 있다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 406,
+      "section": "W",
+      "item": "퇴사자 외부 전달",
+      "decision": "로그인이 차단된 퇴사자는 관리자가 명세서 외부 전달 날짜·방법을 기록하면 공개 요건을 충족한 것으로 처리한다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 407,
+      "section": "W",
+      "item": "별도 정산명세서",
+      "decision": "퇴사자 별도 정산명세서 출력은 지원한다. 전달 확인 없이도 별도 정산 지급 내역을 등록할 수 있다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 408,
+      "section": "W",
+      "item": "0원 급여 완료",
+      "decision": "확정 월 급여의 실지급액이 0원이면 명세서 공개 요건 충족 후 관리자가 지급할 금액 없음을 확인해야 완료 처리한다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 409,
+      "section": "W",
+      "item": "공개 취소",
+      "decision": "지급 완료 전까지 급여 관리자가 사유를 입력해 명세서 공개를 취소할 수 있다. 변경 이력을 기록한다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 410,
+      "section": "P",
+      "item": "최초 접수일 정정",
+      "decision": "최고관리자·급여 관리자가 사유를 입력해 최초 접수일을 수정할 수 있다. 미확정 급여는 재계산하고 확정 급여는 유지한다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 411,
+      "section": "P",
+      "item": "최초 접수일 입력",
+      "decision": "직원이 새 접수를 등록하면 등록한 날짜로 최초 접수일을 자동 설정한다. 직원이 날짜를 바꿀 수 없고 과거 날짜 반영은 관리자에게 요청한다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 412,
+      "section": "P",
+      "item": "직원 가접수 취소",
+      "decision": "직원은 정상 전환 전 본인의 가접수를 사유 입력 후 직접 취소할 수 있다. 이력을 보존한다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 413,
+      "section": "P",
+      "item": "직원 가접수 복구",
+      "decision": "직원이 본인의 취소된 가접수를 사유 입력 후 가접수 상태로 복구할 수 있다. 최초 접수일은 유지한다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 414,
+      "section": "P",
+      "item": "이전 후 취소·복구",
+      "decision": "실적 귀속을 이전하면 직원의 직접 취소·복구 권한은 현재 실적이 귀속된 직원에게만 부여한다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 415,
+      "section": "P",
+      "item": "관리자 취소의 예외",
+      "decision": "관리자가 취소한 가접수는 최고관리자·급여 관리자만 복구할 수 있다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 416,
+      "section": "P",
+      "item": "직원 고객정보 수정",
+      "decision": "직원은 본인에게 귀속된 가접수의 고객명·연락처·상담 메모를 수정할 수 있다. 정상 전환 후에는 관리자에게 요청한다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 417,
+      "section": "P",
+      "item": "A/S 최초 등록",
+      "decision": "A/S 등록은 최고관리자·급여 관리자만 한다. 직원이 별도로 전달하면 관리자가 등록과 실적 차감 여부 검토를 처리한다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 418,
+      "section": "P",
+      "item": "담당과 귀속 조회",
+      "decision": "A/S 담당자를 바꾸고 실적을 원래 직원에게 유지하면 원래 실적 귀속 직원과 새 A/S 담당자 모두 고객정보·A/S 상세를 조회할 수 있다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 419,
+      "section": "P",
+      "item": "A/S 경과 메모",
+      "decision": "A/S 담당 직원도 처리 경과 메모를 추가할 수 있다. 정상 처리 완료·실적 복구는 기존대로 관리자가 처리한다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 420,
+      "section": "P",
+      "item": "복수 A/S",
+      "decision": "같은 접수에 A/S를 문제별로 여러 건 등록하고 각각 상태·처리 경과를 관리한다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 421,
+      "section": "P",
+      "item": "복수 A/S 복구",
+      "decision": "차감한 접수의 실적은 차감 여부와 관계없이 해당 접수의 모든 유효 A/S가 정상 처리 완료되어야 자동 복구한다. 등록 취소 및 오류 차감의 예외는 별도 기준을 적용한다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 422,
+      "section": "P",
+      "item": "A/S별 담당자",
+      "decision": "같은 접수에서도 A/S별로 서로 다른 담당 직원을 지정할 수 있다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 423,
+      "section": "P",
+      "item": "잘못된 A/S 취소",
+      "decision": "최고관리자·급여 관리자가 사유를 입력해 잘못 등록한 A/S를 취소한다. 이력은 보존하고 미해결 A/S 집계에서 제외한다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 424,
+      "section": "P",
+      "item": "오류 차감 취소 복구",
+      "decision": "차감의 유일한 원인이던 A/S가 입력 오류로 취소되면 다른 비차감 A/S가 진행 중이어도 실적을 즉시 복구한다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 425,
+      "section": "P",
+      "item": "차감 결정 변경",
+      "decision": "진행 중 A/S의 차감·차감 없음 결정은 최고관리자·급여 관리자가 사유를 입력해 변경할 수 있다. 미확정 급여는 재계산하고 확정 급여는 유지한다.",
+      "basis": "user_confirmed"
+    },
+    {
+      "question": 426,
+      "section": "R",
+      "item": "실적 변동 알림",
+      "decision": "A/S 차감·복구나 실적 이전으로 본인 실적이 바뀌면 시스템 내 알림으로 대상 접수·변경 내용·사유를 안내한다. 이전은 원래 직원과 이전받은 직원 모두에게 알린다.",
+      "basis": "assistant_recommended_user_delegated"
+    }
+  ]
+}
