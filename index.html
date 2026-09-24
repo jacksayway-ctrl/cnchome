@@ -1264,7 +1264,7 @@ function policyUpdateCityRow(index,text,reason){
 let policyRegisteredCode='',policyRegisteredKey='',policyScopeSelected=0,policyScopeCity='',policyScopeDetail='';
 function policyScopeTable(rows){
  if(rows.length<2)return '';
- const scopes=policyScopesForRows(rows),fmt=t=>(t.name||t.province+' 전체')+(t.path.length?' → '+t.path.join(' → '):'');
+ const scopes=policyScopesForRows(rows),fmt=t=>(t.name||(PolicyRegionRules.provinceNames[t.province]||t.province)+' 전체')+(t.path.length?' → '+t.path.join(' → '):'');
  const renderTable=items=>table(['가능지역','불가지역','가능수량','적용 조건'],items.map(scope=>{
   const unavailable=scope.unavailable||scope.quantity===0;
   const uncertain=scope.errors.length||scope.quantityReview||scope.quantity===null;
@@ -1288,18 +1288,22 @@ function policyScopeTable(rows){
  }));
 
  const groups=PolicyRegionRules.categories(scopes);
- return '<section style="margin-top:20px"><h3>시·도 / 권역별 접수 지역</h3><p class="sub">시·도 → 정책표에 기재된 권역 → 시·군 → 구·읍·면·동·리 순으로 분류합니다. 권역 구분이 없는 정책은 시·도 아래에 표시합니다. 권역은 기재된 지역만 가능하며, 수량은 원래 정책 행별로 공유합니다.</p>'+groups.map(group=>'<details open style="margin-top:16px"><summary><strong>'+policyEscape(group.label)+'</strong></summary>'+group.sections.map(section=>section.region?'<details open style="margin:12px 0 12px 16px"><summary><strong>'+policyEscape(section.label)+'</strong></summary>'+renderTable(section.scopes)+'</details>':(group.sections.length>1?'<h4>권역 구분 없음</h4>':'')+renderTable(section.scopes)).join('')+'</details>').join('')+'</section>';
+ return '<section style="margin-top:20px"><h3>시·도 / 권역별 접수 지역</h3><p class="sub">시·도 → 정책표에 기재된 권역 → 시·군 → 구·읍·면·동·리 순으로 분류합니다. 권역 구분이 없는 정책은 시·도 아래에 표시합니다. 권역은 기재된 지역만 가능하며, 수량은 원래 정책 행별로 공유합니다.</p>'+groups.map(group=>'<details open style="margin-top:16px"><summary><strong>'+policyEscape(group.label)+'</strong></summary>'+group.sections.map(section=>section.region?'<details open style="margin:12px 0 12px 16px"><summary><strong>'+policyEscape(policyFullProvinceNames(section.label))+'</strong></summary>'+renderTable(section.scopes)+'</details>':(group.sections.length>1?'<h4>권역 구분 없음</h4>':'')+renderTable(section.scopes)).join('')+'</details>').join('')+'</section>';
 }
 function policyScopeChecker(){
  if(policyRegisteredRows.length<2)return '';
- return '<section style="margin-top:16px"><h3>등록 정책의 시·군 / 상세 지역 확인</h3><div class="row"><label>확인할 시·군<select id="tm-policy-scope-city"><option value="">시·군 선택</option>'+PolicyRegionRules.catalog.map(c=>'<option value="'+policyEscape(c.province+'|'+c.name)+'" '+(policyScopeCity===c.province+'|'+c.name?'selected':'')+'>'+policyEscape(c.province+' '+c.name)+'</option>').join('')+'</select></label><label>구·읍·면·동·리 (선택)<input id="tm-policy-scope-detail" value="'+policyEscape(policyScopeDetail)+'" placeholder="예: 의창구 북면"></label></div><div role="status" id="tm-policy-scope-result">시·군을 선택해 주세요.</div></section>';
+ return '<section style="margin-top:16px"><h3>등록 정책의 시·군 / 상세 지역 확인</h3><div class="row"><label>확인할 시·군<select id="tm-policy-scope-city"><option value="">시·군 선택</option>'+PolicyRegionRules.catalog.map(c=>'<option value="'+policyEscape(c.province+'|'+c.name)+'" '+(policyScopeCity===c.province+'|'+c.name?'selected':'')+'>'+policyEscape((PolicyRegionRules.provinceNames[c.province]||c.province)+' '+c.name)+'</option>').join('')+'</select></label><label>구·읍·면·동·리 (선택)<input id="tm-policy-scope-detail" value="'+policyEscape(policyScopeDetail)+'" placeholder="예: 의창구 북면"></label></div><div role="status" id="tm-policy-scope-result">시·군을 선택해 주세요.</div></section>';
 }
 
 function policyDisplayColumns(rows){
  const width=Math.max(0,...rows.map(row=>row.length));
  return Array.from({length:width},(_,i)=>i).filter(i=>String(rows[0]?.[i]||'').trim()!=='상태'||rows.slice(1).some(row=>!['','접수 가능','접수가능','마감'].includes(String(row[i]||'').trim())));
 }
-function policyVisibleRegion(value){return String(value??'').replace(/必/g,'').replace(/ {2,}/g,' ').trim()}
+function policyFullProvinceNames(value){
+ const names=PolicyRegionRules.provinceNames;
+ return String(value??'').replace(/(^|[\s,，/·:：(（])(경기|강원|충북|충남|전북|전남|경북|경남|제주|서울|부산|대구|인천|대전|울산|세종)(?=$|[\s,，/·:：)）]|전체|전역|서북부|서남부|동북부|동남부|북서부|북동부|남서부|남동부|북부|남부|서부|동부|중부)/g,(_,boundary,name)=>boundary+names[name]);
+}
+function policyVisibleRegion(value){return policyFullProvinceNames(value).replace(/必/g,'').replace(/ {2,}/g,' ').trim()}
 function policyDisplayCell(rows,r,c){
  if(r>0&&c===1&&/^(?:접수\s*)?불가$/.test(String(rows[r]?.[c]??'').trim()))return '0';
  const raw=c===0&&r>0?policyVisibleRegion(rows[r]?.[c]):String(rows[r]?.[c]??'');
@@ -1332,7 +1336,7 @@ root.addEventListener('submit',e=>{
 function policySheetMarkup(rows){
  const originalColumns=policyDisplayColumns(rows),columns=[0,-1,1,...originalColumns.filter(c=>c>1)];
  const scopes=policyScopesForRows(rows),byRow=new Map(scopes.map(scope=>[scope.index,scope]));
- const fmt=t=>(t.name||t.province+'전체')+(t.path.length?' '+t.path.join(' '):'');
+ const fmt=t=>(t.name||(PolicyRegionRules.provinceNames[t.province]||t.province)+'전체')+(t.path.length?' '+t.path.join(' '):'');
  const label=c=>c===0?'가능지역':c===-1?'불가지역':c===1?'가능수량':rows[0]?.[c]||'';
  const input=(r,c,value,extra='')=>'<input type="text" data-policy-cell="'+r+':'+c+'" '+((c===0&&String(rows[r]?.[0]||'').includes('必'))?'data-policy-only="true" ':'')+extra+' aria-label="'+r+'행 '+label(c)+'" value="'+policyEscape(c===0?policyVisibleRegion(value):value)+'" style="box-sizing:border-box;width:100%;min-width:0;border:1px solid #b8cbbc;border-radius:4px;padding:5px;background:#fff">';
  const cells=(r,header)=>columns.map(c=>{
@@ -1550,13 +1554,13 @@ function policyProvinceQualifiedRegion(raw,scope){
  if(!['경기','강원','충북','충남','전북','전남','경북','경남','제주'].includes(province))return text;
  const aliases=[province,PolicyRegionRules.provinceNames[province],...({강원:['강원도'],전북:['전라북도']}[province]||[])].filter(Boolean);
  if(aliases.some(name=>text.startsWith(name)))return text;
- return province+' : '+text;
+ return PolicyRegionRules.provinceNames[province]+' : '+text;
 }
 function policyFillMissingProvinces(){
  let changed=false;
  for(const scope of policyScopesForRows(policyRows)){
   const row=policyRows[scope.index];if(!row)continue;
-  const before=String(row[0]||''),after=policyProvinceQualifiedRegion(before,scope);
+  const before=String(row[0]||''),after=policyFullProvinceNames(policyProvinceQualifiedRegion(before,scope));
   if(after!==before){row[0]=after;changed=true}
  }
  if(changed)policySyncCityText();
