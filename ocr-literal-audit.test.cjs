@@ -25,5 +25,7 @@ async function audit(text,replies,unknown=true){
  got=await audit('포함, 경주',{channel:reading('포함, 경주'),white:reading('포함, 경주')},false);assert.equal(got.get(0).text,'포함, 경주','genuine source words must remain unchanged');
  got=await audit('포함, 경주',{channel:reading('포항, 경주'),white:reading('포함, 경주')},false);assert.equal(got.get(0).confirmed,false);assert.equal(got.get(0).text,'포함, 경주');
  got=await audit('경남 전체 (창원, 김해, 양산 제외)',{},false);assert.equal(got.size,0,'normal exclusion clauses do not trigger extra OCR');
- console.log('11 selective literal OCR audit safeguards passed');
+ got=await audit('포함, 경주',{channel:reading('포항, 경수'),white:reading('포항, 경수')},false);assert.equal(got.get(0).text,'포항, 경주','rereading one suspect item must not damage neighboring names');
+ got=await audit('포함, 경주',{channel:reading('포항'),white:reading('포항')},false);assert.equal(got.get(0).confirmed,false,'changed segmentation cannot supply a list item');
+ console.log('13 selective literal OCR audit safeguards passed');
 })().catch(error=>{console.error(error);process.exitCode=1});
