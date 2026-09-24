@@ -1782,8 +1782,33 @@ function adminIntake(){
  return `<div class="row"><div><h2>접수 관리</h2><p class="sub">접수 내역·가능지역·수량·정책표를 한 화면에서 관리합니다.</p></div><span class="pill">관리자 전용</span></div>`+
  stats([['오늘 전체 접수','11건','정상 8 · 가접수 2 · A/S 1'],['전국 시·군·구',KoreaRegionCatalog.entries.length+'개','업로드와 독립된 기본 목록'],['등록 정책표',Object.keys(policyPublications).length+'건',policyHasPublications()?'직원 화면 적용 중':'등록 대기']])+intakeCodeManagerPanel()+policyPanel+registeredPanel+policyNationalCatalogPanel()+management;
 }
+
+/* Preview records: historical aggregates have no recorded employee/customer detail. */
+const adminPerformanceRecords=[];
+Object.entries(adminTeamPerformance).forEach(([team,days])=>Object.entries(days).forEach(([day,count])=>{
+ for(let i=0;i<count;i++)adminPerformanceRecords.push({id:team+'-'+day+'-'+i,firstDate:'2026-09-'+String(day).padStart(2,'0'),team,employee:'담당 미지정',customer:'예시 접수 '+(i+1),status:'normal',history:[]});
+}));
+function performanceRecordCount(record){return record.status==='normal'?1:0}
+function adminPerformanceDetails(){
+ const date=adminPerformanceMonth+'-'+String(adminPerformanceDay).padStart(2,'0');
+ const records=adminPerformanceRecords.filter(r=>r.firstDate===date);
+ if(!records.length)return '';
+ return panel(date+' · 접수 목록', '<p class="sub">최초 접수일 기준 · A/S 전환 시 차감, 완료 시 최초 접수일 실적으로 복구합니다. 기존 월별 예시 합계에는 직원·고객 원자료가 없어 담당자는 미지정으로 표시합니다. 상태 변경은 현재 미리보기에서만 유지됩니다.</p>'+adminTeams.map(team=>{
+ const items=records.filter(r=>r.team===team.id);if(!items.length)return '';
+ const people=[...new Set(items.map(r=>r.employee))];
+ return '<details open><summary>'+policyEscape(team.name)+' · 정상접수 '+items.reduce((n,r)=>n+performanceRecordCount(r),0)+'건</summary>'+table(['직원','정상접수','A/S'],people.map(name=>[policyEscape(name),items.filter(r=>r.employee===name&&r.status==='normal').length+'건',items.filter(r=>r.employee===name&&r.status==='as').length+'건']))+table(['접수번호','최초 접수일','직원','접수','상태','처리','변경 이력'],items.map(r=>[policyEscape(r.id),r.firstDate,policyEscape(r.employee),policyEscape(r.customer),r.status==='as'?pill('A/S','amber'):pill('정상접수','green'),'<button class="secondary" data-performance-record="'+r.id+'">'+(r.status==='as'?'A/S 완료 · 실적 복구':'A/S 전환 · 실적 차감')+'</button>',r.history.map(h=>policyEscape(h)).join('<br>')||'—']))+'</details>';
+ }).join(''));
+}
+root.addEventListener('click',event=>{
+ const button=event.target.closest('[data-performance-record]');if(!button)return;
+ const record=adminPerformanceRecords.find(r=>r.id===button.dataset.performanceRecord);if(!record)return;
+ record.status=record.status==='as'?'normal':'as';
+ record.history.push(new Date().toLocaleString('ko-KR',{timeZone:'Asia/Seoul'})+' · '+(record.status==='as'?'A/S 전환 · 차감':'A/S 완료 · 복구'));
+ render();
+});
+
 let adminPerformanceMonth='2026-09',adminPerformanceDay=22;
-function adminPerformanceDaily(teamId){return adminPerformanceMonth==='2026-09'?(adminTeamPerformance[teamId]||{}):{}}
+function adminPerformanceDaily(teamId){const daily={};adminPerformanceRecords.filter(r=>r.team===teamId&&r.firstDate.slice(0,7)===adminPerformanceMonth).forEach(r=>{const day=Number(r.firstDate.slice(8));daily[day]=(daily[day]||0)+performanceRecordCount(r)});return daily}
 function adminPerformance(){
  const todayParts=new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());
  const todayPart=type=>todayParts.find(part=>part.type===type).value;
@@ -1809,7 +1834,7 @@ function adminPerformance(){
  stats([['전체 정상 실적',hasData?totalCount+'건':'—','선택 월 · 가접수와 A/S 제외'],...rows.map(row=>[policyEscape(row.team.name),hasData?monthSum(row)+'건':'—','선택 월 정상접수 합계'])])+
  panel('팀별 성과 · 월 합계',table(['팀','정상접수 합계'],summary))+
  panel('팀별 실적 달력',`<div class="row" style="margin-bottom:12px"><strong>${year}년 ${month}월</strong><span class="sub">날짜별 정상접수 · 팀별 수량과 전체 합계</span></div><div class="team-performance-scroll"><div class="calendar team-performance-calendar">${['일','월','화','수','목','금','토'].map((name,i)=>`<div class="weekday ${i===0?'weekday-red':i===6?'weekday-blue':''}">${name}</div>`).join('')}${cells}</div></div>`)+
- panel(`${month}월 ${adminPerformanceDay}일 · 팀별 합계`,selectedAvailable?table(['팀','정상접수'],rows.map(row=>[policyEscape(row.team.name),(row.daily[adminPerformanceDay]||0)+'건']).concat([['<strong>전체 합계</strong>','<strong>'+dailySum(adminPerformanceDay)+'건</strong>']])):'');
+ panel(`${month}월 ${adminPerformanceDay}일 · 팀별 합계`,selectedAvailable?table(['팀','정상접수'],rows.map(row=>[policyEscape(row.team.name),(row.daily[adminPerformanceDay]||0)+'건']).concat([['<strong>전체 합계</strong>','<strong>'+dailySum(adminPerformanceDay)+'건</strong>']])):'')+adminPerformanceDetails();
 }
 root.addEventListener('click',event=>{
  const button=event.target.closest('[data-admin-performance-day],[data-admin-performance-month]');if(!button)return;
