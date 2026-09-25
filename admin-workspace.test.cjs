@@ -124,3 +124,32 @@ test('AS may be reassigned across teams in one department but not across departm
 test('invalid salary amount blocks finalization and payout export',()=>{
  const s=seed(),p=s.payroll[2];p.base=NaN;assert.ok(C.payrollIssues(s,p).some(x=>x.includes('금액 형식')));p.status='확정';C.saveBank(s,p.employee,{bank:'예시',number:'001234',holder:'예시'},'등록');assert.equal(C.payoutPreview(s,[p.id]).rows.length,0);
 });
+test('unpaid correction adjusts monthly salary once and never creates a separate settlement',()=>{
+ const s=seed(),p=s.payroll[2],before=C.payrollAmounts(s,p),count=s.settlements.length;
+ C.processCorrection(s,'CR-1','처리 완료',10000,1000,'계산 오류 정정');const after=C.payrollAmounts(s,p);
+ assert.equal(after.gross,before.gross+10000);assert.equal(after.deductions,before.deductions+1000);assert.equal(after.net,before.net+9000);assert.equal(s.settlements.length,count);assert.equal(s.requests[0].resolution,'월 급여 보정');
+ assert.throws(()=>C.processCorrection(s,'CR-1','처리 완료',10000,1000,'중복'));assert.equal(p.adjustments.length,1);
+});
+test('confirmed unpaid correction requires unconfirming, zero-value replies create no settlement',()=>{
+ const s=seed(),p=s.payroll[2];p.status='확정';p.snapshot=C.payrollAmounts(s,p);const before=structuredClone(s);
+ assert.throws(()=>C.processCorrection(s,'CR-1','처리 완료',1000,0,'정정'),/확정을 취소/);assert.deepEqual(s,before);
+ C.processCorrection(s,'CR-1','처리 완료',0,0,'입력 오류 없음');assert.equal(s.requests[0].resolution,'금액 변경 없음');assert.equal(s.settlements.length,before.settlements.length);
+});
+test('paid corrections create a linked settlement and keep original salary immutable',()=>{
+ const s=seed(),p=s.payroll[2];p.status='지급 완료';p.snapshot=C.payrollAmounts(s,p);const before=structuredClone(p);
+ C.processCorrection(s,'CR-1','처리 완료',-10000,-1000,'과지급 정정');const entry=s.settlements.at(-1);assert.equal(entry.payrollId,p.id);assert.equal(entry.requestId,'CR-1');assert.equal(entry.gross-entry.tax,-9000);assert.deepEqual(p,before);
+});
+test('same settlement submission cannot pay twice; distinct installments may match amounts',()=>{
+ const s=seed();C.recordSettlementPayment(s,'ST-1',100000,'2026-10-15','분할 지급','op-1');
+ assert.throws(()=>C.recordSettlementPayment(s,'ST-1',100000,'2026-10-15','재전송','op-1'),/이미 반영/);assert.equal(s.settlements[0].payments.length,1);
+ C.recordSettlementPayment(s,'ST-1',100000,'2026-10-15','두 번째 분할','op-2');assert.equal(s.settlements[0].payments.length,2);assert.match(s.feedback[0],/초과 지급/);
+});
+test('today unpaid daily award reprices, preserves paid/history and rejects stale payment quote',()=>{
+ const s=seed(),date=C.koreaDay(),d=C.recordDaily(s,'staff-0',date,8,10000),before=C.payrollAmounts(s,s.payroll[0]);
+ C.repriceDaily(s,date,()=>20000);assert.equal(d.amount,20000);assert.equal(s.daily[0].amount,10000);assert.throws(()=>C.payDaily(s,d.id,date,10000),/변경/);assert.equal(d.paid,0);
+ C.payDaily(s,d.id,date,20000);C.repriceDaily(s,date,()=>5000);assert.equal(d.amount,20000);assert.equal(d.paid,20000);assert.deepEqual(C.payrollAmounts(s,s.payroll[0]),before);
+});
+test('invalid daily table repricing is atomic and cannot write partial updates',()=>{
+ const s=seed(),date=C.koreaDay(),a=C.recordDaily(s,'staff-0',date,8,10000),b=C.recordDaily(s,'staff-1',date,10,15000);
+ assert.throws(()=>C.repriceDaily(s,date,count=>count===8?20000:NaN));assert.equal(a.amount,10000);assert.equal(b.amount,15000);
+});

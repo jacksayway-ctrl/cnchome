@@ -49,7 +49,7 @@ async function main(){
  await page('adminPermissions');click('[data-aw="permission-edit"][data-id="admin-owner"]');set('highest',false);set('reason','변경');submit();assert.match(q('.aw-form-error').textContent,/최소 한 명/);assert.equal(state().accounts[0].highest,true);q('#tm-dialog').close();
  await page('adminCorrections');click('[data-aw="correction-review"]');set('status','처리 완료');set('gross','1000');set('tax','100');set('reason','공제 입력 오류 확인');submit();assert.equal(state().requests[0].status,'처리 완료');
  const sid=state().settlements.at(-1).id;
- for(const amount of ['500','600']){click('[data-aw="settlement-detail"][data-id="'+sid+'"]');set('amount',amount);set('reason','실제 지급 기록');submit();}
+ for(const amount of ['500','600']){click('[data-aw="settlement-detail"][data-id="'+sid+'"]');set('amount',amount);set('reason','실제 지급 기록');const paymentForm=q('#tm-dialog form');paymentForm.requestSubmit();const count=state().settlements.at(-1).payments.length;paymentForm.requestSubmit();assert.equal(state().settlements.at(-1).payments.length,count);}
  assert.match(q('#tm-main').textContent,/초과 지급/);assert.equal(state().settlements.at(-1).payments.length,2);
  click('[data-aw="settlement-detail"][data-id="'+sid+'"]');const pid=state().settlements.at(-1).payments[1].id;click('[data-aw="payment-edit"][data-id="'+sid+'/'+pid+'"]');set('amount','0');set('reason','잘못 입력한 지급 취소');submit();assert.equal(state().settlements.at(-1).payments[1].amount,0);
  await page('adminAudit');assert.ok(q('#tm-main').textContent.includes('공제 입력 오류 확인'));click('[data-aw="audit-detail"]');assert.ok(q('.aw-compare').textContent.includes('payments'));q('#tm-dialog').close();
@@ -63,9 +63,12 @@ async function main(){
  await page('adminPayroll');click('[data-aw="payroll-reverse"][data-id="PAY-2/unpay"]');set('reason','지급 표시 오류');set('reviewed',true);submit();assert.equal(state().payroll[2].status,'확정');
  await page('adminBank');click('[data-aw="bank-edit"][data-id="staff-2"]');set('bank','예시은행');set('number','001-234567');set('holder','가상 예금주');set('reason','가상 계좌 등록');submit();assert.match(q('#tm-main').textContent,/•••• 4567/);
  click('[data-aw-select="PAY-2"]');click('[data-aw="bank-preview"]');assert.match(q('#tm-dialog').textContent,/001-234567/);set('reviewed',true);submit();assert.match(exported.name,/지급계좌/);assert.equal(exported.rows.length,3);assert.equal(state().payroll[2].status,'확정');
- await page('adminCorrections');click('[data-aw="correction-add"]');set('reason','퇴사 직원 요청 대리 접수');submit();assert.equal(state().requests.at(-1).source,'관리자 대리 접수');
+ await page('adminCorrections');click('[data-aw="correction-add"]');set('payrollId','PAY-2');set('reason','퇴사 직원 요청 대리 접수');submit();assert.equal(state().requests.at(-1).source,'관리자 대리 접수');
  await page('adminDailyHistory');click('[data-aw="daily-export"]');assert.match(exported.name,/일그레이드/);assert.equal(exported.rows[1].includes('실지급액'),false);
  await page('adminPayroll');click('[data-aw="payroll-reverse"][data-id="PAY-2/unconfirm"]');set('reason','계산 재검토');set('reviewed',true);submit();assert.equal(state().payroll[2].previousStatement.status,'수정 중');assert.match(q('#tm-main').textContent,/이전 명세서 수정 중/);
+ await page('adminCorrections');const request=state().requests.at(-1),settlementCount=state().settlements.length;
+ click('[data-aw="correction-review"][data-id="'+request.id+'"]');set('status','처리 완료');set('gross','10000');set('tax','1000');set('reason','미지급 급여 계산 보정');submit();assert.equal(state().requests.at(-1).resolution,'월 급여 보정');assert.equal(state().settlements.length,settlementCount);assert.equal(state().payroll[2].adjustments.at(-1).gross,10000);
+ await page('adminPayroll');click('[data-aw="payroll-export"]');const headers=exported.rows[1],row=exported.rows.at(-1);assert.equal(row[headers.indexOf('세전 보정')],10000);assert.equal(row[headers.indexOf('공제 보정')],1000);assert.equal(headers.some(x=>x.includes('일 그레이드')),false);
  await page('adminAttendance');if(!q('[data-aw-select="AT-3"]').checked)click('[data-aw-select="AT-3"]');click('[data-aw="attendance-reject-bulk"]');set('reason','중복 일정 확인');submit();assert.equal(state().attendance.find(r=>r.id==='AT-3').status,'반려');
  assert.deepEqual(errors,[],'No JavaScript/resource errors');
  console.log('PASS: 19 admin routes, attendance/AS/payroll/contracts/settlements/permissions/audit/notifications, XLSX action and existing staff routes.');
