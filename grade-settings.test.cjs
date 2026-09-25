@@ -79,14 +79,14 @@ test('weekly draft starts at eight with unchanged amounts and preserves later ed
 });
 
 test('original monthly table preserves supplied labels and estimates without the deleted footer',()=>{
- const html=context.api.gradeOriginalMonthlyTable();for(const label of ['100건 이하','101~110건','111~120건','121~130건','131~140건','141~150건','151~160건','161~170건','171건 이상','20,000원','600,000원','3,290,000원','2,826,000원','3,058,000원','1,980,000','2,005,000','2,187,000','2,237,000','2,362,000','2,594,000','0.5건','취소건 제외 실오더 기준'])assert.ok(html.includes(label),label);assert.ok(!html.includes('100건이상 추가건당'));assert.equal((html.match(/<th>/g)||[]).length,7);assert.ok(!html.includes('<th>기본</th>'));assert.ok(!html.includes('<td>7</td>'));
+ const html=context.api.gradeOriginalMonthlyTable();for(const label of ['100건 이하','101~110건','111~120건','121~130건','131~140건','141~150건','151~160건','161~170건','171건 이상','20,000원','600,000원','3,290,000원','2,694,000원','2,794,000원','1,980,000','2,005,000','2,187,000','2,237,000','2,362,000','2,594,000','0.5건','취소건 제외 실오더 기준'])assert.ok(html.includes(label),label);assert.ok(!html.includes('100건이상 추가건당'));assert.equal((html.match(/<th>/g)||[]).length,7);assert.ok(!html.includes('<th>기본</th>'));assert.ok(!html.includes('<td>7</td>'));
 });
 
 test('aggregate 150 cases at 22 six-hour days uses current monthly table and counts cash once',()=>{
  const p=context.api.gradePrepareDraft(gradeDefaults()),r=context.api.gradeAggregateCalculate(p,'insurance',150,22,6);
- assert.equal(r.distribution.reduce((x,y)=>x+y,0),150);assert.equal(r.hours,132);assert.equal(r.hourly,17000);assert.equal(r.base,2244000);assert.equal(r.daily,200000);assert.equal(r.weekly,0);assert.equal(r.monthly.achievement,300000);assert.equal(r.monthly.extra,100000);assert.equal(r.salary,2644000);assert.equal(r.total,2844000);
+ assert.equal(r.distribution.reduce((x,y)=>x+y,0),150);assert.equal(r.hours,132);assert.equal(r.hourly,17000);assert.equal(r.base,2244000);assert.equal(r.daily,200000);assert.equal(r.weekly,0);assert.equal(r.monthly.achievement,300000);assert.equal(r.monthly.extra,100000);assert.equal(r.salary,2644000);assert.equal(r.total,2844000);assert.equal(r.calculationAmount,4656000);
  const weekly=context.api.gradeAggregateCalculate(p,'cosmetics',176,22,6);assert.equal(weekly.weeks.length,5);assert.equal(weekly.weeks.at(-1).days,2);assert.equal(weekly.weekly,150000);assert.equal(weekly.daily,330000);
- const half=context.api.gradeAggregateCalculate(p,'insurance',150.5,22,6);assert.equal(half.distribution.reduce((x,y)=>x+y,0),150.5);assert.equal(half.monthly.extra,5000);assert.equal(half.hourly,18000);assert.equal(half.monthly.achievement,400000);
+ const half=context.api.gradeAggregateCalculate(p,'insurance',150.5,22,6);assert.equal(half.distribution.reduce((x,y)=>x+y,0),150.5);assert.equal(half.monthly.extra,5000);assert.equal(half.hourly,17000);assert.equal(half.monthly.achievement,400000);
  for(const input of [[-1,22,6],[150,0,6],[150,1.5,6],[150,32,6],[150,22,0],[150,22,25],[150.1,22,6]])assert.throws(()=>context.api.gradeAggregateCalculate(p,'insurance',...input));
 });
 test('monthly calculation matches displayed estimates and boundaries including half-cases',()=>{
@@ -98,13 +98,13 @@ test('aggregate preview waits for confirmation and invalidates stale results aft
  context.root.querySelector=key=>fields[key];context.table=(heads,rows)=>JSON.stringify({heads,rows});
  context.api.gradeUpdatePreview();assert.ok(!result.innerHTML.includes('2,844,000원'));
  let prevented=false;for(const listener of listeners.submit)listener({target:{id:'tm-grade-preview-form'},preventDefault(){prevented=true}});
- assert.ok(prevented);assert.match(result.innerHTML,/2,844,000원/);assert.match(result.innerHTML,/2,644,000원/);
- fields['#tm-grade-preview-count'].value='0';context.api.gradeUpdatePreview();assert.ok(!result.innerHTML.includes('2,844,000원'));context.api.gradeUpdatePreview(true);assert.match(result.innerHTML,/1,980,000원/);
+ assert.ok(prevented);assert.match(result.innerHTML,/2,844,000원/);assert.match(result.innerHTML,/2,644,000원/);assert.match(result.innerHTML,/총 계산 금액: 4,656,000원/);
+ fields['#tm-grade-preview-count'].value='0';context.api.gradeUpdatePreview();assert.ok(!result.innerHTML.includes('2,844,000원'));context.api.gradeUpdatePreview(true);assert.match(result.innerHTML,/1,980,000원/);assert.match(result.innerHTML,/총 계산 금액: -1,980,000원/);
  fields['#tm-grade-preview-days'].value='';context.api.gradeUpdatePreview(true);assert.match(result.textContent,/올바르게/);
  fields['#tm-grade-preview-count'].value='150';fields['#tm-grade-preview-days'].value='22';context.api.gradeUpdatePreview();
 });
 
-test('new monthly tiers increment hourly by 1000 and achievement by 100000 through 170',()=>{
- for(const [count,hourly,award,extra,total] of [[150,17000,300000,100000,2644000],[151,18000,400000,10000,2786000],[155,18000,400000,50000,2826000],[160,18000,400000,100000,2876000],[160.5,19000,500000,5000,3013000],[161,19000,500000,10000,3018000],[165,19000,500000,50000,3058000],[170,19000,500000,100000,3108000]]){const r=context.api.gradeReferenceMonthly(count,132);assert.equal(r.hourly,hourly);assert.equal(r.achievement,award);assert.equal(r.extra,extra);assert.equal(r.total,total);}
+test('monthly tiers use corrected 17000 hourly through 170 and 20000 above',()=>{
+ for(const [count,hourly,award,extra,total] of [[150,17000,300000,100000,2644000],[151,17000,400000,10000,2654000],[155,17000,400000,50000,2694000],[160,17000,400000,100000,2744000],[160.5,17000,500000,5000,2749000],[161,17000,500000,10000,2754000],[165,17000,500000,50000,2794000],[170,17000,500000,100000,2844000]]){const r=context.api.gradeReferenceMonthly(count,132);assert.equal(r.hourly,hourly);assert.equal(r.achievement,award);assert.equal(r.extra,extra);assert.equal(r.total,total);}
  assert.equal(context.api.gradeReferenceMonthly(170.5,132).total,3245000);assert.equal(context.api.gradeReferenceMonthly(171,132).total,3250000);assert.equal(context.api.gradeReferenceMonthly(175,132).total,3290000);assert.equal(context.api.gradeReferenceMonthly(200,132).total,3540000);const r=context.api.gradeAggregateCalculate(context.api.gradePrepareDraft(gradeDefaults()),'insurance',175,22,6);assert.equal(r.hourly,20000);assert.equal(r.monthly.achievement,600000);assert.equal(r.monthly.extra,50000);assert.equal(r.base,2640000);assert.equal(r.salary,3410000);assert.equal(r.total,3735000);
 });
