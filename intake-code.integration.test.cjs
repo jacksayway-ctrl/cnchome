@@ -70,7 +70,7 @@ function boot(saved = new Map()) {
   }
 
   const context = {
-    console, Date, Math, Map, Set, URL, URLSearchParams, TextEncoder, TextDecoder,
+    console, Date, Math, Map, Set, structuredClone, URL, URLSearchParams, TextEncoder, TextDecoder,
     crypto: webcrypto, document: {getElementById: () => get('root'), createElement: tag => get('created-'+tag)},
     MutationObserver: class {observe() {}},
     location: {hash: ''},

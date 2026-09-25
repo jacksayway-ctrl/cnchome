@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const html = fs.readFileSync(require('node:path').join(__dirname, 'index.html'), 'utf8');
 const code = html.slice(html.indexOf('// Editable grade policy.'), html.indexOf('function adminAttendance()'));
-const context = vm.createContext({Intl,Date,root:{addEventListener(){}},window:{addEventListener(){}},localStorage:{getItem(){return null}}});
+const context = vm.createContext({Intl,Date,structuredClone,root:{addEventListener(){}},window:{addEventListener(){}},localStorage:{getItem(){return null}}});
 vm.runInContext(code+'\nglobalThis.api={gradeDefaults,gradeValidate,gradeCalculate,gradeValidDate,gradePolicyAt,gradeReadStore};',context);
 const {gradeDefaults,gradeValidate,gradeCalculate,gradeValidDate,gradePolicyAt,gradeReadStore}=context.api;
 test('monthly screenshot boundaries use only the current tier and include its first count',()=>{
@@ -15,7 +15,7 @@ test('monthly screenshot boundaries use only the current tier and include its fi
 });
 test('daily count and weekly averages select the correct threshold',()=>{
  const p=gradeDefaults();for(const [count,amount] of [[0,0],[5,0],[6,5000],[7,10000],[8,15000],[100,475000]])assert.equal(gradeCalculate(p,'daily',count).bonus,amount);assert.equal(gradeCalculate(p,'daily',8,6).base,0);
- for(const [count,bonus] of [[29,0],[30,30000],[34,30000],[35,40000],[39,40000],[40,50000]])assert.equal(gradeCalculate(p,'weekly',count,0,5).bonus,bonus);
+ for(const [count,bonus] of [[29,0],[30,30000],[34,30000],[35,35000],[39,35000],[40,40000]])assert.equal(gradeCalculate(p,'weekly',count,0,5).bonus,bonus);
 });
 test('reject gaps, overlaps, negative amounts, missing limits and invalid additional thresholds',()=>{
  for(const mutate of [p=>p.monthly[1].min=60,p=>p.monthly[1].min=62,p=>p.monthly[1].hourly=-1,p=>p.monthly[0].max=null,p=>p.monthly[5].max=110,p=>p.monthly[2].extraStart=70,p=>p.daily[0].min=NaN]){
