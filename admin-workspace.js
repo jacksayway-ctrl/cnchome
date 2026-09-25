@@ -15,6 +15,35 @@
     adminAttendance: ['출결 승인', '승인 조건을 확인하고 가능한 신청만 일괄 처리합니다.'],
     adminAs: ['A/S 검토·처리', '문제별 담당자·차감 결정·해결 상태를 관리합니다.']
   };
+  // One route belongs to one section; existing deep links remain valid.
+  const navigation = [
+    {label:'관리자 홈',icon:'▣',items:[['adminHome','업무 현황'],['adminNotifications','알림'],['adminChecklist','운영 점검']]},
+    {label:'영업 관리',icon:'▥',items:[['adminIntake','접수'],['adminPerformance','실적'],['adminAs','A/S']]},
+    {label:'인사·출결',icon:'♙',items:[['adminStaff','직원'],['adminAttendance','출결 승인'],['adminLeave','연차·휴가'],['adminContracts','근로계약']]},
+    {label:'그레이드',icon:'☆',items:[['adminGrade','기준표'],['adminDaily','오늘 TM 일 그레이드'],['adminDailyHistory','일 그레이드 지급 내역']]},
+    {label:'급여·정산',icon:'₩',items:[['adminPayroll','급여·지급'],['adminBank','계좌·지급 엑셀'],['adminCorrections','정정·별도 정산']]},
+    {label:'운영 관리',icon:'⚙',items:[['adminSettings','운영 설정'],['adminPermissions','계정·권한'],['adminAudit','변경 이력']]}
+  ];
+  function mountNavigation(root){
+    const sidebar=root.querySelector('aside nav'),main=root.querySelector('#tm-main');
+    if(!sidebar||!main)return;
+    sidebar.setAttribute('aria-label','직원·관리자 메뉴');
+    sidebar.querySelectorAll('[data-page^="admin"],.aw-nav-group,.payroll-link').forEach(el=>el.remove());
+    const groups=document.createElement('div');groups.className='aw-sections';
+    groups.innerHTML=navigation.map((g,i)=>`<button type="button" data-aw-section="${i}" aria-controls="aw-subpages"><span aria-hidden="true">${g.icon}</span>${g.label}</button>`).join('');sidebar.append(groups);
+    const bar=document.createElement('section');bar.id='aw-subpages';bar.className='aw-subpages';bar.hidden=true;main.before(bar);
+    function sync(){
+      const route=global.location.hash.slice(1),index=navigation.findIndex(g=>g.items.some(([p])=>p===route));
+      groups.querySelectorAll('[data-aw-section]').forEach(b=>{const selected=Number(b.dataset.awSection)===index;b.classList.toggle('active',selected);if(selected)b.setAttribute('aria-current','true');else b.removeAttribute('aria-current');});
+      bar.hidden=index<0;if(index<0){bar.replaceChildren();return;}
+      const group=navigation[index],current=group.items.find(([p])=>p===route);
+      bar.innerHTML=`<div class="aw-location"><span>관리자</span><span aria-hidden="true">/</span><strong>${group.label}</strong><span aria-hidden="true">/</span><span>${current[1]}</span></div><div class="aw-subpage-links" role="navigation" aria-label="${group.label} 하위 페이지">${group.items.map(([p,label])=>`<button type="button" data-page="${p}"${p===route?' class="active" aria-current="page"':''}>${label}</button>`).join('')}${group.items[0][0]==='adminPayroll'?'<a href="./payroll.html">급여 계산 검토 ↗</a>':''}</div>`;
+    }
+    groups.addEventListener('click',e=>{const b=e.target.closest('[data-aw-section]');if(b)global.location.hash=navigation[Number(b.dataset.awSection)].items[0][0];});
+    // The legacy page renderer replaces main for both route and form updates.
+    // Observe only that boundary; the navigation itself lives outside it.
+    new global.MutationObserver(sync).observe(main,{childList:true});sync();
+  }
   const TODAY = '2026-10-15';
   const clone = value => JSON.parse(JSON.stringify(value));
   const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -396,11 +425,12 @@
   function init(options){
     bridge=options;state=seed(options.employees);
     const root=options.root;
+    mountNavigation(root);
     let lastDay=koreaDay();setInterval(()=>{const day=koreaDay();if(day!==lastDay){lastDay=day;bridge.render();}},1000);
     root.addEventListener('click',e=>{const b=e.target.closest('[data-aw]');if(!b)return;try{openAction(b.dataset.aw,b.dataset.id);}catch(error){bridge.toast(error.message);}});
     root.addEventListener('change',e=>{if(e.target.matches('[data-aw-select]')){const ids=new Set(ui.selected[currentPage]||[]);e.target.checked?ids.add(e.target.dataset.awSelect):ids.delete(e.target.dataset.awSelect);ui.selected[currentPage]=[...ids];}if(e.target.matches('[data-aw-year]')){ui.year=e.target.value;bridge.render();}});
     root.addEventListener('submit',e=>{const f=e.target.closest('[data-aw-form]');if(!f)return;e.preventDefault();if(!f.reportValidity())return;try{handleForm(f);}catch(error){const out=f.querySelector('[role="alert"]');if(out)out.textContent=error.message;else bridge.toast(error.message);}});
   }
-  const api={pages,init,render,home,settings,staffLinks,core:{processCorrection,recordSettlementPayment,repriceDaily,validDate,attendanceIssue,dailyHistory,saveBank,payoutPreview,reversePayroll,rejectAttendance,proxyRequest,koreaDay,isTm,dailyView,recordDaily,payDaily,seed,approveAttendance,updateAs,payrollAmounts,payrollIssues,payrollTransition,setPermission,leaveRemaining,unpaidMinutes},getState:()=>clone(state),todayDaily:(id='staff-0')=>dailyView(state,id)};
+  const api={pages,navigation,init,render,home,settings,staffLinks,core:{processCorrection,recordSettlementPayment,repriceDaily,validDate,attendanceIssue,dailyHistory,saveBank,payoutPreview,reversePayroll,rejectAttendance,proxyRequest,koreaDay,isTm,dailyView,recordDaily,payDaily,seed,approveAttendance,updateAs,payrollAmounts,payrollIssues,payrollTransition,setPermission,leaveRemaining,unpaidMinutes},getState:()=>clone(state),todayDaily:(id='staff-0')=>dailyView(state,id)};
   if(typeof module!=='undefined'&&module.exports)module.exports=api;else global.AdminWorkspace=api;
 })(typeof window!=='undefined'?window:globalThis);

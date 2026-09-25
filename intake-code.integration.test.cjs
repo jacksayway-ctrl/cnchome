@@ -62,7 +62,7 @@ function boot(saved = new Map()) {
     if (!elements.has(selector)) elements.set(selector, {
       value: '', selectedIndex: 0, innerHTML: '', textContent: '', dataset: {},
       style: {setProperty() {}}, classList: {toggle() {}, add() {}, remove() {}},
-      setAttribute() {}, removeAttribute() {}, showModal() {}, close() {},
+      setAttribute() {}, removeAttribute() {}, showModal() {}, close() {}, append() {}, before() {}, replaceChildren() {},
       querySelector: get, querySelectorAll: () => [], addEventListener() {},
       getBoundingClientRect: () => ({width: 600, height: 600}), isConnected: false
     });
@@ -71,7 +71,8 @@ function boot(saved = new Map()) {
 
   const context = {
     console, Date, Math, Map, Set, URL, URLSearchParams, TextEncoder, TextDecoder,
-    crypto: webcrypto, document: {getElementById: () => get('root')},
+    crypto: webcrypto, document: {getElementById: () => get('root'), createElement: tag => get('created-'+tag)},
+    MutationObserver: class {observe() {}},
     location: {hash: ''},
     localStorage: {
       getItem: key => storage.get(key) ?? null,

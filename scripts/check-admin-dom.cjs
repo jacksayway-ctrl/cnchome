@@ -24,9 +24,13 @@ async function main(){
   w.eval(source);
  }
  assert.ok(w.AdminWorkspace,'Admin module loaded');
- const nav=[...d.querySelectorAll('nav [data-page^="admin"]')].map(e=>e.dataset.page);
+ const sections=w.AdminWorkspace.navigation,nav=sections.flatMap(g=>g.items.map(([id])=>id));
+ assert.equal(d.querySelectorAll('aside [data-aw-section]').length,6);assert.equal(d.querySelectorAll('aside [data-page^="admin"]').length,0);
  assert.equal(nav.length,19);assert.equal(new Set(nav).size,19);
- for(const id of nav){await page(id);assert.ok(d.querySelector('nav [data-page="'+id+'"][aria-current="page"]'),'Active navigation '+id);}
+ for(const id of nav){await page(id);const index=sections.findIndex(g=>g.items.some(([p])=>p===id));assert.ok(d.querySelector('[data-aw-section="'+index+'"][aria-current="true"]'),'Parent navigation '+id);assert.ok(d.querySelector('#aw-subpages [data-page="'+id+'"][aria-current="page"]'),'Subpage navigation '+id);assert.equal(d.querySelectorAll('#aw-subpages [data-page]').length,sections[index].items.length);}
+ for(let i=0;i<sections.length;i++){click('[data-aw-section="'+i+'"]');await pause();assert.equal(w.location.hash,'#'+sections[i].items[0][0]);const last=sections[i].items.at(-1)[0];click('#aw-subpages [data-page="'+last+'"]');await pause();assert.equal(w.location.hash,'#'+last);}
+ await page('home');assert.equal(q('#aw-subpages').hidden,true);assert.equal(d.querySelectorAll('[data-aw-section][aria-current]').length,0);
+ await page('adminPayroll');assert.equal(q('#aw-subpages a').getAttribute('href'),'./payroll.html');
  await page('adminAttendance');
  for(const id of ['AT-2','AT-3'])click('[data-aw-select="'+id+'"]');click('[data-aw="attendance-bulk"]');
  assert.equal(state().attendance[1].status,'승인');assert.equal(state().attendance[2].status,'대기');assert.match(q('#tm-main').textContent,/중복/);
