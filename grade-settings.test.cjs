@@ -5,7 +5,7 @@ const vm = require('node:vm');
 const html = fs.readFileSync(require('node:path').join(__dirname, 'index.html'), 'utf8');
 const code = html.slice(html.indexOf('// Editable grade policy.'), html.indexOf('function adminAttendance()'));
 const context = vm.createContext({Intl,Date,structuredClone,root:{addEventListener(){}},window:{addEventListener(){}},localStorage:{getItem(){return null}}});
-vm.runInContext(code+'\nglobalThis.api={gradeDefaults,gradeValidate,gradeCalculate,gradeValidDate,gradePolicyAt,gradeReadStore};',context);
+vm.runInContext(code+'\nglobalThis.api={gradeDefaults,gradeValidate,gradeCalculate,gradeValidDate,gradePolicyAt,gradeReadStore,gradeSyncWeeklyBounds};',context);
 const {gradeDefaults,gradeValidate,gradeCalculate,gradeValidDate,gradePolicyAt,gradeReadStore}=context.api;
 test('monthly screenshot boundaries use only the current tier and include its first count',()=>{
  const p=gradeDefaults();assert.equal(gradeValidate(p),'');
@@ -50,4 +50,10 @@ test('daily per-case cash is unbounded and independent from weekly/monthly calcu
  assert.deepEqual(gradeCalculate(p,'weekly',40,30),weekly);assert.deepEqual(gradeCalculate(p,'monthly',88,132),monthly);
  p.dailyCash.start=0;assert.notEqual(gradeValidate(p),'');p.dailyCash={start:6,perCase:-1};assert.notEqual(gradeValidate(p),'');
  const legacy=gradeDefaults();delete legacy.dailyCash;const entries=gradeReadStore(JSON.stringify(legacy));assert.equal(entries[0].policy.dailyCash.start,6);assert.equal(entries[0].policy.dailyCash.perCase,5000);
+});
+
+test('weekly configurable thresholds allow 20 entries, reject 21 and calculate edited gaps',()=>{
+ const p=gradeDefaults();p.weekly=[{min:0,max:null,hourly:0,achievement:0,extraStart:null,extra:0},...Array.from({length:20},(_,i)=>({min:6+i,max:null,hourly:0,achievement:30000+i*5000,extraStart:null,extra:0}))];context.api.gradeSyncWeeklyBounds(p);assert.equal(gradeValidate(p),'');assert.equal(gradeCalculate(p,'weekly',125,0,5).bonus,125000);
+ p.weekly.push({min:26,max:null,hourly:0,achievement:130000,extraStart:null,extra:0});context.api.gradeSyncWeeklyBounds(p);assert.match(gradeValidate(p),/20/);
+ const edited=gradeDefaults();edited.weekly[2].min=7;edited.weekly[3].min=10;context.api.gradeSyncWeeklyBounds(edited);assert.equal(gradeValidate(edited),'');assert.equal(gradeCalculate(edited,'weekly',45,0,5).bonus,35000);edited.weekly[2].min=6;context.api.gradeSyncWeeklyBounds(edited);assert.notEqual(gradeValidate(edited),'');
 });
