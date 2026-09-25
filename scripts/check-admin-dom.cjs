@@ -47,9 +47,9 @@ async function main(){
  let exported;w.AdminXlsx.download=(rows,name)=>exported={rows,name};click('[data-aw="payroll-export"]');assert.equal(exported.rows.length,5);assert.match(exported.name,/\.xlsx$/);
  await page('adminGrade');const award=q('[data-grade-period="daily"][data-grade-index="1"][data-grade-field="achievement"]');award.value='10000';award.dispatchEvent(new w.Event('input',{bubbles:true}));q('#tm-grade-form').requestSubmit();click('[data-grade-confirm]');
  await page('adminDaily');assert.match(q('#tm-main').textContent,/0건/);click('[data-aw="daily-edit"][data-id="staff-0"]');set('count','8');submit();assert.equal(state().daily.at(-1).count,8);assert.ok(state().daily.at(-1).amount>0);await page('adminDailyHistory');click('[data-aw="daily-pay"][data-id="D-1"]');set('paidConfirmed',true);submit();assert.equal(state().daily[0].paid,10000);
- await page('adminContracts');click('[data-aw="contract-add"]');set('pay','<img src=x onerror="window.injected=true">');submit();
+ await page('adminContracts');click('[data-aw="contract-add"]');set('start','2026-09-01');set('pay','<img src=x onerror="window.injected=true">');submit();
  assert.equal(state().contracts.length,3);assert.equal(d.querySelectorAll('#tm-main img').length,0);assert.equal(w.injected,undefined);
- const cid=state().contracts[2].id;click('[data-aw="contract-detail"][data-id="'+cid+'"]');set('reviewed',true);submit();assert.equal(state().contracts[2].status,'서명 대기');
+ const cid=state().contracts[2].id;click('[data-aw="contract-detail"][data-id="'+cid+'"]');set('reviewed',true);submit();assert.equal(state().contracts[2].status,'초안');assert.match(q('.aw-form-error').textContent,/보완 필요/);q('#tm-dialog').close();
  await page('adminPermissions');click('[data-aw="permission-edit"][data-id="admin-owner"]');set('highest',false);set('reason','변경');submit();assert.match(q('.aw-form-error').textContent,/최소 한 명/);assert.equal(state().accounts[0].highest,true);q('#tm-dialog').close();
  await page('adminCorrections');click('[data-aw="correction-review"]');set('status','처리 완료');set('gross','1000');set('tax','100');set('reason','공제 입력 오류 확인');submit();assert.equal(state().requests[0].status,'처리 완료');
  const sid=state().settlements.at(-1).id;
@@ -61,11 +61,15 @@ async function main(){
  for(const id of ['home','sales','grade','attendance','as'])await page(id);
  await page('adminStaff');assert.match(q('#tm-main').textContent,/전체 16명/);click('[data-aw="staff-new"]');await pause();
  const staffForm=q('[data-aw-form="staff-save"]');const staffSet=(name,value)=>staffForm.querySelector('[name="'+name+'"]').value=value;
- staffSet('name','<img src=x onerror="window.staffInjected=true">');staffSet('phone','010-0000-0000');staffSet('team','insurance');staffSet('startDate','2026-09-25');staffSet('weeklyHoliday','일');staffSet('employeeNo','TEST-17');staffSet('payAmount','12000');staffForm.requestSubmit();await pause();
+ staffSet('name','<img src=x onerror="window.staffInjected=true">');staffSet('phone','010-0000-0000');staffSet('team','insurance');staffSet('startDate','2026-09-25');staffSet('weeklyHoliday','일');staffSet('employeeNo','TEST-17');staffSet('payAmount','12000');staffSet('address','예시시 예시로 1');staffSet('workplace','예시 사무실');staffSet('duties','전화 상담');staffSet('contractStart','2026-09-25');staffSet('wageEffective','2026-09-25');staffForm.requestSubmit();await pause();
  assert.equal(state().staff.length,17);assert.match(q('#tm-main').textContent,/TEST-17/);
  click('[data-aw="staff-edit"][data-id="staff-16"]');await pause();const edit=q('[data-aw-form="staff-save"]');assert.equal(edit.querySelector('[name="payAmount"]').value,'12000');edit.querySelector('[name="memo"]').value='정보 확인 완료';edit.requestSubmit();await pause();assert.equal(state().staff.length,17);
  assert.equal(d.querySelectorAll('#tm-main img').length,0);assert.equal(w.staffInjected,undefined);
  await page('adminContracts');click('[data-aw="contract-add"]');assert.ok([...q('#tm-dialog select[name="employee"]').options].some(o=>o.text.includes('staffInjected')));q('#tm-dialog').close();
+ await page('adminContracts');click('[data-aw="company-edit"]');set('name','가상 회사');set('representative','가상 대표');set('address','가상 사업장');submit();
+ click('[data-aw="contract-add"]');const picker=q('#tm-dialog [name="employee"]');picker.value='staff-16';picker.dispatchEvent(new w.Event('change',{bubbles:true}));assert.equal(q('#tm-dialog [name="start"]').value,'2026-09-25');assert.match(q('#tm-dialog [name="pay"]').value,/12,000/);assert.match(q('#tm-dialog').textContent,/전화 상담/);assert.equal(d.querySelectorAll('#tm-dialog img').length,0);submit();const generated=state().contracts.at(-1);assert.equal(generated.snapshot.person.address,'예시시 예시로 1');assert.equal(generated.snapshot.company.name,'가상 회사');assert.equal(generated.snapshot.person.memo,undefined);
+ click('[data-aw="contract-detail"][data-id="'+generated.id+'"]');set('reviewed',true);submit();assert.equal(state().contracts.at(-1).status,'서명 대기');
+ await page('adminStaff');click('[data-aw="staff-edit"][data-id="staff-16"]');await pause();q('[data-aw-form="staff-save"] [name="address"]').value='변경된 주소';q('[data-aw-form="staff-save"]').requestSubmit();await pause();assert.equal(state().contracts.at(-1).snapshot.person.address,'예시시 예시로 1');
  await page('adminLeave');assert.equal(state().staff.length,17);assert.equal(state().leaves.at(-1).lots.length,0);
  await page('adminPerformance');assert.equal(d.querySelectorAll('[data-performance-record]').length,0);assert.ok(d.querySelector('#tm-main [data-page="adminAs"]'));
  await page('adminPayroll');click('[data-aw="payroll-reverse"][data-id="PAY-2/unpay"]');set('reason','지급 표시 오류');set('reviewed',true);submit();assert.equal(state().payroll[2].status,'확정');

@@ -162,3 +162,15 @@ test('staff validation checks dates, workdays and role-specific wage types',()=>
  for(const patch of [{employment:'퇴사',endDate:'2026-09-24'},{contractType:'기간제',contractEnd:''},{workDays:[]},{weeklyHoliday:''},{payType:'월급제'},{payAmount:-1},{startDate:'2026-02-30'}])assert.throws(()=>C.validateStaff({...profile(),...patch},[],null));
  assert.doesNotThrow(()=>C.validateStaff({...profile(),role:'관리자',payType:'월급제',payAmount:2000000},[],null));
 });
+test('contract draft copies explicit employee/company fields and preserves historical values',()=>{
+ const p={...profile(),address:'예시 주소',workplace:'예시 사무실',duties:'상담',contractStart:'2026-09-25',wageEffective:'2026-09-25',memo:'내부 전용 메모',password:'never-copy'};
+ const company={name:'가상회사',representative:'가상대표',address:'사업장'};
+ const snap=C.contractSnapshot('staff-0',p,company);assert.deepEqual(C.contractMissing(snap),[]);assert.equal(snap.person.memo,undefined);assert.equal(snap.person.password,undefined);
+ p.address='새 주소';p.workDays.push('토');company.name='새 회사';assert.equal(snap.person.address,'예시 주소');assert.equal(snap.company.name,'가상회사');assert.equal(snap.terms.workDays.length,5);
+ assert.match(snap.terms.holidayPay,/포함/);
+ assert.match(C.contractSnapshot('staff-0',{...profile(),role:'팀장'},company).terms.holidayPay,/별도/);
+});
+test('contract preparation flags missing information and validates optional profile dates',()=>{
+ const snap=C.contractSnapshot('staff-0',{name:'예시'},{});assert.ok(C.contractMissing(snap).includes('회사명'));assert.ok(C.contractMissing(snap).includes('직원 주소'));
+ for(const patch of [{birthDate:'2026-02-30'},{birthDate:'2027-01-01'},{contractStart:'2025-01-01'},{wageEffective:'invalid'},{deductionRate:-1}])assert.throws(()=>C.validateStaff({...profile(),...patch},[],null));
+});
