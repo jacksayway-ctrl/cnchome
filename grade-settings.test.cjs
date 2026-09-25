@@ -5,7 +5,7 @@ const vm = require('node:vm');
 const html = fs.readFileSync(require('node:path').join(__dirname, 'index.html'), 'utf8');
 const code = html.slice(html.indexOf('// Editable grade policy.'), html.indexOf('function adminAttendance()'));
 const context = vm.createContext({fmt:n=>n.toLocaleString("ko-KR"),Intl,Date,structuredClone,root:{addEventListener(){}},window:{addEventListener(){}},localStorage:{getItem(){return null}}});
-vm.runInContext(code+'\nglobalThis.api={gradeDefaults,gradeValidate,gradeCalculate,gradeValidDate,gradePolicyAt,gradeReadStore,gradeSyncWeeklyBounds,gradeGenerateWeekly,gradePrepareDraft,gradeDailyCashTable};',context);
+vm.runInContext(code+'\nglobalThis.api={gradeDefaults,gradeValidate,gradeCalculate,gradeValidDate,gradePolicyAt,gradeReadStore,gradeSyncWeeklyBounds,gradeGenerateWeekly,gradePrepareDraft,gradeDailyCashTable,gradeOriginalMonthlyTable};',context);
 const {gradeDefaults,gradeValidate,gradeCalculate,gradeValidDate,gradePolicyAt,gradeReadStore}=context.api;
 test('monthly screenshot boundaries use only the current tier and include its first count',()=>{
  const p=gradeDefaults();assert.equal(gradeValidate(p),'');
@@ -75,4 +75,8 @@ test('daily horizontal table starts at six and matches unbounded cash calculatio
 test('weekly draft starts at eight with unchanged amounts and preserves later edits',()=>{
  const p=gradeDefaults(),draft=context.api.gradePrepareDraft(p);assert.equal(draft.weeklyAuto.start,8);assert.equal(draft.weekly[1].min,8);assert.equal(draft.weekly.at(-1).min,27);assert.equal(draft.weekly[1].achievement,30000);assert.equal(draft.weekly[2].achievement,35000);
  draft.weeklyAuto.start=9;draft.weekly=context.api.gradeGenerateWeekly(9,30000);assert.equal(context.api.gradePrepareDraft(draft).weekly[1].min,9);
+});
+
+test('original monthly table preserves supplied labels and estimates without the deleted footer',()=>{
+ const html=context.api.gradeOriginalMonthlyTable();for(const label of ['150개이하','160~170건 이하','171건~180건 이하','181건~190건 이하','191건~200건 이하','200건이상','1,848,000','1,873,000','2,055,000','2,105,000','2,230,000','2,462,000','0.5건','취소건 제외 실오더 기준'])assert.ok(html.includes(label),label);assert.ok(!html.includes('100건이상 추가건당'));assert.equal((html.match(/<th>/g)||[]).length,8);
 });
