@@ -174,3 +174,8 @@ test('contract preparation flags missing information and validates optional prof
  const snap=C.contractSnapshot('staff-0',{name:'예시'},{});assert.ok(C.contractMissing(snap).includes('회사명'));assert.ok(C.contractMissing(snap).includes('직원 주소'));
  for(const patch of [{birthDate:'2026-02-30'},{birthDate:'2027-01-01'},{contractStart:'2025-01-01'},{wageEffective:'invalid'},{deductionRate:-1}])assert.throws(()=>C.validateStaff({...profile(),...patch},[],null));
 });
+test('daily repricing supplies the recorded department and employee to the grade lookup',()=>{
+ const s=seed(),date=C.koreaDay();const a=C.recordDaily(s,'staff-0',date,8,10000),b=C.recordDaily(s,'staff-2',date,8,20000);
+ s.staff[0].department='cosmetics';const calls=[];C.repriceDaily(s,date,(count,id,department)=>{calls.push([id,department]);return department==='insurance'?15000:25000;});
+ assert.deepEqual(calls,[['staff-0','insurance'],['staff-2','cosmetics']]);assert.equal(a.amount,15000);assert.equal(b.amount,25000);
+});

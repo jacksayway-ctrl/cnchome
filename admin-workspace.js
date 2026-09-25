@@ -237,7 +237,7 @@
   function repriceDaily(s,date,calculate){
     if(typeof calculate!=='function')return;
     const pending=s.daily.filter(d=>d.date===date&&!d.paid&&Number.isSafeInteger(d.count)&&dailyEligible(s,d));
-    const changes=pending.map(d=>({d,amount:d.count?calculate(d.count):0}));
+    const changes=pending.map(d=>({d,amount:d.count?calculate(d.count,d.employee,d.departmentAtDate||s.staff.find(p=>p.id===d.employee)?.department):0}));
     if(changes.some(x=>!Number.isSafeInteger(x.amount)||x.amount<0))throw Error('일 그레이드표의 달성수당을 확인해 주세요.');
     for(const {d,amount} of changes)if(d.amount!==amount){const before=clone(d);d.amount=amount;log(s,'TM 일 그레이드',d.id,before,d,'당일 표 변경 · 미지급액 재계산');}
   }
@@ -289,7 +289,7 @@
     if(date!==koreaDay())throw Error('오늘 실적만 집계할 수 있습니다. 날짜를 다시 확인해 주세요.');
     if(!Number.isSafeInteger(count)||count<0||!Number.isSafeInteger(amount)||amount<0||(count===0&&amount!==0))throw Error('실적과 달성 금액을 확인해 주세요.');
     let d=s.daily.find(d=>d.employee===employee&&d.date===date);if(d?.paid)throw Error('지급 완료된 기록은 유지합니다.');
-    const before=d?clone(d):{};if(!d){d={id:'D-'+(++s.serial),employee,date,paid:0,roleAtDate:'상담원'};s.daily.push(d);}Object.assign(d,{count,amount});log(s,'TM 일 그레이드',d.id,before,d,'당일 집계 · 급여 제외');return d;
+    const before=d?clone(d):{};if(!d){d={id:'D-'+(++s.serial),employee,date,paid:0,roleAtDate:'상담원',departmentAtDate:s.staff.find(p=>p.id===employee)?.department};s.daily.push(d);}Object.assign(d,{count,amount});log(s,'TM 일 그레이드',d.id,before,d,'당일 집계 · 급여 제외');return d;
   }
   function payDaily(s,id,date,expectedAmount){
     const d=s.daily.find(d=>d.id===id);if(!d||!dailyEligible(s,d))throw Error('TM 상담원 지급 건만 처리할 수 있습니다.');
@@ -453,7 +453,7 @@
 
       if(!data.has('paidConfirmed'))throw Error('실제 지급을 확인해 주세요.');repriceDaily(state,koreaDay(),bridge.dailyAward);payDaily(state,id,String(data.get('date')),num('expectedAmount'));
     }else if(kind==='daily-edit'){
-      recordDaily(state,id,String(data.get('date')),num('count'),bridge.dailyAward(num('count')));
+      recordDaily(state,id,String(data.get('date')),num('count'),bridge.dailyAward(num('count'),id));
     }else if(kind==='attendance'){
       const r=state.attendance.find(r=>r.id===id),action=data.get('action');if(r.employee===state.actor)throw Error('본인 신청은 다른 관리자가 처리해야 합니다.');
       if(action==='approve'){const result=approveAttendance(state,[id])[0];if(!result?.ok)throw Error(result?.reason||'처리할 신청이 없습니다.');}

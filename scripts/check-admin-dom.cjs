@@ -4,7 +4,7 @@ const fs=require('node:fs'),path=require('node:path'),assert=require('node:asser
 const root=path.resolve(__dirname,'..');
 const errors=[],vc=new VirtualConsole();vc.on('jsdomError',e=>errors.push(e.message));
 const dom=new JSDOM(fs.readFileSync(path.join(root,'index.html'),'utf8'),{url:'http://preview.local/#adminHome',runScripts:'outside-only',virtualConsole:vc,pretendToBeVisual:true,beforeParse(w){
- w.TextEncoder=TextEncoder;w.TextDecoder=TextDecoder;
+ w.structuredClone=structuredClone;w.TextEncoder=TextEncoder;w.TextDecoder=TextDecoder;
  w.HTMLDialogElement.prototype.showModal=function(){this.setAttribute('open','');};
  w.HTMLDialogElement.prototype.close=function(){this.removeAttribute('open');};
 }});
@@ -46,7 +46,14 @@ async function main(){
  click('[data-aw="payroll-bulk"][data-id="publish"]');click('[data-aw="payroll-bulk"][data-id="paid"]');set('paidConfirmed',true);set('date','2026-10-14');submit();assert.equal(state().payroll[2].status,'지급 완료');assert.equal(state().payroll[2].paidDate,'2026-10-14');
  let exported;w.AdminXlsx.download=(rows,name)=>exported={rows,name};click('[data-aw="payroll-export"]');assert.equal(exported.rows.length,5);assert.match(exported.name,/\.xlsx$/);
  await page('adminGrade');const award=q('[data-grade-period="daily"][data-grade-index="1"][data-grade-field="achievement"]');award.value='10000';award.dispatchEvent(new w.Event('input',{bubbles:true}));q('#tm-grade-form').requestSubmit();click('[data-grade-confirm]');
- await page('adminDaily');assert.match(q('#tm-main').textContent,/0건/);click('[data-aw="daily-edit"][data-id="staff-0"]');set('count','8');submit();assert.equal(state().daily.at(-1).count,8);assert.ok(state().daily.at(-1).amount>0);await page('adminDailyHistory');click('[data-aw="daily-pay"][data-id="D-1"]');set('paidConfirmed',true);submit();assert.equal(state().daily[0].paid,10000);
+ assert.equal(d.querySelectorAll('[data-grade-department]').length,3);
+ click('[data-grade-department="cosmetics"]');let productAward=q('[data-grade-period="daily"][data-grade-index="0"][data-grade-field="achievement"]');assert.equal(productAward.value,'0');productAward.value='20000';productAward.dispatchEvent(new w.Event('input',{bubbles:true}));
+ click('[data-grade-department="health"]');productAward=q('[data-grade-period="daily"][data-grade-index="0"][data-grade-field="achievement"]');assert.equal(productAward.value,'0');productAward.value='30000';productAward.dispatchEvent(new w.Event('input',{bubbles:true}));q('#tm-grade-form').requestSubmit();assert.match(q('#tm-dialog').textContent,/식품 기준/);click('[data-grade-confirm]');
+ click('[data-grade-department="cosmetics"]');assert.equal(q('[data-grade-period="daily"][data-grade-index="0"][data-grade-field="achievement"]').value,'20000');q('#tm-grade-form').requestSubmit();click('[data-grade-confirm]');assert.match(q('#tm-grade-history').textContent,/총 1건/);
+ click('[data-grade-department="insurance"]');assert.equal(q('[data-grade-period="daily"][data-grade-index="1"][data-grade-field="achievement"]').value,'10000');assert.match(q('#tm-grade-history').textContent,/총 1건/);
+ const savedProducts=JSON.parse(w.localStorage.getItem('tm-office-grade-policy-v1')).entries;assert.equal(savedProducts.length,3);assert.deepEqual([...new Set(savedProducts.map(x=>x.department))].sort(),['cosmetics','health','insurance']);
+ await page('adminDaily');click('[data-aw="daily-edit"][data-id="staff-8"]');set('count','8');submit();assert.equal(state().daily.find(x=>x.employee==='staff-8').amount,20000);
+ await page('adminDaily');assert.match(q('#tm-main').textContent,/0건/);click('[data-aw="daily-edit"][data-id="staff-0"]');set('count','8');submit();assert.equal(state().daily.at(-1).count,8);assert.equal(state().daily.at(-1).amount,10000);await page('adminDailyHistory');click('[data-aw="daily-pay"][data-id="D-1"]');set('paidConfirmed',true);submit();assert.equal(state().daily[0].paid,10000);
  await page('adminContracts');click('[data-aw="contract-add"]');set('start','2026-09-01');set('pay','<img src=x onerror="window.injected=true">');submit();
  assert.equal(state().contracts.length,3);assert.equal(d.querySelectorAll('#tm-main img').length,0);assert.equal(w.injected,undefined);
  const cid=state().contracts[2].id;click('[data-aw="contract-detail"][data-id="'+cid+'"]');set('reviewed',true);submit();assert.equal(state().contracts[2].status,'초안');assert.match(q('.aw-form-error').textContent,/보완 필요/);q('#tm-dialog').close();

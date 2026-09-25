@@ -33,3 +33,14 @@ test('invalid dates and corrupted storage are rejected; legacy policy is retaine
  assert.throws(()=>gradeReadStore('{'));assert.throws(()=>gradeReadStore('{"version":2,"entries":[{}]}'));
  assert.equal(gradeReadStore(JSON.stringify(gradeDefaults())).length,1);
 });
+test('department policies isolate effective dates, retain legacy insurance and start other products empty',()=>{
+ const insurance=gradeDefaults(),cosmetics=gradeDefaults(),health=gradeDefaults();cosmetics.monthly[0].hourly=20000;health.monthly[0].hourly=30000;
+ const entries=[{date:'2026-01-01',savedAt:'2026-01-01T00:00:00Z',policy:insurance},{department:'cosmetics',date:'2026-01-01',savedAt:'2026-01-02T00:00:00Z',policy:cosmetics},{department:'health',date:'2026-10-01',savedAt:'2026-01-03T00:00:00Z',policy:health}];
+ assert.equal(gradePolicyAt(entries,'2026-09-01','insurance').monthly[0].hourly,14000);
+ assert.equal(gradePolicyAt(entries,'2026-09-01','cosmetics').monthly[0].hourly,20000);
+ assert.equal(gradePolicyAt(entries,'2026-09-01','health').monthly[0].hourly,0);
+ assert.equal(gradePolicyAt(entries,'2026-10-01','health').monthly[0].hourly,30000);
+ assert.equal(gradeValidate(gradePolicyAt([],'2026-09-01','cosmetics')),'');
+ assert.equal(gradeReadStore(JSON.stringify({version:2,entries})).length,3);
+ assert.throws(()=>gradeReadStore(JSON.stringify({version:2,entries:[{...entries[0],department:'unknown'}]})));
+});

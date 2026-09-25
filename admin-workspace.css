@@ -76,3 +76,7 @@
 
 #tm-preview .aw-staff-section { border:1px solid #dce5f1; border-radius:10px; padding:16px; margin:20px 0; }
 #tm-preview .aw-staff-section legend { font-size:15px; font-weight:700; padding:0 8px; color:#233d5f; }
+
+#tm-preview .grade-department-tabs { display:flex; gap:10px; margin:18px 0 12px; }
+#tm-preview .grade-department-tabs button { min-width:90px; padding:11px 20px; }
+#tm-preview .grade-department-tabs button:focus-visible { outline:3px solid #739ee6; outline-offset:2px; }
