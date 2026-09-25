@@ -69,3 +69,30 @@ test('only TM staff can receive daily awards and finalized payroll is unaffected
  for(const role of ['팀장','관리자','관리직']){s.staff[1].role=role;assert.equal(C.dailyView(s,'staff-1',today).eligible,false);assert.throws(()=>C.recordDaily(s,'staff-1',today,8,10000),/TM/);assert.throws(()=>C.payDaily(s,'D-2',today),/TM/);}
  assert.throws(()=>C.recordDaily(s,'staff-0','2020-01-01',8,10000));
 });
+test('payout exports confirmed unpaid salaries using latest accounts, preserves snapshots',()=>{
+ const s=seed();s.payroll[0].status='확정';s.payroll[0].snapshot=C.payrollAmounts(s,s.payroll[0]);s.payroll[1].status='확정';s.payroll[2].status='지급 완료';
+ assert.throws(()=>C.saveBank(s,'staff-0',{bank:'예시',number:'12345',holder:'A'},''));
+ C.saveBank(s,'staff-0',{bank:'예시은행',number:'001-23456',holder:'예시 A'},'예시 등록');
+ const original=structuredClone(s.payroll[0]);C.saveBank(s,'staff-0',{bank:'새예시은행',number:'009-87654',holder:'예시 A'},'변경');
+ const plan=C.payoutPreview(s,['PAY-0','PAY-0','PAY-1','PAY-2']);assert.equal(plan.rows.length,1);assert.equal(plan.rows[0][3],'009-87654');assert.equal(plan.excluded.length,2);assert.match(plan.excluded[0].reason,/은행·계좌번호·예금주/);assert.deepEqual(s.payroll[0],original);
+ s.daily[0].amount=9999999;assert.deepEqual(C.payoutPreview(s,['PAY-0']).rows,plan.rows);
+});
+test('payroll reversal enforces paid boundary and retains prior published statement',()=>{
+ const s=seed(),p=s.payroll[2];p.snapshot=C.payrollAmounts(s,p);p.status='지급 완료';p.published=true;p.paidDate='2026-10-14';
+ assert.throws(()=>C.reversePayroll(s,p.id,'unconfirm','오류'));assert.throws(()=>C.reversePayroll(s,p.id,'unpublish','오류'));assert.throws(()=>C.reversePayroll(s,p.id,'unpay',''));
+ C.reversePayroll(s,p.id,'unpay','실제 미지급');assert.equal(p.status,'확정');assert.equal(p.paidDate,null);
+ const old=structuredClone(p.snapshot);C.reversePayroll(s,p.id,'unconfirm','입력 오류');assert.equal(p.status,'미확정');assert.equal(p.snapshot,null);assert.deepEqual(p.previousStatement.snapshot,old);assert.equal(p.previousStatement.status,'수정 중');assert.equal(p.published,false);
+ assert.throws(()=>C.reversePayroll(s,p.id,'unconfirm','중복'));
+});
+test('unpublish only applies before payment and retains amount',()=>{
+ const s=seed(),p=s.payroll[2];p.status='확정';p.published=true;p.snapshot=C.payrollAmounts(s,p);const a=structuredClone(p.snapshot);
+ C.reversePayroll(s,p.id,'unpublish','공개 오류');assert.equal(p.published,false);assert.deepEqual(p.snapshot,a);assert.throws(()=>C.reversePayroll(s,p.id,'unpublish','중복'));
+});
+test('bulk rejection requires reason and skips own or already processed requests',()=>{
+ const s=seed();s.actor='staff-0';s.attendance[2].status='승인';assert.throws(()=>C.rejectAttendance(s,['AT-2'],''));
+ const results=C.rejectAttendance(s,['AT-1','AT-2','AT-3'],'일정 확인 필요');assert.equal(results.filter(r=>r.ok).length,1);assert.equal(s.attendance[1].reply,'일정 확인 필요');assert.equal(s.notifications.length,1);
+});
+test('proxy correction requests retain payroll reference and allow independent requests',()=>{
+ const s=seed();assert.throws(()=>C.proxyRequest(s,'PAY-2','오류'));s.payroll[2].status='지급 완료';assert.throws(()=>C.proxyRequest(s,'PAY-2',' '));
+ const a=C.proxyRequest(s,'PAY-2','퇴사 직원 전달 내용'),b=C.proxyRequest(s,'PAY-2','추가 전달');assert.notEqual(a.id,b.id);assert.equal(a.payrollId,'PAY-2');assert.equal(a.status,'접수');assert.equal(a.month,'2026-09');assert.equal(s.notifications.length,2);
+});
