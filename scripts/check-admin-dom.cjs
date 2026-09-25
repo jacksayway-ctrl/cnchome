@@ -25,7 +25,7 @@ async function main(){
  }
  assert.ok(w.AdminWorkspace,'Admin module loaded');
  const nav=[...d.querySelectorAll('nav [data-page^="admin"]')].map(e=>e.dataset.page);
- assert.equal(nav.length,17);assert.equal(new Set(nav).size,17);
+ assert.equal(nav.length,18);assert.equal(new Set(nav).size,18);
  for(const id of nav){await page(id);assert.ok(d.querySelector('nav [data-page="'+id+'"][aria-current="page"]'),'Active navigation '+id);}
  await page('adminAttendance');
  for(const id of ['AT-2','AT-3'])click('[data-aw-select="'+id+'"]');click('[data-aw="attendance-bulk"]');
@@ -41,7 +41,8 @@ async function main(){
  click('[data-aw="payroll-bulk"][data-id="paid"]');set('paidConfirmed',true);submit();assert.equal(state().payroll[2].status,'확정');assert.match(q('#tm-main').textContent,/명세서 공개 필요/);
  click('[data-aw="payroll-bulk"][data-id="publish"]');click('[data-aw="payroll-bulk"][data-id="paid"]');set('paidConfirmed',true);set('date','2026-10-14');submit();assert.equal(state().payroll[2].status,'지급 완료');assert.equal(state().payroll[2].paidDate,'2026-10-14');
  let exported;w.AdminXlsx.download=(rows,name)=>exported={rows,name};click('[data-aw="payroll-export"]');assert.equal(exported.rows.length,5);assert.match(exported.name,/\.xlsx$/);
- await page('adminDaily');click('[data-aw="daily-pay"][data-id="D-1"]');set('paidConfirmed',true);submit();assert.equal(state().daily[0].paid,10000);
+ await page('adminGrade');const award=q('[data-grade-period="daily"][data-grade-index="1"][data-grade-field="achievement"]');award.value='10000';award.dispatchEvent(new w.Event('input',{bubbles:true}));q('#tm-grade-form').requestSubmit();click('[data-grade-confirm]');
+ await page('adminDaily');assert.match(q('#tm-main').textContent,/0건/);click('[data-aw="daily-edit"][data-id="staff-0"]');set('count','8');submit();assert.equal(state().daily.at(-1).count,8);assert.ok(state().daily.at(-1).amount>0);await page('adminDailyHistory');click('[data-aw="daily-pay"][data-id="D-1"]');set('paidConfirmed',true);submit();assert.equal(state().daily[0].paid,10000);
  await page('adminContracts');click('[data-aw="contract-add"]');set('pay','<img src=x onerror="window.injected=true">');submit();
  assert.equal(state().contracts.length,3);assert.equal(d.querySelectorAll('#tm-main img').length,0);assert.equal(w.injected,undefined);
  const cid=state().contracts[2].id;click('[data-aw="contract-detail"][data-id="'+cid+'"]');set('reviewed',true);submit();assert.equal(state().contracts[2].status,'서명 대기');
@@ -60,7 +61,7 @@ async function main(){
  await page('adminLeave');assert.equal(state().staff.length,17);assert.equal(state().leaves.at(-1).lots.length,0);
  await page('adminPerformance');assert.equal(d.querySelectorAll('[data-performance-record]').length,0);assert.ok(d.querySelector('#tm-main [data-page="adminAs"]'));
  assert.deepEqual(errors,[],'No JavaScript/resource errors');
- console.log('PASS: 17 admin routes, attendance/AS/payroll/contracts/settlements/permissions/audit/notifications, XLSX action and existing staff routes.');
+ console.log('PASS: 18 admin routes, attendance/AS/payroll/contracts/settlements/permissions/audit/notifications, XLSX action and existing staff routes.');
  dom.window.close();
 }
 main().catch(e=>{console.error(e);console.error('Browser errors:',errors);dom.window.close();process.exitCode=1;});

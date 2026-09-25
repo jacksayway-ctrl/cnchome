@@ -102,19 +102,16 @@
     const extra = Math.max(0, count - extraThreshold) * extraRate;
     return { achievement: round(achievement * share), extra: round(extra * share), total: round(achievement * share) + round(extra * share) };
   }
-  function payroll({ basic, allowances = [], dailyEntries = [], deductions = null, adjustments = [], prepaid = 0 }) {
+  function payroll({ basic, allowances = [], deductions = null, adjustments = [], prepaid = 0 }) {
     amount(basic, '월 기본급'); amount(prepaid, '퇴사자 별도 기지급액');
     const allowanceTotal = allowances.reduce((sum, n) => sum + amount(n, '수당'), 0);
-    const days = dailyEntries.map(daily);
-    const dailyTotal = days.reduce((sum, d) => sum + d.recognized, 0);
-    const dailyPaid = days.reduce((sum, d) => sum + d.paid, 0);
     const adjustment = adjustments.reduce((sum, a) => {
       if (!a.reason || !a.reason.trim()) throw new RangeError('보정 사유가 필요합니다.');
       return sum + number(a.delta, '보정 차액', { integer: true, signed: true });
     }, 0);
-    const gross = basic + allowanceTotal + dailyTotal + adjustment;
+    const gross = basic + allowanceTotal + adjustment;
     const deductionTotal = deductions === null ? null : deductions.reduce((sum, d) => sum + amount(d.amount, '공제액'), 0);
-    return { basic, allowanceTotal, dailyTotal, dailyPaid, dailyUnpaid: dailyTotal - dailyPaid, adjustment, gross, deductionTotal, prepaid, net: deductionTotal === null ? null : gross - deductionTotal - dailyPaid - prepaid };
+    return { basic, allowanceTotal, adjustment, gross, deductionTotal, prepaid, net: deductionTotal === null ? null : gross - deductionTotal - prepaid };
   }
   function validDate(date) {
     return typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date) && Number.isFinite(Date.parse(date + 'T00:00:00Z')) && new Date(date + 'T00:00:00Z').toISOString().slice(0, 10) === date;

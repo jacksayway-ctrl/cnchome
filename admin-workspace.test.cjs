@@ -50,9 +50,22 @@ test('negative net and unconfirmed calendar block payroll',()=>{
  const s=seed(),p=s.payroll[2];p.prepaid=9999999;assert.match(C.payrollIssues(s,p).join(' '),/실지급액 음수/);assert.match(C.payrollIssues(s,p).join(' '),/달력/);
 });
 test('paid daily allowance remains protected when its calculated amount drops',()=>{
- const s=seed(),p=s.payroll[1];s.daily[1].amount=0;const a=C.payrollAmounts(s,p);assert.equal(a.dailyTotal,15000);assert.equal(a.cash,15000);assert.equal(a.net,p.base+p.allowance-p.deductions);
+ const s=seed(),p=s.payroll[1];s.daily[1].amount=0;const before=C.payrollAmounts(s,p);s.daily.push({employee:p.employee,date:'2026-09-25',amount:9999999,paid:123});assert.deepEqual(C.payrollAmounts(s,p),before);assert.equal(s.daily[1].paid,15000);
 });
 test('last active highest administrator cannot be disabled or demoted',()=>{
  const s=seed();assert.throws(()=>C.setPermission(s,'admin-owner',{highest:false,active:true},'권한 변경'),/최소 한 명/);
  C.setPermission(s,'admin-payroll',{highest:true,active:true},'추가 지정');C.setPermission(s,'admin-owner',{highest:false,active:true},'업무 인계');assert.equal(s.accounts[0].highest,false);
+});
+
+test('Korean midnight starts a new zero daily view and preserves yesterday',()=>{
+ const s=seed();const a=C.koreaDay(new Date('2026-09-24T14:59:59Z')),b=C.koreaDay(new Date('2026-09-24T15:00:00Z'));
+ assert.equal(a,'2026-09-24');assert.equal(b,'2026-09-25');s.daily.push({id:'old',employee:'staff-0',date:a,count:10,amount:10000,paid:10000});
+ assert.equal(C.dailyView(s,'staff-0',b).count,0);assert.equal(C.dailyView(s,'staff-0',b).paid,0);assert.equal(C.dailyView(s,'staff-0',a).paid,10000);
+});
+test('only TM staff can receive daily awards and finalized payroll is unaffected',()=>{
+ const s=seed(),today=C.koreaDay(),p=s.payroll[0];p.snapshot=C.payrollAmounts(s,p);p.status='확정';const before=structuredClone(p);
+ const d=C.recordDaily(s,'staff-0',today,8,10000);C.payDaily(s,d.id,today);assert.deepEqual(p,before);assert.equal(d.paid,10000);
+ assert.throws(()=>C.payDaily(s,d.id,today));
+ for(const role of ['팀장','관리자','관리직']){s.staff[1].role=role;assert.equal(C.dailyView(s,'staff-1',today).eligible,false);assert.throws(()=>C.recordDaily(s,'staff-1',today,8,10000),/TM/);assert.throws(()=>C.payDaily(s,'D-2',today),/TM/);}
+ assert.throws(()=>C.recordDaily(s,'staff-0','2020-01-01',8,10000));
 });

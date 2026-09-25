@@ -2,7 +2,8 @@
   'use strict';
   const pages = {
     adminPayroll: ['급여·지급 관리', '공제 확인부터 확정·명세서 공개·지급까지 순서대로 검토합니다.'],
-    adminDaily: ['일수당 지급', '현금 지급액과 급여에 합산할 미지급액을 구분합니다.'],
+    adminDaily: ['TM 일 그레이드', '매일 0건부터 별도 집계합니다. 급여·주휴수당에 합산하거나 차감하지 않습니다.'],
+    adminDailyHistory: ['일 그레이드 지급 내역', 'TM 직원의 날짜별 지급 기록만 별도로 확인합니다.'],
     adminCorrections: ['정정·별도 정산', '정정 요청에 답변하고 차액의 지급 내역을 관리합니다.'],
     adminContracts: ['근로계약 관리', '직원별 계약 조건과 서명 대기 상태를 확인합니다.'],
     adminLeave: ['연차·휴가 관리', '발생분·사용분·잔여분과 사용기한을 확인합니다.'],
@@ -19,7 +20,7 @@
   const money = n => Number(n).toLocaleString('ko-KR') + '원';
   const sum = xs => xs.reduce((a,b) => a+b, 0);
   function seed(people) {
-    const staff = people.map((p,i) => ({id:'staff-'+i, name:p.name, team:p.team}));
+    const staff = people.map((p,i) => ({id:'staff-'+i, name:p.name, team:p.team, role:p.role||'상담원'}));
     return {staff, actor:'admin-owner', serial:10, calendars:{2026:{confirmed:false,days:[]},2027:{confirmed:false,days:[]}},
       leaves:staff.map(p=>({employee:p.id,lots:[{id:'leave-'+p.id,granted:8,used:2,expires:'2026-12-31'}]})),
       attendance:[
@@ -92,10 +93,8 @@
   }
   function payrollAmounts(s,p){
     if(p.snapshot)return p.snapshot;
-    const daily=s.daily.filter(d=>d.employee===p.employee&&d.date.startsWith(p.month));
-    const dailyTotal=sum(daily.map(d=>Math.max(d.amount,d.paid))),cash=sum(daily.map(d=>d.paid));
-    const gross=p.base+p.allowance+dailyTotal;
-    return {base:p.base,allowance:p.allowance,dailyTotal,cash,gross,deductions:p.deductions,prepaid:p.prepaid,net:gross-cash-p.deductions-p.prepaid};
+    const gross=p.base+p.allowance;
+    return {base:p.base,allowance:p.allowance,gross,deductions:p.deductions,prepaid:p.prepaid,net:gross-p.deductions-p.prepaid};
   }
   function payrollIssues(s,p){
     const result=[],[y,m]=p.month.split('-').map(Number),payYear=m===12?y+1:y;
@@ -151,13 +150,35 @@
   function home(){
     syncStaff();
     const pending=state.attendance.filter(r=>r.status==='대기').length,as=state.cases.flatMap(c=>c.issues).filter(i=>i.status==='진행'&&i.decision==='대기').length;
-    return `<div class="aw aw-hub"><div class="aw-heading"><div><p class="aw-eyebrow">관리자 업무함</p><h2>먼저 확인할 업무</h2><p class="sub">새 관리자 업무 예시 · ${TODAY} 기준 · 새로고침 시 초기화</p></div>${link('운영 점검','adminChecklist')}</div><div class="aw-task-grid">${[[pending+'건','출결 승인 대기','중복 시간·잔여 연차 확인','adminAttendance'],[as+'건','A/S 차감 검토','검토 대기 건은 급여 확정 차단','adminAs'],[state.payroll.filter(p=>p.status==='미확정').length+'명','급여 검토','공제·달력·임금 기준 확인','adminPayroll'],[state.contracts.filter(c=>c.status==='서명 대기').length+'건','계약 서명 대기','계약 조건과 진행 상황 확인','adminContracts']].map(([n,t,h,p])=>`<button class="aw-task" type="button" data-page="${p}"><span>${t}</span><strong>${n}</strong><small>${h} →</small></button>`).join('')}</div><div class="aw-shortcuts">${link('일수당 지급','adminDaily')}${link('정정·정산','adminCorrections')}${link('알림 '+state.notifications.filter(n=>!n.read).length,'adminNotifications')}${link('변경 이력','adminAudit')}</div></div>`;
+    return `<div class="aw aw-hub"><div class="aw-heading"><div><p class="aw-eyebrow">관리자 업무함</p><h2>먼저 확인할 업무</h2><p class="sub">새 관리자 업무 예시 · ${TODAY} 기준 · 새로고침 시 초기화</p></div>${link('운영 점검','adminChecklist')}</div><div class="aw-task-grid">${[[pending+'건','출결 승인 대기','중복 시간·잔여 연차 확인','adminAttendance'],[as+'건','A/S 차감 검토','검토 대기 건은 급여 확정 차단','adminAs'],[state.payroll.filter(p=>p.status==='미확정').length+'명','급여 검토','공제·달력·임금 기준 확인','adminPayroll'],[state.contracts.filter(c=>c.status==='서명 대기').length+'건','계약 서명 대기','계약 조건과 진행 상황 확인','adminContracts']].map(([n,t,h,p])=>`<button class="aw-task" type="button" data-page="${p}"><span>${t}</span><strong>${n}</strong><small>${h} →</small></button>`).join('')}</div><div class="aw-shortcuts">${link('TM 일 그레이드','adminDaily')}${link('정정·정산','adminCorrections')}${link('알림 '+state.notifications.filter(n=>!n.read).length,'adminNotifications')}${link('변경 이력','adminAudit')}</div></div>`;
   }
   function payrollPage(){
     const rows=state.payroll.filter(p=>match(p)).map(p=>{const a=payrollAmounts(state,p),issues=p.status==='미확정'?payrollIssues(state,p):[];return [selection(p.id),esc(staffName(state,p.employee)),p.month,money(a.gross),money(a.deductions),`<strong>${money(a.net)}</strong>`,badge(p.status,p.status==='지급 완료'?'green':'')+' '+(p.published?badge('공개','blue'):''),issues.length?`<span class="aw-warning">${issues.map(esc).join('<br>')}</span>`:'검토 완료',btn('상세·검토','payroll-detail',p.id)];});
     return metrics([['급여 귀속 월','2026년 9월','검토용 금액 예시'],['미확정',state.payroll.filter(p=>p.status==='미확정').length+'명'],['실지급액 합계',money(sum(state.payroll.map(p=>payrollAmounts(state,p).net)))]])+card('월 급여 검토',`<p class="sub">금액은 고정 예시입니다. 실적별 산식은 <a href="./payroll.html">급여 계산 검토</a>에서 별도로 확인할 수 있습니다.</p>${filterBar(['미확정','확정','지급 완료'])}<div class="aw-toolbar">${btn('표시된 직원 전체 선택','select-visible')}${btn('선택 확정','payroll-bulk','confirm')}${btn('선택 명세서 공개','payroll-bulk','publish')}${btn('선택 지급 완료','payroll-bulk','paid')}</div>${table(['선택','직원','귀속 월','세전','공제','실지급액','상태','확정 전 확인','관리'],rows)}<p class="sub">가능한 직원만 일괄 처리하고 제외 사유를 표시합니다. 명세서 공개 후에만 지급 완료할 수 있습니다.</p>`);
   }
-  function dailyPage(){return card('일 그레이드 현금 지급',`${filterBar(['미지급','지급 완료'])}${table(['직원','실적일','인정 수당','현금 기지급','급여 합산','관리'],state.daily.filter(d=>match(d,d.paid?'지급 완료':'미지급')).map(d=>[esc(staffName(state,d.employee)),d.date,money(Math.max(d.amount,d.paid)),money(d.paid),money(Math.max(0,d.amount-d.paid)),d.paid?badge('지급 완료','green'):btn('전액 지급 기록','daily-pay',d.id)]))}<p class="sub">가장 높은 달성 구간만 지급합니다. 기지급액은 보호하고 미지급액은 월 급여에 합산합니다. 지급 오류는 정정 내역으로 처리합니다.</p>${link('정정 요청·정산','adminCorrections')}`);}
+  function koreaDay(now=new Date()){return new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit'}).format(now);}
+  function isTm(p){return ['상담원','TM','TM 직원'].includes(p?.role);}
+  function dailyView(s,employee,date=koreaDay()){
+    const eligible=isTm(s.staff.find(p=>p.id===employee));
+    const d=eligible?s.daily.find(d=>d.employee===employee&&d.date===date):null;
+    return {employee,date,eligible,count:d?.count||0,amount:d?.amount||0,paid:d?.paid||0,id:d?.id||''};
+  }
+  function recordDaily(s,employee,date,count,amount){
+    if(!isTm(s.staff.find(p=>p.id===employee)))throw Error('TM 상담원만 일 그레이드 대상입니다.');
+    if(date!==koreaDay())throw Error('오늘 실적만 집계할 수 있습니다. 날짜를 다시 확인해 주세요.');
+    if(!Number.isSafeInteger(count)||count<0||!Number.isSafeInteger(amount)||amount<0||(count===0&&amount!==0))throw Error('실적과 달성 금액을 확인해 주세요.');
+    let d=s.daily.find(d=>d.employee===employee&&d.date===date);if(d?.paid)throw Error('지급 완료된 기록은 유지합니다.');
+    const before=d?clone(d):{};if(!d){d={id:'D-'+(++s.serial),employee,date,paid:0};s.daily.push(d);}Object.assign(d,{count,amount});log(s,'TM 일 그레이드',d.id,before,d,'당일 집계 · 급여 제외');return d;
+  }
+  function payDaily(s,id,date){
+    const d=s.daily.find(d=>d.id===id);if(!d||!isTm(s.staff.find(p=>p.id===d.employee)))throw Error('TM 상담원 지급 건만 처리할 수 있습니다.');
+    if(d.paid||d.amount<=0)throw Error('이미 지급했거나 지급할 금액이 없습니다.');
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||new Date(date+'T00:00:00Z').toISOString().slice(0,10)!==date||date>koreaDay()||date<d.date)throw Error('실제 지급일을 확인해 주세요.');
+    const before=clone(d);d.paid=d.amount;d.paidDate=date;log(s,'TM 일 그레이드',id,before,d,'전액 지급 · 급여와 별도');
+  }
+  function dailyPage(){const date=koreaDay();return card('오늘 TM 일 그레이드 · '+date,`${link('지급 내역 조회','adminDailyHistory')}${table(['TM 직원','당일 실적','당일 달성액','지급액','관리'],state.staff.filter(isTm).map(p=>{const d=dailyView(state,p.id,date);return [esc(p.name),d.count+'건',money(d.amount),money(d.paid),d.paid?badge('지급 완료','green'):btn('당일 집계 입력','daily-edit',p.id)+(d.amount?btn('전액 지급 기록','daily-pay',d.id):'')];}))}<p class="sub">한국 시간 자정마다 새 날짜의 실적·금액을 0부터 표시합니다. 이전 기록은 지급 내역에 보존하며 이월하지 않습니다. 예시 집계 입력은 실제 접수와 연결되지 않았습니다. 현재 일 그레이드표의 가장 높은 달성 구간 금액만 적용하며 급여·주휴수당·명세서·급여대장에는 반영하지 않습니다.</p>`);}
+  function dailyHistoryPage(){return card('날짜별 별도 지급 기록',`${link('오늘 집계','adminDaily')}${filterBar(['미지급','지급 완료'])}${table(['TM 직원','실적일','달성액','실제 지급액','지급일','상태'],state.daily.filter(d=>isTm(state.staff.find(p=>p.id===d.employee))&&match(d,d.paid?'지급 완료':'미지급')).map(d=>[esc(staffName(state,d.employee)),d.date,money(d.amount),money(d.paid),d.paidDate||'—',d.paid?badge('지급 완료','green'):btn('별도 지급 기록','daily-pay',d.id)]))}<p class="sub">미지급액도 급여로 넘기지 않습니다. 과거 기록은 새 날짜의 집계에 영향을 주지 않습니다.</p>`);}
+
   function attendancePage(){return metrics([['승인 대기',state.attendance.filter(r=>r.status==='대기').length+'건'],['승인',state.attendance.filter(r=>r.status==='승인').length+'건'],['무급 처리','건별 10분 내림','점심시간 제외']])+card('신청 검토',`${filterBar(['대기','승인','반려','취소'])}<div class="aw-toolbar">${btn('표시된 신청 전체 선택','select-visible')}${btn('선택 승인','attendance-bulk')}${link('연차 잔여분','adminLeave')}</div>${table(['선택','직원','구분','사용일·시간','사유','상태','무급','관리'],state.attendance.filter(r=>match(r)).map(r=>[selection(r.id),esc(staffName(state,r.employee)),r.kind,r.date+'<br>'+r.start+'–'+r.end,esc(r.reason),badge(r.status,r.status==='승인'?'green':''),r.unpaid===undefined?'승인 후 계산':r.unpaid+'분',r.status==='대기'?btn('검토','attendance-review',r.id):r.status==='승인'?btn('승인 취소','attendance-cancel',r.id):'—']))}<p class="sub">본인 신청 승인과 승인 시간 중복을 차단합니다. 연차는 사용일이 빠른 순서로 잔여 범위까지 승인하고 나머지는 대기로 남깁니다.</p>`);}
   function leavePage(){return card('직원별 연차 잔여분',`${filterBar()}${table(['직원','발생','사용','잔여','가장 빠른 사용기한','관리'],state.leaves.filter(l=>match({...l,id:l.employee})).map(l=>[esc(staffName(state,l.employee)),sum(l.lots.map(x=>x.granted))+'일',sum(l.lots.map(x=>x.used))+'일',leaveRemaining(state,l.employee)+'일',l.lots.filter(x=>x.used<x.granted).map(x=>x.expires).sort()[0]||'—',btn('초기 발생분 추가','leave-add',l.employee)]))}<p class="sub">현재 잔여분은 등록된 예시 발생분과 승인 사용분입니다. 근속기간에 따른 법정 자동 발생 계산은 아직 연결되지 않았습니다.</p>${link('출결 승인','adminAttendance')}`);}
   function asPage(){return card('A/S 검토 목록',`<div class="aw-toolbar">${btn('A/S 추가','as-add')}${filterBar(['진행','완료','취소'])}</div>${state.cases.map(c=>`<div class="aw-case"><div class="aw-heading"><h3>${esc(c.id)} · ${esc(staffName(state,c.employee))}</h3>${badge(c.blocked?'현재 실적 차감':'현재 실적 인정',c.blocked?'amber':'green')}</div>${table(['A/S','사유','담당자','차감 결정','상태','관리'],c.issues.filter(i=>match({id:i.id,employee:i.owner,text:i.reason,status:i.status})).map(i=>[esc(i.id),esc(i.reason),esc(staffName(state,i.owner)),badge(i.decision,i.decision==='대기'?'amber':''),badge(i.status),btn('상세·처리','as-detail',c.id+'/'+i.id)]))}</div>`).join('')}<p class="sub">등록만으로 차감하지 않습니다. 차감 후에는 모든 유효 A/S가 완료되어야 복구합니다. 유일한 차감 원인이 오류로 취소된 경우는 즉시 복구합니다. 확정 급여는 유지합니다.</p>`);}
@@ -169,30 +190,31 @@
   function checklistPage(){const list=[['출결 검토',state.attendance.filter(r=>r.status==='대기').length+'건 대기','adminAttendance'],['A/S 차감 결정',state.cases.flatMap(c=>c.issues).filter(i=>i.status==='진행'&&i.decision==='대기').length+'건 대기','adminAs'],['2026년 공휴일 달력',state.calendars[2026].confirmed?'확인 완료':'확인 필요','adminSettings'],['급여 확정 조건',state.payroll.filter(p=>p.status==='미확정'&&payrollIssues(state,p).length).length+'명 확인 필요','adminPayroll'],['계약서 서명 대기',state.contracts.filter(c=>c.status==='서명 대기').length+'건','adminContracts'],['급여 정정 요청',state.requests.filter(r=>['접수','검토 중'].includes(r.status)).length+'건','adminCorrections']];return card('오늘의 운영 점검',table(['항목','현재 상태','처리'],list.map(([a,b,c])=>[a,b,link('확인',c)])))+card('운영 전 준비',`<p>실제 직원별 임금·그레이드표·계약서와 공휴일 달력을 등록해야 합니다.</p><ul><li>주휴 포함 시급 구분 산식과 미사용 연차수당 기준 임금: 문서 검토 대기</li><li>실제 로그인·권한 검사·영구 저장·파일 보관: 운영 서버 연결 대기</li><li>퇴직급여 제도·연차사용촉진: 기존 결정 대기 유지</li></ul><a href="./docs/PAYROLL_IMPLEMENTATION.md">전체 구현 현황</a>`);}
   function settings(){const y=ui.year,c=state.calendars[y];return `<div class="aw">${card('공휴일 달력 확인',`<p class="sub">예시 달력입니다. 실제 공휴일 정보가 사전 등록된 상태가 아닙니다. 연도별 등록 내용 확인을 마쳐야 급여 확정할 수 있습니다.</p><div class="aw-toolbar"><label>연도<select data-aw-year><option ${y==='2026'?'selected':''}>2026</option><option ${y==='2027'?'selected':''}>2027</option></select></label>${badge(c.confirmed?'확인 완료':'확인 대기',c.confirmed?'green':'amber')}${btn('휴일 등록','holiday-add',y)}${btn('예시 달력 확인 완료','calendar-confirm',y)}</div>${table(['날짜','휴일명','관리'],c.days.map(d=>[d.date,esc(d.name),btn('삭제','holiday-remove',y+'/'+d.date)]))}<p class="sub">확인 후 날짜를 추가·삭제하면 재확인 상태로 바뀝니다.</p>`)}${card('운영 바로가기',`<div class="aw-shortcuts">${link('계정·권한','adminPermissions')}${link('변경 이력','adminAudit')}${link('운영 점검','adminChecklist')}${link('알림 센터','adminNotifications')}</div>`)}</div>`;}
   function staffLinks(){return `<div class="aw">${card('인사·급여 업무',`<div class="aw-shortcuts">${link('근로계약','adminContracts')}${link('연차·휴가','adminLeave')}${link('급여·지급','adminPayroll')}${link('계정·권한','adminPermissions')}</div><p class="sub">직원 등록·팀 배정과 계약·급여·권한을 구분해 관리합니다.</p>`)}</div>`;}
-  const renderers={adminPayroll:payrollPage,adminDaily:dailyPage,adminAttendance:attendancePage,adminLeave:leavePage,adminAs:asPage,adminCorrections:correctionsPage,adminContracts:contractsPage,adminPermissions:permissionPage,adminAudit:auditPage,adminNotifications:notificationsPage,adminChecklist:checklistPage};
+  const renderers={adminPayroll:payrollPage,adminDaily:dailyPage,adminDailyHistory:dailyHistoryPage,adminAttendance:attendancePage,adminLeave:leavePage,adminAs:asPage,adminCorrections:correctionsPage,adminContracts:contractsPage,adminPermissions:permissionPage,adminAudit:auditPage,adminNotifications:notificationsPage,adminChecklist:checklistPage};
   function syncStaff(){
     if(!bridge)return;
-    bridge.employees.forEach((p,i)=>{const id='staff-'+i,existing=state.staff.find(s=>s.id===id);if(existing){existing.name=p.name;existing.team=p.team;}else{state.staff.push({id,name:p.name,team:p.team});state.leaves.push({employee:id,lots:[]});}});
+    bridge.employees.forEach((p,i)=>{const id='staff-'+i,existing=state.staff.find(s=>s.id===id);if(existing){existing.name=p.name;existing.team=p.team;existing.role=p.role||'상담원';}else{state.staff.push({id,name:p.name,team:p.team,role:p.role||'상담원'});state.leaves.push({employee:id,lots:[]});}});
   }
   function render(page){syncStaff();if(currentPage!==page)state.feedback=[];currentPage=page;const [title,desc]=pages[page];return wrapper(title,desc,renderers[page]());}
   function refresh(message){bridge.render();if(message)bridge.toast(message+' · 예시 화면');}
   function getFormValues(form){return new FormData(form);}
   function openAction(action,id){
     if(action==='payroll-export'){
-      const rows=[['예시 급여대장 · 실제 지급용 아님'],['직원','귀속 월','기본급','주·월 수당','일수당','현금 기지급','세전 총액','공제','별도 기지급','실지급액','상태']];
-      for(const p of state.payroll){const a=payrollAmounts(state,p);rows.push([staffName(state,p.employee),p.month,a.base,a.allowance,a.dailyTotal,a.cash,a.gross,a.deductions,a.prepaid,a.net,p.status]);}
+      const rows=[['예시 급여대장 · 실제 지급용 아님'],['직원','귀속 월','기본급','주·월 수당','세전 총액','공제','별도 기지급','실지급액','상태']];
+      for(const p of state.payroll){const a=payrollAmounts(state,p);rows.push([staffName(state,p.employee),p.month,a.base,a.allowance,a.gross,a.deductions,a.prepaid,a.net,p.status]);}
       global.AdminXlsx.download(rows,'예시_급여대장_2026-09.xlsx');log(state,'내보내기','급여대장',{}, {rows:state.payroll.length},'예시 XLSX 다운로드');bridge.toast('예시 급여대장을 다운로드했습니다.');return;
     }
     if(action==='payroll-detail'){
       const p=state.payroll.find(p=>p.id===id),a=payrollAmounts(state,p);
-      modal(staffName(state,p.employee)+' · '+p.month+' 급여',table(['기본급','주·월 수당','일수당','현금 기지급','실지급액'],[[money(a.base),money(a.allowance),money(a.dailyTotal),money(a.cash),money(a.net)]])+(p.status==='미확정'?form('payroll-review',id,field('공제 합계(원)','deductions',p.deductions,'number','min="0" step="1" required')+check('공제액 또는 공제 없음 확인','deductionsChecked',p.confirmedDeductions)+check('예시 임금 기준 검토 완료','wageReviewed',p.wageReviewed)+check('기존 보정 내역 재확인','adjustmentReviewed',p.adjustmentReviewed),'검토 내용 반영'):`<p>${esc(p.status)} · ${p.published?'공개':'미공개'} · 확정 금액 보존</p>`));return;
+      modal(staffName(state,p.employee)+' · '+p.month+' 급여',table(['기본급','주·월 수당','실지급액'],[[money(a.base),money(a.allowance),money(a.net)]])+(p.status==='미확정'?form('payroll-review',id,field('공제 합계(원)','deductions',p.deductions,'number','min="0" step="1" required')+check('공제액 또는 공제 없음 확인','deductionsChecked',p.confirmedDeductions)+check('예시 임금 기준 검토 완료','wageReviewed',p.wageReviewed)+check('기존 보정 내역 재확인','adjustmentReviewed',p.adjustmentReviewed),'검토 내용 반영'):`<p>${esc(p.status)} · ${p.published?'공개':'미공개'} · 확정 금액 보존</p>`));return;
     }
     if(action==='payroll-bulk'){
       const ids=ui.selected[currentPage]||[];if(!ids.length)throw Error('처리할 직원을 선택해 주세요.');
       if(id==='paid'){modal('선택 직원 지급 확인',form('payroll-paid','',field('실제 지급일','date',TODAY,'date',`required max="${TODAY}"`)+check('선택 직원에게 전액 지급했거나 지급할 금액이 없음을 확인합니다.','paidConfirmed'),'예시 지급 완료'));return;}
       payrollTransition(state,ids,id);refresh();return;
     }
-    if(action==='daily-pay'){const d=state.daily.find(d=>d.id===id);modal('일수당 전액 지급',`<p>${esc(staffName(state,d.employee))} · ${d.date} · ${money(d.amount)}</p>`+form('daily-pay',id,field('실제 지급일','date',TODAY,'date',`required max="${TODAY}"`)+check('해당 일수당 전액을 지급했음을 확인합니다.','paidConfirmed')));return;}
+    if(action==='daily-edit'){const d=dailyView(state,id);modal('오늘 TM 실적 입력 · 예시',form('daily-edit',id,field('집계일','date',koreaDay(),'date','required readonly')+field('오늘 정상 실적','count',d.count,'number','min="0" step="1" required')+'<p>현재 일 그레이드표의 최고 달성 구간 금액을 자동 적용합니다. 표의 달성수당이 0원이면 지급액도 0원입니다. 급여·주휴수당에는 반영되지 않습니다.</p>','당일 집계 반영'));return;}
+    if(action==='daily-pay'){const d=state.daily.find(d=>d.id===id);modal('일수당 전액 지급',`<p>${esc(staffName(state,d.employee))} · ${d.date} · ${money(d.amount)}</p>`+form('daily-pay',id,field('실제 지급일','date',koreaDay(),'date',`required max="${koreaDay()}" min="${d.date}"`)+check('해당 일수당 전액을 지급했음을 확인합니다.','paidConfirmed')));return;}
     if(action==='attendance-bulk'){const ids=ui.selected[currentPage]||[];if(!ids.length)throw Error('신청을 선택해 주세요.');approveAttendance(state,ids);refresh();return;}
     if(action==='attendance-review'||action==='attendance-cancel'){
       const r=state.attendance.find(r=>r.id===id);
@@ -232,8 +254,10 @@
       if(!data.has('paidConfirmed'))throw Error('실제 지급 여부를 확인해 주세요.');payrollTransition(state,ui.selected.adminPayroll||[],'paid',String(data.get('date')));
     }else if(kind==='daily-pay'){
       const d=state.daily.find(d=>d.id===id);if(d.paid)throw Error('이미 지급한 일수당입니다.');
-      if(state.payroll.some(p=>p.employee===d.employee&&d.date.startsWith(p.month)&&p.status!=='미확정'))throw Error('해당 월 급여가 이미 확정되어 별도 현금 지급을 기록할 수 없습니다.');
-      if(!data.has('paidConfirmed')||String(data.get('date'))>TODAY)throw Error('지급 확인과 실제 지급일을 확인해 주세요.');const before=clone(d);d.paid=d.amount;d.paidDate=String(data.get('date'));log(state,'일수당',id,before,d,'전액 현금 지급 확인');
+
+      if(!data.has('paidConfirmed'))throw Error('실제 지급을 확인해 주세요.');payDaily(state,id,String(data.get('date')));
+    }else if(kind==='daily-edit'){
+      recordDaily(state,id,String(data.get('date')),num('count'),bridge.dailyAward(num('count')));
     }else if(kind==='attendance'){
       const r=state.attendance.find(r=>r.id===id),action=data.get('action');if(r.employee===state.actor)throw Error('본인 신청은 다른 관리자가 처리해야 합니다.');
       if(action==='approve'){const result=approveAttendance(state,[id])[0];if(!result?.ok)throw Error(result?.reason||'처리할 신청이 없습니다.');}
@@ -266,10 +290,11 @@
   function init(options){
     bridge=options;state=seed(options.employees);
     const root=options.root;
+    let lastDay=koreaDay();setInterval(()=>{const day=koreaDay();if(day!==lastDay){lastDay=day;bridge.render();}},1000);
     root.addEventListener('click',e=>{const b=e.target.closest('[data-aw]');if(!b)return;try{openAction(b.dataset.aw,b.dataset.id);}catch(error){bridge.toast(error.message);}});
     root.addEventListener('change',e=>{if(e.target.matches('[data-aw-select]')){const ids=new Set(ui.selected[currentPage]||[]);e.target.checked?ids.add(e.target.dataset.awSelect):ids.delete(e.target.dataset.awSelect);ui.selected[currentPage]=[...ids];}if(e.target.matches('[data-aw-year]')){ui.year=e.target.value;bridge.render();}});
     root.addEventListener('submit',e=>{const f=e.target.closest('[data-aw-form]');if(!f)return;e.preventDefault();if(!f.reportValidity())return;try{handleForm(f);}catch(error){const out=f.querySelector('[role="alert"]');if(out)out.textContent=error.message;else bridge.toast(error.message);}});
   }
-  const api={pages,init,render,home,settings,staffLinks,core:{seed,approveAttendance,updateAs,payrollAmounts,payrollIssues,payrollTransition,setPermission,leaveRemaining,unpaidMinutes},getState:()=>clone(state)};
+  const api={pages,init,render,home,settings,staffLinks,core:{koreaDay,isTm,dailyView,recordDaily,payDaily,seed,approveAttendance,updateAs,payrollAmounts,payrollIssues,payrollTransition,setPermission,leaveRemaining,unpaidMinutes},getState:()=>clone(state),todayDaily:(id='staff-0')=>dailyView(state,id)};
   if(typeof module!=='undefined'&&module.exports)module.exports=api;else global.AdminWorkspace=api;
 })(typeof window!=='undefined'?window:globalThis);

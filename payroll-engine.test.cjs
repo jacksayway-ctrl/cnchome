@@ -47,7 +47,7 @@ test('no grade table falls back to employee base and no allowance', () => {
   assert.equal(r.allowance, 0); assert.equal(r.gradeHourly, 0);
   assert.equal(E.hourlyBase([{ minutes: 60, baseHourly: 12000, gradeHourly: r.gradeHourly }]).amount, 12000);
 });
-test('paid daily allowance survives A/S and transfers; increase goes to payroll', () => {
+test('standalone daily allowance protects paid records', () => {
   const dayTable = [{ threshold: 6, allowance: 5000 }, { threshold: 8, allowance: 10000 }];
   assert.deepEqual(E.daily({ count: 0, table: dayTable, paid: 10000 }), { earned: 0, paid: 10000, recognized: 10000, unpaid: 0 });
   assert.equal(E.daily({ count: 8, table: dayTable, paid: 5000 }).unpaid, 5000);
@@ -71,11 +71,12 @@ test('team excess threshold is independent from tier and each team allows 100 pe
   assert.equal(r.total, 115000);
   assert.throws(() => E.teamBonus({ count: 150, table, extraThreshold: 120, extraRate: 1000, share: 1.1 }));
 });
-test('daily and leaver prepayments are deducted once and missing deductions remain null', () => {
+test('daily entries never change payroll; only leaver prepaid is deducted', () => {
   const input = { basic: 1000000, dailyEntries: [{ count: 8, table: [{ threshold: 8, allowance: 10000 }], paid: 8000 }], prepaid: 200000 };
   assert.equal(E.payroll(input).net, null);
   const r = E.payroll({ ...input, deductions: [{ amount: 100000 }] });
-  assert.equal(r.gross, 1010000); assert.equal(r.net, 702000);
+  assert.equal(r.gross, 1000000); assert.equal(r.net, 700000);
+  assert.deepEqual(r,E.payroll({basic:1000000,prepaid:200000,deductions:[{amount:100000}]}));
 });
 test('signed corrections accumulate and require reasons', () => {
   assert.equal(E.payroll({ basic: 100000, adjustments: [{ delta: 10000, reason: '오류 정정' }, { delta: -5000, reason: '중복 정정' }], deductions: [] }).net, 105000);
