@@ -26,7 +26,7 @@ async function main(){
  assert.ok(w.AdminWorkspace,'Admin module loaded');
  const sections=w.AdminWorkspace.navigation,nav=sections.flatMap(g=>g.items.map(([id])=>id));
  assert.equal(d.querySelectorAll('aside [data-aw-section]').length,6);assert.equal(d.querySelectorAll('aside [data-page^="admin"]').length,0);
- assert.equal(nav.length,19);assert.equal(new Set(nav).size,19);
+ assert.equal(nav.length,20);assert.equal(new Set(nav).size,20);
  for(const id of nav){await page(id);const index=sections.findIndex(g=>g.items.some(([p])=>p===id));assert.ok(d.querySelector('[data-aw-section="'+index+'"][aria-current="true"]'),'Parent navigation '+id);assert.ok(d.querySelector('#aw-subpages [data-page="'+id+'"][aria-current="page"]'),'Subpage navigation '+id);assert.equal(d.querySelectorAll('#aw-subpages [data-page]').length,sections[index].items.length);}
  for(let i=0;i<sections.length;i++){click('[data-aw-section="'+i+'"]');await pause();assert.equal(w.location.hash,'#'+sections[i].items[0][0]);const last=sections[i].items.at(-1)[0];click('#aw-subpages [data-page="'+last+'"]');await pause();assert.equal(w.location.hash,'#'+last);}
  await page('home');assert.equal(q('#aw-subpages').hidden,true);assert.equal(d.querySelectorAll('[data-aw-section][aria-current]').length,0);
@@ -59,7 +59,11 @@ async function main(){
  await page('adminAudit');assert.ok(q('#tm-main').textContent.includes('공제 입력 오류 확인'));click('[data-aw="audit-detail"]');assert.ok(q('.aw-compare').textContent.includes('payments'));q('#tm-dialog').close();
  await page('adminNotifications');assert.ok(state().notifications.length>0);click('[data-aw="notify-read-all"]');assert.ok(state().notifications.every(n=>n.read));
  for(const id of ['home','sales','grade','attendance','as'])await page(id);
- await page('adminStaff');click('[data-action="staff-add"]');set('name','<img src=x onerror="window.staffInjected=true">');set('phone','010-0000-0000');set('team','insurance');submit();
+ await page('adminStaff');assert.match(q('#tm-main').textContent,/전체 16명/);click('[data-aw="staff-new"]');await pause();
+ const staffForm=q('[data-aw-form="staff-save"]');const staffSet=(name,value)=>staffForm.querySelector('[name="'+name+'"]').value=value;
+ staffSet('name','<img src=x onerror="window.staffInjected=true">');staffSet('phone','010-0000-0000');staffSet('team','insurance');staffSet('startDate','2026-09-25');staffSet('weeklyHoliday','일');staffSet('employeeNo','TEST-17');staffSet('payAmount','12000');staffForm.requestSubmit();await pause();
+ assert.equal(state().staff.length,17);assert.match(q('#tm-main').textContent,/TEST-17/);
+ click('[data-aw="staff-edit"][data-id="staff-16"]');await pause();const edit=q('[data-aw-form="staff-save"]');assert.equal(edit.querySelector('[name="payAmount"]').value,'12000');edit.querySelector('[name="memo"]').value='정보 확인 완료';edit.requestSubmit();await pause();assert.equal(state().staff.length,17);
  assert.equal(d.querySelectorAll('#tm-main img').length,0);assert.equal(w.staffInjected,undefined);
  await page('adminContracts');click('[data-aw="contract-add"]');assert.ok([...q('#tm-dialog select[name="employee"]').options].some(o=>o.text.includes('staffInjected')));q('#tm-dialog').close();
  await page('adminLeave');assert.equal(state().staff.length,17);assert.equal(state().leaves.at(-1).lots.length,0);
@@ -75,7 +79,7 @@ async function main(){
  await page('adminPayroll');click('[data-aw="payroll-export"]');const headers=exported.rows[1],row=exported.rows.at(-1);assert.equal(row[headers.indexOf('세전 보정')],10000);assert.equal(row[headers.indexOf('공제 보정')],1000);assert.equal(headers.some(x=>x.includes('일 그레이드')),false);
  await page('adminAttendance');if(!q('[data-aw-select="AT-3"]').checked)click('[data-aw-select="AT-3"]');click('[data-aw="attendance-reject-bulk"]');set('reason','중복 일정 확인');submit();assert.equal(state().attendance.find(r=>r.id==='AT-3').status,'반려');
  assert.deepEqual(errors,[],'No JavaScript/resource errors');
- console.log('PASS: 19 admin routes, attendance/AS/payroll/contracts/settlements/permissions/audit/notifications, XLSX action and existing staff routes.');
+ console.log('PASS: 20 admin routes, staff registration/editing, attendance/AS/payroll/contracts/settlements/permissions/audit/notifications, XLSX action and existing staff routes.');
  dom.window.close();
 }
 main().catch(e=>{console.error(e);console.error('Browser errors:',errors);dom.window.close();process.exitCode=1;});

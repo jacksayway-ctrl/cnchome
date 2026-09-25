@@ -153,3 +153,12 @@ test('invalid daily table repricing is atomic and cannot write partial updates',
  const s=seed(),date=C.koreaDay(),a=C.recordDaily(s,'staff-0',date,8,10000),b=C.recordDaily(s,'staff-1',date,10,15000);
  assert.throws(()=>C.repriceDaily(s,date,count=>count===8?20000:NaN));assert.equal(a.amount,10000);assert.equal(b.amount,15000);
 });
+const profile=()=>({name:'가상 직원',phone:'010-0000-0000',employeeNo:'E17',email:'',team:'insurance',role:'상담원',startDate:'2026-09-25',employment:'재직',endDate:'',contractType:'무기계약',contractEnd:'',workDays:['월','화','수','목','금'],weeklyHoliday:'일',payType:'시급제',payAmount:12000});
+test('staff validation allows incomplete wage setup but blocks duplicate employee numbers',()=>{
+ const p=profile();assert.equal(C.validateStaff(p,[],null),p);assert.throws(()=>C.validateStaff(p,[p],null),/사번/);assert.equal(C.validateStaff(p,[p],0),p);
+ p.payAmount='';C.validateStaff(p,[],null);assert.ok(C.missingStaff(p).includes('급여 기준'));
+});
+test('staff validation checks dates, workdays and role-specific wage types',()=>{
+ for(const patch of [{employment:'퇴사',endDate:'2026-09-24'},{contractType:'기간제',contractEnd:''},{workDays:[]},{weeklyHoliday:''},{payType:'월급제'},{payAmount:-1},{startDate:'2026-02-30'}])assert.throws(()=>C.validateStaff({...profile(),...patch},[],null));
+ assert.doesNotThrow(()=>C.validateStaff({...profile(),role:'관리자',payType:'월급제',payAmount:2000000},[],null));
+});
