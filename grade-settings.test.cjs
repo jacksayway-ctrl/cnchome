@@ -98,8 +98,8 @@ test('aggregate preview waits for confirmation and invalidates stale results aft
  context.root.querySelector=key=>fields[key];context.table=(heads,rows)=>JSON.stringify({heads,rows});
  context.api.gradeUpdatePreview();assert.ok(!result.innerHTML.includes('2,844,000원'));
  let prevented=false;for(const listener of listeners.submit)listener({target:{id:'tm-grade-preview-form'},preventDefault(){prevented=true}});
- assert.ok(prevented);assert.match(result.innerHTML,/2,844,000원/);assert.match(result.innerHTML,/2,644,000원/);assert.match(result.innerHTML,/총 계산 금액: 정상 실적 × 50,000원 \(4,656,000원\)/);
- fields['#tm-grade-preview-count'].value='0';context.api.gradeUpdatePreview();assert.ok(!result.innerHTML.includes('2,844,000원'));context.api.gradeUpdatePreview(true);assert.match(result.innerHTML,/1,980,000원/);assert.match(result.innerHTML,/총 계산 금액: 정상 실적 × 50,000원 \(-1,980,000원\)/);
+ assert.ok(prevented);assert.match(result.innerHTML,/최종 예상액 \(세전\): 2,644,000원 \/ 일그레이드 포함 합계: 2,844,000원/);assert.ok(!result.innerHTML.includes("× 50,000원"));assert.match(result.innerHTML,/2,844,000원/);assert.match(result.innerHTML,/2,644,000원/);assert.match(result.innerHTML,/총 계산 금액: 4,656,000원/);
+ fields['#tm-grade-preview-count'].value='0';context.api.gradeUpdatePreview();assert.ok(!result.innerHTML.includes('2,844,000원'));context.api.gradeUpdatePreview(true);assert.match(result.innerHTML,/1,980,000원/);assert.match(result.innerHTML,/총 계산 금액: -1,980,000원/);
  fields['#tm-grade-preview-days'].value='';context.api.gradeUpdatePreview(true);assert.match(result.textContent,/올바르게/);
  fields['#tm-grade-preview-count'].value='150';fields['#tm-grade-preview-days'].value='22';context.api.gradeUpdatePreview();
 });
