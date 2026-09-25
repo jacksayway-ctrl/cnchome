@@ -4,8 +4,9 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const html = fs.readFileSync(require('node:path').join(__dirname, 'index.html'), 'utf8');
 const code = html.slice(html.indexOf('// Editable grade policy.'), html.indexOf('function adminAttendance()'));
-const context = vm.createContext({fmt:n=>n.toLocaleString("ko-KR"),Intl,Date,structuredClone,root:{addEventListener(){}},window:{addEventListener(){}},localStorage:{getItem(){return null}}});
-vm.runInContext(code+'\nglobalThis.api={gradeDefaults,gradeValidate,gradeCalculate,gradeValidDate,gradePolicyAt,gradeReadStore,gradeSyncWeeklyBounds,gradeGenerateWeekly,gradePrepareDraft,gradeDailyCashTable,gradeOriginalMonthlyTable};',context);
+const listeners={};
+const context = vm.createContext({fmt:n=>n.toLocaleString("ko-KR"),Intl,Date,structuredClone,root:{addEventListener(type,fn){(listeners[type]??=[]).push(fn)}},window:{addEventListener(){}},localStorage:{getItem(){return null}}});
+vm.runInContext(code+'\nglobalThis.api={gradeDefaults,gradeValidate,gradeCalculate,gradeValidDate,gradePolicyAt,gradeReadStore,gradeSyncWeeklyBounds,gradeGenerateWeekly,gradePrepareDraft,gradeDailyCashTable,gradeOriginalMonthlyTable,gradeAggregateCalculate,gradeReferenceMonthly,gradePreviewHtml,gradeUpdatePreview};',context);
 const {gradeDefaults,gradeValidate,gradeCalculate,gradeValidDate,gradePolicyAt,gradeReadStore}=context.api;
 test('monthly screenshot boundaries use only the current tier and include its first count',()=>{
  const p=gradeDefaults();assert.equal(gradeValidate(p),'');
@@ -79,4 +80,26 @@ test('weekly draft starts at eight with unchanged amounts and preserves later ed
 
 test('original monthly table preserves supplied labels and estimates without the deleted footer',()=>{
  const html=context.api.gradeOriginalMonthlyTable();for(const label of ['100건 이하','101~110건','111~120건','121~130건','131~140건','141건 이상','1,980,000','2,005,000','2,187,000','2,237,000','2,362,000','2,594,000','0.5건','취소건 제외 실오더 기준'])assert.ok(html.includes(label),label);assert.ok(!html.includes('100건이상 추가건당'));assert.equal((html.match(/<th>/g)||[]).length,7);assert.ok(!html.includes('<th>기본</th>'));assert.ok(!html.includes('<td>7</td>'));
+});
+
+test('aggregate 150 cases at 22 six-hour days uses current monthly table and counts cash once',()=>{
+ const p=context.api.gradePrepareDraft(gradeDefaults()),r=context.api.gradeAggregateCalculate(p,'insurance',150,22,6);
+ assert.equal(r.distribution.reduce((x,y)=>x+y,0),150);assert.equal(r.hours,132);assert.equal(r.hourly,17000);assert.equal(r.base,2244000);assert.equal(r.daily,200000);assert.equal(r.weekly,0);assert.equal(r.monthly.achievement,300000);assert.equal(r.monthly.extra,100000);assert.equal(r.salary,2644000);assert.equal(r.total,2844000);
+ const weekly=context.api.gradeAggregateCalculate(p,'insurance',176,22,6);assert.equal(weekly.weeks.length,5);assert.equal(weekly.weeks.at(-1).days,2);assert.equal(weekly.weekly,150000);assert.equal(weekly.daily,330000);assert.equal(weekly.total,3384000);
+ const half=context.api.gradeAggregateCalculate(p,'insurance',150.5,22,6);assert.equal(half.distribution.reduce((x,y)=>x+y,0),150.5);assert.equal(half.monthly.extra,105000);
+ for(const input of [[-1,22,6],[150,0,6],[150,1.5,6],[150,32,6],[150,22,0],[150,22,25],[150.1,22,6]])assert.throws(()=>context.api.gradeAggregateCalculate(p,'insurance',...input));
+});
+test('monthly calculation matches displayed estimates and boundaries including half-cases',()=>{
+ for(const [count,amount] of [[0,1980000],[100,1980000],[101,1985000],[105,2005000],[110,2030000],[110.5,2164500],[111,2167000],[115,2187000],[120,2212000],[121,2217000],[125,2237000],[130,2262000],[131,2322000],[135,2362000],[140,2412000],[141,2554000],[145,2594000]])assert.equal(context.api.gradeReferenceMonthly(count,132).total,amount,String(count));
+});
+test('aggregate preview waits for confirmation and invalidates stale results after editing',()=>{
+ const markup=context.api.gradePreviewHtml();assert.match(markup,/>합산</);assert.match(markup,/value="150"/);assert.match(markup,/data-grade-preview-confirm/);
+ const result={innerHTML:'',textContent:''},fields={'#tm-grade-preview-result':result};for(const [key,value] of [['count','150'],['days','22'],['hours','6']])fields['#tm-grade-preview-'+key]={value,checkValidity(){return true}};
+ context.root.querySelector=key=>fields[key];context.table=(heads,rows)=>JSON.stringify({heads,rows});
+ context.api.gradeUpdatePreview();assert.ok(!result.innerHTML.includes('2,844,000원'));
+ let prevented=false;for(const listener of listeners.submit)listener({target:{id:'tm-grade-preview-form'},preventDefault(){prevented=true}});
+ assert.ok(prevented);assert.match(result.innerHTML,/2,844,000원/);assert.match(result.innerHTML,/2,644,000원/);
+ fields['#tm-grade-preview-count'].value='0';context.api.gradeUpdatePreview();assert.ok(!result.innerHTML.includes('2,844,000원'));context.api.gradeUpdatePreview(true);assert.match(result.innerHTML,/1,980,000원/);
+ fields['#tm-grade-preview-days'].value='';context.api.gradeUpdatePreview(true);assert.match(result.textContent,/올바르게/);
+ fields['#tm-grade-preview-count'].value='150';fields['#tm-grade-preview-days'].value='22';context.api.gradeUpdatePreview();
 });
