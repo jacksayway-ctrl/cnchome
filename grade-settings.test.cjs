@@ -5,12 +5,12 @@ const vm = require('node:vm');
 const html = fs.readFileSync(require('node:path').join(__dirname, 'index.html'), 'utf8');
 const code = html.slice(html.indexOf('// Editable grade policy.'), html.indexOf('function adminAttendance()'));
 const context = vm.createContext({Intl,Date,structuredClone,root:{addEventListener(){}},window:{addEventListener(){}},localStorage:{getItem(){return null}}});
-vm.runInContext(code+'\nglobalThis.api={gradeDefaults,gradeValidate,gradeCalculate,gradeValidDate,gradePolicyAt,gradeReadStore,gradeSyncWeeklyBounds,gradeGenerateWeekly,gradeGenerateMonthly};',context);
+vm.runInContext(code+'\nglobalThis.api={gradeDefaults,gradeValidate,gradeCalculate,gradeValidDate,gradePolicyAt,gradeReadStore,gradeSyncWeeklyBounds,gradeGenerateWeekly,gradePrepareDraft};',context);
 const {gradeDefaults,gradeValidate,gradeCalculate,gradeValidDate,gradePolicyAt,gradeReadStore}=context.api;
 test('monthly screenshot boundaries use only the current tier and include its first count',()=>{
  const p=gradeDefaults();assert.equal(gradeValidate(p),'');
  for(const [count,hourly,bonus] of [[0,14000,0],[60,14000,0],[61,14000,5000],[70,14000,50000],[71,15000,55000],[80,15000,100000],[81,15000,105000],[88,15000,140000],[90,15000,150000],[91,15000,210000],[100,15000,300000],[101,16000,310000]]){
-  const r=gradeCalculate(p,'monthly',count,132);assert.equal(r.hourly,hourly);assert.equal(r.bonus,bonus);assert.equal(r.total,132*hourly+bonus);
+  const r=gradeCalculate(p,'monthly',count===0?0:count+39,132);assert.equal(r.hourly,hourly);assert.equal(r.bonus,bonus);assert.equal(r.total,132*hourly+bonus);
  }
 });
 test('daily count and weekly averages select the correct threshold',()=>{
@@ -61,8 +61,9 @@ test('weekly configurable thresholds allow 20 entries, reject 21 and calculate e
 test('automatic weekly list has twenty consecutive thresholds and 5000 increments',()=>{
  const rows=context.api.gradeGenerateWeekly(6,30000);assert.equal(rows.length,21);assert.equal(rows[1].achievement,30000);assert.equal(rows[2].achievement,35000);assert.equal(rows[20].min,25);assert.equal(rows[20].achievement,125000);assert.equal(context.api.gradeGenerateWeekly(7,30000)[20].min,26);assert.throws(()=>context.api.gradeGenerateWeekly(0,30000));
 });
-test('monthly generation shifts all tiers through 200 and preserves source rates',()=>{
- const original=gradeDefaults().monthly,rows=context.api.gradeGenerateMonthly(original,71);assert.deepEqual(Array.from(rows.slice(0,5),r=>r.min),[0,71,81,91,101]);assert.equal(rows.at(-2).min,191);assert.equal(rows.at(-2).max,200);assert.equal(rows.at(-1).min,201);assert.equal(rows[1].hourly,14000);assert.equal(rows[2].achievement,50000);assert.equal(rows[2].extraStart,81);assert.equal(rows.at(-2).hourly,16000);
- const p=gradeDefaults();p.monthly=rows;assert.equal(gradeValidate(p),'');assert.equal(original[1].min,61);
- const increased=context.api.gradeGenerateMonthly(original,61,{hourly:1000,achievement:50000,extra:1000});assert.equal(increased[6].hourly,17000);assert.equal(increased[6].achievement,350000);assert.equal(increased[6].extra,11000);assert.throws(()=>context.api.gradeGenerateMonthly(original,201));
+test('monthly editor restores six rows at 100 without auto expansion or rate changes',()=>{
+ const p=gradeDefaults(),draft=context.api.gradePrepareDraft(p);
+ assert.equal(draft.monthly.length,6);assert.deepEqual(Array.from(draft.monthly,r=>r.min),[0,100,110,120,130,140]);assert.equal(draft.monthly[0].max,99);assert.equal(draft.monthly.at(-1).max,null);assert.equal(JSON.stringify(draft.monthly),JSON.stringify(p.monthly));assert.equal(draft.monthlyAuto,undefined);assert.equal(gradeValidate(draft),'');
+ const legacy=gradeDefaults();legacy.monthly.forEach((r,i)=>{if(i)r.min-=39;if(r.max!==null)r.max-=39;if(r.extraStart!==null)r.extraStart-=39;});legacy.monthlyAuto={source:structuredClone(legacy.monthly)};legacy.monthly.push({...legacy.monthly.at(-1),min:201});const restored=context.api.gradePrepareDraft(legacy);assert.equal(JSON.stringify(restored.monthly),JSON.stringify(p.monthly));assert.equal(legacy.monthly[1].min,61);
+ restored.monthly[1].hourly=17000;assert.equal(context.api.gradePrepareDraft(restored).monthly[1].hourly,17000);
 });
