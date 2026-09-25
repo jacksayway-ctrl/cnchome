@@ -14,7 +14,7 @@ test('monthly screenshot boundaries use only the current tier and include its fi
  }
 });
 test('daily count and weekly averages select the correct threshold',()=>{
- const p=gradeDefaults();p.daily[1].achievement=10000;assert.equal(gradeCalculate(p,'daily',5).bonus,0);assert.equal(gradeCalculate(p,'daily',6).bonus,10000);assert.equal(gradeCalculate(p,'daily',8).bonus,10000);assert.equal(gradeCalculate(p,'daily',8,6).base,0);
+ const p=gradeDefaults();for(const [count,amount] of [[0,0],[5,0],[6,5000],[7,10000],[8,15000],[100,475000]])assert.equal(gradeCalculate(p,'daily',count).bonus,amount);assert.equal(gradeCalculate(p,'daily',8,6).base,0);
  for(const [count,bonus] of [[29,0],[30,30000],[34,30000],[35,40000],[39,40000],[40,50000]])assert.equal(gradeCalculate(p,'weekly',count,0,5).bonus,bonus);
 });
 test('reject gaps, overlaps, negative amounts, missing limits and invalid additional thresholds',()=>{
@@ -43,4 +43,11 @@ test('department policies isolate effective dates, retain legacy insurance and s
  assert.equal(gradeValidate(gradePolicyAt([],'2026-09-01','cosmetics')),'');
  assert.equal(gradeReadStore(JSON.stringify({version:2,entries})).length,3);
  assert.throws(()=>gradeReadStore(JSON.stringify({version:2,entries:[{...entries[0],department:'unknown'}]})));
+});
+test('daily per-case cash is unbounded and independent from weekly/monthly calculations',()=>{
+ const p=gradeDefaults(),weekly=gradeCalculate(p,'weekly',40,30),monthly=gradeCalculate(p,'monthly',88,132);
+ p.dailyCash={start:6,perCase:5000};assert.equal(gradeCalculate(p,'daily',1000).total,4975000);
+ assert.deepEqual(gradeCalculate(p,'weekly',40,30),weekly);assert.deepEqual(gradeCalculate(p,'monthly',88,132),monthly);
+ p.dailyCash.start=0;assert.notEqual(gradeValidate(p),'');p.dailyCash={start:6,perCase:-1};assert.notEqual(gradeValidate(p),'');
+ const legacy=gradeDefaults();delete legacy.dailyCash;const entries=gradeReadStore(JSON.stringify(legacy));assert.equal(entries[0].policy.dailyCash.start,6);assert.equal(entries[0].policy.dailyCash.perCase,5000);
 });
