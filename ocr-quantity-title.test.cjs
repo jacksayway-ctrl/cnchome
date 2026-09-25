@@ -8,7 +8,7 @@ const read=(digit,text,confidence=95)=>context.policyQuantityCellReading({text:d
 assert.equal(read('15','15').text,'15');
 assert.equal(read('15','15').review,false);
 assert.equal(read('15','16').review,true,'conflicting numeric readings require review');
-assert.equal(read('0','불가').text,'불가');
+assert.equal(read('0','불가').text,'0','printed unavailable quantity is normalized to zero');
 assert.equal(read('0','불가').review,false);
 assert.equal(read('0','불가',60).review,true);
 for(const text of ['실버만','일반만','별도 문의','이월']){

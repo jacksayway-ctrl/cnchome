@@ -84,11 +84,11 @@ function boot(saved = new Map()) {
       if (!windowEvents.has(type)) windowEvents.set(type, []);
       windowEvents.get(type).push(fn);
     },
-    requestAnimationFrame() {}, setTimeout, clearTimeout
+    requestAnimationFrame() {}, setTimeout, clearTimeout, setInterval() {}
   };
   context.window = context;
   vm.createContext(context);
-  for (const file of ['korea-regions.js', 'intake-codes.js', 'region-rules.js']) {
+  for (const file of ['korea-regions.js', 'intake-codes.js', 'region-rules.js', 'admin-workspace.js']) {
     vm.runInContext(fs.readFileSync(path.join(__dirname, file), 'utf8'), context, {filename: file});
   }
   vm.runInContext(app, context, {filename: 'index.html'});
@@ -246,7 +246,7 @@ test('policy region categories render and publish only listed municipalities', (
   const a=boot();
   a.api.parse('한화\n지역\t수량\n충남북부: 천안 아산\t4\n충남서부: 서산 태안\t3\n충남: 공주\t2\n경기남부: 용인 안성\t5');
   const markup=a.api.scopeMarkup();
-  for(const label of ['충청남도','충남북부','충남서부','권역 구분 없음','경기남부','기재 지역만 가능']) assert.ok(markup.includes(label),label);
+  for(const label of ['충청남도','충청남도북부','충청남도서부','권역 구분 없음','경기도남부','기재 지역만 가능']) assert.ok(markup.includes(label),label);
   assert.equal(a.api.publish('hanwha'),true);
   for(const name of ['용인시','안성시']) assert.equal(a.api.result('hanwha','경기',name).state,'possible');
   assert.equal(a.api.result('hanwha','경기','수원시').state,'blocked');

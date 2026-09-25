@@ -66,7 +66,8 @@ test('only TM staff can receive daily awards and finalized payroll is unaffected
  const s=seed(),today=C.koreaDay(),p=s.payroll[0];p.snapshot=C.payrollAmounts(s,p);p.status='확정';const before=structuredClone(p);
  const d=C.recordDaily(s,'staff-0',today,8,10000);C.payDaily(s,d.id,today);assert.deepEqual(p,before);assert.equal(d.paid,10000);
  assert.throws(()=>C.payDaily(s,d.id,today));
- for(const role of ['팀장','관리자','관리직']){s.staff[1].role=role;assert.equal(C.dailyView(s,'staff-1',today).eligible,false);assert.throws(()=>C.recordDaily(s,'staff-1',today,8,10000),/TM/);assert.throws(()=>C.payDaily(s,'D-2',today),/TM/);}
+ s.daily.push({id:'not-tm',employee:'staff-1',date:today,amount:10000,paid:0});
+ for(const role of ['팀장','관리자','관리직']){s.staff[1].role=role;assert.equal(C.dailyView(s,'staff-1',today).eligible,false);assert.throws(()=>C.recordDaily(s,'staff-1',today,8,10000),/TM/);assert.throws(()=>C.payDaily(s,'not-tm',today),/TM/);}
  assert.throws(()=>C.recordDaily(s,'staff-0','2020-01-01',8,10000));
 });
 test('payout exports confirmed unpaid salaries using latest accounts, preserves snapshots',()=>{
@@ -95,4 +96,31 @@ test('bulk rejection requires reason and skips own or already processed requests
 test('proxy correction requests retain payroll reference and allow independent requests',()=>{
  const s=seed();assert.throws(()=>C.proxyRequest(s,'PAY-2','오류'));s.payroll[2].status='지급 완료';assert.throws(()=>C.proxyRequest(s,'PAY-2',' '));
  const a=C.proxyRequest(s,'PAY-2','퇴사 직원 전달 내용'),b=C.proxyRequest(s,'PAY-2','추가 전달');assert.notEqual(a.id,b.id);assert.equal(a.payrollId,'PAY-2');assert.equal(a.status,'접수');assert.equal(a.month,'2026-09');assert.equal(s.notifications.length,2);
+});
+test('daily history and earned unpaid awards survive later role changes',()=>{
+ const s=seed(),today=C.koreaDay();const d=C.recordDaily(s,'staff-0',today,8,10000);s.staff[0].role='팀장';
+ assert.ok(C.dailyHistory(s).some(x=>x.id===d.id));assert.equal(C.dailyView(s,'staff-0',today).eligible,false);C.payDaily(s,d.id,today);assert.equal(d.paid,10000);assert.throws(()=>C.recordDaily(s,'staff-0',today,10,20000),/TM/);
+});
+test('invalid calendar dates cannot complete salary or daily payments',()=>{
+ const s=seed(),p=s.payroll[2];p.status='확정';p.published=true;
+ for(const date of ['','2026-02-30','2026-13-01','not-a-date']){
+  assert.equal(C.validDate(date),false);assert.equal(C.payrollTransition(s,[p.id],'paid',date)[0].ok,false);assert.equal(p.status,'확정');assert.throws(()=>C.payDaily(s,'D-1',date));
+ }
+ assert.equal(C.validDate('2028-02-29'),true);
+});
+test('invalid attendance never consumes leave and paid time is not deducted',()=>{
+ const s=seed(),r=s.attendance[0],before=C.leaveRemaining(s,r.employee);r.date='2026-02-30';assert.equal(C.approveAttendance(s,[r.id])[0].ok,false);assert.equal(C.leaveRemaining(s,r.employee),before);
+ r.date='2026-10-19';for(const [start,end] of [['17:00','10:00'],['24:00','25:00'],['10:60','11:00']]){Object.assign(r,{start,end});assert.equal(C.approveAttendance(s,[r.id])[0].ok,false);}
+ Object.assign(s.attendance[1],{paid:true});assert.equal(C.approveAttendance(s,['AT-2'])[0].ok,true);assert.equal(s.attendance[1].unpaid,0);
+});
+test('AS decision changes preserve confirmed salary and unrelated months remain unblocked',()=>{
+ const s=seed(),p=s.payroll[0];p.snapshot=C.payrollAmounts(s,p);p.status='확정';const old=structuredClone(p.snapshot);
+ C.updateAs(s,'RC-001','AS-1','decision','차감','차감');assert.equal(s.cases[0].blocked,true);C.updateAs(s,'RC-001','AS-1','decision','없음','오류 정정');assert.equal(s.cases[0].blocked,false);assert.deepEqual(C.payrollAmounts(s,p),old);
+ s.cases[0].issues[0].decision='대기';s.cases[0].performanceDate='2026-10-01';assert.ok(!C.payrollIssues(s,p).some(x=>x.includes('A/S')));s.cases[0].performanceDate='2026-09-22';assert.ok(C.payrollIssues(s,p).some(x=>x.includes('A/S')));
+});
+test('AS may be reassigned across teams in one department but not across departments',()=>{
+ const s=C.seed([{name:'A',team:'보험1',department:'보험'},{name:'B',team:'보험2',department:'보험'},{name:'C',team:'화장품1',department:'화장품'}]);C.updateAs(s,'RC-001','AS-1','assign','staff-1','같은 부서 인계');assert.equal(s.cases[0].issues[0].owner,'staff-1');assert.throws(()=>C.updateAs(s,'RC-001','AS-1','assign','staff-2','다른 부서'),/부서/);
+});
+test('invalid salary amount blocks finalization and payout export',()=>{
+ const s=seed(),p=s.payroll[2];p.base=NaN;assert.ok(C.payrollIssues(s,p).some(x=>x.includes('금액 형식')));p.status='확정';C.saveBank(s,p.employee,{bank:'예시',number:'001234',holder:'예시'},'등록');assert.equal(C.payoutPreview(s,[p.id]).rows.length,0);
 });
