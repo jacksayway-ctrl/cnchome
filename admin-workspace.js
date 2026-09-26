@@ -2,7 +2,7 @@
   'use strict';
   const pages = {
     adminStaff: ['직원 관리', '전체 직원과 등록 누락 항목을 확인하고 인사 정보를 관리합니다.'],
-    adminStaffRegister: ['직원 등록·수정', '기본정보·재직·근무·급여·계약 조건을 구분해 입력합니다.'],
+    adminStaffRegister: ['직원 등록', '직원 등록 버튼을 누르면 기본 양식이 팝업으로 열립니다.'],
     adminBank: ['지급 계좌·지급용 엑셀', '직원별 계좌를 확인하고 확정된 미지급 급여만 선택해 내보냅니다.'],
     adminPayroll: ['급여·지급 관리', '공제 확인부터 확정·명세서 공개·지급까지 순서대로 검토합니다.'],
     adminDaily: ['TM 일 그레이드', '매일 0건부터 별도 집계합니다. 급여·주휴수당에 합산하거나 차감하지 않습니다.'],
@@ -21,10 +21,10 @@
   const navigation = [
     {label:'관리자 홈',icon:'▣',items:[['adminHome','업무 현황'],['adminNotifications','알림'],['adminChecklist','운영 점검']]},
     {label:'영업 관리',icon:'▥',items:[['adminIntake','접수'],['adminPerformance','실적'],['adminAs','A/S']]},
-    {label:'인사·출결',icon:'♙',items:[['adminStaff','직원 목록'],['adminStaffRegister','직원 등록'],['adminAttendance','출결 승인'],['adminLeave','연차·휴가'],['adminContracts','근로계약']]},
+    {label:'인사·출결',icon:'♙',items:[['adminStaff','직원 목록'],['adminAttendance','출결 승인'],['adminLeave','연차·휴가'],['adminContracts','근로계약']]},
     {label:'그레이드',icon:'☆',items:[['adminGrade','기준표'],['adminDaily','오늘 TM 일 그레이드'],['adminDailyHistory','일 그레이드 지급 내역']]},
     {label:'급여·정산',icon:'₩',items:[['adminPayroll','급여·지급'],['adminBank','계좌·지급 엑셀'],['adminCorrections','정정·별도 정산']]},
-    {label:'운영 관리',icon:'⚙',items:[['adminSettings','운영 설정'],['adminPermissions','계정·권한'],['adminAudit','변경 이력']]}
+    {label:'운영 관리',icon:'⚙',items:[['adminStaffRegister','직원 등록'],['adminSettings','운영 설정'],['adminPermissions','계정·권한'],['adminAudit','변경 이력']]}
   ];
   function mountNavigation(root){
     if(global.CNCHOME_LIVE&&global.CNCHOME_LIVE.user.role!=='admin')return;
@@ -349,7 +349,7 @@
       ${group('3. 근무 조건',`<div class="full"><span>기본 근무요일 *</span><div class="aw-shortcuts">${['월','화','수','목','금'].map(day=>`<label class="aw-check"><input type="checkbox" name="workDays" value="${day}" ${days.includes(day)?'checked':''}>${day}</label>`).join('')}</div></div>`+select('유급 주휴일 *','weeklyHoliday',[['','선택'],['토','토요일'],['일','일요일']],p.weeklyHoliday||'')+'<p class="full sub">근무 10:00~17:00 · 점심 12:00~13:00 제외 · 하루 휴게 10분 포함 · 추가 근무 없음</p>')}
       ${group('4. 급여 기준',select('급여 방식 *','payType',[['시급제','시급제'],['월급제','월급제 (관리직)']],p.payType||'시급제')+text('기본시급 또는 월 기본급 (원)','payAmount',p.payAmount??'','number','min="1" step="1" max="1000000000"')+text('임금 적용 시작일','wageEffective',p.wageEffective||'','date')+text('월급제 무급 차감용 시급 (원)','deductionRate',p.deductionRate??'','number','min="0" step="1"')+'<p class="full sub">TM 기본시급은 주휴 포함, 팀장·시급제 관리직은 주휴 별도, 월급제 관리직은 월 기본급에 포함합니다. 등록 조건은 예시 인사정보로 보관되며 기존 급여 예시에 자동 반영되지 않습니다.</p>')}
       ${group('5. 계약·비고',select('계약 구분 *','contractType',[['무기계약','기간의 정함 없음'],['기간제','기간제']],p.contractType||'무기계약')+text('계약 시작일','contractStart',p.contractStart||'','date')+text('계약 종료일 (기간제 필수)','contractEnd',p.contractEnd||'','date')+`<label class="full">관리 메모<textarea name="memo" maxlength="1000" rows="3">${esc(p.memo||'')}</textarea></label>`)}
-      <p class="sub">주소·근무장소·담당업무·계약일·임금 조건을 저장하면 계약 초안에 불러올 수 있습니다. 관리 메모는 계약서에 포함하지 않습니다. 주민등록번호·비밀번호는 이 화면에서 수집하지 않습니다.</p><p class="aw-form-error" role="alert"></p><button class="action" type="submit">${editingStaff===null?'직원 등록':'변경 저장'}</button> ${link('직원 목록','adminStaff')}</form>`)+(editingStaff===null?'':employeeConnections('staff-'+editingStaff));
+      <p class="sub">주소·근무장소·담당업무·계약일·임금 조건을 저장하면 계약 초안에 불러올 수 있습니다. 관리 메모는 계약서에 포함하지 않습니다. 주민등록번호·비밀번호는 이 화면에서 수집하지 않습니다.</p><p class="aw-form-error" role="alert"></p><button class="action" type="submit">${editingStaff===null?'직원 등록':'변경 저장'}</button> <button type="button" class="secondary" data-action="close">취소</button></form>`)+(editingStaff===null?'':employeeConnections('staff-'+editingStaff));
   }
   let pendingContract=null;
   function contractSnapshot(employee,p,company){
@@ -360,7 +360,7 @@
   function openContractDraft(id){const index=state.staff.findIndex(p=>p.id===id),p=bridge.employees[index];if(!p)throw Error('직원을 찾을 수 없습니다.');pendingContract=contractSnapshot(id,p,state.company);const t=pendingContract.terms;modal('직원 정보로 계약 초안 작성',form('contract-add','',select('직원 선택 · 변경 시 해당 정보로 다시 불러옴','employee',personOptions(),id)+field('계약 시작일','start',t.start,'date','required')+field('계약 종료일 · 무기계약은 공란','end',t.end,'date')+field('임금 조건 요약','pay',t.paySummary||'급여 기준 확인 필요','text','required maxlength="200"')+select('서명 방식','kind',[['전자','전자'],['종이','종이']],'전자'),'계약 초안 저장')+contractSnapshotView(pendingContract));}
   function employeeConnections(id){const bank=state.bankAccounts.find(x=>x.employee===id),contracts=state.contracts.filter(x=>x.employee===id),payroll=state.payroll.filter(x=>x.employee===id),attendance=state.attendance.filter(x=>x.employee===id),leave=state.leaves.find(x=>x.employee===id);return card('이 직원의 연결 정보',`<p class="sub">위 편집 내용을 먼저 저장한 후 계약 초안을 작성하세요. 아래 내용은 각 전용 업무에 저장된 자료입니다.</p>${btn('저장된 직원 정보로 계약 작성','contract-add',id)}${table(['항목','연결된 내역'],[['지급 계좌',bank?esc(bank.bank)+' · •••• '+esc(bank.number.slice(-4))+' · '+esc(bank.holder):'미등록'],['근로계약',contracts.length?contracts.map(x=>esc(x.id)+' · '+badge(x.status)+' '+btn('계약 보기','contract-detail',x.id)).join('<br>'):'등록된 계약 없음'],['월 급여',payroll.length?payroll.map(x=>esc(x.month)+' · '+badge(x.status)+' '+btn('급여 보기','payroll-detail',x.id)).join('<br>'):'등록된 급여 없음'],['출결 신청',attendance.map(x=>esc(x.date+' '+x.kind+' '+x.status)).join('<br>')||'등록된 신청 없음'],['잔여 연차',leave?leaveRemaining(state,id)+'일':'미등록'],['A/S 접수',state.cases.filter(x=>x.employee===id).length+'건'],['급여 정정 요청',state.requests.filter(x=>x.employee===id).length+'건'],['별도 정산',state.settlements.filter(x=>x.employee===id).length+'건'],['TM 일 그레이드',state.daily.filter(x=>x.employee===id).length+'건 · 급여와 별도 관리'],['계정·권한','실제 로그인 계정 미연결 · 직책과 관리자 권한 별도 관리']])}<div class="aw-shortcuts">${btn('이 직원 지급 계좌 등록·수정','bank-edit',id)}${link('연차 관리','adminLeave')}${link('그레이드 기준','adminGrade')}${link('계정·권한','adminPermissions')}</div>`);}
   function staffLinks(){return `<div class="aw">${card('인사·급여 업무',`<div class="aw-shortcuts">${link('근로계약','adminContracts')}${link('연차·휴가','adminLeave')}${link('급여·지급','adminPayroll')}${link('계정·권한','adminPermissions')}</div><p class="sub">직원 등록·팀 배정과 계약·급여·권한을 구분해 관리합니다.</p>`)}</div>`;}
-  const renderers={adminStaff:staffPage,adminStaffRegister:staffFormPage,adminBank:bankPage,adminPayroll:payrollPage,adminDaily:dailyPage,adminDailyHistory:dailyHistoryPage,adminAttendance:attendancePage,adminLeave:leavePage,adminAs:asPage,adminCorrections:correctionsPage,adminContracts:contractsPage,adminPermissions:permissionPage,adminAudit:auditPage,adminNotifications:notificationsPage,adminChecklist:checklistPage};
+  const renderers={adminStaff:staffPage,adminStaffRegister:staffPage,adminBank:bankPage,adminPayroll:payrollPage,adminDaily:dailyPage,adminDailyHistory:dailyHistoryPage,adminAttendance:attendancePage,adminLeave:leavePage,adminAs:asPage,adminCorrections:correctionsPage,adminContracts:contractsPage,adminPermissions:permissionPage,adminAudit:auditPage,adminNotifications:notificationsPage,adminChecklist:checklistPage};
   function syncStaff(){
     if(!bridge)return;
     bridge.employees.forEach((p,i)=>{const id='staff-'+i,existing=state.staff.find(s=>s.id===id);if(existing){existing.name=p.name;existing.team=p.team;existing.role=p.role||'상담원';existing.department=p.department||p.team;}else{state.staff.push({id,name:p.name,team:p.team,role:p.role||'상담원',department:p.department||p.team});state.leaves.push({employee:id,lots:[]});}});
@@ -370,7 +370,7 @@
   function getFormValues(form){return new FormData(form);}
   function openAction(action,id){
     repriceDaily(state,koreaDay(),bridge.dailyAward);
-    if(action==='staff-new'||action==='staff-edit'){editingStaff=action==='staff-new'?null:Number(id.replace('staff-',''));if(editingStaff!==null&&!bridge.employees[editingStaff])throw Error('직원을 찾을 수 없습니다.');global.location.hash='adminStaffRegister';refresh();return;}
+    if(action==='staff-new'||action==='staff-edit'){editingStaff=action==='staff-new'?null:Number(id.replace('staff-',''));if(editingStaff!==null&&!bridge.employees[editingStaff])throw Error('직원을 찾을 수 없습니다.');modal(editingStaff===null?'직원 등록 · 기본 양식':'직원 정보 수정',staffFormPage());return;}
     if(action==='go-payroll'){bridge.close();global.location.hash='adminPayroll';return;}
     if(action==='bank-edit'){const a=state.bankAccounts.find(a=>a.employee===id)||{};modal('예시 지급 계좌 등록·수정',form('bank-edit',id,field('은행','bank',a.bank||'','text','required maxlength="40"')+field('계좌번호','number',a.number||'','text','required maxlength="30" inputmode="numeric"')+field('예금주','holder',a.holder||'','text','required maxlength="60"')+reasonField()));return;}
     if(action==='bank-preview'){const ids=ui.selected.adminBank||[];if(!ids.length)throw Error('급여를 선택해 주세요.');const plan=payoutPreview(state,ids);modal('지급용 엑셀 대상 확인',table(['직원','월','은행','계좌번호','예금주','실지급액'],plan.rows.map(r=>r.map(esc)))+table(['제외 급여','제외 사유'],plan.excluded.map(x=>[esc(x.id),esc(x.reason)]))+(plan.rows.length?form('bank-export','',check('예시 자료이며 실제 이체용이 아님을 확인합니다.','reviewed'),'예시 XLSX 다운로드'):'<p>내보낼 대상이 없습니다. 계좌와 급여 상태를 확인하세요.</p>'));return;}
@@ -433,7 +433,7 @@
       validateStaff(values,bridge.employees,editingStaff);if(values.employment!=='퇴사')values.endDate='';if(values.contractType!=='기간제')values.contractEnd='';
       const index=editingStaff===null?bridge.employees.length:editingStaff,previous=editingStaff===null?{}:clone(bridge.employees[index]);
       if(editingStaff===null)bridge.employees.push({...values,attendance:'미출근',normal:0,pending:0,as:0,monthly:0,grade:'60건 이하'});else Object.assign(bridge.employees[index],values);
-      syncStaff();log(state,'직원 정보','staff-'+index,previous,bridge.employees[index],editingStaff===null?'직원 등록':'인사정보 수정');editingStaff=null;handledForms.add(operation);global.location.hash='adminStaff';refresh('직원 정보를 저장했습니다.');return;
+      syncStaff();log(state,'직원 정보','staff-'+index,previous,bridge.employees[index],editingStaff===null?'직원 등록':'인사정보 수정');editingStaff=null;handledForms.add(operation);bridge.close();if(global.location.hash!=='#adminStaffRegister')global.location.hash='adminStaff';refresh('직원 정보를 저장했습니다.');return;
     }
     if(kind==='search'){ui.query[currentPage]=String(data.get('query')||'');ui.status[currentPage]=String(data.get('status')||'');ui.selected[currentPage]=[];bridge.render();return;}
     if(kind==='company-save'){
