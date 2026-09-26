@@ -159,6 +159,11 @@
 #tm-preview .grade-basis{display:flex;align-items:center;gap:10px;margin:10px 0}
 #tm-preview .grade-preview-fields{display:flex;gap:16px;flex-wrap:wrap;margin:16px 0}
 #tm-preview .grade-preview-fields label{display:grid;gap:6px;max-width:200px}
+#tm-preview .grade-calculation-title{display:block;font-size:16px}
+#tm-preview .grade-calculation-formula{color:#46627f;font-size:14px;line-height:1.6;word-break:keep-all}
+#tm-preview .grade-calculation-values{display:flex;align-items:baseline;flex-wrap:wrap;gap:6px 10px;font-size:18px;line-height:1.6;font-variant-numeric:tabular-nums}
+#tm-preview .grade-calculation-values>span{white-space:nowrap}
+#tm-preview .grade-calculation-values strong{color:#164f99;font-size:22px}
 #tm-preview #tm-grade-error,#tm-preview #tm-grade-confirm-error{color:#b42318}
 #tm-preview .policy-sheet input[data-policy-only="true"]{color:#c62828;font-weight:700;border-color:#ef9a9a!important;background:#fff5f5!important}
 
@@ -2416,7 +2421,11 @@ function gradeUpdatePreview(calculate=false){
  try{
   if([count,days,hours].some(el=>el.value===''||!el.checkValidity()))throw Error('정상 실적·근무일·시간을 올바르게 입력해 주세요.');
   const r=gradeAggregateCalculate(gradeDraft,gradeDepartment,Number(count.value),Number(days.value),Number(hours.value));
-  target.innerHTML=table(['정상 실적','일그레이드 (별도 현금)','주그레이드','월그레이드','시급','근무일','시간 (총)'],[[r.count+'건',gradeMoney(r.daily),gradeMoney(r.weekly),gradeMoney(r.monthly.bonus),gradeMoney(r.hourly),r.days+'일',r.hours+'시간']])+`<p>근로 급여: ${gradeMoney(r.hourly)} × ${r.hours}시간 = <strong>${gradeMoney(r.base)}</strong></p><p>월그레이드: 목표달성수당 ${gradeMoney(r.monthly.achievement)} + 실적수당 ${gradeMoney(r.monthly.extra)}</p><p class="notice" data-grade-final-amount><strong>최종 예상액 (세전): ${gradeMoney(r.salary)} / 일그레이드 포함 합계: ${gradeMoney(r.total)}</strong></p><div class="notice" data-grade-calculation-amount><strong>총 계산 금액: ${gradeMoney(r.calculationAmount)}</strong></div><details><summary>일·주 수당 계산 내역</summary><p>근무일 순서대로 배분한 실적: ${r.distribution.map(n=>n+'건').join(', ')}</p>${table(['주차','근무일','정상 실적','일평균','주수당'],r.weeks.map((w,i)=>[(i+1)+'주차',w.days+'일',w.count+'건',Number(w.average.toFixed(2))+'건',gradeMoney(w.bonus)]))}</details>`;
+  target.innerHTML=table(['정상 실적','일그레이드 (별도 현금)','주그레이드','월그레이드','시급','근무일','시간 (총)'],[[r.count+'건',gradeMoney(r.daily),gradeMoney(r.weekly),gradeMoney(r.monthly.bonus),gradeMoney(r.hourly),r.days+'일',r.hours+'시간']])+`<p>근로 급여: ${gradeMoney(r.hourly)} × ${r.hours}시간 = <strong>${gradeMoney(r.base)}</strong></p><p>월그레이드: 목표달성수당 ${gradeMoney(r.monthly.achievement)} + 실적수당 ${gradeMoney(r.monthly.extra)}</p><p class="notice" data-grade-final-amount><strong>최종 예상액 (세전): ${gradeMoney(r.salary)} / 일그레이드 포함 합계: ${gradeMoney(r.total)}</strong></p><div class="notice" data-grade-calculation-amount>
+<strong class="grade-calculation-title">총 계산 금액</strong>
+<p class="grade-calculation-formula">정상실적 × 50,000원 − 일그레이드 포함 지급액(세전)</p>
+<p class="grade-calculation-values"><span>${r.count.toLocaleString('ko-KR')}건 × 50,000원</span><span>− ${gradeMoney(r.total)}</span><span>= <strong>${gradeMoney(r.calculationAmount)}</strong></span></p>
+</div><details><summary>일·주 수당 계산 내역</summary><p>근무일 순서대로 배분한 실적: ${r.distribution.map(n=>n+'건').join(', ')}</p>${table(['주차','근무일','정상 실적','일평균','주수당'],r.weeks.map((w,i)=>[(i+1)+'주차',w.days+'일',w.count+'건',Number(w.average.toFixed(2))+'건',gradeMoney(w.bonus)]))}</details>`;
  }catch(error){target.textContent=error.message;}
 }
 root.addEventListener('submit',event=>{if(event.target.id==='tm-grade-preview-form'){event.preventDefault();gradeUpdatePreview(true);}});
