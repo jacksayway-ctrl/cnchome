@@ -74,6 +74,6 @@
     $('rule-list').innerHTML = filtered.slice(0, 30).map(rule => '<article class="rule"><small>' + escape(rule.id + ' · ' + rule.section) + '</small><strong>' + escape(rule.item) + '</strong><p>' + escape(rule.rule) + '</p></article>').join('') + (filtered.length > 30 ? '<p class="hint">앞의 30개를 표시합니다. 검색어로 좁히거나 전체 문서를 확인하세요.</p>' : '');
   }
   $('rule-search').addEventListener('input', renderRules);
-  fetch('./docs/payroll-requirements.json').then(response => { if (!response.ok) throw new Error('load'); return response.json(); }).then(data => { rules = data.rules; renderRules(); }).catch(() => { $('rule-status').textContent = '기준을 불러오지 못했습니다. 웹 서버에서 열거나 전체 문서 링크로 확인하세요.'; });
+  fetch('./documents.php?role=admin&file=payroll-requirements.json&raw=1').then(response => { if (!response.ok) throw new Error('load'); return response.json(); }).then(data => { rules = data.rules; renderRules(); }).catch(() => { $('rule-status').textContent = '기준을 불러오지 못했습니다. 웹 서버에서 열거나 전체 문서 링크로 확인하세요.'; });
   seed(); calculate(); management(); team();
 })();

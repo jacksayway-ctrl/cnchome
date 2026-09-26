@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
-require '/opt/cnchome-runtime/bootstrap.php';
-require '/opt/cnchome-runtime/policy.php';
+require __DIR__.'/_runtime.php';
+require_once CNC_RUNTIME_DIR.'/policy.php';
 header('Content-Type: application/json; charset=utf-8');
 function reply(int $code,array $body): never { http_response_code($code); echo json_encode($body,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR); exit; }
 try {

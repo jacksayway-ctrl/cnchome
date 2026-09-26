@@ -1,6 +1,6 @@
-# Cafe24 grade database release
+# Cafe24 PHP application
 
-Ubuntu 24.04, PHP 8.3 FPM, MySQL 8, Nginx HTTPS. All existing admin menu screens are available inside the authenticated office, with an explicit preview notice on screens that are not DB-backed. This release implements login and persisted grade policy/history only. Reception, attendance, payroll and staff administration remain demos. The original static preview is preserved at `/preview.html`; the deployed root goes to `/office.php`.
+Ubuntu 24.04, PHP 8.3 FPM, MySQL 8, Nginx HTTPS. PHP controllers and templates serve every application entry point. Employee/admin navigation is rendered according to the authenticated role before first paint. Login, grade/history, employee profiles and published payroll retain their existing DB APIs. Browser-local intake policies and prototype work records retain their current storage behavior. See [PHP migration and offline deployment](../docs/PHP_MIGRATION.md). Legacy HTML URLs redirect to PHP; `/preview.php?role=admin` and `/payroll.php?role=admin` require an administrator session.
 
 ## Deploy
 
@@ -28,7 +28,7 @@ The deployment first lints PHP, checks Nginx and prepares additive database tabl
 5. Future effective dates remain scheduled; previous snapshots remain intact. No hard deletion of history is exposed.
 6. Log out and verify access is denied. Check `systemctl is-enabled certbot.timer` and renewal test.
 
-Old browser-only criteria are **not** silently imported. Review and explicitly save the required table in the live portal. Existing payroll calculations and payroll confirmation are not connected to these DB rows yet. Staff provisioning is CLI-only in this release. Password-reset UI, payroll/attendance/reception persistence and scheduled off-server database backups remain follow-up work before full production use.
+Old browser-only criteria are **not** silently imported. Review and explicitly save the required table in the live portal. Existing payroll calculations and payroll confirmation are not connected to these DB rows yet. Staff can be registered using the HR screen or the CLI. Password reset, general attendance/reception persistence and automated off-server database backups remain follow-up work; manual reviewed payroll publication already uses the HR API.
 
 Session cookies require HTTPS, are HttpOnly and SameSite=Lax; idle timeout is one hour. Login limits are 20 attempts per source IP per 15 minutes. State-changing requests require CSRF tokens. Policies are validated server-side, stored as immutable snapshots with authenticated actor/time and guarded by a transactional revision lock. DB config is outside webroot; API failures do not output credentials.
 

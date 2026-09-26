@@ -8,8 +8,8 @@ const { webcrypto } = require('node:crypto');
 const test = require('node:test');
 
 // Exercise the shipped app and its actual modules, with only browser plumbing stubbed.
-const html = fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8');
-let app = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(match => match[1]).join('\n');
+const html = fs.readFileSync(path.join(__dirname, 'office.js'), 'utf8');
+let app = html;
 const closing = 'render();\n})();';
 assert.ok(app.includes(closing), 'the app exposes a stable closing marker');
 app = app.replace(closing, `globalThis.integrationHooks = {
@@ -60,7 +60,7 @@ function boot(saved = new Map()) {
 
   function get(selector) {
     if (!elements.has(selector)) elements.set(selector, {
-      value: '', selectedIndex: 0, innerHTML: '', textContent: '', dataset: {},
+      value: '', selectedIndex: 0, innerHTML: '', textContent: '', dataset: {}, children: [],
       style: {setProperty() {}}, classList: {toggle() {}, add() {}, remove() {}},
       setAttribute() {}, removeAttribute() {}, showModal() {}, close() {}, append() {}, before() {}, replaceChildren() {},
       querySelector: get, querySelectorAll: () => [], addEventListener() {},
@@ -89,10 +89,10 @@ function boot(saved = new Map()) {
   };
   context.window = context;
   vm.createContext(context);
-  for (const file of ['korea-regions.js', 'intake-codes.js', 'region-rules.js', 'admin-workspace.js']) {
+  for (const file of ['korea-regions.js', 'intake-codes.js', 'region-rules.js', 'grade-numbers.js', 'grade-calendar.js', 'grade-calendar-preview.js', 'admin-workspace.js', 'hr-workspace.js']) {
     vm.runInContext(fs.readFileSync(path.join(__dirname, file), 'utf8'), context, {filename: file});
   }
-  vm.runInContext(app, context, {filename: 'index.html'});
+  vm.runInContext(app, context, {filename: 'office.js'});
   return {
     api: context.integrationHooks, storage, elements,
     failWrites(value) { failStorage = value; },

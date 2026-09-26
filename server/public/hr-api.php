@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
-require '/opt/cnchome-runtime/bootstrap.php';
-require '/opt/cnchome-runtime/hr.php';
+require __DIR__.'/_runtime.php';
+require_once CNC_RUNTIME_DIR.'/hr.php';
 header('Content-Type: application/json; charset=utf-8');
 function hr_reply(int $code,array $body): never {http_response_code($code);echo hr_json($body);exit;}
 try {

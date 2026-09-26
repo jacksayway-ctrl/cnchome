@@ -1,6 +1,6 @@
 'use strict';
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
-const html=fs.readFileSync(require('node:path').join(__dirname,'index.html'),'utf8');
+const html=fs.readFileSync(require('node:path').join(__dirname,'office.js'),'utf8');
 const ctx={};
 vm.runInNewContext(html.slice(html.indexOf('function policyConfirmedCropReading('),html.indexOf('function policyQuantityCellReading(')),ctx);
 const reading=(text,confidence=95)=>({text,confidence});

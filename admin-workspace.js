@@ -18,7 +18,7 @@
     adminAs: ['A/S 검토·처리', '문제별 담당자·차감 결정·해결 상태를 관리합니다.']
   };
   // One route belongs to one section; existing deep links remain valid.
-  const navigation = [
+  const navigation = global.CNCHOME_NAVIGATION?.admin || [
     {label:'관리자 홈',icon:'▣',items:[['adminHome','업무 현황'],['adminNotifications','알림'],['adminChecklist','운영 점검']]},
     {label:'영업 관리',icon:'▥',items:[['adminIntake','접수'],['adminPerformance','실적'],['adminAs','A/S']]},
     {label:'인사·출결',icon:'♙',items:[['adminStaff','직원 목록'],['adminStaffRegister','직원 등록'],['adminAttendance','출결 승인'],['adminLeave','연차·휴가'],['adminContracts','근로계약']]},
@@ -32,15 +32,15 @@
     if(!sidebar||!main)return;
     sidebar.setAttribute('aria-label','직원·관리자 메뉴');
     sidebar.querySelectorAll('[data-page^="admin"],.aw-nav-group,.payroll-link').forEach(el=>el.remove());
-    const groups=document.createElement('div');groups.className='aw-sections';
-    groups.innerHTML=navigation.map((g,i)=>`<button type="button" data-aw-section="${i}" aria-controls="aw-subpages"><span aria-hidden="true">${g.icon}</span>${g.label}</button>`).join('');sidebar.append(groups);
-    const bar=document.createElement('section');bar.id='aw-subpages';bar.className='aw-subpages';bar.hidden=true;main.before(bar);
+    const groups=sidebar.querySelector('.aw-sections')||document.createElement('div');groups.className='aw-sections';
+    if(!groups.children.length)groups.innerHTML=navigation.map((g,i)=>`<button type="button" data-aw-section="${i}" aria-controls="aw-subpages"><span aria-hidden="true">${g.icon}</span>${g.label}</button>`).join('');sidebar.append(groups);
+    const bar=root.querySelector('#aw-subpages')||document.createElement('section');bar.id='aw-subpages';bar.className='aw-subpages';main.before(bar);
     function sync(){
-      const requested=global.location.hash.slice(1),route=global.CNCHOME_LIVE&&!navigation.some(g=>g.items.some(([p])=>p===requested))&&requested!=='grade'?'adminHome':requested,index=navigation.findIndex(g=>g.items.some(([p])=>p===route));
+      const requested=global.location.hash.slice(1)||global.CNCHOME_LIVE?.page||new URLSearchParams(global.location.search).get('page')||'',route=global.CNCHOME_LIVE&&!navigation.some(g=>g.items.some(([p])=>p===requested))&&requested!=='grade'?'adminHome':requested,index=navigation.findIndex(g=>g.items.some(([p])=>p===route));
       groups.querySelectorAll('[data-aw-section]').forEach(b=>{const selected=Number(b.dataset.awSection)===index;b.classList.toggle('active',selected);if(selected)b.setAttribute('aria-current','true');else b.removeAttribute('aria-current');});
       bar.hidden=index<0;if(index<0){bar.replaceChildren();return;}
       const group=navigation[index],current=group.items.find(([p])=>p===route);
-      bar.innerHTML=`<div class="aw-location"><span>관리자</span><span aria-hidden="true">/</span><strong>${group.label}</strong><span aria-hidden="true">/</span><span>${current[1]}</span></div><div class="aw-subpage-links" role="navigation" aria-label="${group.label} 하위 페이지">${group.items.map(([p,label])=>`<button type="button" data-page="${p}"${p===route?' class="active" aria-current="page"':''}>${label}</button>`).join('')}${group.items[0][0]==='adminPayroll'?'<a href="./payroll.html">급여 계산 검토 ↗</a>':''}</div>`;
+      bar.innerHTML=`<div class="aw-location"><span>관리자</span><span aria-hidden="true">/</span><strong>${group.label}</strong><span aria-hidden="true">/</span><span>${current[1]}</span></div><div class="aw-subpage-links" role="navigation" aria-label="${group.label} 하위 페이지">${group.items.map(([p,label])=>`<button type="button" data-page="${p}"${p===route?' class="active" aria-current="page"':''}>${label}</button>`).join('')}${group.items[0][0]==='adminPayroll'?'<a href="./payroll.php">급여 계산 검토 ↗</a>':''}</div>`;
     }
     groups.addEventListener('click',e=>{const b=e.target.closest('[data-aw-section]');if(b)global.location.hash=navigation[Number(b.dataset.awSection)].items[0][0];});
     // The legacy page renderer replaces main for both route and form updates.
@@ -274,7 +274,7 @@
   }
   function payrollPage(){
     const rows=state.payroll.filter(p=>match(p)).map(p=>{const a=payrollAmounts(state,p),issues=p.status==='미확정'?payrollIssues(state,p):[];return [selection(p.id),esc(staffName(state,p.employee)),p.month,money(a.gross),money(a.deductions),`<strong>${money(a.net)}</strong>`,badge(p.status,p.status==='지급 완료'?'green':'')+' '+(p.published?badge('공개','blue'):p.previousStatement?badge('이전 명세서 수정 중','amber'):''),issues.length?`<span class="aw-warning">${issues.map(esc).join('<br>')}</span>`:'검토 완료',btn('상세·검토','payroll-detail',p.id)+(p.status==='지급 완료'?btn('지급 표시 정정','payroll-reverse',p.id+'/unpay'):p.status==='확정'?btn('확정 취소','payroll-reverse',p.id+'/unconfirm')+(p.published?btn('공개 취소','payroll-reverse',p.id+'/unpublish'):''):'')];});
-    return metrics([['급여 귀속 월','2026년 9월','검토용 금액 예시'],['미확정',state.payroll.filter(p=>p.status==='미확정').length+'명'],['실지급액 합계',money(sum(state.payroll.map(p=>payrollAmounts(state,p).net)))]])+card('월 급여 검토',`<p class="sub">금액은 고정 예시입니다. 실적별 산식은 <a href="./payroll.html">급여 계산 검토</a>에서 별도로 확인할 수 있습니다.</p>${filterBar(['미확정','확정','지급 완료'])}<div class="aw-toolbar">${btn('표시된 직원 전체 선택','select-visible')}${btn('선택 확정','payroll-bulk','confirm')}${btn('선택 명세서 공개','payroll-bulk','publish')}${btn('선택 지급 완료','payroll-bulk','paid')}${link('지급 계좌·엑셀','adminBank')}</div>${table(['선택','직원','귀속 월','세전','공제','실지급액','상태','확정 전 확인','관리'],rows)}<p class="sub">가능한 직원만 일괄 처리하고 제외 사유를 표시합니다. 명세서 공개 후에만 지급 완료할 수 있습니다.</p>`);
+    return metrics([['급여 귀속 월','2026년 9월','검토용 금액 예시'],['미확정',state.payroll.filter(p=>p.status==='미확정').length+'명'],['실지급액 합계',money(sum(state.payroll.map(p=>payrollAmounts(state,p).net)))]])+card('월 급여 검토',`<p class="sub">금액은 고정 예시입니다. 실적별 산식은 <a href="./payroll.php">급여 계산 검토</a>에서 별도로 확인할 수 있습니다.</p>${filterBar(['미확정','확정','지급 완료'])}<div class="aw-toolbar">${btn('표시된 직원 전체 선택','select-visible')}${btn('선택 확정','payroll-bulk','confirm')}${btn('선택 명세서 공개','payroll-bulk','publish')}${btn('선택 지급 완료','payroll-bulk','paid')}${link('지급 계좌·엑셀','adminBank')}</div>${table(['선택','직원','귀속 월','세전','공제','실지급액','상태','확정 전 확인','관리'],rows)}<p class="sub">가능한 직원만 일괄 처리하고 제외 사유를 표시합니다. 명세서 공개 후에만 지급 완료할 수 있습니다.</p>`);
   }
   function koreaDay(now=new Date()){return new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit'}).format(now);}
   function isTm(p){return ['상담원','TM','TM 직원'].includes(p?.role);}

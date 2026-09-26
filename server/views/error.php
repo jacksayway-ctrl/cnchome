@@ -1,0 +1,1 @@
+<!doctype html><html lang="ko"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>씨앤씨 · 안내</title><body><h1><?= view_h($title) ?></h1><p><?= view_h($message) ?></p><p><a href="/office.php?role=<?= view_h($role) ?>">업무 화면으로</a></p></body></html>

@@ -3,7 +3,7 @@ const {JSDOM,VirtualConsole}=require('jsdom');
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
 const root=path.resolve(__dirname,'..');
 const errors=[],vc=new VirtualConsole();vc.on('jsdomError',e=>errors.push(e.message));
-const dom=new JSDOM(fs.readFileSync(path.join(root,'index.html'),'utf8'),{url:'http://preview.local/#adminHome',runScripts:'outside-only',virtualConsole:vc,pretendToBeVisual:true,beforeParse(w){
+const dom=new JSDOM(fs.readFileSync(path.join(root,'.build/office-preview.html'),'utf8'),{url:'http://preview.local/#adminHome',runScripts:'outside-only',virtualConsole:vc,pretendToBeVisual:true,beforeParse(w){
  w.structuredClone=structuredClone;w.TextEncoder=TextEncoder;w.TextDecoder=TextDecoder;
  w.HTMLDialogElement.prototype.showModal=function(){this.setAttribute('open','');};
  w.HTMLDialogElement.prototype.close=function(){this.removeAttribute('open');};
@@ -30,7 +30,7 @@ async function main(){
  for(const id of nav){await page(id);const index=sections.findIndex(g=>g.items.some(([p])=>p===id));assert.ok(d.querySelector('[data-aw-section="'+index+'"][aria-current="true"]'),'Parent navigation '+id);assert.ok(d.querySelector('#aw-subpages [data-page="'+id+'"][aria-current="page"]'),'Subpage navigation '+id);assert.equal(d.querySelectorAll('#aw-subpages [data-page]').length,sections[index].items.length);}
  for(let i=0;i<sections.length;i++){click('[data-aw-section="'+i+'"]');await pause();assert.equal(w.location.hash,'#'+sections[i].items[0][0]);const last=sections[i].items.at(-1)[0];click('#aw-subpages [data-page="'+last+'"]');await pause();assert.equal(w.location.hash,'#'+last);}
  await page('home');assert.equal(q('#aw-subpages').hidden,true);assert.equal(d.querySelectorAll('[data-aw-section][aria-current]').length,0);
- await page('adminPayroll');assert.equal(q('#aw-subpages a').getAttribute('href'),'./payroll.html');
+ await page('adminPayroll');assert.equal(q('#aw-subpages a').getAttribute('href'),'./payroll.php');
  await page('adminAttendance');
  for(const id of ['AT-2','AT-3'])click('[data-aw-select="'+id+'"]');click('[data-aw="attendance-bulk"]');
  assert.equal(state().attendance[1].status,'승인');assert.equal(state().attendance[2].status,'대기');assert.match(q('#tm-main').textContent,/중복/);
@@ -50,7 +50,7 @@ async function main(){
  const setAuto=(kind,key,value)=>{const el=q('[data-grade-auto="'+kind+'"][data-auto-key="'+key+'"]');el.value=String(value);el.dispatchEvent(new w.Event('change',{bubbles:true}));};
  assert.equal(q('[data-weekly-horizontal] thead').querySelectorAll('th').length,20);assert.equal(q('[data-weekly-horizontal] tbody').children.length,1);assert.match(q('[data-weekly-horizontal] tbody').textContent,/125,000원/);
  setAuto('weekly','start',7);assert.equal(q('[data-weekly-horizontal] th').textContent,'7건');assert.equal(q('[data-weekly-horizontal] thead tr').lastElementChild.textContent,'26건');setAuto('weekly','start',8);
- assert.equal(d.querySelectorAll('[data-grade-auto="monthly"]').length,0);assert.equal(q('[data-original-monthly] tbody').children.length,9);assert.match(q('[data-original-monthly]').textContent,/101~110건/);
+ assert.equal(d.querySelectorAll('[data-grade-auto="monthly"]').length,0);assert.equal(q('[data-original-monthly] tbody').children.length,9);assert.equal(q('[data-original-monthly] [data-grade-monthly-reference="min"][data-grade-reference-index="1"]').value,'101');
  assert.equal(d.querySelectorAll('[data-grade-department]').length,3);assert.equal(q('[data-daily-horizontal] thead tr').children.length,20);assert.equal(d.querySelectorAll('[data-grade-add="daily"]').length,0);
  click('[data-grade-department="cosmetics"]');let productAward=q('[data-grade-dailycash="perCase"]');assert.equal(productAward.value,'0');productAward.value='20000';productAward.dispatchEvent(new w.Event('input',{bubbles:true}));
  click('[data-grade-department="health"]');productAward=q('[data-grade-dailycash="perCase"]');assert.equal(productAward.value,'0');productAward.value='30000';productAward.dispatchEvent(new w.Event('input',{bubbles:true}));q('#tm-grade-form').requestSubmit();assert.match(q('#tm-dialog').textContent,/식품 기준/);click('[data-grade-confirm]');

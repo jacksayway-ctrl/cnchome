@@ -1,7 +1,7 @@
 'use strict';
 const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
 const rules=require('./region-rules.js');
-const source=fs.readFileSync(require('node:path').join(__dirname,'index.html'),'utf8');
+const source=fs.readFileSync(require('node:path').join(__dirname,'office.js'),'utf8');
 const context={policyCodeHeader:text=>rules.readIntakeCodeHeader(text)};
 vm.runInNewContext(source.slice(source.indexOf('function policyQuantityCellReading('),source.indexOf('async function policyRecognizeBatch(')),context);
 const read=(digit,text,confidence=95)=>context.policyQuantityCellReading({text:digit,confidence:95},{text,confidence});

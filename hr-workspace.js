@@ -107,7 +107,7 @@ function chrome(){if(!live())return;const el=bridge.root.querySelector('#live-pa
 function init(options){
  if(!live())return;bridge=options;store=live().hr||{employees:[],payroll:[],accounts:[],today:today()};
  dialog=document.createElement('dialog');dialog.className='hr-dialog';dialog.setAttribute('aria-label','직원·급여 관리');bridge.root.append(dialog);
- if(!admin()){const b=document.createElement('button');b.type='button';b.dataset.page='payslips';b.textContent='가지급명세서';bridge.root.querySelector('aside nav').append(b);const info=document.createElement('button');info.type='button';info.dataset.page='myInfo';info.textContent='내 정보';bridge.root.querySelector('aside nav').append(info);}
+ if(!admin()&&!bridge.root.querySelector('aside [data-page="payslips"]')){const b=document.createElement('button');b.type='button';b.dataset.page='payslips';b.textContent='가지급명세서';bridge.root.querySelector('aside nav').append(b);const info=document.createElement('button');info.type='button';info.dataset.page='myInfo';info.textContent='내 정보';bridge.root.querySelector('aside nav').append(info);}
  bridge.root.addEventListener('click',async ev=>{
  const registration=ev.target.closest('[data-page="adminStaffRegister"]'),b=ev.target.closest('[data-hr]');if(!registration&&!b)return;ev.preventDefault();ev.stopImmediatePropagation();
  if(busy)return;busy=true;try{if(registration){global.location.hash='adminStaffRegister';staffForm();}else{b.disabled=true;await action(b.dataset.hr,b.dataset.id);}}catch(e){message(e);}finally{busy=false;if(b?.isConnected)b.disabled=false;}

@@ -3,7 +3,7 @@ const fs=require('node:fs'),path=require('node:path'),assert=require('node:asser
 const directory=path.resolve(__dirname,'..');
 function boot(role='admin',entries=[]){
  const errors=[],vc=new VirtualConsole();vc.on('jsdomError',e=>errors.push(e.message));
- const dom=new JSDOM(fs.readFileSync(path.join(directory,'index.html'),'utf8'),{url:'https://preview.local/office.php#'+(role==='employee'?'grade':'adminGrade'),runScripts:'outside-only',virtualConsole:vc,pretendToBeVisual:true,beforeParse(w){w.structuredClone=structuredClone;w.TextEncoder=TextEncoder;w.TextDecoder=TextDecoder;w.HTMLDialogElement.prototype.showModal=function(){this.setAttribute('open','');};w.HTMLDialogElement.prototype.close=function(){this.removeAttribute('open');};w.CNCHOME_LIVE={entries,revision:0,csrf:'token',user:{role,department:'insurance',display_name:'테스트'}};}});
+ const dom=new JSDOM(fs.readFileSync(path.join(directory,'.build/office-preview.html'),'utf8'),{url:'https://preview.local/office.php#'+(role==='employee'?'grade':'adminGrade'),runScripts:'outside-only',virtualConsole:vc,pretendToBeVisual:true,beforeParse(w){w.structuredClone=structuredClone;w.TextEncoder=TextEncoder;w.TextDecoder=TextDecoder;w.HTMLDialogElement.prototype.showModal=function(){this.setAttribute('open','');};w.HTMLDialogElement.prototype.close=function(){this.removeAttribute('open');};w.CNCHOME_LIVE={entries,revision:0,csrf:'token',user:{role,department:'insurance',display_name:'테스트'}};}});
  const w=dom.window,d=w.document;
  for(const script of d.querySelectorAll('script'))w.eval(script.src?fs.readFileSync(path.join(directory,new URL(script.src).pathname),'utf8'):script.textContent);
  return {dom,w,d,errors};
@@ -23,9 +23,9 @@ function boot(role='admin',entries=[]){
  assert.equal(a.w.CNCHOME_LIVE.revision,1);assert.match(q('#tm-grade-history').textContent,/2026/);
  assert.equal(a.w.localStorage.getItem('tm-office-grade-policy-v1'),null);
  const employee=boot('employee',[saved]);try{
- assert.equal(employee.d.querySelector('[data-page="adminGrade"]').hidden,true);
+ assert.equal(employee.d.querySelector('[data-page="adminGrade"]'),null);
  assert.equal(employee.d.querySelector('#tm-grade-form'),null);
- assert.match(employee.d.querySelector('#tm-main').textContent,/현재 적용 그레이드/);
+ assert.match(employee.d.querySelector('#tm-main').textContent,/개인별 주그레이드/);
  assert.deepEqual(employee.errors,[]);
  }finally{employee.dom.window.close()}
  for(const [route] of a.w.AdminWorkspace.navigation.flatMap(g=>g.items)){
@@ -44,7 +44,7 @@ function boot(role='admin',entries=[]){
  assert.equal(form.querySelector('[name="payAmount"]').value,'15000');
  assert.ok(form.querySelector('[name="accountNumber"]'));
  q('.hr-dialog [data-hr="close"]').click();
- a.w.location.hash='';a.w.dispatchEvent(new a.w.HashChangeEvent('hashchange'));await new Promise(r=>setTimeout(r,1));
+ a.w.location.hash='unknown-page';a.w.dispatchEvent(new a.w.HashChangeEvent('hashchange'));await new Promise(r=>setTimeout(r,1));
  assert.ok(q('[data-page="adminHome"]').classList.contains('active'));
  assert.deepEqual(a.errors,[]);console.log('PASS: authenticated grade UI, no demo calculator, failure retention, double-submit prevention, server-only saving and employee read-only route.');
  }finally{a.dom.window.close()}

@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-require '/opt/cnchome-runtime/bootstrap.php';
+require __DIR__.'/_runtime.php';
 session_boot();
 if ($_SERVER['REQUEST_METHOD']!=='POST' || !csrf_ok((string)($_POST['csrf']??''))) {http_response_code(403); exit('잘못된 요청입니다.');}
 $_SESSION=[]; session_destroy();

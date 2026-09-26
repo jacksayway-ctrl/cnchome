@@ -1,24 +1,25 @@
-# TM OFFICE · cnchome
+# 씨앤씨 · PHP 업무 관리
 
-회사 관리 시스템의 직원용 정적 미리보기입니다. 모든 업무 자료는 예시입니다.
+현재 GitHub 소스 전체를 PHP 진입점·템플릿·정적 자산으로 분리한 Cafe24용 업무 관리 프로그램입니다.
 
-- 미리보기: https://jacksayway-ctrl.github.io/cnchome/
-- 로컬 실행: 저장소를 내려받아 `index.html`을 브라우저에서 엽니다. 별도 CDN·지도 API·외부 폰트 연결은 없습니다.
-- 외부 자료의 출처 링크는 수동 참고용이며 실행 의존성이 아닙니다.
-- 실제 로그인, 관리자 저장, 여러 직원 간 동기화, 접수·급여 정산 서버는 아직 구현되지 않았습니다.
-- 실제 업무 데이터는 공개 저장소에 저장하지 않습니다.
+- 진입: `/office.php`, `/admin.php`, `/employee.php`
+- 로그인: `/login.php?role=admin` / `/login.php?role=employee`
+- 급여 계산 검토: `/payroll.php?role=admin`
+- 운영 문서: `/documents.php?role=admin`
+- [전환 내용·저장 범위·GitHub 없이 설치](docs/PHP_MIGRATION.md)
+- [서버 배포·DB 운영](server/README.md)
 
-자체 운영 구조와 구현 범위는 [자체 운영 설계](docs/SELF_HOSTED_ARCHITECTURE.md)를 참고하세요.
+`server/public`은 공개 PHP 진입점, `server/views`는 화면 템플릿, `server/lib`는 인증·DB·출력 처리, `server/config`는 메뉴입니다. `office.js`·`office.css` 등은 브라우저의 지도·달력·팝업·계산 동작을 보존합니다. 기존 HTML 파일은 PHP 주소로 이동시키는 호환용입니다. GitHub Pages만으로는 PHP를 실행할 수 없습니다.
 
-## 급여 계산 개발
+로그인·직원정보·그레이드·게시 명세서는 기존 PHP/DB 기능을 유지합니다. 브라우저에만 저장하던 접수 정책과 예시 업무를 이번 구조 전환만으로 운영 DB 기능으로 바꾸지는 않았습니다. [기능별 저장 범위](docs/PHP_MIGRATION.md#저장-범위)를 확인하세요.
 
-- [관리자 홈](https://jacksayway-ctrl.github.io/cnchome/#adminHome): 처리 대기 업무와 관리자 메뉴.
-- [관리자 메뉴 점검·구현 범위](docs/ADMIN_MENU_REVIEW.md): 17개 메뉴와 예시 업무 흐름, 실제 운영 연결 전 제한 사항.
+## 검증
 
-- [급여 계산 검토 화면](payroll.html): 변경 가능한 예시로 확정 운영 기준을 확인합니다. 실제 지급·저장은 수행하지 않습니다.
-- [전체 운영 기준](docs/payroll-requirements.md)과 [구현 현황](docs/PAYROLL_IMPLEMENTATION.md)을 함께 관리합니다.
-- 운영 기준은 질문 426번까지 반영했습니다. [309~426번 추가 결정과 출처](docs/payroll-decisions-309-426.md)를 확인할 수 있습니다. 추가 문서의 모든 기능이 현재 계산 화면에 구현된 것은 아닙니다.
-- 계산 검증: `node --test payroll-engine.test.cjs`
-- 기존 직원 그레이드 화면은 이전 참고표의 계산입니다. 새 급여 계산 모듈과 운영 서버 연동은 구분합니다.
+```bash
+php server/bin/check-views.php
+node --test *.test.cjs
+php server/bin/check-policy.php
+php server/bin/check-hr.php
+```
 
-2026-09-25: TM 일 그레이드 당일 집계와 관리자 지급 내역을 분리했습니다. 매일 한국 시간 자정에 새 집계를 시작하며 월 급여·주휴수당에 반영하지 않습니다. 미리보기는 새로고침하면 초기화됩니다.
+`check-views.php`가 만든 `.build` 파일로 기존 DOM 검사와 PHP 브라우저 검사를 실행합니다. 검사 전용 Node/PHP 의존성은 운영 서버의 화면 동작에 필요하지 않습니다. DB 비밀번호와 실제 직원자료는 저장소·배포 패키지에 포함하지 않습니다.

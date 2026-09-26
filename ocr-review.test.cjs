@@ -1,5 +1,5 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
-const html=fs.readFileSync(require('node:path').join(__dirname,'index.html'),'utf8');
+const html=fs.readFileSync(require('node:path').join(__dirname,'office.js'),'utf8');
 const start=html.indexOf('function policyConfirmedCropReading('),end=html.indexOf('async function policyRecognizeBatch(',start);
 const context=vm.createContext({});vm.runInContext(html.slice(start,end),context);
 const {policyConfirmedCropReading:confirm,policyNameNeedsReview:review}=context;

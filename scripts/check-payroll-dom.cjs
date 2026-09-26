@@ -2,14 +2,14 @@
 const {JSDOM,VirtualConsole}=require('jsdom');
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
 const root=path.resolve(__dirname,'..'),errors=[],vc=new VirtualConsole();vc.on('jsdomError',e=>errors.push(e.message));
-const dom=new JSDOM(fs.readFileSync(path.join(root,'payroll.html'),'utf8'),{url:'http://preview.local/payroll.html',runScripts:'outside-only',virtualConsole:vc});
+const dom=new JSDOM(fs.readFileSync(path.join(root,'.build/payroll-preview.html'),'utf8'),{url:'http://preview.local/payroll.html',runScripts:'outside-only',virtualConsole:vc});
 const w=dom.window,d=w.document,q=id=>d.getElementById(id);
-w.fetch=async url=>{assert.equal(url,'./docs/payroll-requirements.json');return {ok:true,json:async()=>JSON.parse(fs.readFileSync(path.join(root,'docs/payroll-requirements.json'),'utf8'))};};
+w.fetch=async url=>{assert.equal(url,'./documents.php?role=admin&file=payroll-requirements.json&raw=1');return {ok:true,json:async()=>JSON.parse(fs.readFileSync(path.join(root,'docs/payroll-requirements.json'),'utf8'))};};
 const input=(id,value)=>{q(id).value=value;q(id).dispatchEvent(new w.Event('input',{bubbles:true}));};
 async function main(){
  for(const file of ['payroll-engine.js','payroll-preview.js'])w.eval(fs.readFileSync(path.join(root,file),'utf8'));
  await new Promise(r=>setTimeout(r,10));
- assert.equal(q('calculation-error').textContent,'');assert.ok(q('payroll-output').textContent.includes('세전'));assert.equal(q('daily-count'),null);assert.ok(d.querySelector('a[href="./index.html#adminPayroll"]'));
+ assert.equal(q('calculation-error').textContent,'');assert.ok(q('payroll-output').textContent.includes('세전'));assert.equal(q('daily-count'),null);assert.ok(d.querySelector('a[href="./office.php?role=admin#adminPayroll"]'));
  const initial=q('payroll-output').textContent;
  input('s0-minutes','999999');assert.ok(q('calculation-error').textContent);assert.equal(q('payroll-output').textContent,'');
  q('reset').click();assert.equal(q('calculation-error').textContent,'');assert.equal(q('payroll-output').textContent,initial);
