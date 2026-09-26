@@ -489,7 +489,7 @@
     const root=options.root;
     mountNavigation(root);
     let lastDay=koreaDay();setInterval(()=>{const day=koreaDay();if(day!==lastDay){lastDay=day;bridge.render();}},1000);
-    root.addEventListener('click',e=>{if(e.target.closest('[data-page="adminStaffRegister"]'))editingStaff=null;const b=e.target.closest('[data-aw]');if(!b)return;try{openAction(b.dataset.aw,b.dataset.id);}catch(error){bridge.toast(error.message);}});
+    root.addEventListener('click',e=>{if(e.target.closest('[data-page="adminStaffRegister"]')){try{openAction('staff-new');}catch(error){bridge.toast(error.message);}return;}const b=e.target.closest('[data-aw]');if(!b)return;try{openAction(b.dataset.aw,b.dataset.id);}catch(error){bridge.toast(error.message);}});
     root.addEventListener('change',e=>{if(e.target.matches('[data-aw-form="contract-add"] [name="employee"]')){openContractDraft(e.target.value);return;}if(e.target.matches('[data-aw-select]')){const ids=new Set(ui.selected[currentPage]||[]);e.target.checked?ids.add(e.target.dataset.awSelect):ids.delete(e.target.dataset.awSelect);ui.selected[currentPage]=[...ids];}if(e.target.matches('[data-aw-year]')){ui.year=e.target.value;bridge.render();}});
     root.addEventListener('submit',e=>{const f=e.target.closest('[data-aw-form]');if(!f)return;e.preventDefault();if(!f.reportValidity())return;try{handleForm(f);}catch(error){const out=f.querySelector('[role="alert"]');if(out)out.textContent=error.message;else bridge.toast(error.message);}});
   }
