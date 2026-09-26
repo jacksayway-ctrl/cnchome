@@ -649,7 +649,7 @@ function updateMapLabels(svg){
  const host=svg.parentElement;
  const v=svg.viewBox.baseVal,dims=[v.x,v.y,v.width,v.height];
  const fullWidth=Number(svg.dataset.fullWidth),fullHeight=Number(svg.dataset.fullHeight);
- const showLabels=mapHoveredGroup!==null||(v.width>=fullWidth*.999&&v.height>=fullHeight*.999);
+ const showLabels=mapHoveredGroup!==null;
  layer.style.display=showLabels?'':'none';
  if(!showLabels){layer.innerHTML='';highlightMapRegionRow(null);return;}
  const general=root.querySelector('#tm-age').selectedIndex===0;
@@ -776,12 +776,19 @@ function updateRegionMap(){
 }
 root.addEventListener('click',e=>{const choice=e.target.closest('[data-region-select]');if(choice){mapSelectedGroup=Number(choice.dataset.regionSelect);mapHoveredGroup=null;filterRegions();return}});
 root.addEventListener('input',e=>{if(e.target.id==='tm-region-search'){mapSelectedGroup=null;mapHoveredGroup=null;}},true);
-function previewTableRegion(e){const row=e.target.closest('#tm-region-results tr');const button=row?.querySelector('[data-region-select]');if(!button||row.contains(e.relatedTarget))return;mapHoveredGroup=Number(button.dataset.regionSelect);updateRegionMap();}
+function previewTableRegion(e){const row=e.target.closest('#tm-region-results tr');const button=row?.querySelector('[data-region-select]');if(!button||row.contains(e.relatedTarget))return;mapSelectedGroup=Number(button.dataset.regionSelect);mapHoveredGroup=null;updateRegionMap();}
 function highlightMapRegionRow(group){
  root.querySelectorAll('#tm-region-results [data-region-select]').forEach(button=>{
   button.closest('tr')?.classList.toggle('map-row-highlight',group!==null&&Number(button.dataset.regionSelect)===group);
  });
 }
+function clearMapHoverMemo(){
+ mapHoveredGroup=null;
+ const svg=root.querySelector('#tm-region-map > svg');
+ if(svg){svg.querySelectorAll('.map-search-border').forEach(path=>path.remove());svg.querySelectorAll('.region-match').forEach(path=>path.classList.remove('region-match'));updateMapLabels(svg)}
+ highlightMapRegionRow(null);
+}
+function mapCanShowMemo(target){return !!target?.matches?.('.region-available, .region-policy-possible, .region-policy-partial')}
 function mapRegionHoverTarget(target){
  return target?.closest?.('#tm-region-map [data-map-label-group], #tm-region-map [data-map-group]')??null;
 }
@@ -794,6 +801,7 @@ root.addEventListener('mouseover',e=>{
  const target=mapRegionHoverTarget(e.target);
  if(!target||target.contains(e.relatedTarget))return;
  const group=mapRegionHoverGroup(target);
+ if(!mapCanShowMemo(target)){clearMapHoverMemo();return}
  if(target.matches('[data-map-group]')&&group!==null){
   const svg=root.querySelector('#tm-region-map > svg');
   if(svg){
@@ -816,7 +824,9 @@ root.addEventListener('mouseover',e=>{
 root.addEventListener('mouseout',e=>{
  const target=mapRegionHoverTarget(e.target);
  if(!target||target.contains(e.relatedTarget))return;
- highlightMapRegionRow(mapRegionHoverGroup(mapRegionHoverTarget(e.relatedTarget)));
+ const next=mapRegionHoverTarget(e.relatedTarget);
+ if(!mapCanShowMemo(next)){clearMapHoverMemo();return}
+ highlightMapRegionRow(mapRegionHoverGroup(next));
 });
 root.addEventListener('mouseover',previewTableRegion);
 
@@ -2811,7 +2821,7 @@ function policyMapShapeStatus(shape,index){
 }
 function policyPublishedMapLabels(svg){
  const layer=svg?.querySelector('.map-label-layer');if(!layer)return;
- const index=mapHoveredGroup??mapSelectedGroup;if(index===null||!regions[index]){layer.innerHTML='';return}
+ const index=mapHoveredGroup;if(index===null||!regions[index]){layer.innerHTML='';return}
  const result=policyResultForGroup(index),v=svg.viewBox.baseVal,matrix=svg.getScreenCTM();
  const quota=result.items.flatMap(item=>(item.quantities||[]).map(q=>policyKeyLabel(item.key)+' '+q.quantity+'건 공유')).join(' · ');
  const unit=matrix?1/Math.max(.001,Math.hypot(matrix.a,matrix.b)):v.width/400;
