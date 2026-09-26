@@ -1,6 +1,6 @@
 # Cafe24 grade database release
 
-Ubuntu 24.04, PHP 8.3 FPM, MySQL 8, Nginx HTTPS. This release implements login and persisted grade policy/history only. Reception, attendance, payroll and staff administration remain demos. The original static preview is preserved at `/preview.html`; the deployed root goes to `/office.php`.
+Ubuntu 24.04, PHP 8.3 FPM, MySQL 8, Nginx HTTPS. All existing admin menu screens are available inside the authenticated office, with an explicit preview notice on screens that are not DB-backed. This release implements login and persisted grade policy/history only. Reception, attendance, payroll and staff administration remain demos. The original static preview is preserved at `/preview.html`; the deployed root goes to `/office.php`.
 
 ## Deploy
 
@@ -39,3 +39,9 @@ Session cookies require HTTPS, are HttpOnly and SameSite=Lax; idle timeout is on
 With jsdom installed separately: `node scripts/check-grade-history-dom.cjs` and `node scripts/check-grade-server-dom.cjs`.
 
 `php server/bin/check-policy.php` validates PHP policy rules. Actual PHP-FPM/MySQL integration must also pass the acceptance checks above on the server.
+
+## Automatic Cafe24 deployment
+
+Run `bash /opt/cnchome/server/enable-auto-deploy.sh` once as root after pulling this version. A systemd timer checks GitHub main every minute and deploys changed commits. It uses the existing public repository and does not require sharing root credentials or adding a GitHub password. Repository write access now authorizes server deployments; the deployment script executes with server administration privileges.
+
+Local tracked edits stop automatic deployment rather than being discarded. A failed revision is attempted once; a subsequent fixed commit triggers another attempt. Status: `systemctl status cnchome-deploy.timer` and `journalctl -u cnchome-deploy.service -n 40 --no-pager`. Disable with `systemctl disable --now cnchome-deploy.timer`. To deliberately retry an unchanged failed revision after fixing server configuration: remove `/var/lib/cnchome-deploy/attempt` and run `systemctl start cnchome-deploy.service`. Web file backups remain under `/var/backups/cnchome`; monitor disk usage as versions accumulate. The timer's installation is only complete after the command succeeds on the actual server.

@@ -27,7 +27,7 @@
     {label:'운영 관리',icon:'⚙',items:[['adminSettings','운영 설정'],['adminPermissions','계정·권한'],['adminAudit','변경 이력']]}
   ];
   function mountNavigation(root){
-    if(global.CNCHOME_LIVE)return;
+    if(global.CNCHOME_LIVE&&global.CNCHOME_LIVE.user.role!=='admin')return;
     const sidebar=root.querySelector('aside nav'),main=root.querySelector('#tm-main');
     if(!sidebar||!main)return;
     sidebar.setAttribute('aria-label','직원·관리자 메뉴');
@@ -36,7 +36,7 @@
     groups.innerHTML=navigation.map((g,i)=>`<button type="button" data-aw-section="${i}" aria-controls="aw-subpages"><span aria-hidden="true">${g.icon}</span>${g.label}</button>`).join('');sidebar.append(groups);
     const bar=document.createElement('section');bar.id='aw-subpages';bar.className='aw-subpages';bar.hidden=true;main.before(bar);
     function sync(){
-      const route=global.location.hash.slice(1),index=navigation.findIndex(g=>g.items.some(([p])=>p===route));
+      const requested=global.location.hash.slice(1),route=global.CNCHOME_LIVE&&!navigation.some(g=>g.items.some(([p])=>p===requested))&&requested!=='grade'?'adminHome':requested,index=navigation.findIndex(g=>g.items.some(([p])=>p===route));
       groups.querySelectorAll('[data-aw-section]').forEach(b=>{const selected=Number(b.dataset.awSection)===index;b.classList.toggle('active',selected);if(selected)b.setAttribute('aria-current','true');else b.removeAttribute('aria-current');});
       bar.hidden=index<0;if(index<0){bar.replaceChildren();return;}
       const group=navigation[index],current=group.items.find(([p])=>p===route);

@@ -12,7 +12,7 @@ cp -a /var/www/html "$backup/html"
 if [[ -d /opt/cnchome-runtime ]]; then cp -a /opt/cnchome-runtime "$backup/runtime"; fi
 install -d -m 755 /opt/cnchome-runtime
 install -m 644 server/lib/*.php index.html /opt/cnchome-runtime/
-install -m 644 ./*.js ./*.css /var/www/html/
+install -m 644 ./*.js ./*.css payroll.html /var/www/html/
 for file in server/public/*.php; do
   target="/var/www/html/$(basename "$file")"
   install -m 644 "$file" "$target.new"

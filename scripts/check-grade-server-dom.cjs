@@ -11,7 +11,7 @@ function boot(role='admin',entries=[]){
 (async()=>{
  const a=boot();const q=s=>{const el=a.d.querySelector(s);assert.ok(el,s);return el};
  try{
- assert.equal(q('[data-page="adminIntake"]').hidden,true);
+ assert.equal(a.d.querySelectorAll('[data-aw-section]').length,6);
  assert.equal(q('[data-page="adminGrade"]').hidden,false);
  assert.equal(a.d.querySelector('#tm-grade-preview-form'),null);
  assert.match(q('#live-account').textContent,/테스트/);
@@ -28,6 +28,15 @@ function boot(role='admin',entries=[]){
  assert.match(employee.d.querySelector('#tm-main').textContent,/현재 적용 그레이드/);
  assert.deepEqual(employee.errors,[]);
  }finally{employee.dom.window.close()}
+ for(const [route] of a.w.AdminWorkspace.navigation.flatMap(g=>g.items)){
+ a.w.location.hash=route;a.w.dispatchEvent(new a.w.HashChangeEvent('hashchange'));
+ await new Promise(r=>setTimeout(r,1));
+ assert.ok(q('#tm-main').textContent.trim().length,route);
+ assert.ok(q('[data-page="'+route+'"]').classList.contains('active'),route);
+ if(route!=='adminGrade')assert.match(q('#live-page-status').textContent,/미리보기/);
+ }
+ a.w.location.hash='';a.w.dispatchEvent(new a.w.HashChangeEvent('hashchange'));await new Promise(r=>setTimeout(r,1));
+ assert.ok(q('[data-page="adminHome"]').classList.contains('active'));
  assert.deepEqual(a.errors,[]);console.log('PASS: authenticated grade UI, no demo calculator, failure retention, double-submit prevention, server-only saving and employee read-only route.');
  }finally{a.dom.window.close()}
 })().catch(e=>{console.error(e);process.exitCode=1});

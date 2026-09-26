@@ -475,7 +475,7 @@ html,body{height:100%;overflow:hidden}
 const root=document.getElementById('tm-preview'), main=root.querySelector('#tm-main'), modal=root.querySelector('#tm-dialog'), body=root.querySelector('#tm-dialog-body');
 GradeNumbers.bind(root);
 const pageNames=[...new Set(['home','regions','attendance','sales','grade','as','adminHome','adminIntake','adminPerformance','adminGrade','adminAttendance','adminAs','adminStaff','adminSettings',...Object.keys(AdminWorkspace.pages)])];
-function pageFromUrl(){const name=window.location.hash.slice(1);if(window.CNCHOME_LIVE)return window.CNCHOME_LIVE.user.role==='admin'&&name==='adminGrade'?'adminGrade':'grade';return pageNames.includes(name)?name:'home'}
+function pageFromUrl(){const name=window.location.hash.slice(1);if(window.CNCHOME_LIVE){if(window.CNCHOME_LIVE.user.role!=='admin')return 'grade';return pageNames.includes(name)&&(name.startsWith('admin')||name==='grade')?name:'adminHome';}return pageNames.includes(name)?name:'home'}
 let homeStatus=null;
 let page=pageFromUrl(),selected=22,noticeRead=false,cashReceived=false,outing='none',clockedOut=false;
 const performance={1:4,2:5,3:6,4:4,7:5,8:3,9:6,10:7,11:4,14:6,15:5,16:7,17:6,18:5,21:7,22:8};
@@ -2507,12 +2507,13 @@ function gradeLiveChrome(){
  root.classList.add('live-mode');
  root.querySelector('.team').textContent=gradeDepartments[live.user.department]+' · '+(live.user.role==='admin'?'관리자':'직원');
  root.querySelector('.mobile-note').textContent='회사 관리';
- root.querySelectorAll('[data-page]').forEach(b=>{b.hidden=!(b.dataset.page==='grade'||(live.user.role==='admin'&&b.dataset.page==='adminGrade'));});
- root.querySelectorAll('.nav-cut,.aw-nav-group,.payroll-link,.top-notice').forEach(el=>el.hidden=true);
+ root.querySelectorAll('[data-page]').forEach(b=>{b.hidden=!(b.dataset.page==='grade'||(live.user.role==='admin'&&b.dataset.page.startsWith('admin')));});
+ root.querySelectorAll('.top-notice,.payroll-link').forEach(el=>el.hidden=true);
+ root.querySelectorAll('.nav-cut,.aw-nav-group').forEach(el=>el.hidden=live.user.role!=='admin');
  root.querySelector('.work > header').hidden=true;root.querySelector('.work > .sample').hidden=true;
  if(!root.querySelector('#live-account')){
   const bar=document.createElement('div');bar.id='live-account';bar.className='notice';
-  bar.innerHTML=`<div class="row"><strong>${gradeEscape(live.user.display_name)} · ${live.user.role==='admin'?'관리자':'직원'}</strong><button type="button" class="secondary" id="live-refresh">최신 기준 불러오기</button>${live.user.role==='admin'?'<a href="/preview.html" target="_blank" rel="noopener">기존 화면 미리보기</a>':''}<form method="post" action="/logout.php"><input type="hidden" name="csrf" value="${gradeEscape(live.csrf)}"><button class="secondary">로그아웃</button></form></div><p class="sub">그레이드 기준·변경 이력은 DB에 저장됩니다. 접수·출결·급여 연결은 준비 중입니다.</p>`;
+  bar.innerHTML=`<div class="row"><strong>${gradeEscape(live.user.display_name)} · ${live.user.role==='admin'?'관리자':'직원'}</strong><button type="button" class="secondary" id="live-refresh">최신 기준 불러오기</button>${live.user.role==='admin'?'<a href="/preview.html" target="_blank" rel="noopener">기존 화면 미리보기</a>':''}<form method="post" action="/logout.php"><input type="hidden" name="csrf" value="${gradeEscape(live.csrf)}"><button class="secondary">로그아웃</button></form></div><p class="sub" id="live-page-status"></p>`;
   main.before(bar);
   bar.querySelector('#live-refresh').addEventListener('click',async()=>{
    if(gradeDirty||gradePending||Object.values(gradeDraftCache).some(d=>d.dirty)){toast('수정 중인 기준을 저장하거나 취소한 뒤 불러와 주세요.');return;}
@@ -2521,6 +2522,8 @@ function gradeLiveChrome(){
    catch(error){toast(error.message||'연결을 확인해 주세요.');}finally{button.disabled=false;}
   });
  }
+ const status=root.querySelector('#live-page-status');
+ status.textContent=page==='grade'||page==='adminGrade'?'그레이드 기준·변경 이력: DB 연결됨':'이 메뉴는 미리보기입니다. 입력·승인·지급 조작은 실제 업무 DB에 반영되지 않습니다.';
  if(page==='adminGrade'){
   const notice=main.querySelector('.notice:not(.grade-editor .notice)');
   if(notice)notice.textContent='확인 후 적용하면 DB에 저장됩니다. 직원은 본인 부서 기준을 조회합니다. 브라우저의 기존 미리보기 기준은 자동으로 가져오지 않습니다.';
