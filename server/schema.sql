@@ -66,3 +66,10 @@ CREATE TABLE IF NOT EXISTS hr_payroll_events (
  FOREIGN KEY (payroll_id) REFERENCES hr_payroll(id),
  FOREIGN KEY (actor_id) REFERENCES app_users(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS test_employee_data (
+ user_id BIGINT UNSIGNED PRIMARY KEY,
+ state JSON NOT NULL,
+ revision INT UNSIGNED NOT NULL DEFAULT 1,
+ FOREIGN KEY (user_id) REFERENCES app_users(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
