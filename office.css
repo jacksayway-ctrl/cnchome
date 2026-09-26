@@ -445,3 +445,16 @@ html,body{height:100%;overflow:hidden}
 html [hidden]{display:none!important}
 #tm-preview .page-loading{padding:24px;color:var(--tm-muted)}
 #tm-preview .region-policy-original td{white-space:pre-wrap;overflow-wrap:anywhere}
+#tm-preview .region-page-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+#tm-preview .region-page-heading h2{margin:0}
+#tm-preview .region-policy-date{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap;font-size:12px}
+#tm-preview .policy-date-title{color:var(--tm-muted)}
+#tm-preview .policy-date-badge{display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap;padding:6px 10px;border-radius:7px;border:1px solid #cbd5e1;background:#f8fafc;color:#475569;font-size:12px;font-variant-numeric:tabular-nums}
+#tm-preview .policy-date-badge.today{background:#e9f7ee;border-color:#b5ddc3;color:#17603b}
+#tm-preview .policy-date-badge.past{background:#fff5e5;border-color:#f0d199;color:#885609}
+#tm-preview .policy-example-label{font-weight:700;border-right:1px solid currentColor;padding-right:8px}
+#tm-preview .policy-date-note{color:#885609}
+#tm-preview .policy-table-heading{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin:18px 0 10px}
+#tm-preview .policy-table-heading h3{margin:0}
+#tm-preview .policy-date-examples summary{cursor:pointer;font-weight:700;margin-bottom:12px}
+@media(max-width:760px){#tm-preview .region-policy-date{justify-content:flex-start}#tm-preview .region-page-heading{align-items:flex-start}}

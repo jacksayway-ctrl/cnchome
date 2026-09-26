@@ -41,17 +41,34 @@ const root=path.resolve(__dirname,'..');
     await page.reload();assert.equal(await page.locator('aside [data-aw-section]').count(),6);
    }else{
     await page.evaluate(()=>location.hash='adminGrade');await page.waitForFunction(()=>new URL(location.href).searchParams.get('page')==='home');assert.equal(await page.locator('#tm-grade-form').count(),0);
-    await page.evaluate(()=>localStorage.setItem('cnchome.regionPolicies.v1',JSON.stringify({version:1,policies:{'shinhan:general':{rows:[['지역','수량','조건'],['서울','2','신한 조건']]},'hanwha:general':{rows:[['지역','수량','연령'],['부산','3','40~60']]},'ga:general':{rows:[['지역','수량','제외'],['경기','4','<img src=x onerror=alert(1)>']]}}})));
+    await page.clock.setFixedTime(new Date('2026-09-26T08:00:00Z'));
+    await page.goto(base+'/office.php?role=employee&page=regions');await page.locator('#tm-region-map svg').first().waitFor();
+    assert.match(await page.locator('#tm-region-policy-date').innerText(),/예시.*2026\.09\.26 정책표.*오늘 등록/s);
+    assert.equal(await page.locator('#tm-region-conditions tbody tr').count(),3);
+    assert.equal(await page.locator('#tm-region-conditions .policy-date-badge.today').count(),1);
+    assert.equal(await page.locator('#tm-region-conditions .policy-date-badge.past').count(),2);
+    assert.match(await page.locator('#tm-region-conditions').innerText(),/실제 접수 기준이 아닙니다/);
+    assert.equal(await page.evaluate(()=>localStorage.getItem('cnchome.regionPolicies.v1')),null,'examples must not be published');
+    await page.evaluate(()=>localStorage.setItem('cnchome.regionPolicies.v1',JSON.stringify({version:1,policies:{'shinhan:general':{savedAt:'2026-09-23T15:00:00Z',rows:[['지역','수량','조건'],['서울','2','신한 조건']]},'hanwha:general':{savedAt:'2026-09-24T15:00:00Z',rows:[['지역','수량','연령'],['부산','3','40~60']]},'ga:general':{savedAt:'2026-09-25T15:00:00Z',rows:[['지역','수량','제외'],['경기','4','<img src=x onerror=alert(1)>']]}}})));
     await page.goto(base+'/office.php?role=employee&page=regions');await page.locator('#tm-region-map svg').first().waitFor();
     const text=await page.locator('#tm-region-conditions').innerText();
     assert(text.indexOf('GA')<text.indexOf('한화'));assert(text.indexOf('한화')<text.indexOf('신한'));assert.match(text,/40~60/);assert.match(text,/신한 조건/);
     assert.equal(await page.locator('#tm-region-conditions img').count(),0);
+    const dateLabels=await page.locator('.policy-table-heading .policy-date-badge').allInnerTexts();
+    assert.match(dateLabels[0],/2026\.09\.26 정책표.*오늘 등록/s);assert.match(dateLabels[1],/2026\.09\.25 정책표.*1일 전 등록/s);assert.match(dateLabels[2],/2026\.09\.24 정책표.*2일 전 등록/s);
+    assert.match(await page.locator('#tm-region-policy-date').innerText(),/오늘 등록.*이전 날짜 정책 2건/s);
+    assert(await page.evaluate(()=>document.querySelector('#tm-region-policy-date').getBoundingClientRect().left>=document.querySelector('.region-page-heading h2').getBoundingClientRect().right),'date belongs to the right of the heading on desktop');
     assert(await page.evaluate(()=>document.querySelector('#tm-region-conditions').getBoundingClientRect().bottom<=document.querySelector('#tm-region-map').getBoundingClientRect().top));
     await page.screenshot({path:path.join(root,'.build/employee-policies.png')});
+    await page.evaluate(()=>{const data=JSON.parse(localStorage.getItem('cnchome.regionPolicies.v1'));delete data.policies['ga:general'].savedAt;localStorage.setItem('cnchome.regionPolicies.v1',JSON.stringify(data));});
+    await page.reload();
+    assert.match(await page.locator('#tm-region-policy-date').innerText(),/2026\.09\.25 정책표.*1일 전 등록.*등록일 확인 필요 1건/s);
+    assert.match(await page.locator('.policy-table-heading .policy-date-badge').first().innerText(),/등록일 확인 필요/);
+    assert.equal(await page.locator('#tm-region-policy-date .today').count(),0);
     await page.setViewportSize({width:390,height:844});await page.reload();assert.equal(await page.locator('aside [data-page]').count(),8);await page.screenshot({path:path.join(root,'.build/employee-mobile.png')});
    }
   }
   assert.deepEqual(errors,[]);await context.close();
-  console.log('PASS: PHP first paint, 28 menus, refresh, role isolation, policy order and escaping, desktop/mobile rendering; no browser errors.');
+  console.log('PASS: PHP first paint, 28 menus, refresh, role isolation, policy order and escaping, Korean policy dates and unsaved examples, desktop/mobile rendering; no browser errors.');
  }finally{if(browser)await browser.close();await new Promise(resolve=>server.close(resolve));}
 })().catch(e=>{console.error(e);process.exitCode=1;});

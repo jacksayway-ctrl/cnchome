@@ -12,7 +12,7 @@
 </div>
 <dialog id="tm-dialog" aria-labelledby="tm-dialog-title"><div class="row"><h2 id="tm-dialog-title">접수 등록</h2><button class="secondary" data-action="close" aria-label="창 닫기">닫기</button></div><div id="tm-dialog-body"></div></dialog>
 
-<?php foreach (['korea-regions.js','intake-codes.js','region-rules.js','admin-xlsx.js','admin-workspace.js','hr-workspace.js','grade-numbers.js','grade-calendar.js','grade-calendar-preview.js','office.js'] as $file): ?>
+<?php foreach (['korea-regions.js','intake-codes.js','region-rules.js','admin-xlsx.js','admin-workspace.js','hr-workspace.js','grade-numbers.js','grade-calendar.js','grade-calendar-preview.js','policy-dates.js','office.js'] as $file): ?>
 <script src="<?= view_h(asset_url($file)) ?>"></script>
 <?php endforeach; ?>
 </div>

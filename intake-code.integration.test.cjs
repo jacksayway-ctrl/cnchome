@@ -89,7 +89,7 @@ function boot(saved = new Map()) {
   };
   context.window = context;
   vm.createContext(context);
-  for (const file of ['korea-regions.js', 'intake-codes.js', 'region-rules.js', 'grade-numbers.js', 'grade-calendar.js', 'grade-calendar-preview.js', 'admin-workspace.js', 'hr-workspace.js']) {
+  for (const file of ['korea-regions.js', 'intake-codes.js', 'region-rules.js', 'grade-numbers.js', 'grade-calendar.js', 'grade-calendar-preview.js', 'policy-dates.js', 'admin-workspace.js', 'hr-workspace.js']) {
     vm.runInContext(fs.readFileSync(path.join(__dirname, file), 'utf8'), context, {filename: file});
   }
   vm.runInContext(app, context, {filename: 'office.js'});
