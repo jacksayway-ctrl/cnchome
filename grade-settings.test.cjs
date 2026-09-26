@@ -116,9 +116,9 @@ test('monthly numeric range edits persist and update calculation boundaries',()=
  vm.runInContext('gradeSyncMonthlyReference(editedMonthlyRows)',context);
  assert.equal(gradeValidate(p),'');
  assert.equal(p.monthlyReference[1].label,'81~110건');
- assert.equal(p.monthlyReference[1].threshold,80);
+ assert.equal(p.monthlyReference[1].threshold,100);
  assert.equal(context.api.gradeReferenceMonthly(80,132,p).extra,0);
- assert.equal(context.api.gradeReferenceMonthly(81,132,p).extra,5000);
+ assert.equal(context.api.gradeReferenceMonthly(81,132,p).extra,0);
  const restored=gradeReadStore(JSON.stringify({version:2,entries:[{date:'2026-09-01',savedAt:'2026-09-01T00:00:00Z',policy:p}]}));
  assert.equal(gradePolicyAt(restored,'2026-09-01').monthlyReference[0].max,80);
  const editor=context.api.gradeOriginalMonthlyTable(p,true);
@@ -127,4 +127,22 @@ test('monthly numeric range edits persist and update calculation boundaries',()=
  assert.notEqual(gradeValidate(p),'');
  p.monthlyReference[1].max=80.5;
  assert.notEqual(gradeValidate(p),'');
+});
+
+test('monthly start and end edits cascade by ten and preserve every other field',()=>{
+ const rows=vm.runInContext('gradeMonthlyReferenceRows()',context);
+ const fixed=rows.map(({label,max,...rest})=>JSON.stringify(rest));
+ context.rangeRows=rows;
+ vm.runInContext("gradeEditMonthlyRange(rangeRows,0,'max',80)",context);
+ assert.deepEqual(Array.from(rows,r=>r.label),['80건 이하','81~90건','91~100건','101~110건','111~120건','121~130건','131~140건','141~150건','151건 이상']);
+ vm.runInContext("gradeEditMonthlyRange(rangeRows,2,'min',95)",context);
+ assert.equal(rows[1].label,'81~94건');assert.equal(rows[2].label,'95~104건');assert.equal(rows[3].label,'105~114건');
+ vm.runInContext("gradeEditMonthlyRange(rangeRows,8,'min',160)",context);
+ assert.equal(rows[8].label,'160건 이상');assert.equal(rows[7].max,159);
+ assert.deepEqual(rows.map(({label,max,...rest})=>JSON.stringify(rest)),fixed);
+ const p=gradeDefaults();p.monthlyReference=rows;assert.equal(gradeValidate(p),'');
+ const editor=context.api.gradeOriginalMonthlyTable(p,true);
+ assert.equal((editor.match(/data-grade-monthly-reference="min"/g)||[]).length,8);
+ assert.throws(()=>vm.runInContext("gradeEditMonthlyRange(rangeRows,2,'min',1)",context));
+ assert.throws(()=>vm.runInContext("gradeEditMonthlyRange(rangeRows,0,'max',80.5)",context));
 });
