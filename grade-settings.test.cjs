@@ -5,7 +5,7 @@ const vm = require('node:vm');
 const html = fs.readFileSync(require('node:path').join(__dirname, 'index.html'), 'utf8');
 const code = html.slice(html.indexOf('// Editable grade policy.'), html.indexOf('function adminAttendance()'));
 const listeners={};
-const context = vm.createContext({fmt:n=>n.toLocaleString("ko-KR"),Intl,Date,structuredClone,root:{addEventListener(type,fn){(listeners[type]??=[]).push(fn)}},window:{addEventListener(){}},localStorage:{getItem(){return null}}});
+const context = vm.createContext({GradeCalendar:require('./grade-calendar.js'),GradeCalendarPreview:require('./grade-calendar-preview.js'),fmt:n=>n.toLocaleString("ko-KR"),Intl,Date,structuredClone,root:{addEventListener(type,fn){(listeners[type]??=[]).push(fn)}},window:{addEventListener(){}},localStorage:{getItem(){return null}}});
 vm.runInContext(code+'\nglobalThis.api={gradeDefaults,gradeValidate,gradeCalculate,gradeValidDate,gradePolicyAt,gradeReadStore,gradeSyncWeeklyBounds,gradeGenerateWeekly,gradePrepareDraft,gradeDailyCashTable,gradeOriginalMonthlyTable,gradeAggregateCalculate,gradeReferenceMonthly,gradePreviewHtml,gradeUpdatePreview};',context);
 const {gradeDefaults,gradeValidate,gradeCalculate,gradeValidDate,gradePolicyAt,gradeReadStore}=context.api;
 test('monthly screenshot boundaries use only the current tier and include its first count',()=>{
@@ -85,7 +85,7 @@ test('original monthly table preserves supplied labels and estimates without the
 test('aggregate 150 cases at 22 six-hour days uses current monthly table and counts cash once',()=>{
  const p=context.api.gradePrepareDraft(gradeDefaults()),r=context.api.gradeAggregateCalculate(p,'insurance',150,22,6);
  assert.equal(r.distribution.reduce((x,y)=>x+y,0),150);assert.equal(r.hours,132);assert.equal(r.hourly,17000);assert.equal(r.base,2244000);assert.equal(r.daily,200000);assert.equal(r.weekly,0);assert.equal(r.monthly.achievement,300000);assert.equal(r.monthly.extra,100000);assert.equal(r.salary,2644000);assert.equal(r.total,2844000);assert.equal(r.calculationAmount,4656000);
- const weekly=context.api.gradeAggregateCalculate(p,'cosmetics',176,22,6);assert.equal(weekly.weeks.length,5);assert.equal(weekly.weeks.at(-1).days,2);assert.equal(weekly.weekly,150000);assert.equal(weekly.daily,330000);
+ const weekly=context.api.gradeAggregateCalculate(p,'cosmetics',176,22,6);assert.equal(weekly.weeks.length,5);assert.equal(weekly.weeks.at(-1).carryover,true);assert.equal(weekly.weeks.at(-1).payrollMonth,'2026-10');assert.equal(weekly.weekly,90000);assert.equal(weekly.daily,330000);
  const half=context.api.gradeAggregateCalculate(p,'insurance',150.5,22,6);assert.equal(half.distribution.reduce((x,y)=>x+y,0),150.5);assert.equal(half.monthly.extra,5000);assert.equal(half.hourly,17000);assert.equal(half.monthly.achievement,400000);
  for(const input of [[-1,22,6],[150,0,6],[150,1.5,6],[150,32,6],[150,22,0],[150,22,25],[150.1,22,6]])assert.throws(()=>context.api.gradeAggregateCalculate(p,'insurance',...input));
 });
@@ -106,5 +106,5 @@ test('aggregate preview waits for confirmation and invalidates stale results aft
 
 test('monthly tiers use corrected 17000 hourly through 170 and 18000 above',()=>{
  for(const [count,hourly,award,extra,total] of [[150,17000,300000,100000,2644000],[151,17000,400000,10000,2654000],[155,17000,400000,50000,2694000],[160,17000,400000,100000,2744000],[160.5,17000,500000,5000,2749000],[161,17000,500000,10000,2754000],[165,17000,500000,50000,2794000],[170,17000,500000,100000,2844000]]){const r=context.api.gradeReferenceMonthly(count,132);assert.equal(r.hourly,hourly);assert.equal(r.achievement,award);assert.equal(r.extra,extra);assert.equal(r.total,total);}
- assert.equal(context.api.gradeReferenceMonthly(170.5,132).total,2981000);assert.equal(context.api.gradeReferenceMonthly(171,132).total,2986000);assert.equal(context.api.gradeReferenceMonthly(175,132).total,3026000);assert.equal(context.api.gradeReferenceMonthly(200,132).total,3276000);const r=context.api.gradeAggregateCalculate(context.api.gradePrepareDraft(gradeDefaults()),'insurance',175,22,6);assert.equal(r.hourly,18000);assert.equal(r.monthly.achievement,600000);assert.equal(r.monthly.extra,50000);assert.equal(r.base,2376000);assert.equal(r.salary,3146000);assert.equal(r.total,3471000);
+ assert.equal(context.api.gradeReferenceMonthly(170.5,132).total,2981000);assert.equal(context.api.gradeReferenceMonthly(171,132).total,2986000);assert.equal(context.api.gradeReferenceMonthly(175,132).total,3026000);assert.equal(context.api.gradeReferenceMonthly(200,132).total,3276000);const r=context.api.gradeAggregateCalculate(context.api.gradePrepareDraft(gradeDefaults()),'insurance',175,22,6);assert.equal(r.hourly,18000);assert.equal(r.monthly.achievement,600000);assert.equal(r.monthly.extra,50000);assert.equal(r.base,2376000);assert.equal(r.salary,3116000);assert.equal(r.total,3441000);
 });
