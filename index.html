@@ -2,13 +2,14 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://cdn.jsdelivr.net https://tessdata.projectnaptha.com https://raw.githubusercontent.com; media-src 'self' data: blob:; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'self'; worker-src 'self' blob: https://cdn.jsdelivr.net">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://cdn.jsdelivr.net https://t1.kakaocdn.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://cdn.jsdelivr.net https://tessdata.projectnaptha.com https://raw.githubusercontent.com; media-src 'self' data: blob:; object-src 'none'; frame-src https://postcode.map.kakao.com https://postcode.map.daum.net https://t1.kakaocdn.net; base-uri 'none'; form-action 'self'; worker-src 'self' blob: https://cdn.jsdelivr.net">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex,nofollow,noarchive,nosnippet,noimageindex">
 <title>씨앤씨 · 직원 화면 미리보기</title>
 <link rel="icon" href="./cnc-mark.svg" type="image/svg+xml">
 <link rel="stylesheet" href="./admin-workspace.css">
+<link rel="stylesheet" href="./hr-workspace.css?v=1">
 <style>#tm-preview .cnc-brand{display:flex;flex-direction:row;align-items:center;gap:10px;white-space:nowrap}#tm-preview .cnc-brand img{display:block;width:48px;height:32px;flex:0 0 48px;object-fit:contain}#tm-preview .cnc-brand strong{font-size:20px;line-height:32px;letter-spacing:0}</style>
 <meta name="description" content="예시 자료로 체험하는 씨앤씨 직원 화면. 실제 접수와 급여 정산은 연결되지 않습니다.">
 <style>body{margin:0;background:#f3f6fb}#tm-preview{border-radius:0;max-width:1500px;margin:auto}button,input,select,textarea{font:inherit}
@@ -469,6 +470,7 @@ html,body{height:100%;overflow:hidden}
 <script src="./region-rules.js?v=directional-listed1"></script>
 <script src="./admin-xlsx.js"></script>
 <script src="./admin-workspace.js"></script>
+<script src="./hr-workspace.js?v=1"></script>
 <script src="./grade-numbers.js?v=commas1"></script>
 <script src="./grade-calendar.js"></script>
 <script src="./grade-calendar-preview.js?v=records-table1"></script>
@@ -476,8 +478,8 @@ html,body{height:100%;overflow:hidden}
 (()=>{
 const root=document.getElementById('tm-preview'), main=root.querySelector('#tm-main'), modal=root.querySelector('#tm-dialog'), body=root.querySelector('#tm-dialog-body');
 GradeNumbers.bind(root);
-const pageNames=[...new Set(['home','regions','attendance','sales','grade','as','adminHome','adminIntake','adminPerformance','adminGrade','adminAttendance','adminAs','adminStaff','adminSettings',...Object.keys(AdminWorkspace.pages)])];
-function pageFromUrl(){const name=window.location.hash.slice(1);if(window.CNCHOME_LIVE){if(window.CNCHOME_LIVE.user.role!=='admin')return 'grade';return pageNames.includes(name)&&(name.startsWith('admin')||name==='grade')?name:'adminHome';}return pageNames.includes(name)?name:'home'}
+const pageNames=[...new Set(['payslips','home','regions','attendance','sales','grade','as','adminHome','adminIntake','adminPerformance','adminGrade','adminAttendance','adminAs','adminStaff','adminSettings',...Object.keys(AdminWorkspace.pages)])];
+function pageFromUrl(){const name=window.location.hash.slice(1);if(window.CNCHOME_LIVE){if(window.CNCHOME_LIVE.user.role!=='admin')return name==='grade'?'grade':'payslips';return pageNames.includes(name)&&(name.startsWith('admin')||name==='grade')?name:'adminHome';}return pageNames.includes(name)?name:'home'}
 let homeStatus=null;
 let page=pageFromUrl(),selected=22,noticeRead=false,cashReceived=false,outing='none',clockedOut=false;
 const performance={1:4,2:5,3:6,4:4,7:5,8:3,9:6,10:7,11:4,14:6,15:5,16:7,17:6,18:5,21:7,22:8};
@@ -1158,7 +1160,7 @@ function adminHome(){
  const teamSummary=table(['팀','재직','오늘 출근','정상 접수','가접수','A/S','월 실적'],totals.map(item=>[item.team.name,item.people.length+'명',item.present+'명',item.normal+'건',item.pending+'건',item.as+'건',item.monthly+'건']).concat([['전체',adminEmployees.length+'명',present+'명',normal+'건',pending+'건',asCount+'건',totals.reduce((sum,item)=>sum+item.monthly,0)+'건']]));
  const teamPanels=totals.map(item=>panel(item.team.name+' 직원 현황',table(['직원','출결','정상 접수','가접수','A/S','월 실적','월그레이드'],item.people.map(employee=>[policyEscape(employee.name),adminAttendancePill(employee.attendance),employee.normal+'건',employee.pending+'건',employee.as+'건',employee.monthly+'건',employee.grade])))).join('');
  return `<div class="row"><div><h2>관리자 홈</h2><p class="sub">전체 직원을 영업팀별로 구분해 오늘 운영 현황을 확인합니다.</p></div><span class="pill">전체 직원 ${adminEmployees.length}명 · ${adminTeams.length}개 팀</span></div>`+
- `<div class="detail-grid">${adminTeams.map(adminTeamPerformanceCalendar).join('')}</div>`+
+ `<div class="team-calendar-stack">${adminTeams.map(adminTeamPerformanceCalendar).join('')}</div>`+
  stats([['운영 팀',adminTeams.length+'개','보험팀 · 화장품팀'],['오늘 출근',present+'명','전체 '+adminEmployees.length+'명'],['오늘 전체 접수',(normal+pending+asCount)+'건','정상 '+normal+' · 가접수 '+pending+' · A/S '+asCount]])+
  panel('팀별 현황',teamSummary)+teamPanels+
  `<div class="notice">팀 목록에 새 팀을 추가하면 팀별 요약과 직원 현황 구역이 자동으로 확장됩니다.</div>`
@@ -2563,7 +2565,7 @@ function adminSettings(){return adminPage('운영 설정','공지, 팀 구성, �
  ['상태 설정','접수 및 A/S 상태값 관리','사용 중 항목'],
  ['변경 이력','관리자별 설정 변경 기록','최근 변경']
  ])+intakeCodeManagerPanel()}
-function render(){if(window.CNCHOME_LIVE)page=pageFromUrl();gradePolicy=gradePolicyAt(gradeEntries,gradeToday(),gradeEmployeeDepartment());gradeRefreshHeader();const adminView=page.startsWith('admin');root.querySelector('.work > header').hidden=adminView;root.querySelector('.work > .sample').hidden=adminView;root.querySelector('.header-grades').hidden=adminView;root.querySelector('header').classList.toggle('admin-header',adminView);const noticeButton=root.querySelector('.notice-confirm');noticeButton.disabled=noticeRead;noticeButton.textContent=noticeRead?'확인 완료':'확인했습니다';main.innerHTML=AdminWorkspace.pages[page]?AdminWorkspace.render(page):({home,regions:regionPage,attendance,sales,grade,as:asPage,adminHome:()=>AdminWorkspace.home()+adminHome(),adminIntake,adminPerformance,adminGrade,adminStaff:()=>AdminWorkspace.staffLinks()+adminStaff(),adminSettings:()=>AdminWorkspace.settings()+adminSettings()})[page]();root.querySelectorAll('[data-page]').forEach(b=>{b.classList.toggle('active',b.dataset.page===page);if(b.dataset.page===page)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current')});if(page==='regions')filterRegions();if(page==='adminGrade'&&!window.CNCHOME_LIVE)gradeUpdatePreview();if(window.CNCHOME_LIVE)gradeLiveChrome()}
+function render(){if(window.CNCHOME_LIVE)page=pageFromUrl();gradePolicy=gradePolicyAt(gradeEntries,gradeToday(),gradeEmployeeDepartment());gradeRefreshHeader();const adminView=page.startsWith('admin');root.querySelector('.work > header').hidden=adminView;root.querySelector('.work > .sample').hidden=adminView;root.querySelector('.header-grades').hidden=adminView;root.querySelector('header').classList.toggle('admin-header',adminView);const noticeButton=root.querySelector('.notice-confirm');noticeButton.disabled=noticeRead;noticeButton.textContent=noticeRead?'확인 완료':'확인했습니다';main.innerHTML=HRWorkspace.handles(page)?HRWorkspace.render(page):AdminWorkspace.pages[page]?AdminWorkspace.render(page):({home,regions:regionPage,attendance,sales,grade,as:asPage,adminHome:()=>AdminWorkspace.home()+adminHome(),adminIntake,adminPerformance,adminGrade,adminStaff:()=>AdminWorkspace.staffLinks()+adminStaff(),adminSettings:()=>AdminWorkspace.settings()+adminSettings()})[page]();root.querySelectorAll('[data-page]').forEach(b=>{b.classList.toggle('active',b.dataset.page===page);if(b.dataset.page===page)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current')});if(page==='regions')filterRegions();if(page==='adminGrade'&&!window.CNCHOME_LIVE)gradeUpdatePreview();if(window.CNCHOME_LIVE){gradeLiveChrome();HRWorkspace.chrome()}}
 function toast(s){const t=root.querySelector('#tm-toast');t.textContent=s;t.hidden=false}
 function open(title,html){root.querySelector('#tm-dialog-title').textContent=title;body.innerHTML=html;modal.showModal()}
 function intake(){open('보험 접수 등록',`<p class="sub">입력 체험용입니다. 실제 접수나 저장은 되지 않습니다.</p><form id="tm-intake-form"><div class="fields"><label>거래처<select required>${policyClientOptions(policyViewClient)}</select></label><label>접수 코드<select id="tm-intake-code" required>${intakeCodeOptions()}</select></label><label>상품 구분<select required><option>일반</option><option>실버</option></select></label><label>고객명<input required placeholder="예시 이름"></label><label>전화번호<input type="tel" required pattern="[0-9-]{10,13}" placeholder="010-0000-0000"></label><label>출생연도<input type="number" min="1920" max="2026" required placeholder="1965"></label><label class="full">상담받을 주소<input required placeholder="시·군·구 및 상세 주소"></label><label>통화 가능시간<input type="time" required></label><label>방문 가능시간<input type="time" required></label><label class="full">상담 메모<textarea rows="2"></textarea></label></div><button class="action" type="submit">입력 완료 체험</button></form>`)}
@@ -2828,6 +2830,7 @@ try{
 }catch(error){/* Keep the original screen when no valid saved policy is available. */}
 
 AdminWorkspace.init({root,employees:adminEmployees,dailyAward:(count,employee='staff-0',department)=>count?gradeCalculate(gradePolicyAt(gradeEntries,gradeToday(),department||gradeEmployeeDepartment(employee)),'daily',count).achievement:0,render,open,close:()=>modal.close(),toast});
+HRWorkspace.init({root,render,toast});
 window.addEventListener('hashchange',()=>{page=pageFromUrl();render();main.scrollTop=0});
 render();
 })();

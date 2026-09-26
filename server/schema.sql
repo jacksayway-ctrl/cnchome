@@ -29,3 +29,40 @@ CREATE TABLE IF NOT EXISTS grade_versions (
  INDEX dept_date (department,effective_date),
  FOREIGN KEY (actor_id) REFERENCES app_users(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS hr_employee_sequences (
+ day CHAR(8) PRIMARY KEY, serial INT UNSIGNED NOT NULL
+) ENGINE=InnoDB;
+CREATE TABLE IF NOT EXISTS hr_employees (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+ employee_no VARCHAR(40) NOT NULL UNIQUE,
+ user_id BIGINT UNSIGNED NULL UNIQUE,
+ profile JSON NOT NULL,
+ revision INT UNSIGNED NOT NULL DEFAULT 1,
+ created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+ FOREIGN KEY (user_id) REFERENCES app_users(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS hr_payroll (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+ employee_id BIGINT UNSIGNED NOT NULL,
+ month CHAR(7) NOT NULL,
+ status ENUM('draft','published','requested','confirmed') NOT NULL DEFAULT 'draft',
+ revision INT UNSIGNED NOT NULL DEFAULT 1,
+ calculation JSON NOT NULL,
+ published_snapshot JSON NULL,
+ published_at DATETIME(6) NULL,
+ confirmed_at DATETIME(6) NULL,
+ UNIQUE KEY employee_month(employee_id,month),
+ FOREIGN KEY (employee_id) REFERENCES hr_employees(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS hr_payroll_events (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+ payroll_id BIGINT UNSIGNED NOT NULL,
+ actor_id BIGINT UNSIGNED NOT NULL,
+ event VARCHAR(32) NOT NULL,
+ note VARCHAR(1000) NOT NULL DEFAULT '',
+ snapshot JSON NULL,
+ created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+ FOREIGN KEY (payroll_id) REFERENCES hr_payroll(id),
+ FOREIGN KEY (actor_id) REFERENCES app_users(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

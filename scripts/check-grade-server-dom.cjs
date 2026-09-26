@@ -3,7 +3,7 @@ const fs=require('node:fs'),path=require('node:path'),assert=require('node:asser
 const directory=path.resolve(__dirname,'..');
 function boot(role='admin',entries=[]){
  const errors=[],vc=new VirtualConsole();vc.on('jsdomError',e=>errors.push(e.message));
- const dom=new JSDOM(fs.readFileSync(path.join(directory,'index.html'),'utf8'),{url:'https://preview.local/office.php#adminGrade',runScripts:'outside-only',virtualConsole:vc,pretendToBeVisual:true,beforeParse(w){w.structuredClone=structuredClone;w.TextEncoder=TextEncoder;w.TextDecoder=TextDecoder;w.HTMLDialogElement.prototype.showModal=function(){this.setAttribute('open','');};w.HTMLDialogElement.prototype.close=function(){this.removeAttribute('open');};w.CNCHOME_LIVE={entries,revision:0,csrf:'token',user:{role,department:'insurance',display_name:'테스트'}};}});
+ const dom=new JSDOM(fs.readFileSync(path.join(directory,'index.html'),'utf8'),{url:'https://preview.local/office.php#'+(role==='employee'?'grade':'adminGrade'),runScripts:'outside-only',virtualConsole:vc,pretendToBeVisual:true,beforeParse(w){w.structuredClone=structuredClone;w.TextEncoder=TextEncoder;w.TextDecoder=TextDecoder;w.HTMLDialogElement.prototype.showModal=function(){this.setAttribute('open','');};w.HTMLDialogElement.prototype.close=function(){this.removeAttribute('open');};w.CNCHOME_LIVE={entries,revision:0,csrf:'token',user:{role,department:'insurance',display_name:'테스트'}};}});
  const w=dom.window,d=w.document;
  for(const script of d.querySelectorAll('script'))w.eval(script.src?fs.readFileSync(path.join(directory,new URL(script.src).pathname),'utf8'):script.textContent);
  return {dom,w,d,errors};
@@ -33,18 +33,17 @@ function boot(role='admin',entries=[]){
  await new Promise(r=>setTimeout(r,1));
  assert.ok(q('#tm-main').textContent.trim().length,route);
  assert.ok(q('[data-page="'+route+'"]').classList.contains('active'),route);
- if(route!=='adminGrade')assert.match(q('#live-page-status').textContent,/미리보기/);
+ if(a.w.HRWorkspace.handles(route))assert.match(q('#live-page-status').textContent,/DB 연결됨/);else if(route!=='adminGrade')assert.match(q('#live-page-status').textContent,/미리보기/);
  }
  a.w.location.hash='adminStaffRegister';a.w.dispatchEvent(new a.w.HashChangeEvent('hashchange'));await new Promise(r=>setTimeout(r,1));
  assert.ok(a.w.AdminWorkspace.navigation.find(g=>g.label==='인사·출결').items.some(([route])=>route==='adminStaffRegister'));
  assert.ok(!a.w.AdminWorkspace.navigation.find(g=>g.label==='운영 관리').items.some(([route])=>route==='adminStaffRegister'));
  q('[data-page="adminStaffRegister"]').click();
- assert.ok(q('#tm-dialog').hasAttribute('open'));
- const form=q('#tm-dialog [data-aw-form="staff-save"]');
- for(const [key,value] of Object.entries({name:'팝업등록예시',phone:'010-0000-0000',startDate:'2026-09-26',weeklyHoliday:'일'}))form.querySelector('[name="'+key+'"]').value=value;
- form.requestSubmit();await new Promise(r=>setTimeout(r,1));
- assert.ok(!q('#tm-dialog').hasAttribute('open'));
- assert.match(q('#tm-main').textContent,/팝업등록예시/);
+ assert.ok(q('.hr-dialog').hasAttribute('open'));
+ const form=q('.hr-dialog [data-hr-form="staff"]');
+ assert.equal(form.querySelector('[name="payAmount"]').value,'15000');
+ assert.ok(form.querySelector('[name="accountNumber"]'));
+ q('.hr-dialog [data-hr="close"]').click();
  a.w.location.hash='';a.w.dispatchEvent(new a.w.HashChangeEvent('hashchange'));await new Promise(r=>setTimeout(r,1));
  assert.ok(q('[data-page="adminHome"]').classList.contains('active'));
  assert.deepEqual(a.errors,[]);console.log('PASS: authenticated grade UI, no demo calculator, failure retention, double-submit prevention, server-only saving and employee read-only route.');

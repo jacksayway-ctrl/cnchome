@@ -6,6 +6,7 @@ cd "$(dirname "$0")/.."
 for file in server/lib/*.php server/public/*.php server/bin/*.php; do php -l "$file" >/dev/null; done
 nginx -t
 php server/bin/migrate.php
+php server/bin/provision-test-user.php
 backup="/var/backups/cnchome/$(date +%Y%m%d-%H%M%S)"
 install -d -m 700 "$backup"
 cp -a /var/www/html "$backup/html"

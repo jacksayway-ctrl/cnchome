@@ -1,10 +1,11 @@
 <?php
 declare(strict_types=1);
 require '/opt/cnchome-runtime/bootstrap.php';
+require '/opt/cnchome-runtime/hr.php';
 try {
     session_boot(); $user=current_user();
     if (!$user) {header('Location: /login.php'); exit;}
-    $boot=snapshot($user)+['user'=>$user,'csrf'=>$_SESSION['csrf']];
+    $boot=snapshot($user)+['user'=>$user,'csrf'=>$_SESSION['csrf'],'hr'=>hr_snapshot($user)];
     $html=file_get_contents('/opt/cnchome-runtime/index.html');
     $script='<script>window.CNCHOME_LIVE='.json_encode($boot,JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|JSON_HEX_QUOT|JSON_THROW_ON_ERROR).';</script>';
     $html=str_replace('<title>씨앤씨 · 직원 화면 미리보기</title>','<title>씨앤씨 · 업무 관리</title>',$html);

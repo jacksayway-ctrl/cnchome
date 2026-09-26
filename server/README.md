@@ -45,3 +45,15 @@ With jsdom installed separately: `node scripts/check-grade-history-dom.cjs` and 
 Run `bash /opt/cnchome/server/enable-auto-deploy.sh` once as root after pulling this version. A systemd timer checks GitHub main every minute and deploys changed commits. It uses the existing public repository and does not require sharing root credentials or adding a GitHub password. Repository write access now authorizes server deployments; the deployment script executes with server administration privileges.
 
 Local tracked edits stop automatic deployment rather than being discarded. A failed revision is attempted once; a subsequent fixed commit triggers another attempt. Status: `systemctl status cnchome-deploy.timer` and `journalctl -u cnchome-deploy.service -n 40 --no-pager`. Disable with `systemctl disable --now cnchome-deploy.timer`. To deliberately retry an unchanged failed revision after fixing server configuration: remove `/var/lib/cnchome-deploy/attempt` and run `systemctl start cnchome-deploy.service`. Web file backups remain under `/var/backups/cnchome`; monitor disk usage as versions accumulate. The timer's installation is only complete after the command succeeds on the actual server.
+
+
+## 직원·급여 운영 흐름
+- `hr_employees`: 직원 기본정보·계좌·계약, 서버 발급 사번 `cncYYYYMMDDNNN`, 직원 로그인 계정 1:1 연결.
+- `hr_payroll`: 직원별 월 1건, 작성 → 게시 → 직원 수정요청 / 확인·확정. 확정 및 지난달 내역은 API에서도 변경을 거절합니다.
+- `hr_payroll_events`: 게시 당시 명세서 스냅샷과 수정요청 메모를 보존합니다. 직원은 본인에게 게시된 버전만 조회합니다.
+- 기본급은 등록 시급 × 관리자 검토 인정시간으로 계산하고 월급제는 등록 월 기본급을 사용합니다. 초기 인정시간은 근무요일과 입퇴사일에 따른 월 예정시간(하루 6시간)이며 실제 출결·휴일·주휴·성과수당·세금 자동 연동은 아닙니다. 관리자가 시간·수당·공제를 검토한 뒤 게시합니다.
+- 직원등록에서 기존 직원 계정을 선택하거나 12자 이상 비밀번호를 지정해 사번을 아이디로 새 직원 계정을 생성합니다. 직책은 로그인 권한과 별개입니다.
+- `/login.php?role=employee` / `/login.php?role=admin`: 로그인 구분을 서버에서 검증합니다.
+- 배포 시 요청된 `user1` 직원 테스트 계정을 최초 1회 생성합니다. 이미 있으면 비밀번호와 기존 정보를 유지합니다. 실제 데이터는 자동 생성하지 않습니다.
+- 주소 검색은 Kakao 우편번호 공식 스크립트를 사용합니다. 외부 연결 실패 시 직접 입력할 수 있습니다.
+- 로컬 검증: `php server/bin/check-hr.php` (PDO SQLite 필요), `NODE_PATH=... node scripts/check-hr-dom.cjs` (jsdom 필요).
