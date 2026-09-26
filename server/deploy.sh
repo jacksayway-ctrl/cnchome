@@ -12,7 +12,7 @@ cp -a /var/www/html "$backup/html"
 if [[ -d /opt/cnchome-runtime ]]; then cp -a /opt/cnchome-runtime "$backup/runtime"; fi
 install -d -m 755 /opt/cnchome-runtime
 install -m 644 server/lib/*.php index.html /opt/cnchome-runtime/
-install -m 644 ./*.js ./*.css payroll.html /var/www/html/
+install -m 644 ./*.js ./*.css payroll.html cnc-mark.svg /var/www/html/
 for file in server/public/*.php; do
   target="/var/www/html/$(basename "$file")"
   install -m 644 "$file" "$target.new"
@@ -20,7 +20,7 @@ for file in server/public/*.php; do
 done
 # Keep the original static demo available; the entry page leads to authenticated office.
 install -m 644 index.html /var/www/html/preview.html
-printf '%s\n' '<!doctype html><html lang="ko"><meta charset="utf-8"><meta http-equiv="refresh" content="0;url=/office.php"><title>회사 관리</title><a href="/office.php">회사 관리 로그인</a></html>' > /var/www/html/index.html
+printf '%s\n' '<!doctype html><html lang="ko"><meta charset="utf-8"><meta http-equiv="refresh" content="0;url=/office.php"><title>씨앤씨 · 업무 관리</title><a href="/office.php">씨앤씨 관리자 로그인</a></html>' > /var/www/html/index.html
 chmod 644 /var/www/html/index.html
 # On a PHP misconfiguration, do not leave PHP endpoints readable as source.
 check=$(mktemp /var/www/html/runtime-check-XXXXXXXX.php)
