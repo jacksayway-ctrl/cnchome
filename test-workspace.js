@@ -15,7 +15,7 @@ const render=page=>{
  return top+table(['접수일','가상 고객','접수 코드','상품','상태','테스트 변경'],rows.map(r=>[r.date,r.name,r.carrier,r.kind,r.status].map(esc).concat('<select aria-label="'+esc(r.name)+' 접수 상태" data-test-status="'+r.id+'" '+(busy?'disabled':'')+'>'+['정상','가접수','A/S'].map(s=>'<option '+(r.status===s?'selected':'')+'>'+s+'</option>').join('')+'</select>')))+(rows.length?'':'<p>처리할 내역이 없습니다.</p>');
 };
 workspace.handles=page=>pages.includes(page)||oldHandles(page);
-workspace.render=page=>pages.includes(page)?render(page):oldRender(page);
+workspace.render=page=>pages.includes(page)?window.CNCEmployeePages[page]()+render(page):oldRender(page);
 workspace.chrome=()=>{oldChrome();if(pages.includes(location.hash.slice(1)||'home')){const el=document.querySelector('#live-page-status');if(el)el.textContent='테스트 직원 전용 · 가상 실적·출결 DB 연결';}};
 function refresh(){window.dispatchEvent(new HashChangeEvent('hashchange'));}
 async function request(body){busy=true;error='';refresh();try{const response=await fetch('/test-api.php',{method:body?'POST':'GET',credentials:'same-origin',cache:'no-store',headers:{'Content-Type':'application/json','X-CSRF-Token':live.csrf},...(body?{body:JSON.stringify({...body,revision:data.revision})}:{})});const result=await response.json();if(!response.ok)throw Error(result.error);data=result;}catch(e){error=e.message;}finally{busy=false;refresh();}}
