@@ -5,7 +5,7 @@ const vm = require('node:vm');
 const html = fs.readFileSync(require('node:path').join(__dirname, 'index.html'), 'utf8');
 const code = html.slice(html.indexOf('// Editable grade policy.'), html.indexOf('function adminAttendance()'));
 const listeners={};
-const context = vm.createContext({GradeCalendar:require('./grade-calendar.js'),GradeCalendarPreview:require('./grade-calendar-preview.js'),fmt:n=>n.toLocaleString("ko-KR"),Intl,Date,structuredClone,root:{addEventListener(type,fn){(listeners[type]??=[]).push(fn)}},window:{addEventListener(){}},localStorage:{getItem(){return null}}});
+const context = vm.createContext({GradeNumbers:require('./grade-numbers.js'),GradeCalendar:require('./grade-calendar.js'),GradeCalendarPreview:require('./grade-calendar-preview.js'),fmt:n=>n.toLocaleString("ko-KR"),Intl,Date,structuredClone,root:{addEventListener(type,fn){(listeners[type]??=[]).push(fn)}},window:{addEventListener(){}},localStorage:{getItem(){return null}}});
 vm.runInContext(code+'\nglobalThis.api={gradeDefaults,gradeValidate,gradeCalculate,gradeValidDate,gradePolicyAt,gradeReadStore,gradeSyncWeeklyBounds,gradeGenerateWeekly,gradePrepareDraft,gradeDailyCashTable,gradeOriginalMonthlyTable,gradeAggregateCalculate,gradeReferenceMonthly,gradePreviewHtml,gradeUpdatePreview};',context);
 const {gradeDefaults,gradeValidate,gradeCalculate,gradeValidDate,gradePolicyAt,gradeReadStore}=context.api;
 test('monthly screenshot boundaries use only the current tier and include its first count',()=>{

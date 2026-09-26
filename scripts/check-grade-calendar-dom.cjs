@@ -11,6 +11,15 @@ const change=(selector,value)=>{const el=q(selector);el.value=String(value);el.d
 const calculate=()=>q('#tm-grade-preview-form').requestSubmit();
 try{
   calculate();assert.match(q('#tm-grade-preview-result').textContent,/2,844,000원/);assert.equal(q('.grade-calculation-title').textContent,'총 계산 금액');
+  assert.equal(q('[data-grade-monthly-reference="hourly"][data-grade-reference-index="0"]').value,'15,000');
+  assert.equal(q('[data-grade-dailycash="perCase"]').value,'5,000');
+  change('[data-grade-auto="weekly"][data-auto-key="amount"]','35,000');assert.match(q('[data-weekly-horizontal] td').textContent,/35,000원/);
+  change('[data-grade-auto="weekly"][data-auto-key="amount"]','30,000');
+  input('[data-grade-monthly-reference="hourly"][data-grade-reference-index="0"]','15,000.5');assert.equal(q('[data-grade-monthly-reference="hourly"][data-grade-reference-index="0"]').checkValidity(),false);
+  input('[data-grade-monthly-reference="hourly"][data-grade-reference-index="0"]','15,000');
+  input('#tm-grade-preview-count','1000.5');assert.equal(q('#tm-grade-preview-count').value,'1,000.5');calculate();assert.match(q('#tm-grade-preview-result').textContent,/1,000.5건/);
+  assert.equal(JSON.parse(w.localStorage.getItem('tm-office-grade-calendar-preview-v1')).configs['insurance:2026-09'].count,'1000.5');
+  input('#tm-grade-preview-count','150');calculate();
   assert.match(q('#tm-grade-preview-result').textContent,/2026-09-28 ~ 2026-10-02/);assert.match(q('[data-grade-week-pending]').textContent,/2026-08-31/);
   for(const date of ['2026-09-28','2026-09-29','2026-09-30'])input(`[data-grade-record-date="${date}"][data-grade-record-field="count"]`,10);
   calculate();assert.equal(q('#tm-grade-preview-mode').value,'daily');
@@ -28,5 +37,5 @@ try{
   q('#tm-grade-form').requestSubmit();q('[data-grade-confirm]').click();
   const entry=JSON.parse(w.localStorage.getItem('tm-office-grade-policy-v1')).entries.at(-1);assert.equal(entry.date,'2026-09-16');assert.equal(entry.policy.monthlyReference[0].hourly,20000);
   calculate();assert.match(q('[data-grade-final-amount]').textContent,/2,310,000원/);
-  assert.deepEqual(errors,[]);console.log('PASS: live page month rollover, ledger reuse, role exclusion, effective-date monthly changes and saving.');
+  assert.deepEqual(errors,[]);console.log('PASS: formatted number input, decimal counts, validation, month rollover, role exclusion, effective-date changes and numeric saving.');
 }finally{w.close();}
