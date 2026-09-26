@@ -1,0 +1,6 @@
+.cnc-session-bar{position:sticky;top:0;z-index:1000;display:flex;align-items:center;justify-content:flex-end;gap:14px;box-sizing:border-box;width:100%;min-height:48px;padding:8px 24px;background:#fff;border-bottom:1px solid #dce3ec;color:#334155;font:14px system-ui,sans-serif}
+.cnc-session-bar button,.cnc-session-bar a{padding:7px 14px;border:1px solid #cbd5e1;border-radius:7px;background:#fff;color:#334155;text-decoration:none;font:inherit;cursor:pointer}
+.cnc-session-bar button:hover{background:#f5f7fa}.cnc-session-bar button:disabled{opacity:.6;cursor:wait}.cnc-session-bar [role=alert]{font-size:12px;color:#b91c1c}
+body:has(>.cnc-session-bar){padding-top:0}
+@media(max-width:600px){.cnc-session-bar{padding:8px 12px;gap:8px;flex-wrap:wrap}}
+@media(min-width:701px){body:has(>.cnc-session-bar)>.sidebar{top:48px}}

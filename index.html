@@ -198,6 +198,8 @@
 #tm-preview .policy-sheet tbody td.sheet-selected{background:#dcebe3!important}
 #tm-preview .policy-cell-menu button{display:block;width:100%;padding:8px 12px;background:white;color:#172941;border:0;border-radius:0;text-align:left}#tm-preview .policy-cell-menu button:hover{background:#e6f1eb}
 </style>
+<link rel="stylesheet" href="./session-navigation.css?v=1">
+<script src="./session-navigation.js?v=1" defer></script>
 </head><body>
 <div id="tm-preview">
 <style>
@@ -2517,7 +2519,7 @@ function gradeLiveChrome(){
  root.querySelector('.work > header').hidden=true;root.querySelector('.work > .sample').hidden=true;
  if(!root.querySelector('#live-account')){
   const bar=document.createElement('div');bar.id='live-account';bar.className='notice';
-  bar.innerHTML=`<div class="row"><strong>${gradeEscape(live.user.display_name)} · ${live.user.role==='admin'?'관리자':'직원'}</strong><button type="button" class="secondary" id="live-refresh">최신 기준 불러오기</button>${live.user.role==='admin'?'<a href="/preview.html" target="_blank" rel="noopener">기존 화면 미리보기</a>':''}<form method="post" action="/logout.php"><input type="hidden" name="csrf" value="${gradeEscape(live.csrf)}"><button class="secondary">로그아웃</button></form></div><p class="sub" id="live-page-status"></p>`;
+  bar.innerHTML=`<div class="row"><strong>${gradeEscape(live.user.display_name)} · ${live.user.role==='admin'?'관리자':'직원'}</strong><button type="button" class="secondary" id="live-refresh">최신 기준 불러오기</button>${live.user.role==='admin'?'<a href="/preview.html" target="_blank" rel="noopener">기존 화면 미리보기</a>':''}</div><p class="sub" id="live-page-status"></p>`;
   main.before(bar);
   bar.querySelector('#live-refresh').addEventListener('click',async()=>{
    if(gradeDirty||gradePending||Object.values(gradeDraftCache).some(d=>d.dirty)){toast('수정 중인 기준을 저장하거나 취소한 뒤 불러와 주세요.');return;}
