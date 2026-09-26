@@ -458,3 +458,16 @@ html [hidden]{display:none!important}
 #tm-preview .policy-table-heading h3{margin:0}
 #tm-preview .policy-date-examples summary{cursor:pointer;font-weight:700;margin-bottom:12px}
 @media(max-width:760px){#tm-preview .region-policy-date{justify-content:flex-start}#tm-preview .region-page-heading{align-items:flex-start}}
+#tm-preview .sales-live-totals{display:flex;gap:18px;flex-wrap:wrap;padding:10px 0 16px}
+#tm-preview .sales-live-calendar{min-width:660px}
+#tm-preview .sales-live-day{display:flex;flex-direction:column;gap:4px;min-height:118px;text-align:left}
+#tm-preview .sales-live-day .count{display:block;font-size:12px}
+#tm-preview .sales-live-totals .sales-status-pending{color:#be185d}
+#tm-preview .sales-live-totals .sales-status-received{color:#1d4ed8}
+#tm-preview .sales-live-totals .sales-status-as{color:#c2410c}
+#tm-preview .policy-example-columns table{table-layout:fixed;min-width:680px}
+#tm-preview .policy-example-columns th{font-size:16px}
+#tm-preview .policy-example-columns td{vertical-align:top}
+#tm-preview .policy-region-list{list-style:none;padding:0;margin:0}
+#tm-preview .policy-region-list li{display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid var(--tm-line)}
+#tm-preview .policy-region-list strong{white-space:nowrap;color:#174e90}

@@ -14,5 +14,6 @@ for(const role of ['employee','admin']){
  assert.equal(calls[1][1].headers.get('X-CNC-Role'),role);
  assert.equal(calls[1][1].headers.get('X-Test'),'yes');
  w.fetch('https://external.test/hr-api.php');assert.equal(calls[2][1],undefined);
+ w.fetch('/sales-api.php?month=2026-09');assert.equal(calls[3][1].headers.get('X-CNC-Role'),role);
 }
 console.log('Employee/admin request scope, CSRF preservation, URL persistence and external isolation passed');

@@ -73,3 +73,34 @@ CREATE TABLE IF NOT EXISTS test_employee_data (
  revision INT UNSIGNED NOT NULL DEFAULT 1,
  FOREIGN KEY (user_id) REFERENCES app_users(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS sales_records (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+ employee_id BIGINT UNSIGNED NOT NULL,
+ department ENUM('insurance','cosmetics','health') NOT NULL,
+ first_date DATE NOT NULL,
+ customer_name VARCHAR(100) NOT NULL,
+ phone VARCHAR(20) NOT NULL,
+ address VARCHAR(500) NOT NULL,
+ carrier VARCHAR(100) NOT NULL DEFAULT '',
+ insurance_kind VARCHAR(10) NOT NULL DEFAULT '',
+ birth_year SMALLINT NOT NULL,
+ note VARCHAR(1000) NOT NULL DEFAULT '',
+ status ENUM('pending','normal','as') NOT NULL DEFAULT 'pending',
+ is_test BOOLEAN NOT NULL DEFAULT 0,
+ request_key CHAR(36) NOT NULL UNIQUE,
+ revision INT UNSIGNED NOT NULL DEFAULT 1,
+ updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+ INDEX sales_date (first_date,employee_id),
+ FOREIGN KEY (employee_id) REFERENCES app_users(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS sales_events (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+ sale_id BIGINT UNSIGNED NOT NULL,
+ actor_id BIGINT UNSIGNED NOT NULL,
+ old_status VARCHAR(10) NOT NULL,
+ new_status VARCHAR(10) NOT NULL,
+ created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+ FOREIGN KEY (sale_id) REFERENCES sales_records(id),
+ FOREIGN KEY (actor_id) REFERENCES app_users(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

@@ -89,7 +89,7 @@ function boot(saved = new Map()) {
   };
   context.window = context;
   vm.createContext(context);
-  for (const file of ['korea-regions.js', 'intake-codes.js', 'region-rules.js', 'grade-numbers.js', 'grade-calendar.js', 'grade-calendar-preview.js', 'policy-dates.js', 'admin-workspace.js', 'hr-workspace.js']) {
+  for (const file of ['korea-regions.js', 'intake-codes.js', 'region-rules.js', 'grade-numbers.js', 'grade-calendar.js', 'grade-calendar-preview.js', 'policy-dates.js', 'policy-input.js', 'admin-workspace.js', 'hr-workspace.js']) {
     vm.runInContext(fs.readFileSync(path.join(__dirname, file), 'utf8'), context, {filename: file});
   }
   vm.runInContext(app, context, {filename: 'office.js'});
@@ -139,7 +139,7 @@ test('custom title and aliases are metadata, never geographic rows', () => {
     assert.deepEqual(plain(state.detected), [code.id]);
     assert.equal(state.carrier, code.id);
     assert.equal(state.title, title);
-    assert.deepEqual(plain(state.rows), [['지역', '수량'], ['서산시', '4']]);
+    assert.deepEqual(plain(state.rows), title.includes('일반') ? [['지역', '수량', '상품 구분'], ['서산시', '4', '일반']] : [['지역', '수량'], ['서산시', '4']]);
   }
 });
 

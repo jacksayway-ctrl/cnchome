@@ -24,7 +24,7 @@
   const intakeHeaderDate='(?:[1-9]\\d{3}년(?:(?:0?[1-9]|1[0-2])월)?|(?:0?[1-9]|1[0-2])월)';
   const intakeHeaderSuffix=new RegExp('^(?:(?:일반|실버)(?:'+intakeHeaderDate+')?|'+intakeHeaderDate+'(?:일반|실버)?)?$','i');
   function readIntakeCodeHeader(text,codes=intakeCatalog.defaults) {
-    const title=String(text??'').trim(),value=intakeCatalog.normalize(title),values=[value,value.replace(/^접수코드[:：]?/,'')];
+    const title=String(text??'').trim(),value=intakeCatalog.normalize(title.replace(/(?:\d+\s*[~～–-]\s*)?\d+\s*세\s*(?:이하|이상|까지)?/g,'')),values=[value,value.replace(/^접수코드[:：]?/,'')];
     if(!Array.isArray(codes))return null;
     const exact=codes.filter(code=>[code.label,...(code.aliases||[])].some(alias=>values.includes(intakeCatalog.normalize(alias))));
     const matches=exact.length?exact:codes.filter(code=>[code.label,...(code.aliases||[])].some(alias=>{const key=intakeCatalog.normalize(alias);return key&&values.some(text=>text.startsWith(key)&&intakeHeaderSuffix.test(text.slice(key.length)))}));
@@ -37,6 +37,11 @@
   const dedupe = targets => [...new Map(targets.map(target=>[targetKey(target),target])).values()];
   const label = target => [target.province,target.name||'전체',...(target.path||[])].filter(Boolean).join(' ');
   const resolveProvince = value => provinceAliases.find(p=>p.alias===String(value||''))?.province || '';
+  function regionGroup(value){
+    const name=String(value||'').replace(/[\s·/,，]/g,'');
+    const provinces=name==='수도권'?['서울','인천','경기']:['광주주전남','광주전남'].includes(name)?['광주','전남']:null;
+    return provinces?.map(province=>({province,name:'',path:[]}));
+  }
   function resolvePlace(name,province) {
     const key=resolveProvince(province)||province||'';
     return (byAlias.get(String(name||'').trim())||[]).filter(item=>!key||item.province===key);
@@ -73,6 +78,7 @@
     return null;
   }
   function listTargets(text,context={}) {
+    const group=regionGroup(text);if(group)return {targets:group,errors:[],candidates:[]};
     const targets=[],errors=[],candidates=[];
     let explicitProvince=context.province||'',lastParent=context.parent||null,lastPath=context.path?[...context.path]:[],pending=null;
     const flush=()=>{if(pending){const entry=catalog.find(c=>c.province===pending.province&&c.name===pending.name);targets.push(entry?.metropolitan&&!pending.path.length?{province:pending.province,name:'',path:[]}:cloneTarget(pending));lastParent=entry||lastParent;lastPath=[...pending.path];pending=null}};
@@ -82,6 +88,7 @@
       const tokens=chunk.match(/[가-힣0-9]+/g)||[];
       for(let i=0;i<tokens.length;i++){
         const token=tokens[i];
+        const group=regionGroup(token);if(group){flush();targets.push(...group);lastParent=null;lastPath=[];continue;}
         if(stopWords.has(token))continue;
         if(directions.includes(token)){errors.push('권역에 속하는 시·군 목록 필요: '+token);continue}
         let choices=resolvePlace(token,explicitProvince);
@@ -209,7 +216,8 @@
     for(let i=0;i<rows.length;i++){
       const row=rows[i];if(!Array.isArray(row)||!row.some(cell=>String(cell||'').trim()))continue;
       if(isTableHeader(row)){headers=row;continue}
-      const nonempty=row.filter(cell=>String(cell||'').trim());const text=String(nonempty[0]||'').trim();
+      const nonempty=row.filter((cell,index)=>String(cell||'').trim()&&!/^(?:상품(?:구분)?|구분|연령구분)$/.test(compact(headers[index])));const text=String(nonempty[0]||'').trim();
+      if(nonempty.length===1&&/^(일반|실버)$/.test(text.replace(/(?:\d+\s*[~～-]\s*)?\d+\s*세\s*(?:이하|이상|까지)?/g,'').replace(/[\s:：()]/g,'')))continue;
       if(nonempty.length===1&&readIntakeCodeHeader(text,intakeCodes))continue;
       if(nonempty.length===1&&/^(?:접수\s*)?(?:가능|불가|제외)\s*지역\s*[:：]?$/.test(text)){unavailable=/불가|제외/.test(text);continue}
       if(nonempty.length===1){
