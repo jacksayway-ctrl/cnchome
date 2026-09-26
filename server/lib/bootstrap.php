@@ -9,10 +9,13 @@ function db(): PDO {
     }
     return $db;
 }
+function session_role(): string {
+    return ($_GET['role'] ?? $_SERVER['HTTP_X_CNC_ROLE'] ?? 'employee') === 'admin' ? 'admin' : 'employee';
+}
 function session_boot(): void {
     ini_set('session.use_strict_mode', '1');
     ini_set('session.use_only_cookies', '1');
-    session_name('cnchome_session');
+    session_name('cnchome_session_' . session_role());
     session_set_cookie_params(['lifetime'=>0,'path'=>'/','secure'=>true,'httponly'=>true,'samesite'=>'Lax']);
     session_start();
     if (isset($_SESSION['last']) && time() - $_SESSION['last'] > 3600) $_SESSION=[];
@@ -27,7 +30,8 @@ function current_user(): ?array {
     if (empty($_SESSION['user_id'])) return null;
     $q=db()->prepare('SELECT id, username, display_name, role, department FROM app_users WHERE id=? AND active=1');
     $q->execute([$_SESSION['user_id']]);
-    return $q->fetch() ?: null;
+    $user=$q->fetch();
+    return $user && $user['role'] === session_role() ? $user : null;
 }
 function csrf_ok(string $value): bool { return hash_equals($_SESSION['csrf'], $value); }
 function h(string $s): string { return htmlspecialchars($s, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'); }
