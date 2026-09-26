@@ -24,7 +24,7 @@ try {
         $valid=password_verify($password,$user['password_hash']??$dummy);
         if (!$user || !$valid || $user['role']!==$loginRole) throw new RuntimeException('아이디·비밀번호와 직원/관리자 선택을 확인해 주세요.');
         session_regenerate_id(true); $_SESSION=['user_id'=>(int)$user['id'],'last'=>time(),'csrf'=>bin2hex(random_bytes(32))];
-        header('Location: /office.php'.($loginRole==='employee'?'#payslips':'#adminHome')); exit;
+        header('Location: /office.php'.($loginRole==='employee'?'#home':'#adminHome')); exit;
     }
 } catch(RuntimeException $e) {
     if ($e instanceof PDOException) {$error='로그인 서비스를 사용할 수 없습니다. 관리자에게 문의해 주세요.'; http_response_code(503);}

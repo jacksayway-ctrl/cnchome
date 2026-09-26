@@ -481,7 +481,7 @@ html,body{height:100%;overflow:hidden}
 const root=document.getElementById('tm-preview'), main=root.querySelector('#tm-main'), modal=root.querySelector('#tm-dialog'), body=root.querySelector('#tm-dialog-body');
 GradeNumbers.bind(root);
 const pageNames=[...new Set(['payslips','home','regions','attendance','sales','grade','as','adminHome','adminIntake','adminPerformance','adminGrade','adminAttendance','adminAs','adminStaff','adminSettings',...Object.keys(AdminWorkspace.pages)])];
-function pageFromUrl(){const name=window.location.hash.slice(1);if(window.CNCHOME_LIVE){if(window.CNCHOME_LIVE.user.role!=='admin')return name==='grade'?'grade':'payslips';return pageNames.includes(name)&&(name.startsWith('admin')||name==='grade')?name:'adminHome';}return pageNames.includes(name)?name:'home'}
+function pageFromUrl(){const name=window.location.hash.slice(1);if(window.CNCHOME_LIVE){if(window.CNCHOME_LIVE.user.role!=='admin')return ['home','regions','attendance','sales','grade','as','payslips','myInfo'].includes(name)?name:'home';return pageNames.includes(name)&&(name.startsWith('admin')||name==='grade')?name:'adminHome';}return pageNames.includes(name)?name:'home'}
 let homeStatus=null;
 let page=pageFromUrl(),selected=22,noticeRead=false,cashReceived=false,outing='none',clockedOut=false;
 const performance={1:4,2:5,3:6,4:4,7:5,8:3,9:6,10:7,11:4,14:6,15:5,16:7,17:6,18:5,21:7,22:8};
@@ -2513,7 +2513,7 @@ function gradeLiveChrome(){
  root.classList.add('live-mode');
  root.querySelector('.team').textContent=gradeDepartments[live.user.department]+' · '+(live.user.role==='admin'?'관리자':'직원');
  root.querySelector('.mobile-note').textContent='회사 관리';
- root.querySelectorAll('[data-page]').forEach(b=>{b.hidden=!(b.dataset.page==='grade'||(live.user.role==='admin'&&b.dataset.page.startsWith('admin')));});
+ root.querySelectorAll('[data-page]').forEach(b=>{b.hidden=live.user.role==='admin'?!(b.dataset.page==='grade'||b.dataset.page.startsWith('admin')):!['home','regions','attendance','sales','grade','as','payslips','myInfo'].includes(b.dataset.page);});
  root.querySelectorAll('.top-notice,.payroll-link').forEach(el=>el.hidden=true);
  root.querySelectorAll('.nav-cut,.aw-nav-group').forEach(el=>el.hidden=live.user.role!=='admin');
  root.querySelector('.work > header').hidden=true;root.querySelector('.work > .sample').hidden=true;

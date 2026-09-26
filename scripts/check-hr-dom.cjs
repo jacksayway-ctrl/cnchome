@@ -19,6 +19,9 @@ const tick=()=>new Promise(r=>setTimeout(r,5));
  }finally{a.dom.window.close()}
  hr.payroll=[{id:1,employee_id:1,month:'2026-09',status:'published',revision:2,calculation:c,published_snapshot:{name:'홍테스트',employeeNo:'cnc20260926001',calculation:c},events:[]},{id:2,employee_id:1,month:'2026-08',status:'confirmed',revision:3,calculation:c,published_snapshot:{name:'홍테스트',employeeNo:'cnc20260926001',calculation:c},events:[]}];
  const e=boot('employee');try{
+ for(const route of ['home','attendance','sales','as','myInfo','payslips']){e.w.location.hash=route;e.w.dispatchEvent(new e.w.HashChangeEvent('hashchange'));await tick();assert.equal(e.d.querySelector('[data-page="'+route+'"]').hidden,false);assert.ok(e.d.querySelector('#tm-main').textContent.trim());if(['attendance','sales','as'].includes(route))assert.match(e.d.querySelector('#tm-main').textContent,/연결 준비 중/);}
+ assert.equal(e.d.querySelector('[data-page="regions"]').hidden,false);
+ assert.equal(e.d.querySelector('[data-page="adminStaff"]').hidden,true);
  assert.match(e.d.querySelector('#tm-main').textContent,/가지급명세서/);assert.equal(e.d.querySelector('[data-page="payslips"]').hidden,false);
  e.d.querySelector('[data-hr="pay-detail"][data-id="1"]').click();await tick();assert.ok(e.d.querySelector('[data-hr-form="confirm"]'));assert.ok(e.d.querySelector('[data-hr-form="request"]'));
  let body;e.w.fetch=async(u,o)=>{body=JSON.parse(o.body);return {ok:true,json:async()=>structuredClone(hr)}};const f=e.d.querySelector('[data-hr-form="request"]');f.elements.note.value='근무시간 확인 부탁합니다';f.requestSubmit();await tick();assert.equal(body.action,'request');assert.equal(body.revision,2);assert.equal(body.note,'근무시간 확인 부탁합니다');
