@@ -27,6 +27,7 @@
     {label:'운영 관리',icon:'⚙',items:[['adminSettings','운영 설정'],['adminPermissions','계정·권한'],['adminAudit','변경 이력']]}
   ];
   function mountNavigation(root){
+    if(global.CNCHOME_LIVE)return;
     const sidebar=root.querySelector('aside nav'),main=root.querySelector('#tm-main');
     if(!sidebar||!main)return;
     sidebar.setAttribute('aria-label','직원·관리자 메뉴');
