@@ -146,3 +146,25 @@ test('monthly start and end edits cascade by ten and preserve every other field'
  assert.throws(()=>vm.runInContext("gradeEditMonthlyRange(rangeRows,2,'min',1)",context));
  assert.throws(()=>vm.runInContext("gradeEditMonthlyRange(rangeRows,0,'max',80.5)",context));
 });
+test('employee history lists own department dates and opens immutable saved criteria',()=>{
+ context.adminEmployees=[{department:'insurance'}];context.page='grade';
+ context.panel=(title,body)=>`<section><h2>${title}</h2>${body}</section>`;
+ context.table=(headers,rows)=>JSON.stringify({headers,rows});
+ context.open=(title,body)=>{context.historyPopup={title,body};};
+ vm.runInContext(`{
+ const original=gradeDefaults();original.monthlyReference=gradeMonthlyReferenceRows();original.monthlyReference[0].hourly=19000;
+ const current=structuredClone(original);current.monthlyReference[0].hourly=21000;
+ gradeEntries=[{department:'insurance',date:'2026-01-01',savedAt:'2026-01-02T01:02:03Z',policy:original},{department:'insurance',date:'2026-02-01',savedAt:'2026-02-02T02:03:04Z',policy:current},{department:'cosmetics',date:'2026-03-01',savedAt:'2026-03-02T01:00:00Z',policy:current}];
+ globalThis.employeeHistory=gradeHistoryHtml('insurance',true);
+ globalThis.beforeHistory=JSON.stringify(gradeEntries);
+ gradeShowHistory(0);
+ globalThis.afterHistory=JSON.stringify(gradeEntries);
+ }`,context);
+ assert.match(context.employeeHistory,/변경일시/);assert.match(context.employeeHistory,/적용 시작일/);
+ assert.match(context.employeeHistory,/2026-01-01/);assert.match(context.employeeHistory,/2026-02-01/);
+ assert.doesNotMatch(context.employeeHistory,/2026-03-01|data-grade-load/);
+ assert.match(context.historyPopup.body,/19,000원/);assert.doesNotMatch(context.historyPopup.body,/21,000원|<input/);
+ assert.equal(context.beforeHistory,context.afterHistory);
+ const previous=context.historyPopup;vm.runInContext('gradeShowHistory(2)',context);assert.equal(context.historyPopup,previous);
+ vm.runInContext('gradeEntries=[]',context);
+});
