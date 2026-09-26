@@ -11,6 +11,9 @@ const change=(selector,value)=>{const el=q(selector);el.value=String(value);el.d
 const calculate=()=>q('#tm-grade-preview-form').requestSubmit();
 try{
   calculate();assert.match(q('#tm-grade-preview-result').textContent,/2,844,000원/);assert.equal(q('.grade-calculation-title').textContent,'총 계산 금액');
+  assert.equal(q('.grade-date-records').tagName,'SECTION');assert.equal(q('.grade-date-records').querySelectorAll('input,select,textarea').length,0);
+  assert.equal(q('#tm-grade-records-title').textContent,'날짜별 실적·시간 / 이전 달에서 이어진 주');
+  assert.match(q('[data-grade-record-date="2026-08-31"]').textContent,/자료 없음/);
   assert.equal(q('[data-grade-monthly-reference="hourly"][data-grade-reference-index="0"]').value,'15,000');
   assert.equal(q('[data-grade-dailycash="perCase"]').value,'5,000');
   change('[data-grade-auto="weekly"][data-auto-key="amount"]','35,000');assert.match(q('[data-weekly-horizontal] td').textContent,/35,000원/);
@@ -19,12 +22,17 @@ try{
   input('[data-grade-monthly-reference="hourly"][data-grade-reference-index="0"]','15,000');
   input('#tm-grade-preview-count','1000.5');assert.equal(q('#tm-grade-preview-count').value,'1,000.5');calculate();assert.match(q('#tm-grade-preview-result').textContent,/1,000.5건/);
   assert.equal(JSON.parse(w.localStorage.getItem('tm-office-grade-calendar-preview-v1')).configs['insurance:2026-09'].count,'1000.5');
+  input('#tm-grade-preview-count','25000.5');calculate();assert.equal(q('[data-grade-record-date="2026-09-01"]').cells[1].textContent,'1,137건');
+  assert.equal(q('[data-grade-record-date="2026-09-11"]').cells[1].textContent,'1,136.5건');
   input('#tm-grade-preview-count','150');calculate();
   assert.match(q('#tm-grade-preview-result').textContent,/2026-09-28 ~ 2026-10-02/);assert.match(q('[data-grade-week-pending]').textContent,/2026-08-31/);
-  for(const date of ['2026-09-28','2026-09-29','2026-09-30'])input(`[data-grade-record-date="${date}"][data-grade-record-field="count"]`,10);
-  calculate();assert.equal(q('#tm-grade-preview-mode').value,'daily');
+  input('#tm-grade-preview-count',220);calculate();
+  for(const date of ['2026-09-28','2026-09-29','2026-09-30'])assert.equal(q(`[data-grade-record-date="${date}"]`).cells[1].textContent,'10건');
+  change('#tm-grade-preview-mode','daily');calculate();assert.equal(q('#tm-grade-preview-count').disabled,true);assert.match(q('#tm-grade-preview-result').textContent,/220건/);
   const saved=JSON.parse(w.localStorage.getItem('tm-office-grade-calendar-preview-v1'));assert.equal(saved.ledger.insurance['2026-09-30'].count,10);
   change('#tm-grade-preview-month','2026-10');assert.equal(q('#tm-grade-preview-month').value,'2026-10');
+  assert.equal(q('[data-grade-record-date="2026-09-30"]').cells[1].textContent,'10건');assert.equal(q('[data-grade-record-date="2026-09-30"]').cells[2].textContent,'6시간');assert.equal(q('[data-grade-record-date="2026-09-30"]').cells[3].textContent,'2026-10');
+  assert.equal(q('[data-grade-record-date="2026-09-30"]').classList.contains('grade-carryover-row'),true);
   change('#tm-grade-preview-mode','aggregate');input('#tm-grade-preview-count',176);calculate();
   const firstWeek=[...q('#tm-grade-preview-result').querySelectorAll('tr')].find(row=>row.textContent.includes('2026-09-28 ~ 2026-10-02'));
   assert.ok(firstWeek);assert.match(firstWeek.textContent,/46건/);assert.match(firstWeek.textContent,/35,000원/);assert.match(firstWeek.textContent,/이전 달에서 연결/);
@@ -37,5 +45,6 @@ try{
   q('#tm-grade-form').requestSubmit();q('[data-grade-confirm]').click();
   const entry=JSON.parse(w.localStorage.getItem('tm-office-grade-policy-v1')).entries.at(-1);assert.equal(entry.date,'2026-09-16');assert.equal(entry.policy.monthlyReference[0].hourly,20000);
   calculate();assert.match(q('[data-grade-final-amount]').textContent,/2,310,000원/);
-  assert.deepEqual(errors,[]);console.log('PASS: formatted number input, decimal counts, validation, month rollover, role exclusion, effective-date changes and numeric saving.');
+  assert.equal(q('.grade-date-records').querySelectorAll('input,select,textarea').length,0);
+  assert.deepEqual(errors,[]);console.log('PASS: read-only date table, formatted numbers, decimal counts, validation, month rollover, role exclusion, effective-date changes and numeric saving.');
 }finally{w.close();}
