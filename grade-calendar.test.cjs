@@ -72,3 +72,21 @@ test('invalid and duplicate dates, unsupported values, and excess monthly workda
   assert.throws(()=>calculate({month:'2026-09',records:[record('2026-09-01',1.1)]}));
   assert.throws(()=>calculate({month:'2026-09',records:[record('2026-09-01',1,25)]}));
 });
+test('new hire weekly grade uses available weekdays and prorates allowance even when absent',()=>{
+ const evaluateAverage=(policy,period,count,hours,days)=>period==='weekly'?{achievement:count/days>=8?30000:0,extra:0}:evaluate(policy,period,count,hours);
+ const records=[record('2026-09-09',12),record('2026-09-10',0,0),record('2026-09-11',12)];
+ const r=calculate({month:'2026-09',hireDate:'2026-09-09',records,evaluate:evaluateAverage});
+ const w=r.weeks.find(w=>w.start==='2026-09-07');
+ assert.equal(w.availableDays,3);assert.equal(w.average,8);assert.equal(w.bonus,18000);assert.equal(w.included,true);assert.deepEqual(w.missing,[]);
+ assert.equal(w.segments[0].days,3);
+ const missing=calculate({month:'2026-09',hireDate:'2026-09-09',records:records.filter(r=>r.date!=='2026-09-10'),evaluate:evaluateAverage}).weeks.find(w=>w.start==='2026-09-07');
+ assert.equal(missing.included,false);assert.deepEqual(missing.missing,['2026-09-10']);
+});
+test('hire date handles full weeks, Friday, weekends and month crossing',()=>{
+ for(const [hireDate,days,bonus] of [['2026-09-28',5,10000],['2026-10-02',1,2000],['2026-10-03',0,0]]){
+ const r=calculate({month:'2026-10',hireDate,records:C.week('2026-09-28').dates.filter(d=>d>=hireDate).map(d=>record(d,5))});
+ const w=r.weeks.find(w=>w.start==='2026-09-28');assert.equal(w.availableDays,days);assert.equal(w.bonus,bonus);assert.equal(w.included,days>0);
+ }
+ assert.throws(()=>calculate({month:'2026-09',hireDate:'invalid',records:[]}));
+ const rows=C.distribute('2026-09',24,3,6,'2026-09-09');assert.ok(rows.every(r=>r.date>='2026-09-09'));assert.equal(rows.reduce((s,r)=>s+r.count,0),24);
+});

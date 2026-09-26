@@ -20,18 +20,20 @@
     if(record.role!==undefined&&!['general','상담원','일반직원','TM','TM 직원','leader','팀장','manager','관리직','관리자'].includes(record.role))throw Error('직책을 확인해 주세요.');
     return record;
   }
-  function distribute(month,count,days,hours){
-    const dates=workdays(month);
+  function distribute(month,count,days,hours,hireDate=''){
+    if(hireDate&&!validDate(hireDate))throw Error('입사일을 확인해 주세요.');
+    const dates=workdays(month).filter(date=>!hireDate||date>=hireDate);
     if(!Number.isInteger(days)||days<1||days>dates.length)throw Error(month+'의 월~금 근무일은 최대 '+dates.length+'일입니다.');
     validateRecord({date:dates[0],count,hours});if(hours===0)throw Error('하루 근무시간을 입력해 주세요.');
     const whole=Math.floor(count),base=Math.floor(whole/days),remainder=whole%days;
     return dates.map((date,i)=>({date,count:i<days?base+(i<remainder?1:0)+(i===remainder?count-whole:0):0,hours:i<days?hours:0,role:'general'}));
   }
-  function calculate({month,records,entries=[],defaults,department='insurance',role='general',evaluate,signature=(policy,period)=>JSON.stringify(period==='daily'?policy.dailyCash:period==='weekly'?[policy.weeklyBasis,policy.weekly]:policy.monthly)}){
+  function calculate({month,records,entries=[],defaults,department='insurance',role='general',hireDate='',evaluate,signature=(policy,period)=>JSON.stringify(period==='daily'?policy.dailyCash:period==='weekly'?[policy.weeklyBasis,policy.weekly]:policy.monthly)}){
     monthDates(month);
+    if(hireDate&&!validDate(hireDate))throw Error('입사일을 확인해 주세요.');
     if(!isGeneral(role))return {eligible:false,month,reason:'일반직원 주·월 그레이드만 계산합니다. 팀장은 별도 서식으로 설정합니다.'};
     if(!Array.isArray(records)||!Array.isArray(entries)||!defaults||typeof evaluate!=='function')throw Error('그레이드 계산 자료를 확인해 주세요.');
-    const ledger=new Map();for(const record of records){validateRecord(record);if(ledger.has(record.date))throw Error('같은 날짜의 실적을 중복 입력할 수 없습니다.');ledger.set(record.date,record);}
+    const ledger=new Map();for(const record of records){validateRecord(record);if(hireDate&&record.date<hireDate)continue;if(ledger.has(record.date))throw Error('같은 날짜의 실적을 중복 입력할 수 없습니다.');ledger.set(record.date,record);}
     const history=entries.filter(e=>(e.department||'insurance')===department).map((e,index)=>{if(!validDate(e.date)||!e.policy)throw Error('기준 적용 시작일을 확인해 주세요.');return {...e,index};}).sort((a,b)=>a.date.localeCompare(b.date)||String(a.savedAt||'').localeCompare(String(b.savedAt||''))||a.index-b.index);
     const at=date=>history.filter(e=>e.date<=date).at(-1)?.policy||defaults;
     function segments(dates,period){
@@ -52,9 +54,9 @@
     const monthly={segments:monthlySegments,base,achievement:monthlySegments.reduce((sum,s)=>sum+s.achievement,0),extra:monthlySegments.reduce((sum,s)=>sum+s.extra,0)};
     monthly.bonus=monthly.achievement+monthly.extra;
     const weeks=[...new Set(workdays(month).map(date=>week(date).start))].map(start=>{
-      const info=week(start),parts=segments(info.dates,'weekly'),missing=info.dates.filter(date=>!ledger.has(date));
-      const count=parts.reduce((sum,s)=>sum+s.count,0),bonus=parts.reduce((sum,s)=>sum+s.bonus,0),included=info.payrollMonth===month&&!missing.length;
-      return {...info,segments:parts,count,average:count/5,bonus,missing,included,carryover:info.payrollMonth>month,fromPreviousMonth:start.slice(0,7)<month};
+      const info=week(start),eligibleDates=info.dates.filter(date=>!hireDate||date>=hireDate),availableDays=eligibleDates.length,employmentShare=availableDays/5,parts=segments(eligibleDates,'weekly').map(part=>{const achievement=Math.round(part.achievement*employmentShare),extra=Math.round(part.extra*employmentShare);return {...part,achievement,extra,bonus:achievement+extra};}),missing=eligibleDates.filter(date=>!ledger.has(date));
+      const count=parts.reduce((sum,s)=>sum+s.count,0),bonus=parts.reduce((sum,s)=>sum+s.bonus,0),included=availableDays>0&&info.payrollMonth===month&&!missing.length;
+      return {...info,segments:parts,count,average:availableDays?count/availableDays:0,availableDays,employmentShare,bonus,missing,included,carryover:info.payrollMonth>month,fromPreviousMonth:start.slice(0,7)<month};
     });
     const weekly=weeks.filter(w=>w.included).reduce((sum,w)=>sum+w.bonus,0);
     const daily=monthlyRows.filter(r=>isGeneral(r.role)).reduce((sum,r)=>sum+(evaluate(at(r.date),'daily',r.count,0,1).bonus||0),0);
