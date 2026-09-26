@@ -108,3 +108,23 @@ test('monthly tiers use corrected 17000 hourly through 170 and 18000 above',()=>
  for(const [count,hourly,award,extra,total] of [[150,17000,300000,100000,2644000],[151,17000,400000,10000,2654000],[155,17000,400000,50000,2694000],[160,17000,400000,100000,2744000],[160.5,17000,500000,5000,2749000],[161,17000,500000,10000,2754000],[165,17000,500000,50000,2794000],[170,17000,500000,100000,2844000]]){const r=context.api.gradeReferenceMonthly(count,132);assert.equal(r.hourly,hourly);assert.equal(r.achievement,award);assert.equal(r.extra,extra);assert.equal(r.total,total);}
  assert.equal(context.api.gradeReferenceMonthly(170.5,132).total,2981000);assert.equal(context.api.gradeReferenceMonthly(171,132).total,2986000);assert.equal(context.api.gradeReferenceMonthly(175,132).total,3026000);assert.equal(context.api.gradeReferenceMonthly(200,132).total,3276000);const r=context.api.gradeAggregateCalculate(context.api.gradePrepareDraft(gradeDefaults()),'insurance',175,22,6);assert.equal(r.hourly,18000);assert.equal(r.monthly.achievement,600000);assert.equal(r.monthly.extra,50000);assert.equal(r.base,2376000);assert.equal(r.salary,3116000);assert.equal(r.total,3441000);
 });
+test('monthly numeric range edits persist and update calculation boundaries',()=>{
+ const p=gradeDefaults();
+ p.monthlyReference=vm.runInContext('gradeMonthlyReferenceRows()',context);
+ p.monthlyReference[0].max=80;
+ context.editedMonthlyRows=p.monthlyReference;
+ vm.runInContext('gradeSyncMonthlyReference(editedMonthlyRows)',context);
+ assert.equal(gradeValidate(p),'');
+ assert.equal(p.monthlyReference[1].label,'81~110건');
+ assert.equal(p.monthlyReference[1].threshold,80);
+ assert.equal(context.api.gradeReferenceMonthly(80,132,p).extra,0);
+ assert.equal(context.api.gradeReferenceMonthly(81,132,p).extra,5000);
+ const restored=gradeReadStore(JSON.stringify({version:2,entries:[{date:'2026-09-01',savedAt:'2026-09-01T00:00:00Z',policy:p}]}));
+ assert.equal(gradePolicyAt(restored,'2026-09-01').monthlyReference[0].max,80);
+ const editor=context.api.gradeOriginalMonthlyTable(p,true);
+ assert.equal((editor.match(/data-grade-monthly-reference="max"/g)||[]).length,8);
+ p.monthlyReference[1].max=80;
+ assert.notEqual(gradeValidate(p),'');
+ p.monthlyReference[1].max=80.5;
+ assert.notEqual(gradeValidate(p),'');
+});
