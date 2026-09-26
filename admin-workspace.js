@@ -21,10 +21,10 @@
   const navigation = [
     {label:'관리자 홈',icon:'▣',items:[['adminHome','업무 현황'],['adminNotifications','알림'],['adminChecklist','운영 점검']]},
     {label:'영업 관리',icon:'▥',items:[['adminIntake','접수'],['adminPerformance','실적'],['adminAs','A/S']]},
-    {label:'인사·출결',icon:'♙',items:[['adminStaff','직원 목록'],['adminAttendance','출결 승인'],['adminLeave','연차·휴가'],['adminContracts','근로계약']]},
+    {label:'인사·출결',icon:'♙',items:[['adminStaff','직원 목록'],['adminStaffRegister','직원 등록'],['adminAttendance','출결 승인'],['adminLeave','연차·휴가'],['adminContracts','근로계약']]},
     {label:'그레이드',icon:'☆',items:[['adminGrade','기준표'],['adminDaily','오늘 TM 일 그레이드'],['adminDailyHistory','일 그레이드 지급 내역']]},
     {label:'급여·정산',icon:'₩',items:[['adminPayroll','급여·지급'],['adminBank','계좌·지급 엑셀'],['adminCorrections','정정·별도 정산']]},
-    {label:'운영 관리',icon:'⚙',items:[['adminStaffRegister','직원 등록'],['adminSettings','운영 설정'],['adminPermissions','계정·권한'],['adminAudit','변경 이력']]}
+    {label:'운영 관리',icon:'⚙',items:[['adminSettings','운영 설정'],['adminPermissions','계정·권한'],['adminAudit','변경 이력']]}
   ];
   function mountNavigation(root){
     if(global.CNCHOME_LIVE&&global.CNCHOME_LIVE.user.role!=='admin')return;

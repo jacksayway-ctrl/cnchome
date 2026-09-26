@@ -36,8 +36,8 @@ function boot(role='admin',entries=[]){
  if(route!=='adminGrade')assert.match(q('#live-page-status').textContent,/미리보기/);
  }
  a.w.location.hash='adminStaffRegister';a.w.dispatchEvent(new a.w.HashChangeEvent('hashchange'));await new Promise(r=>setTimeout(r,1));
- assert.ok(a.w.AdminWorkspace.navigation.find(g=>g.label==='운영 관리').items.some(([route])=>route==='adminStaffRegister'));
- assert.ok(!a.w.AdminWorkspace.navigation.find(g=>g.label==='인사·출결').items.some(([route])=>route==='adminStaffRegister'));
+ assert.ok(a.w.AdminWorkspace.navigation.find(g=>g.label==='인사·출결').items.some(([route])=>route==='adminStaffRegister'));
+ assert.ok(!a.w.AdminWorkspace.navigation.find(g=>g.label==='운영 관리').items.some(([route])=>route==='adminStaffRegister'));
  q('[data-aw="staff-new"]').click();
  assert.ok(q('#tm-dialog').hasAttribute('open'));
  const form=q('#tm-dialog [data-aw-form="staff-save"]');
