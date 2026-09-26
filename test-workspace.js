@@ -18,7 +18,7 @@ workspace.handles=page=>pages.includes(page)||oldHandles(page);
 workspace.render=page=>pages.includes(page)?window.CNCEmployeePages[page]()+render(page):oldRender(page);
 workspace.chrome=()=>{oldChrome();if(pages.includes(location.hash.slice(1)||'home')){const el=document.querySelector('#live-page-status');if(el)el.textContent='테스트 직원 전용 · 가상 실적·출결 DB 연결';}};
 function refresh(){window.dispatchEvent(new HashChangeEvent('hashchange'));}
-async function request(body){busy=true;error='';refresh();try{const response=await fetch('/test-api.php',{method:body?'POST':'GET',credentials:'same-origin',cache:'no-store',headers:{'Content-Type':'application/json','X-CSRF-Token':live.csrf},...(body?{body:JSON.stringify({...body,revision:data.revision})}:{})});const result=await response.json();if(!response.ok)throw Error(result.error);data=result;}catch(e){error=e.message;}finally{busy=false;refresh();}}
+async function request(body){busy=true;error='';refresh();try{const response=await fetch('/test-api.php',{method:body?'POST':'GET',credentials:'same-origin',cache:'no-store',headers:{'Content-Type':'application/json','X-CSRF-Token':live.csrf},...(body?{body:JSON.stringify({...body,revision:data.revision})}:{})});const result=await response.json();if(!response.ok)throw Error(result.error);data=result;window.CNCEmployeeTestState=result.state;}catch(e){error=e.message;}finally{busy=false;refresh();}}
 document.addEventListener('change',e=>{if(e.target.matches('[data-test-status]')&&!busy)request({action:'status',id:Number(e.target.dataset.testStatus),status:e.target.value});});
 document.addEventListener('click',e=>{if(e.target.closest('[data-test-clock]')&&!busy)request({action:'clock'});});
 request();
