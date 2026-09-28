@@ -77,6 +77,11 @@
     }
     return null;
   }
+  function isGyeonggiGwangjuList(text) {
+    if(regionGroup(text))return false;
+    const tokens=String(text||'').match(/[가-힣0-9]+/g)||[];
+    return tokens.includes('광주')&&tokens.some(token=>token!=='광주'&&resolvePlace(token).some(place=>place.kind==='city'&&place.name!=='광주시'&&!place.metropolitan));
+  }
   function listTargets(text,context={}) {
     const group=regionGroup(text);if(group)return {targets:group,errors:[],candidates:[]};
     const targets=[],errors=[],candidates=[];
@@ -92,6 +97,7 @@
         if(stopWords.has(token))continue;
         if(directions.includes(token)){errors.push('권역에 속하는 시·군 목록 필요: '+token);continue}
         let choices=resolvePlace(token,explicitProvince);
+        if(token==='광주'&&!explicitProvince&&isGyeonggiGwangjuList(text))choices=resolvePlace(token,'경기');
         const province=provinceAliases.find(p=>p.alias===token);
         if(province&&tokens[i+1]===provinceNames[province.province]){flush();explicitProvince=province.province;lastParent=catalog.find(c=>c.metropolitan&&c.province===explicitProvince)||null;lastPath=[];continue}
         // Full province names or non-city province aliases are explicit context; metro short names in a list are places.
@@ -293,7 +299,7 @@
     if(!directAllow.length||childBlock.length)return response('partial',!directAllow.length&&!partialAllow.length?'명시된 구·읍·면·동·리만 접수 가능합니다. 나머지는 불가합니다.':'일부 구·읍·면·동·리가 제외됩니다. 하위 지역을 확인해 주세요.',[...allowed,...childBlock],restrictions);
     return response('possible','등록된 적용 범위입니다. 수량은 원문 정책 행의 지역들이 공유합니다.',directAllow,restrictions);
   }
-  const api={version:1,referenceUrl:'https://www.mois.go.kr/frt/sub/a04/localGovernment/screen.do',provinceNames,catalog,districts,readIntakeCodeHeader,resolvePlace,resolveProvince,heading,parseRow,parseRows,categories,evaluate,contains,label};
+  const api={version:1,referenceUrl:'https://www.mois.go.kr/frt/sub/a04/localGovernment/screen.do',provinceNames,catalog,districts,readIntakeCodeHeader,resolvePlace,resolveProvince,heading,isGyeonggiGwangjuList,parseRow,parseRows,categories,evaluate,contains,label};
   if(typeof module!=='undefined'&&module.exports)module.exports=api;
   root.PolicyRegionRules=api;
 })(typeof window!=='undefined'?window:globalThis);

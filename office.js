@@ -827,6 +827,7 @@ function policyCityIssues(text){
   if(Object.values(policyProvinceNames).includes(token)||PolicyRegionRules.catalog.some(c=>c.kind==='county'&&c.aliases.includes(token)))continue;
   let exact=policyCityData.filter(c=>c.aliases.includes(token)||(c.province!=='광주'&&c.name.endsWith('시')&&c.name.replace(/(?:특별자치시|특별시|광역시)$/,'시')===token));
   if(province&&exact.some(c=>c.province===province))exact=exact.filter(c=>c.province===province);
+  if(token==='광주'&&!province&&PolicyRegionRules.isGyeonggiGwangjuList(text))exact=exact.filter(c=>c.province==='경기');
   if(exact.length){if(exact.length>1)issues.push({token,start:match.index,end:match.index+token.length,kind:'ambiguous',choices:exact});continue}
   if(['전체','제외','포함','일부','지역','가능','불가','일반','실버','접수','마감','확인','필요','및','일원'].includes(token)||policyDirections.includes(token)||policyKnownRegion(token)||/[군구읍면동리]$/.test(token))continue;
   const scored=policyCityData.map(city=>({city,distance:Math.min(...city.aliases.map(alias=>policyCityDistance(token,alias)))}))

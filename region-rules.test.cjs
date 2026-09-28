@@ -117,3 +117,12 @@ test('full Gyeongsangnam-do names cover every in-province city and county',()=>{
  }
  const excluded=scope('경상남도전체 (창원 제외)',4);assert.deepEqual(excluded.errors,[]);assert.equal(state(excluded,p('경남','창원시')),'blocked');assert.equal(state(excluded,p('경남','진주시')),'possible');
 });
+
+test('bare Gwangju listed with other cities means Gyeonggi Gwangju',()=>{
+ for(const text of ['광주, 이천, 여주','이천 광주 하남','광주 / 성남시','수원·광주']){
+  const s=scope(text);assert.deepEqual(s.errors,[],text);assert.equal(state(s,p('경기','광주시')),'possible',text);assert.equal(state(s,p('광주','광주광역시')),'blocked',text);
+ }
+ assert.ok(scope('광주').errors.length);
+ const explicit=scope('광주광역시');assert.equal(state(explicit,p('광주','광주광역시')),'possible');
+ const group=scope('광주·전남');assert.deepEqual(group.errors,[]);assert.equal(state(group,p('광주','광주광역시')),'possible');assert.equal(state(group,p('경기','광주시')),'blocked');
+});
