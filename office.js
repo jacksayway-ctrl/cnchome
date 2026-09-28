@@ -848,12 +848,17 @@ function policyCityReviewMarkup(){
   const choices=issues.map(issue=>'<div style="margin:6px 0"><strong>'+policyEscape(issue.token)+'</strong> · '+(issue.kind==='ambiguous'?'동명 지명 · 시도 확인':'전국 시·군·구 기준에 없음')+
    (issue.choices.length?'<div class="row">'+issue.choices.map(city=>'<button type="button" class="secondary" data-action="policy-city-suggest" data-row="'+index+'" data-start="'+issue.start+'" data-end="'+issue.end+'" data-token="'+policyEscape(issue.token)+'" data-city="'+policyEscape(city.name)+'">'+policyEscape(city.province+' '+city.name)+'</button>').join('')+'</div>':' · 직접 수정하거나 원문을 유지해 주세요.')+'</div>').join('');
   const note=audit.map(a=>policyEscape(a.from+' → '+a.to+' · '+a.reason)).join('<br>');
-  return [String(index),policyEscape(policyCityOriginalRows[index]?.[0]??text),'<input aria-label="'+index+'행 최종 지역명" data-city-row="'+index+'" value="'+policyEscape(policyCityDrafts.get(index)??text)+'" style="width:100%;min-width:250px;box-sizing:border-box"><button type="button" class="secondary" data-action="policy-city-save" data-row="'+index+'">수정 적용</button>',(note?'<div>'+note+'</div>':'')+(choices||'전국 지명 대조 완료 · 권역·하위 지명은 원문 유지')];
+  return [String(index),policyEscape(policyCityOriginalRows[index]?.[0]??text),'<input aria-label="'+index+'행 최종 지역명" data-city-row="'+index+'" value="'+policyEscape(policyCityDrafts.get(index)??text)+'" style="width:100%;min-width:250px;box-sizing:border-box"><button type="button" class="action" data-action="policy-city-save" data-row="'+index+'">수정 적용</button>',(note?'<div>'+note+'</div>':'')+(choices||'전국 지명 대조 완료 · 권역·하위 지명은 원문 유지')];
  });
  return '<section style="margin-top:20px"><h3>마지막 지명 확인 · 수정</h3><p class="sub">전국 시·군·구 '+policyCityData.length+'개 기준 항목을 비교합니다. OCR 판독과 별도로 원문의 행정구역 표기를 확인합니다. 기준 명칭과 다른 원문은 직접 확인한 뒤 수정 적용을 누르세요. 수량과 한자·기호는 유지됩니다.</p>'+table(['행','원문 판독','최종 지역명','지명 확인 · 후보'],rows)+'<details><summary>전국 시·군·구 기준 보기</summary><p class="sub">기준 확인: 2026-09-24 · 행정안전부 및 지자체 공식 자료 · 광역시·제주 행정시 포함</p>'+table(['시도','기본 시'],policyCityGroups.map(([p,n])=>[policyEscape(policyProvinceNames[p]),policyEscape(n)]))+'</details></section>';
 }
+function policyEditResult(message){
+ const errors=policyScopesForRows(policyRows).filter(scope=>scope.errors.length);
+ toast(message+(errors.length?' 추가 확인이 필요한 '+errors.length+'개 행: '+errors.map(scope=>scope.index+'행 ('+scope.errors.join(' · ')+')').join(', ')+'. 마지막 지명 확인 · 수정에서 수정해 주세요.':' 정책표 등록을 눌러 DB에 저장해 주세요.'));
+}
 function policyApplyAllCityRows(){
  if(policyOcrRunning)return;
+ if(policyRows.length<2){toast('먼저 정책표를 변환해 주세요.');return;}
  const updates=[...root.querySelectorAll('[data-city-row]')].map(input=>({index:Number(input.dataset.cityRow),value:input.value.trim()}));
  if(updates.some(({index,value})=>!value||!Number.isInteger(index)||index<1||index>=policyRows.length)){toast('지역명이 빈 행이나 잘못된 행을 확인해 주세요.');return}
  let changed=0;
@@ -865,14 +870,14 @@ function policyApplyAllCityRows(){
  policyCityDrafts.clear();
  if(changed)policyRegistered=false;
  policySyncCityText();policyRefreshPreview();
- toast(changed?changed+'개 행의 수정을 일괄 적용했습니다. 정책표 등록을 누르면 반영됩니다.':'모든 행을 확인했습니다. 변경된 내용이 없습니다.');
+ policyEditResult(changed?changed+'개 행의 수정을 일괄 적용했습니다.':'전체 행에 입력된 내용을 확인했습니다.');
 }
 function policyUpdateCityRow(index,text,reason){
  if(policyOcrRunning||!Number.isInteger(index)||index<1||index>=policyRows.length)return;
  const value=String(text).trim();if(!value){toast('지역명을 입력해 주세요.');return}
- const before=policyRows[index][0];if(before===value)return;
+ const before=policyRows[index][0];if(before===value){policyEditResult(index+'행을 확인했습니다. 변경된 내용은 없습니다.');return;}
  policyCityDrafts.delete(index);policyRows[index][0]=value;policyCityAudit.push({row:index,from:before,to:value,reason});policyRegistered=false;
- policySyncCityText();policyRefreshPreview();toast('최종 지역명을 수정했습니다. 정책표 등록을 누르면 반영됩니다.');
+ policySyncCityText();policyRefreshPreview();policyEditResult(index+'행의 수정 내용을 적용했습니다.');
 }
 
 
@@ -1826,7 +1831,7 @@ function adminIntake(){
   ['지역별 수량','오늘 배정·남은 수량·묶음 공유','마감 지역'],
   ['적용 일정','지역 정책 시작일·종료일과 변경 이력','예약 변경']
  ]));
- const policyPanel=panel('정책표 등록',`<p class="sub">엑셀에서 복사한 표, 일반 텍스트 또는 정책표 이미지를 붙여넣을 수 있습니다. 붙여넣은 뒤 변환 버튼을 눌러 주세요. 일반·실버와 지역별 수량을 자동 분류하며, 결과를 확인한 뒤 등록합니다.</p>${policyPublicationControls()}<details id="tm-policy-source" class="policy-paste-source" ${policyRows.length?'':'open'}><summary>정책표 붙여넣기 · 원문 텍스트</summary><label>엑셀 표·텍스트·이미지 붙여넣기<textarea id="tm-policy-paste" rows="7" placeholder="여기에 엑셀 표나 텍스트를 붙여넣으세요. 이미지도 Ctrl+V로 붙여넣을 수 있습니다."></textarea></label></details><div class="toolbar"><label class="secondary" style="display:inline-flex;align-items:center;cursor:pointer">이미지 선택<input id="tm-policy-image" type="file" accept="image/png,image/jpeg,image/webp" hidden></label><button type="button" class="secondary" data-action="policy-parse" ${policyOcrRunning?'disabled':''}>변환</button><button type="button" class="secondary" data-action="policy-analyze">OCR 분석 내역</button><button type="button" class="secondary" data-action="policy-clear">초기화</button><button type="button" class="action" data-action="policy-register" ${policyRegistrationPending?'disabled':''}>${policyRegistrationPending?'저장 중…':'정책표 등록'}</button></div><p id="tm-policy-register-status" role="status" aria-live="polite" style="padding:12px;border-radius:8px;background:#eef4ff;white-space:pre-wrap" ${policyRegistrationStatus.message?'':'hidden'}>${policyEscape(policyRegistrationStatus.message)}</p>${policyTimerMarkup()}<div id="tm-policy-preview" aria-live="polite">${policyPreviewMarkup()}</div><div id="tm-policy-analysis" aria-live="polite">${policyAnalysisMarkup()}</div>`);
+ const policyPanel=panel('정책표 등록',`<p class="sub">엑셀에서 복사한 표, 일반 텍스트 또는 정책표 이미지를 붙여넣을 수 있습니다. 붙여넣은 뒤 변환 버튼을 눌러 주세요. 일반·실버와 지역별 수량을 자동 분류하며, 결과를 확인한 뒤 등록합니다.</p>${policyPublicationControls()}<details id="tm-policy-source" class="policy-paste-source" ${policyRows.length?'':'open'}><summary>정책표 붙여넣기 · 원문 텍스트</summary><label>엑셀 표·텍스트·이미지 붙여넣기<textarea id="tm-policy-paste" rows="7" placeholder="여기에 엑셀 표나 텍스트를 붙여넣으세요. 이미지도 Ctrl+V로 붙여넣을 수 있습니다."></textarea></label></details><div class="toolbar"><label class="secondary" style="display:inline-flex;align-items:center;cursor:pointer">이미지 선택<input id="tm-policy-image" type="file" accept="image/png,image/jpeg,image/webp" hidden></label><button type="button" class="secondary" data-action="policy-parse" ${policyOcrRunning?'disabled':''}>변환</button><button type="button" class="secondary" data-action="policy-analyze">OCR 분석 내역</button><button type="button" class="secondary" data-action="policy-clear">초기화</button><button type="button" class="action" data-action="policy-register" ${policyRegistrationPending?'disabled':''}>${policyRegistrationPending?'저장 중…':'정책표 등록'}</button><button type="button" class="action" data-action="policy-city-save-all">일괄 적용</button></div><p id="tm-policy-register-status" role="status" aria-live="polite" style="padding:12px;border-radius:8px;background:#eef4ff;white-space:pre-wrap" ${policyRegistrationStatus.message?'':'hidden'}>${policyEscape(policyRegistrationStatus.message)}</p>${policyTimerMarkup()}<div id="tm-policy-preview" aria-live="polite">${policyPreviewMarkup()}</div><div id="tm-policy-analysis" aria-live="polite">${policyAnalysisMarkup()}</div>`);
  const registeredPanel=panel('등록 결과 미리보기',`<p class="sub">등록된 정책표의 행·열과 실제 내용을 확인할 수 있습니다. 한화·신한·G/A는 접수 코드이며 지역명과 별도로 관리합니다.</p><div id="tm-policy-registered-preview" aria-live="polite">${policyRegisteredPreviewMarkup()}</div>`);
  const items=[['policy','정책표 등록',policyPanel+registeredPanel+policyNationalCatalogPanel()+management],['clients','거래처 관리',policyClientManagerPanel()],['codes','접수 코드 관리',intakeCodeManagerPanel()]];
  return '<div class="toolbar" role="group" aria-label="접수 관리 메뉴">'+items.map(([key,label])=>'<button type="button" class="'+(adminIntakeSection===key?'action':'secondary')+'" data-intake-section-button="'+key+'" aria-pressed="'+(adminIntakeSection===key)+'" aria-controls="tm-intake-section-'+key+'">'+label+'</button>').join('')+'</div>'+items.map(([key,label,content])=>'<section id="tm-intake-section-'+key+'" data-intake-section-panel="'+key+'" aria-label="'+label+'"'+(adminIntakeSection===key?'':' hidden style="display:none"')+'>'+content+'</section>').join('');
@@ -2288,7 +2293,7 @@ function policyPublishRows(){
  const scopes=policyScopesForRows(policyRows);
  if(!scopes.length){toast('등록할 지역 데이터가 없습니다.');return false}
  const errors=scopes.filter(s=>s.errors.length);
- if(errors.length){policyRefreshPreview();toast('적용 범위를 확인할 행이 '+errors.length+'개 있습니다. 분류 결과의 확인 내용을 수정한 뒤 등록해 주세요.');return false}
+ if(errors.length){policyRefreshPreview();policyEditResult('등록 전에 지역 수정이 필요합니다.');return false}
  if(window.PolicySync?.enabled)return policyPublishServer(groups);
  let updated,nextCodes;
  try{
