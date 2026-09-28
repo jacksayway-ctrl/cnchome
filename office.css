@@ -610,3 +610,33 @@ body.policy-window #tm-preview{max-width:none}
  #tm-preview [data-sales-form] .sales-birth-control input{padding-left:4px;padding-right:24px}
  #tm-preview [data-sales-form] .sales-birth-picker{width:22px}
 }
+
+/* Keep every intake caption beside its control. */
+#tm-preview [data-sales-form] .sales-inline-title{font-size:13px;white-space:nowrap}
+#tm-preview [data-sales-form] .sales-birth-fields{grid-template-columns:minmax(0,1fr) 190px;align-items:center;gap:18px}
+#tm-preview [data-sales-form] .sales-birth-entry{display:grid;grid-template-columns:max-content minmax(0,1fr);align-items:center;gap:10px;min-width:0}
+#tm-preview [data-sales-form] .sales-birth-inputs label{display:flex;align-items:center;gap:6px;white-space:nowrap}
+#tm-preview [data-sales-form] .sales-age-field{display:grid;grid-template-columns:max-content minmax(60px,1fr) max-content;align-items:center;gap:7px;white-space:nowrap}
+#tm-preview [data-sales-form] .sales-age-field [data-age-kind]{position:static;font-size:12px}
+#tm-preview [data-sales-form] .sales-consultation-row{display:grid;grid-template-columns:195px minmax(0,1fr);align-items:center;gap:18px;min-width:0}
+#tm-preview [data-sales-form] .sales-consultation-row .sales-time-field{grid-column:auto;grid-template-columns:max-content minmax(0,1fr)}
+#tm-preview [data-sales-form] .sales-time-field input{max-width:125px}
+#tm-preview [data-sales-form] .sales-consultation-row .sales-premium-field{display:grid;grid-column:auto;grid-template-columns:max-content minmax(0,1fr);align-items:center;gap:10px}
+#tm-preview [data-sales-form] .sales-place-field{grid-template-columns:max-content minmax(0,1fr);align-items:center;gap:5px 10px}
+#tm-preview [data-sales-form] .sales-place-field>label{grid-column:1;grid-row:1;white-space:nowrap}
+#tm-preview [data-sales-form] .sales-place-control{grid-column:2;grid-row:1}
+#tm-preview [data-sales-form] .sales-place-field>small{grid-column:2}
+@media(max-width:700px){
+ #tm-preview [data-sales-form] .sales-birth-fields{grid-template-columns:minmax(0,1fr);gap:8px}
+ #tm-preview [data-sales-form] .sales-age-field{grid-template-columns:max-content 75px max-content;justify-content:start}
+ #tm-preview [data-sales-form] .sales-consultation-row{grid-template-columns:minmax(0,1fr);gap:8px}
+ #tm-preview [data-sales-form] .sales-consultation-row .sales-time-field{grid-template-columns:max-content 125px;justify-content:start}
+}
+@media(max-width:420px){
+ #tm-preview [data-sales-form] .sales-birth-entry{gap:6px}
+ #tm-preview [data-sales-form] .sales-birth-inputs label{gap:3px}
+ #tm-preview [data-sales-form] .sales-consultation-row .sales-premium-field{gap:6px}
+ #tm-preview [data-sales-form] .sales-premium-options{gap:3px}
+ #tm-preview [data-sales-form] .sales-premium-options label{padding:6px 3px;gap:3px;font-size:11px;white-space:normal}
+ #tm-preview [data-sales-form] .sales-premium-options input{width:12px;height:12px}
+}
