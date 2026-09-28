@@ -372,3 +372,8 @@ test('map hover links to the matching original policy rows including exclusions'
  assert.ok(a.api.hoverRows('경남','진주시').some(x=>x.row===1));assert.ok(a.api.hoverRows('경남','창원시').some(x=>x.row===1));assert.ok(a.api.hoverRows('서울','서울특별시').some(x=>x.row===2));
  assert.match(a.api.markup().map,/data-policy-source-row="1"/);assert.match(a.api.markup().map,/policy-map-workspace/);
 });
+
+test('policy source table shows Gyeonggi once across its original rows',()=>{
+ const a=boot();a.api.convertText('한화\n지역\t수량\n경기도 : 이천\t4\n경기도 : 수원\t2\n경상남도 : 진주\t3');assert.equal(a.api.publish('hanwha','auto'),true);
+ const html=a.api.markup().map;assert.match(html,/rowspan="2">경기도<\/th>/);assert.equal((html.match(/class="policy-province-cell"[^>]*>경기도<\/th>/g)||[]).length,1);assert.doesNotMatch(html,/<td>경기도 :/);assert.match(html,/data-policy-source-row="2"/);
+});

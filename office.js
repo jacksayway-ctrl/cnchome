@@ -426,7 +426,16 @@ function regionPolicyExampleTable(){
  const groups=[{label:'GA',kind:'일반 · 60세 이하',days:0,regions:[['수도권 (서울·인천·경기)','4건'],['광주·전남','1건']]},{label:'한화',kind:'일반 · 60세 이하',days:1,regions:[['서울특별시','3건'],['부산광역시','2건']]},{label:'신한',kind:'실버 · 61~70세',days:2,regions:[['인천광역시','2건'],['경기도','1건']]}];
  return '<p class="sub">날짜·지역 표시 예시입니다. 아래 지역과 수량은 실제 접수 기준이 아닙니다. 연령은 만 나이가 아닌 세는나이입니다.</p><div class="policy-example-columns">'+table(groups.map(g=>g.label),[groups.map(g=>regionPolicyDateBadge(PolicyDates.exampleDate(g.days),true)),groups.map(g=>policyEscape(g.kind)),groups.map(g=>'<ul class="policy-region-list">'+g.regions.map(([name,count])=>'<li><span>'+policyEscape(name)+'</span><strong>'+count+'</strong></li>').join('')+'</ul>')])+'</div>';
 }
-function policySourceTable(key,rows){let index=-1;return '<div class="policy-source-scroll">'+table(rows[0],rows.slice(1)).replace(/<tr>/g,()=>{index++;return index?'<tr data-policy-source-key="'+policyEscape(key)+'" data-policy-source-row="'+index+'">':'<tr>';})+'</div>';}
+function policySourceTable(key,rows){
+ const raw=policyPublications[key]?.rows||[],scopes=policyScopesForRows(raw),byIndex=new Map(scopes.map(scope=>[scope.index,scope])),groups=new Map();
+ rows.slice(1).forEach((cells,offset)=>{const index=offset+1,scope=byIndex.get(index),provinces=[...new Set([...(scope?.include||[]),...(scope?.exclude||[])].map(target=>target.province))];const province=provinces.length===1?provinces[0]:provinces.length>1?'multi':scope?.province||'review';if(!groups.has(province))groups.set(province,[]);groups.get(province).push({cells,index});});
+ const body=[...groups].sort(([a],[b])=>a.localeCompare(b,'ko')).map(([province,items])=>items.map(({cells,index},position)=>{
+  const name=PolicyRegionRules.provinceNames[province]||(province==='multi'?'여러 시·도':'지역 확인'),display=[...cells];
+  if(PolicyRegionRules.provinceNames[province]){for(const prefix of [name,province]){if(display[0].startsWith(prefix)){const rest=display[0].slice(prefix.length);if(!rest||/^(?:\s|:|：|전체|전역)/.test(rest)){display[0]=rest.replace(/^\s*[:：]?\s*/,'')||'전체';break;}}}}
+  return '<tr data-policy-source-key="'+policyEscape(key)+'" data-policy-source-row="'+index+'">'+(position===0?'<th class="policy-province-cell" scope="rowgroup" rowspan="'+items.length+'">'+policyEscape(name)+'</th>':'')+display.map(cell=>'<td>'+cell+'</td>').join('')+'</tr>';
+ }).join('')).join('');
+ return '<div class="policy-source-scroll"><table class="policy-source-table"><thead><tr><th>시·도</th>'+rows[0].map(cell=>'<th>'+cell+'</th>').join('')+'</tr></thead><tbody>'+body+'</tbody></table></div>';
+}
 function policyHoverRows(group,path=[]){
  const place=PolicyRegionRules.catalog[group];if(!place)return [];
  return policySelectedKeys().flatMap(key=>{const scopes=policyPublishedScopes.get(key)||[];const result=PolicyRegionRules.evaluate(scopes,{...place,path});const indices=new Set([...(result.rows||[]),...(result.restrictions||[]).map(r=>r.row)]);return [...indices].map(row=>({key,row}));});

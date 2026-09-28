@@ -496,3 +496,6 @@ body.policy-window #tm-preview{max-width:none}
  #tm-preview .policy-map-workspace>.region-map-layout{grid-column:1;grid-row:1;display:block;margin-top:0}
  #tm-preview .policy-map-workspace .region-map-panel{margin-top:0}
 }
+
+#tm-preview .policy-source-table{width:100%;border-collapse:collapse}
+#tm-preview .policy-province-cell{vertical-align:top;background:#eef4ff;color:#174265;min-width:65px;padding:10px;border:1px solid var(--tm-line)}
