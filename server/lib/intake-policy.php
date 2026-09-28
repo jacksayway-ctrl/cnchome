@@ -59,13 +59,14 @@ function intake_policy_apply(array $state,array $in,array $user): array {
   $state['_changedId']=$id;
  }elseif($action==='publish'){
   $client=$in['client']??null;$carrier=$in['carrier']??null;$groups=$in['groups']??null;
+  $reviewed=$in['reviewed']??false;intake_policy_check(is_bool($reviewed),'확인 완료 여부가 올바르지 않습니다.');
   intake_policy_check(in_array($client,array_column($state['clients'],'id'),true),'등록할 거래처를 먼저 서버에 저장해 주세요.');
   intake_policy_check(in_array($carrier,array_column($state['codes'],'id'),true),'등록할 접수 코드를 먼저 서버에 저장해 주세요.');
   intake_policy_check(is_array($groups)&&count($groups)>=1&&count($groups)<=2,'등록할 상품 정책을 확인해 주세요.');
   foreach($groups as $kind=>$rows){
    intake_policy_check(in_array($kind,['general','silver'],true),'일반·실버 상품을 확인해 주세요.');
    $rows=intake_policy_rows($rows,$kind);$key=$carrier.':'.($client==='legacy'?'':$client.':').$kind;
-   $state['policies'][$key]=['client'=>$client,'carrier'=>$carrier,'kind'=>$kind,'rows'=>$rows,'savedAt'=>gmdate('Y-m-d\TH:i:s\Z'),'savedBy'=>$user['display_name']??'관리자'];
+   $state['policies'][$key]=['client'=>$client,'carrier'=>$carrier,'kind'=>$kind,'rows'=>$rows,'reviewed'=>$reviewed,'savedAt'=>gmdate('Y-m-d\TH:i:s\Z'),'savedBy'=>$user['display_name']??'관리자'];
   }
  }else throw new InvalidArgumentException('지원하지 않는 정책 작업입니다.');
  return $state;

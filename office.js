@@ -755,6 +755,7 @@ function adminHome(){
  panel('팀별 현황',teamSummary)+teamPanels+
  `<div class="notice">팀 목록에 새 팀을 추가하면 팀별 요약과 직원 현황 구역이 자동으로 확장됩니다.</div>`
 }
+let policyConfirmedRows='';
 let policyRegistrationPending=false,policyRegistrationStatus={message:'',kind:'info'};
 let policyRows=[],policyRegisteredRows=[],policyImageData='',policyImageName='',policyRegistered=false,policyOcrRunning=false,policyOcrProgress=0,policyPaddleOcr=null,policyPaddlePromise=null,policyIntakeTitle='';
 function policyCleanText(value){return String(value??'')}
@@ -853,12 +854,14 @@ function policyCityReviewMarkup(){
  });
  return '<section style="margin-top:20px"><h3>마지막 지명 확인 · 수정</h3><p class="sub">전국 시·군·구 '+policyCityData.length+'개 기준 항목을 비교합니다. OCR 판독과 별도로 원문의 행정구역 표기를 확인합니다. 기준 명칭과 다른 원문은 직접 확인한 뒤 수정 적용을 누르세요. 수량과 한자·기호는 유지됩니다.</p>'+table(['행','원문 판독','최종 지역명','지명 확인 · 후보'],rows)+'<details><summary>전국 시·군·구 기준 보기</summary><p class="sub">기준 확인: 2026-09-24 · 행정안전부 및 지자체 공식 자료 · 광역시·제주 행정시 포함</p>'+table(['시도','기본 시'],policyCityGroups.map(([p,n])=>[policyEscape(policyProvinceNames[p]),policyEscape(n)]))+'</details></section>';
 }
-function policyUpdateCheckCount(){const el=root.querySelector('#tm-policy-check-count');if(el)el.textContent='체크할 항목 : '+policyScopesForRows(policyRows).filter(scope=>scope.errors.length).length+'건';}
+function policyReviewCount(){return policyConfirmedRows===JSON.stringify(policyRows)?0:policyScopesForRows(policyRows).filter(scope=>scope.errors.length).length;}
+function policyUpdateCheckCount(){const el=root.querySelector('#tm-policy-check-count');if(el)el.textContent='체크할 항목 : '+policyReviewCount()+'건';}
 function policyEditResult(message){
  const errors=policyScopesForRows(policyRows).filter(scope=>scope.errors.length);
  toast(message+(errors.length?' 추가 확인이 필요한 '+errors.length+'개 행: '+errors.map(scope=>scope.index+'행 ('+scope.errors.join(' · ')+')').join(', ')+'. 마지막 지명 확인 · 수정에서 수정해 주세요.':' 정책표 등록을 눌러 DB에 저장해 주세요.'));
 }
-function policyApplyAllCityRows(){
+async function policyApplyAllCityRows(){
+ if(policyRegistrationPending)return false;
  if(policyOcrRunning)return;
  if(policyRows.length<2){toast('먼저 정책표를 변환해 주세요.');return;}
  const updates=[...root.querySelectorAll('[data-city-row]')].map(input=>({index:Number(input.dataset.cityRow),value:input.value.trim()}));
@@ -872,7 +875,7 @@ function policyApplyAllCityRows(){
  policyCityDrafts.clear();
  if(changed)policyRegistered=false;
  policySyncCityText();policyRefreshPreview();
- policyEditResult(changed?changed+'개 행의 수정을 일괄 적용했습니다.':'전체 행에 입력된 내용을 확인했습니다.');
+ return await policyRegister({reviewed:true});
 }
 function policyUpdateCityRow(index,text,reason){
  if(policyOcrRunning||!Number.isInteger(index)||index<1||index>=policyRows.length)return;
@@ -1833,7 +1836,7 @@ function adminIntake(){
   ['지역별 수량','오늘 배정·남은 수량·묶음 공유','마감 지역'],
   ['적용 일정','지역 정책 시작일·종료일과 변경 이력','예약 변경']
  ]));
- const policyPanel=panel('정책표 등록',`<p class="sub">엑셀에서 복사한 표, 일반 텍스트 또는 정책표 이미지를 붙여넣을 수 있습니다. 붙여넣은 뒤 변환 버튼을 눌러 주세요. 일반·실버와 지역별 수량을 자동 분류하며, 결과를 확인한 뒤 등록합니다.</p>${policyPublicationControls()}<details id="tm-policy-source" class="policy-paste-source" ${policyRows.length?'':'open'}><summary>정책표 붙여넣기 · 원문 텍스트</summary><label>엑셀 표·텍스트·이미지 붙여넣기<textarea id="tm-policy-paste" rows="7" placeholder="여기에 엑셀 표나 텍스트를 붙여넣으세요. 이미지도 Ctrl+V로 붙여넣을 수 있습니다."></textarea></label></details><div class="toolbar"><label class="secondary" style="display:inline-flex;align-items:center;cursor:pointer">이미지 선택<input id="tm-policy-image" type="file" accept="image/png,image/jpeg,image/webp" hidden></label><button type="button" class="secondary" data-action="policy-parse" ${policyOcrRunning?'disabled':''}>변환</button><button type="button" class="secondary" data-action="policy-analyze">OCR 분석 내역</button><button type="button" class="secondary" data-action="policy-clear">초기화</button><button type="button" class="action" data-action="policy-register" ${policyRegistrationPending?'disabled':''}>${policyRegistrationPending?'저장 중…':'정책표 등록'}</button><button type="button" class="action" data-action="policy-city-save-all">일괄 적용</button><span id="tm-policy-check-count" role="status" aria-live="polite" style="color:#1457bb;background:#eef4ff;border:1px solid #b9d2ff;border-radius:8px;padding:9px 12px;font-weight:700">체크할 항목 : ${policyScopesForRows(policyRows).filter(scope=>scope.errors.length).length}건</span></div><p id="tm-policy-register-status" role="status" aria-live="polite" style="padding:12px;border-radius:8px;background:#eef4ff;white-space:pre-wrap" ${policyRegistrationStatus.message?'':'hidden'}>${policyEscape(policyRegistrationStatus.message)}</p>${policyTimerMarkup()}<div id="tm-policy-preview" aria-live="polite">${policyPreviewMarkup()}</div><div id="tm-policy-analysis" aria-live="polite">${policyAnalysisMarkup()}</div>`);
+ const policyPanel=panel('정책표 등록',`<p class="sub">엑셀에서 복사한 표, 일반 텍스트 또는 정책표 이미지를 붙여넣을 수 있습니다. 붙여넣은 뒤 변환 버튼을 눌러 주세요. 일반·실버와 지역별 수량을 자동 분류하며, 결과를 확인한 뒤 등록합니다.</p>${policyPublicationControls()}<details id="tm-policy-source" class="policy-paste-source" ${policyRows.length?'':'open'}><summary>정책표 붙여넣기 · 원문 텍스트</summary><label>엑셀 표·텍스트·이미지 붙여넣기<textarea id="tm-policy-paste" rows="7" placeholder="여기에 엑셀 표나 텍스트를 붙여넣으세요. 이미지도 Ctrl+V로 붙여넣을 수 있습니다."></textarea></label></details><div class="toolbar"><label class="secondary" style="display:inline-flex;align-items:center;cursor:pointer">이미지 선택<input id="tm-policy-image" type="file" accept="image/png,image/jpeg,image/webp" hidden></label><button type="button" class="secondary" data-action="policy-parse" ${policyOcrRunning?'disabled':''}>변환</button><button type="button" class="secondary" data-action="policy-analyze">OCR 분석 내역</button><button type="button" class="secondary" data-action="policy-clear">초기화</button><button type="button" class="action" data-action="policy-register" ${policyRegistrationPending?'disabled':''}>${policyRegistrationPending?'저장 중…':'정책표 등록'}</button><button type="button" class="action" data-action="policy-city-save-all">일괄 적용</button><span id="tm-policy-check-count" role="status" aria-live="polite" style="color:#1457bb;background:#eef4ff;border:1px solid #b9d2ff;border-radius:8px;padding:9px 12px;font-weight:700">체크할 항목 : ${policyReviewCount()}건</span></div><p id="tm-policy-register-status" role="status" aria-live="polite" style="padding:12px;border-radius:8px;background:#eef4ff;white-space:pre-wrap" ${policyRegistrationStatus.message?'':'hidden'}>${policyEscape(policyRegistrationStatus.message)}</p>${policyTimerMarkup()}<div id="tm-policy-preview" aria-live="polite">${policyPreviewMarkup()}</div><div id="tm-policy-analysis" aria-live="polite">${policyAnalysisMarkup()}</div>`);
  const registeredPanel=panel('등록 결과 미리보기',`<p class="sub">등록된 정책표의 행·열과 실제 내용을 확인할 수 있습니다. 한화·신한·G/A는 접수 코드이며 지역명과 별도로 관리합니다.</p><div id="tm-policy-registered-preview" aria-live="polite">${policyRegisteredPreviewMarkup()}</div>`);
  const items=[['policy','정책표 등록',policyPanel+registeredPanel+policyNationalCatalogPanel()+management],['clients','거래처 관리',policyClientManagerPanel()],['codes','접수 코드 관리',intakeCodeManagerPanel()]];
  return '<div class="toolbar" role="group" aria-label="접수 관리 메뉴">'+items.map(([key,label])=>'<button type="button" class="'+(adminIntakeSection===key?'action':'secondary')+'" data-intake-section-button="'+key+'" aria-pressed="'+(adminIntakeSection===key)+'" aria-controls="tm-intake-section-'+key+'">'+label+'</button>').join('')+'</div>'+items.map(([key,label,content])=>'<section id="tm-intake-section-'+key+'" data-intake-section-panel="'+key+'" aria-label="'+label+'"'+(adminIntakeSection===key?'':' hidden style="display:none"')+'>'+content+'</section>').join('');
@@ -2166,7 +2169,7 @@ root.addEventListener('paste',e=>{if(e.target.id!=='tm-policy-paste')return;cons
 root.addEventListener('change',e=>{if(e.target.id==='tm-policy-image'&&e.target.files?.[0])policyHandleImage(e.target.files[0]);});
 root.addEventListener('change',e=>{if(e.target.id==='tm-policy-scope-detail'){policyScopeDetail=e.target.value;policyRefreshScopeResult()}else if(e.target.id==='tm-policy-scope-city'){policyScopeCity=e.target.value;policyRefreshScopeResult()}});
 root.addEventListener('input',e=>{if(e.target.matches('[data-city-row]'))policyCityDrafts.set(Number(e.target.dataset.cityRow),e.target.value)});
-root.addEventListener('click',async e=>{const button=e.target.closest('[data-action^="policy-"]');if(!button)return;const action=button.dataset.action;if(window.PolicySync?.saving){toast('정책을 저장 중입니다. 잠시 기다려 주세요.');return}if(policyOcrRunning){toast('OCR 분석이 끝난 뒤 다시 시도해 주세요.');return}if(action==='policy-city-save-all'){policyApplyAllCityRows();}else if(action==='policy-city-save'){
+root.addEventListener('click',async e=>{const button=e.target.closest('[data-action^="policy-"]');if(!button)return;const action=button.dataset.action;if(window.PolicySync?.saving){toast('정책을 저장 중입니다. 잠시 기다려 주세요.');return}if(policyOcrRunning){toast('OCR 분석이 끝난 뒤 다시 시도해 주세요.');return}if(action==='policy-city-save-all'){await policyApplyAllCityRows();}else if(action==='policy-city-save'){
  const index=Number(button.dataset.row);policyUpdateCityRow(index,root.querySelector('[data-city-row="'+index+'"]')?.value||'','직접 수정');
  }else if(action==='policy-city-suggest'){
  const index=Number(button.dataset.row),start=Number(button.dataset.start),end=Number(button.dataset.end),current=policyRows[index]?.[0];
@@ -2283,7 +2286,7 @@ function policyNationalCatalogPanel(){
  return panel('전국 시·군·구 기준 목록','<details><summary>전국 기준 목록 검색</summary><p class="sub">원문과 정확히 일치하는 명칭을 대조합니다. 동명 지역은 시도·상위 시로 구별하고, 원문을 임의로 바꾸지 않습니다.</p><label>전국 지역명 검색<input id="tm-policy-catalog-search" placeholder="예: 연천군, 분당구, 고성군"></label><div id="tm-policy-catalog-results">'+policyNationalCatalogRows()+'</div></details>');
 }
 function policyScopesForRows(rows){return PolicyRegionRules.parseRows(rows,{intakeCodes})}
-function policyPublishRows(){
+function policyPublishRows({reviewed=false}={}){
  if(!policyClients.some(c=>c.id===policyPublicationClient)){toast('정책을 등록할 거래처를 선택해 주세요.');return false}
  const metadata=policyDraftCodeMetadata();policyDetectedCodes=metadata.known;
  if(metadata.unknown.length){toast('등록되지 않은 접수 코드가 있습니다: '+metadata.unknown.join(', ')+'. 접수 코드 관리에서 추가한 뒤 등록해 주세요.');return false}
@@ -2295,8 +2298,8 @@ function policyPublishRows(){
  const scopes=policyScopesForRows(policyRows);
  if(!scopes.length){toast('등록할 지역 데이터가 없습니다.');return false}
  const errors=scopes.filter(s=>s.errors.length);
- if(errors.length){policyRefreshPreview();policyEditResult('등록 전에 지역 수정이 필요합니다.');return false}
- if(window.PolicySync?.enabled)return policyPublishServer(groups);
+ if(errors.length&&!reviewed){policyRefreshPreview();policyEditResult('등록 전에 지역 수정이 필요합니다.');return false}
+ if(window.PolicySync?.enabled)return policyPublishServer(groups,reviewed);
  let updated,nextCodes;
  try{
   nextCodes=IntakeCodeCatalog.read(localStorage.getItem(intakeCodeStorageKey));
@@ -2434,7 +2437,7 @@ function policyRegistrationMessage(message,kind='info'){
  el.setAttribute('role',kind==='error'?'alert':'status');
  el.style.background=kind==='error'?'#fff1f2':kind==='success'?'#ecfdf5':'#eef4ff';
 }
-async function policyRegister(){
+async function policyRegister({reviewed=false}={}){
  if(policyRegistrationPending)return false;
  policyRegistrationPending=true;const button=root.querySelector('[data-action="policy-register"]');
  if(button){button.disabled=true;button.textContent='저장 중…';}
@@ -2449,13 +2452,14 @@ async function policyRegister(){
   if(inputs.some(input=>!input.value.trim()))throw new Error('지역명이 빈 행을 확인해 주세요.');
   for(const input of inputs){const index=Number(input.dataset.cityRow),value=input.value.trim();if(policyRows[index]&&policyRows[index][0]!==value){policyCityAudit.push({row:index,from:policyRows[index][0],to:value,reason:'등록 시 직접 수정'});policyRows[index][0]=value;}}
   policyCityDrafts.clear();policySyncCityText();
-  const rows=policyCleanRows(policyRows),client=policyPublicationClient,carrier=policyPublicationCarrier;
-  if(!await policyPublishRows())return false;
+  const rows=policyCleanRows(policyRows),client=policyPublicationClient,carrier=policyPublicationCarrier,reviewedFingerprint=JSON.stringify(policyRows);
+  if(!await policyPublishRows({reviewed}))return false;
+  if(reviewed){policyConfirmedRows=reviewedFingerprint;policyUpdateCheckCount();}
   policyRegistered=true;policyRegisteredRows=rows;
   policyRegisteredKey=policyPublicationKind==='auto'?'':policyClientKey(carrier,policyPublicationKind,client);
   policyRegisteredCode=policyRegisteredKey?policyKeyLabel(policyRegisteredKey):'일반 · 61세 이하 / 실버 · 62~70세 자동 분류';
   policyScopeSelected=0;policyScopeCity='';policyScopeDetail='';policyRefreshPreview();policyRefreshRegistered();
-  const message=window.PolicySync?.enabled?'DB 저장 및 재조회 확인 완료. 상담원 접수 가능지역에서 확인할 수 있습니다.':'정책표를 저장했습니다.';
+  const message=window.PolicySync?.enabled?(reviewed?'전체 확인 완료 · ':'')+'DB 저장 및 재조회 확인 완료. 상담원 접수 가능지역에서 확인할 수 있습니다.':'정책표를 저장했습니다.';
   toast(message);policyRegistrationMessage(message,'success');return true;
  }catch(error){toast(error.message||'정책 등록 중 오류가 발생했습니다.');policyRegistrationMessage(error.message||'정책 등록 중 오류가 발생했습니다.','error');return false;}
  finally{policyRegistrationPending=false;const current=root.querySelector('[data-action="policy-register"]');if(current){current.disabled=false;current.textContent='정책표 등록';}}
@@ -2507,10 +2511,10 @@ async function policySaveClientServer(input){
 async function policySaveCodeServer(input){
  try{await PolicySync.save({action:'code',...input});intakeCodeRefreshViews();return true;}catch(error){toast(error.message);return false;}
 }
-async function policyPublishServer(groups){
+async function policyPublishServer(groups,reviewed=false){
  const client=policyPublicationClient,carrier=policyPublicationCarrier;let acknowledged=false;
  try{
-  await PolicySync.save({action:'publish',client,carrier,groups});
+  await PolicySync.save({action:'publish',client,carrier,groups,reviewed});
   acknowledged=true;policyRegistrationMessage('DB 저장 응답을 받았습니다. 저장된 정책을 다시 조회하고 있습니다.','progress');
   const saved=await PolicySync.readback();
   for(const [kind,rows] of Object.entries(groups)){
