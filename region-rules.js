@@ -1,4 +1,4 @@
-/* Policy scope parser. OCR text is never rewritten; aliases identify explicit administrative names only.
+/* Policy scope parser. OCR text is never rewritten; aliases identify explicit names and declared region groups.
  * City/county name reference: https://www.mois.go.kr/frt/sub/a04/localGovernment/screen.do
  * Reviewed 2026-09-24. Province keys preserve the business policy's legacy labels (including 전남/광주).
  * Child names are literal policy declarations, not an invented nationwide 읍/면 boundary gazetteer.
@@ -39,7 +39,7 @@
   const resolveProvince = value => provinceAliases.find(p=>p.alias===String(value||''))?.province || '';
   function regionGroup(value){
     const name=String(value||'').replace(/[\s·/,，]/g,'');
-    const provinces=name==='수도권'?['서울','인천','경기']:['광주주전남','광주전남'].includes(name)?['광주','전남']:null;
+    const provinces=name==='수도권'?['서울','인천','경기']:/^부울경(?:전체|전역)?$/.test(name)?['부산','울산','경남']:['광주주전남','광주전남'].includes(name)?['광주','전남']:null;
     return provinces?.map(province=>({province,name:'',path:[]}));
   }
   function resolvePlace(name,province) {

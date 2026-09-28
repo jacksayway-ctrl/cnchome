@@ -5,6 +5,15 @@ const p=(province,name,...path)=>({province,name,path});
 const scope=(text,quantity=4,status='',headers=[])=>R.parseRow([text,String(quantity),status],0,headers);
 const state=(scopes,place)=>R.evaluate(Array.isArray(scopes)?scopes:[scopes],place).state;
 let count=0;function test(name,fn){try{fn();count++;}catch(error){console.error('FAIL:',name);throw error}}
+test('Boulgyeong means all of Busan, Ulsan and Gyeongsangnam-do with one shared quota',()=>{
+ for(const name of ['부울경','부·울·경','부울경 전체','부울경전체','부울경전역']){
+  const s=scope(name,4);assert.deepEqual(s.errors,[]);assert.equal(s.text,name);
+  assert.deepEqual(s.include.map(target=>target.province),['부산','울산','경남']);
+  for(const place of R.catalog){const result=R.evaluate([s],place),included=['부산','울산','경남'].includes(place.province);assert.equal(result.state,included?'possible':'blocked',name+' '+place.name);if(included){assert.equal(result.quantity,4);assert.deepEqual(result.quantities,[{row:0,quantity:4}]);}}
+ }
+ const excluded=scope('부울경 (창원 제외)',4);assert.deepEqual(excluded.errors,[]);assert.equal(state(excluded,p('경남','창원시')),'blocked');assert.equal(state(excluded,p('경남','진주시')),'possible');assert.equal(state(excluded,p('부산','기장군')),'possible');assert.equal(state(excluded,p('울산','울주군')),'possible');
+ const zero=scope('부울경',0);for(const place of R.catalog.filter(place=>['부산','울산','경남'].includes(place.province)))assert.equal(state(zero,place),'blocked');
+});
 test('complete city/county reference with duplicate county names retained',()=>{assert.equal(R.catalog.filter(x=>x.kind==='county').length,82);assert.equal(R.catalog.filter(x=>x.kind==='city').length,85);assert.equal(R.resolvePlace('고성군').length,2)});
 test('single county is recognized without companion words',()=>{const s=scope('성주');assert.deepEqual(s.errors,[]);assert.equal(s.include[0].name,'성주군');assert.equal(state(s,p('경북','성주군')),'possible');assert.equal(state(s,p('경북','칠곡군')),'blocked')});
 test('no OCR typo substitution',()=>{for(const name of ['성수','중남 서부','찬안시']){const s=scope(name);assert.equal(s.text,name);assert.ok(s.errors.length);assert.equal(s.include.length,0)}});

@@ -16,6 +16,7 @@ app = app.replace(closing, `globalThis.integrationHooks = {
   save: intakeCodeSave,
   gaItems(){return JSON.parse(JSON.stringify(policyGaSourceItems(regionPolicyEntries().filter(([key])=>policyKeyParts(key).carrier==='ga'))));},
   sourceMatches: policySourceMatches,
+  knownRegion: policyKnownRegion,
   fitScroller: policyFitSourceScroller,
   hoverRows(province,name){return policyHoverRows(PolicyRegionRules.catalog.findIndex(p=>p.province===province&&p.name===name));},
   grouped(items){return policyGroupedRegionTable(items);},
@@ -458,6 +459,16 @@ test('GA keeps numeric quantities visible when region or quantity review is need
  }
  const unknown=boot();unknown.api.parse('GA\n지역\t수량\n서울\t확인 필요');assert.equal(unknown.api.publish('ga','silver',true),true);
  assert.equal(unknown.api.gaItems()[0].cells[2],'확인 필요');
+});
+
+test('Boulgyeong policy updates GA quantities and map coverage, including saved policies',()=>{
+ const a=boot();a.api.parse('GA\n실버\n부울경 4');assert.equal(a.api.publish('ga','auto'),true);
+ for(const app of [a,boot(new Map(a.storage))]){
+  assert.equal(app.api.knownRegion('부울경'),true);app.api.filter(2);
+  for(const [province,name] of [['부산','부산광역시'],['부산','기장군'],['울산','울산광역시'],['울산','울주군'],['경남','창원시'],['경남','진주시']])assert.equal(app.api.combined(province,name).state,'possible');
+  assert.equal(app.api.combined('경북','경주시').state,'blocked');
+  const item=app.api.gaItems()[0];assert.equal(item.priority,0);assert.equal(item.cells[1],'0');assert.equal(item.cells[2],'4');assert.ok(item.cells[0].includes('부울경'));
+ }
 });
 
 test('policy scroll height includes all available and review content before blocked rows',()=>{

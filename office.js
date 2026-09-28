@@ -1599,7 +1599,7 @@ function policyChooseReading(candidates,digits){
 // This dictionary never generates or substitutes a missing OCR reading.
 function policyKnownRegion(text){
  const value=String(text||'').split(/[:：]/,1)[0].replace(/\s/g,'');
- const aliases=['수도권','광주주전남','광주전남','서울','부산','대구','인천','광주','대전','울산','세종','세종특별자치시','경기','강원','강원특별자치도','충북','충남','전북','전남','경북','경남','제주','제주도','제주특별자치도','전북특별자치도'];
+ const aliases=['수도권','부울경','광주주전남','광주전남','서울','부산','대구','인천','광주','대전','울산','세종','세종특별자치시','경기','강원','강원특별자치도','충북','충남','전북','전남','경북','경남','제주','제주도','제주특별자치도','전북특별자치도'];
  const names=[...aliases,...policyCityData.flatMap(r=>r.aliases)];
  // Parse a real province/city name followed by a directional coverage label.
  // Validate only: retain the original OCR text, punctuation and Han characters.
