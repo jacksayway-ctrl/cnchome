@@ -26,6 +26,8 @@ foreach(['admin','employee'] as $role){
   check(str_contains($html,'<div hidden class="sample">'),'live pages hide the example banner before JavaScript');
   check(str_contains($html,'<section hidden class="top-notice"'),'live pages hide the old notice strip before JavaScript');
   check(strpos($html,'notice-ticker.js')<strpos($html,'session-navigation.js'),'notice ticker loads before session bar');
+  check(str_contains($html,'grade-header.js'),'live DB progress script is included');
+  check(str_contains($html,'id="tm-head-daily">불러오는 중'),'live header never embeds sample counts');
   file_put_contents($directory.'/'.$role.'-'.$page.'.html',$html);
  }
 }

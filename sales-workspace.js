@@ -48,7 +48,7 @@
  function chrome(){
   if(!bridge||!active())return;
   const status=bridge.root.querySelector('#live-page-status');if(status)status.textContent=error||(!store?'접수 내역을 불러오는 중입니다.':'저장된 접수 상태를 표시합니다. 변경 즉시 반영 · 다른 화면의 변경은 5초마다 갱신');
-  for(const el of bridge.root.querySelectorAll('.work > .sample,.header-grades'))el.hidden=true;
+  for(const el of bridge.root.querySelectorAll('.work > .sample'))el.hidden=true;
  }
  async function request(body){
   if(loading||busy)return;const version=++requestVersion,requestedMonth=month;loading=true;if(body)busy=true;
@@ -56,7 +56,7 @@
    const response=await global.fetch('/sales-api.php?month='+encodeURIComponent(requestedMonth),{method:body?'POST':'GET',credentials:'same-origin',cache:'no-store',headers:{'Content-Type':'application/json','X-CSRF-Token':live().csrf},...(body?{body:JSON.stringify(body)}:{})});
    const data=await response.json();if(!response.ok)throw Error(data.error||'접수 내역을 불러오지 못했습니다.');if(version!==requestVersion||month!==requestedMonth)return;
    const changed=JSON.stringify(store?.records)!==JSON.stringify(data.records)||store?.month!==data.month||!!error;store=data;error='';lastFetch=new Date().toLocaleTimeString('ko-KR',{timeZone:'Asia/Seoul'});
-   if(body){if(body.action==='create')bridge.close();bridge.toast('접수 상태를 저장했습니다.');try{global.localStorage.setItem('cnchome.sales.changed',String(Date.now()))}catch(e){}}
+   if(body){if(body.action==='create')bridge.close();bridge.toast('접수 상태를 저장했습니다.');global.dispatchEvent(new global.Event('cnc:sales-changed'));try{global.localStorage.setItem('cnchome.sales.changed',String(Date.now()))}catch(e){}}
    busy=false;if(changed||body)redraw();else {const el=bridge.root.querySelector('[data-sales-sync]');if(el)el.textContent='5초마다 자동 갱신 · 마지막 확인 '+lastFetch;}
   }catch(e){error=e.message;if(body){const target=bridge.root.querySelector('[data-sales-error]');if(target)target.textContent=error;bridge.toast(error)}redraw();}
   finally{loading=false;busy=false;if(month!==requestedMonth)request();}
