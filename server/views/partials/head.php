@@ -9,6 +9,7 @@
 <link rel="stylesheet" href="<?= view_h(asset_url($file)) ?>">
 <?php endforeach; ?>
 <?php require __DIR__.'/boot.php'; ?>
+<script src="<?= view_h(asset_url('notice-ticker.js')) ?>" defer></script>
 <script src="<?= view_h(asset_url('session-navigation.js')) ?>" defer></script>
 <?php if (!$preview): ?><script src="<?= view_h(asset_url('test-workspace.js')) ?>" defer></script><?php endif; ?>
 

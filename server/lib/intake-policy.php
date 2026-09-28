@@ -1,5 +1,6 @@
 <?php
 declare(strict_types=1);
+require_once __DIR__.'/notices.php';
 class IntakePolicyForbidden extends RuntimeException {}
 class IntakePolicyConflict extends RuntimeException {}
 function intake_policy_defaults(): array {
@@ -79,12 +80,13 @@ function intake_policy_mutate(array $user,array $input): array {
   $row=$d->query('SELECT revision,state FROM intake_policy_state WHERE id=1 FOR UPDATE')->fetch();
   if(!$row)throw new RuntimeException('Policy migration required');
   if((int)$row['revision']!==$input['revision'])throw new IntakePolicyConflict('다른 관리자가 정책을 변경했습니다. 최신 정책을 불러왔습니다. 작성한 표를 확인하고 다시 등록해 주세요.');
-  $state=intake_policy_apply(intake_policy_decode($row['state']),$input,$user);$changedId=$state['_changedId']??null;unset($state['_changedId']);
+  $before=intake_policy_decode($row['state']);$state=intake_policy_apply($before,$input,$user);$changedId=$state['_changedId']??null;unset($state['_changedId']);
   $state['policies']=(object)$state['policies'];$json=json_encode($state,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);
   intake_policy_check(strlen($json)<=20000000,'저장된 정책 용량이 너무 큽니다. 관리자에게 문의해 주세요.');
   $revision=(int)$row['revision']+1;
   $q=$d->prepare('UPDATE intake_policy_state SET state=?,revision=?,updated_at=CURRENT_TIMESTAMP WHERE id=1');$q->execute([$json,$revision]);
   $q=$d->prepare('INSERT INTO intake_policy_history(revision,actor_id,action,payload) VALUES(?,?,?,?)');$q->execute([$revision,$user['id'],$input['action'],$json]);
+  if($input['action']==='publish')notice_policy_changes($before,$state,$revision,(int)$user['id']);
   $d->commit();return $state+['revision'=>$revision,'changedId'=>$changedId];
  }catch(Throwable $e){if($d->inTransaction())$d->rollBack();throw $e;}
 }

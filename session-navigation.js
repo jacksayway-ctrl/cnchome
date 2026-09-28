@@ -6,7 +6,10 @@ const logoutKey='cnc-session-logout-'+role;
 const bar=document.createElement('div');bar.className='cnc-session-bar';bar.setAttribute('aria-label','로그인 계정');
 const name=document.createElement('span'),error=document.createElement('span'),button=document.createElement('button');
 error.setAttribute('role','alert');button.type='button';button.textContent='로그아웃';button.dataset.cncLogout='';
-bar.append(name,error,button);document.body.prepend(bar);
+const account=document.createElement('div');account.className='cnc-session-account';account.append(name,error,button);bar.append(account);document.body.prepend(bar);
+window.NoticeTicker?.attach(bar);
+const sizeBar=()=>document.documentElement.style.setProperty('--cnc-session-height',bar.getBoundingClientRect().height+'px');
+if(window.ResizeObserver)new ResizeObserver(sizeBar).observe(bar);else window.addEventListener('resize',sizeBar);sizeBar();
 let authenticated=!!window.CNCHOME_LIVE;
 async function session(){const r=await fetch(sessionUrl('/session-api.php'),{credentials:'same-origin',cache:'no-store'});if(!r.ok)throw Error('로그인 상태를 확인하지 못했습니다. 다시 눌러 주세요.');return r.json();}
 function login(){location.assign(sessionUrl('/login.php'));}

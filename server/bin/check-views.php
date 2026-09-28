@@ -24,6 +24,8 @@ foreach(['admin','employee'] as $role){
   check(substr_count($sidebar,'data-aw-section=')===($role==='admin'?6:0),'role-specific initial sidebar');
   check(str_contains($sidebar,'data-page="home"')===($role==='employee'),'employee home visibility');
   check(str_contains($html,'<div hidden class="sample">'),'live pages hide the example banner before JavaScript');
+  check(str_contains($html,'<section hidden class="top-notice"'),'live pages hide the old notice strip before JavaScript');
+  check(strpos($html,'notice-ticker.js')<strpos($html,'session-navigation.js'),'notice ticker loads before session bar');
   file_put_contents($directory.'/'.$role.'-'.$page.'.html',$html);
  }
 }

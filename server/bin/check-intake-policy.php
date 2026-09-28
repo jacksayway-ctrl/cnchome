@@ -8,6 +8,7 @@ function db(): PDO {static $d;if(!$d)$d=new IntakeTestDB('sqlite::memory:',null,
 function check(bool $ok,string $message):void{if(!$ok)throw new Exception($message);}
 function rejects(callable $fn,string $type):void{try{$fn();}catch(Throwable $e){if($e instanceof $type)return;throw $e;}throw new Exception('Expected '.$type);}
 $d=db();$d->exec("CREATE TABLE intake_policy_state(id INTEGER PRIMARY KEY,revision INTEGER,state TEXT,updated_at TEXT);INSERT INTO intake_policy_state VALUES(1,0,'{}',NULL);CREATE TABLE intake_policy_history(id INTEGER PRIMARY KEY,revision INTEGER UNIQUE,actor_id INTEGER,action TEXT,payload TEXT);");
+$d->exec("CREATE TABLE office_notices(id INTEGER PRIMARY KEY AUTOINCREMENT,channel TEXT,department TEXT,title TEXT,body TEXT,actor_id INTEGER,source_key TEXT UNIQUE,active INTEGER DEFAULT 1,created_at TEXT DEFAULT CURRENT_TIMESTAMP);");
 $admin=['id'=>1,'role'=>'admin','display_name'=>'테스트 관리자'];$employee=['id'=>2,'role'=>'employee'];
 $start=intake_policy_snapshot();check($start['revision']===0&&count((array)$start['policies'])===0,'empty DB, no example policies');
 $rows=[['지역','수량','제외지역'],['수도권','4','서울특별시 강남구']];
@@ -32,3 +33,25 @@ rejects(fn()=>intake_policy_mutate($admin,['action'=>'publish','revision'=>5,'cl
 check(intake_policy_snapshot()['revision']===5,'bad client does not change saved policies');
 check((int)$d->query('SELECT COUNT(*) FROM intake_policy_history')->fetchColumn()===5,'only successful writes recorded');
 echo "PASS: real SQLite persistence, shared read, admin-only writes, revision conflicts, rollback, catalogs, scope preservation, dual products and audit.\n";
+check((int)$d->query('SELECT COUNT(*) FROM office_notices')->fetchColumn()===0,'new policies and metadata changes do not announce a reduction');
+$lower=$rows;$lower[1][1]='3';
+$change=['action'=>'publish','revision'=>5,'client'=>'legacy','carrier'=>'hanwha','groups'=>['general'=>$lower]];
+$s=intake_policy_mutate($admin,$change);
+$feed=notice_snapshot(['id'=>2,'role'=>'employee','department'=>'insurance']);check(count($feed['activity'])===1&&str_contains($feed['activity'][0]['body'],'4건 → 3건'),'one confirmed decrease emits one announcement');
+$cursor=(int)$feed['cursor'];check(count(notice_snapshot(['role'=>'employee','department'=>'insurance'],$cursor)['activity'])===0,'polling cursor does not repeat an event');
+rejects(fn()=>intake_policy_mutate($admin,$change),IntakePolicyConflict::class);check((int)$d->query('SELECT COUNT(*) FROM office_notices')->fetchColumn()===1,'retry cannot duplicate announcement');
+$change['revision']=6;$s=intake_policy_mutate($admin,$change);check((int)$d->query('SELECT COUNT(*) FROM office_notices')->fetchColumn()===1,'same quantity emits nothing');
+$higher=$rows;$higher[1][1]='7';$change['revision']=7;$change['groups']['general']=$higher;intake_policy_mutate($admin,$change);check((int)$d->query('SELECT COUNT(*) FROM office_notices')->fetchColumn()===1,'increases emit nothing');
+$unknown=$rows;$unknown[1][1]='확인 필요';$change['revision']=8;$change['groups']['general']=$unknown;intake_policy_mutate($admin,$change);check((int)$d->query('SELECT COUNT(*) FROM office_notices')->fetchColumn()===1,'unknown count is not inferred as zero');
+$change['revision']=9;$change['groups']['general']=$rows;intake_policy_mutate($admin,$change);check((int)$d->query('SELECT COUNT(*) FROM office_notices')->fetchColumn()===1,'unknown-to-number is not a confirmed decrease');
+$zero=$rows;$zero[1][1]='0';$change['revision']=10;$change['groups']['general']=$zero;intake_policy_mutate($admin,$change);
+$feed=notice_snapshot(['role'=>'employee','department'=>'insurance'],$cursor);check(count($feed['activity'])===1&&str_contains($feed['activity'][0]['body'],'접수 마감'),'zero quantity emits closure');
+check(count(notice_snapshot(['role'=>'employee','department'=>'cosmetics'])['activity'])===0,'insurance events are not exposed to another team');
+$post=['action'=>'publish','title'=>'회사 공지','body'=>'테스트 공지 <내용>','department'=>'','requestKey'=>'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'];
+rejects(fn()=>notice_mutate($employee,$post),NoticeForbidden::class);notice_mutate($admin,$post);notice_mutate($admin,$post);
+$all=notice_snapshot(['role'=>'employee','department'=>'insurance']);check(count($all['company'])===1,'company notice persists without duplicate submission');$noticeId=$all['company'][0]['id'];
+notice_mutate($admin,array_replace($post,['department'=>'cosmetics','title'=>'화장품 공지','requestKey'=>'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb']));
+check(count(notice_snapshot(['role'=>'employee','department'=>'insurance'])['company'])===1,'company audience restriction');check(count(notice_snapshot($admin)['company'])===2,'admin sees all company notices');
+rejects(fn()=>notice_mutate($employee,['action'=>'archive','id'=>$noticeId]),NoticeForbidden::class);notice_mutate($admin,['action'=>'archive','id'=>$noticeId]);check(count(notice_snapshot(['role'=>'employee','department'=>'insurance'])['company'])===0,'archived notices leave the active ticker');
+$duplicates=notice_policy_rows([['지역','수량'],['서울','4'],['서울','2']]);check(array_values($duplicates)[0]['quantity']===null,'duplicate scope quantities are not guessed');
+echo "PASS: reduction-only events, zero closure, unchanged/increased/unknown quantities, idempotent writes, company notices, archival and team isolation.\n";

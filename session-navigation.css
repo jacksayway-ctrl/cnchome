@@ -1,6 +1,26 @@
 .cnc-session-bar{position:sticky;top:0;z-index:1000;display:flex;align-items:center;justify-content:flex-end;gap:14px;box-sizing:border-box;width:100%;min-height:48px;padding:8px 24px;background:#fff;border-bottom:1px solid #dce3ec;color:#334155;font:14px system-ui,sans-serif}
 .cnc-session-bar button,.cnc-session-bar a{padding:7px 14px;border:1px solid #cbd5e1;border-radius:7px;background:#fff;color:#334155;text-decoration:none;font:inherit;cursor:pointer}
 .cnc-session-bar button:hover{background:#f5f7fa}.cnc-session-bar button:disabled{opacity:.6;cursor:wait}.cnc-session-bar [role=alert]{font-size:12px;color:#b91c1c}
+.cnc-session-account{display:flex;align-items:center;gap:12px;flex-shrink:0;white-space:nowrap}
+.cnc-notice-area{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;flex:1;min-width:0}
+.cnc-notice-channel{display:flex;align-items:center;gap:10px;min-width:0;padding:4px 10px;background:#edf4ff;border:1px solid #dbe6f7;border-radius:7px}
+.cnc-notice-channel:last-child{background:#fff7ed;border-color:#fed7aa}
+.cnc-notice-label{flex:none;font-size:12px;color:#194d8f;white-space:nowrap}
+.cnc-notice-channel:last-child .cnc-notice-label{color:#9a3412}
+.cnc-session-bar .cnc-notice-viewport{position:relative;flex:1;min-width:0;height:26px;overflow:hidden;text-align:left;padding:0;border:0;background:transparent;border-radius:0}
+.cnc-notice-text{display:inline-block;white-space:nowrap;animation:cnc-notice-scroll var(--cnc-notice-duration,12s) linear 1}
+.cnc-session-bar .cnc-notice-manage{padding:3px 7px;font-size:12px;flex:none}
+@keyframes cnc-notice-scroll{from{transform:translateX(var(--cnc-notice-start,0px))}to{transform:translateX(var(--cnc-notice-end,0px))}}
+.cnc-notice-dialog{box-sizing:border-box;width:min(620px,94vw);max-height:85vh;overflow:auto;border:1px solid #cbd5e1;border-radius:12px;padding:22px;color:#243449;font:14px/1.5 system-ui,sans-serif}
+.cnc-notice-dialog::backdrop{background:#10284488}
+.cnc-notice-dialog-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}.cnc-notice-dialog h2{margin:0;font-size:19px}
+.cnc-notice-dialog button{border:1px solid #b9cee9;border-radius:6px;background:#fff;color:#194d8f;padding:7px 12px;font:inherit;cursor:pointer}
+.cnc-notice-form{display:grid;gap:12px;margin:18px 0}.cnc-notice-form label{display:grid;gap:5px}.cnc-notice-form input,.cnc-notice-form select,.cnc-notice-form textarea{box-sizing:border-box;width:100%;padding:9px;border:1px solid #cbd5e1;border-radius:6px;font:inherit}
+.cnc-notice-card{border-top:1px solid #e2e8f0;padding:14px 0}.cnc-notice-card p{white-space:pre-wrap;overflow-wrap:anywhere}.cnc-notice-card small{color:#64748b}.cnc-notice-error{color:#b91c1c}
+@media(max-width:900px){.cnc-session-bar{flex-wrap:wrap}.cnc-notice-area{order:2;flex-basis:100%}.cnc-session-account{margin-left:auto}}
+@media(max-width:520px){.cnc-notice-area{gap:6px}.cnc-notice-channel{gap:5px;padding:4px 6px;flex-wrap:wrap}.cnc-notice-channel .cnc-notice-viewport{flex-basis:100%;order:2}.cnc-notice-label{font-size:11px}.cnc-notice-manage{margin-left:auto}}
+@media(prefers-reduced-motion:reduce){.cnc-notice-text{animation:none!important;transform:none!important}}
 body:has(>.cnc-session-bar){padding-top:0}
+body:has(>.cnc-session-bar)>#tm-preview{height:calc(100vh - var(--cnc-session-height,48px));height:calc(100dvh - var(--cnc-session-height,48px))}
 @media(max-width:600px){.cnc-session-bar{padding:8px 12px;gap:8px;flex-wrap:wrap}}
 @media(min-width:701px){body:has(>.cnc-session-bar)>.sidebar{top:48px}}

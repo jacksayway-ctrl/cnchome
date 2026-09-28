@@ -2210,7 +2210,8 @@ function gradeLiveChrome(){
  root.querySelector('.team').textContent=gradeDepartments[live.user.department]+' · '+(live.user.role==='admin'?'관리자':'직원');
  root.querySelector('.mobile-note').textContent='회사 관리';
  root.querySelectorAll('[data-page]').forEach(b=>{b.hidden=live.user.role==='admin'?!(b.dataset.page==='grade'||b.dataset.page.startsWith('admin')):!['home','regions','attendance','sales','grade','as','payslips','myInfo'].includes(b.dataset.page);});
- root.querySelectorAll('.top-notice,.payroll-link').forEach(el=>el.hidden=live.user.role==='admin');
+ root.querySelectorAll('.top-notice').forEach(el=>el.hidden=true);
+ root.querySelectorAll('.payroll-link').forEach(el=>el.hidden=live.user.role==='admin');
  root.querySelectorAll('.nav-cut,.aw-nav-group').forEach(el=>el.hidden=live.user.role!=='admin');
  root.querySelector('.work > header').hidden=live.user.role==='admin';root.querySelector('.work > .sample').hidden=true;
  if(live.user.role==='employee')root.querySelector('.work > header h1').textContent=live.user.display_name+'님, 안녕하세요';

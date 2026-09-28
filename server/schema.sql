@@ -114,6 +114,21 @@ CREATE TABLE IF NOT EXISTS sales_consultation_details (
  FOREIGN KEY (sale_id) REFERENCES sales_records(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- Company announcements and confirmed policy quota reductions.
+CREATE TABLE IF NOT EXISTS office_notices (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+ channel ENUM('company','activity') NOT NULL,
+ department VARCHAR(20) NOT NULL DEFAULT '',
+ title VARCHAR(120) NOT NULL,
+ body VARCHAR(1500) NOT NULL,
+ actor_id BIGINT UNSIGNED NOT NULL,
+ source_key VARCHAR(128) NOT NULL UNIQUE,
+ active BOOLEAN NOT NULL DEFAULT 1,
+ created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+ INDEX notice_channel (channel,active,id),
+ INDEX notice_department (department,id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- Shared intake policies, independent of browser/account local storage.
 CREATE TABLE IF NOT EXISTS intake_policy_state (
  id TINYINT PRIMARY KEY,
