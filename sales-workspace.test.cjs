@@ -16,7 +16,7 @@ test('employee and admin intake forms submit and display consultation fields',as
  const fs=require('node:fs'),vm=require('node:vm');
  for(const role of ['employee','admin']){
   const page=role==='admin'?'adminHome':'sales',events=new Map(),posts=[];let formHtml='',closed=0,records=[];
-  const context={URL,console,crypto:{randomUUID:()=> 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'},document:{hidden:false},location:{href:'https://example.test/office.php?page='+page},CNCHOME_LIVE:{csrf:'test-csrf',user:{id:2,role,username:'employee',department:'insurance'}},localStorage:{getItem:()=>null,setItem(){}},addEventListener(){},setInterval(){},FormData:class{constructor(form){return Object.entries(form.values);}}};
+  const context={URL,console,Event:class{},dispatchEvent(){},crypto:{randomUUID:()=> 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'},document:{hidden:false},location:{href:'https://example.test/office.php?page='+page},CNCHOME_LIVE:{csrf:'test-csrf',user:{id:2,role,username:'employee',department:'insurance'}},localStorage:{getItem:()=>null,setItem(){}},addEventListener(){},setInterval(){},FormData:class{constructor(form){return Object.entries(form.values);}}};
   context.window=context;
   context.fetch=async(url,options)=>{
    if(options.method==='POST'){const body=JSON.parse(options.body);posts.push(body);records=[{...body,id:'1',employee:'직원',team:'insurance',kind:'general',status:'pending',isTest:false,revision:1}];}
@@ -27,7 +27,8 @@ test('employee and admin intake forms submit and display consultation fields',as
   api.init({root:{addEventListener(type,fn){if(!events.has(type))events.set(type,[]);events.get(type).push(fn);},querySelector:()=>null,querySelectorAll:()=>[]},open(title,html){formHtml=html;},close(){closed++;},toast(){},render(){}});
   await new Promise(setImmediate);assert.equal(api.intake(),true);
   assert.doesNotMatch(formHtml,/name="address"/);assert.match(formHtml,/name="birthMonth"/);assert.match(formHtml,/name="birthDay"/);assert.match(formHtml,/data-age-number/);assert.match(formHtml,/data-intake-decision/);assert.match(formHtml,/role="combobox"/);assert.match(formHtml,/name="consultationTime" type="time"/);assert.match(formHtml,/name="consultationPlace" maxlength="500"/);
-  for(const [value,label] of [['100000','10만 원 이상'],['200000','20만 원 이상'],['300000','30만 원 이상']])assert.ok(formHtml.includes('<option value="'+value+'">'+label+'</option>'));
+  for(const [value,label] of [['100000','10만 원 이상'],['200000','20만 원 이상'],['300000','30만 원 이상']])assert.ok(formHtml.includes('<input type="radio" name="premiumBand" value="'+value+'"><span>'+label+'</span>'));
+  assert.doesNotMatch(formHtml,/<select name="premiumBand"/);assert.match(formHtml,/name="birthYear"[^>]*value="1980"/);assert.match(formHtml,/name="birthMonth"[^>]*value=""/);assert.match(formHtml,/name="birthDay"[^>]*value=""/);assert.equal((formHtml.match(/data-birth-picker=/g)||[]).length,3);assert.match(formHtml,/ㅇㅂㅂ → 인천광역시 부평구 부평동/);
   const date=formHtml.match(/name="date"[^>]*value="([^"]+)"/)[1];
   const form={dataset:{requestKey:'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'},reportValidity:()=>true,values:{employeeId:'2',date,customer:'검증 고객',phone:'010-0000-0000',carrier:'GA',birthYear:'1990',birthMonth:'03',birthDay:'23',consultationTime:'14:30',consultationPlace:'직장 <상담실>',premiumBand:'200000',note:'메모'}};
   for(const handler of events.get('submit'))handler({target:{closest:()=>form},preventDefault(){}});

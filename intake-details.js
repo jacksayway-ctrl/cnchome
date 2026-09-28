@@ -86,11 +86,20 @@
   const labels={possible:'가능',partial:'일부 가능 · 상세 확인',review:'확인 필요',blocked:'불가'};
   const chooser=form.querySelector('[data-carrier-choice]');let preferred='',index=null;
   const birthNames=['birthYear','birthMonth','birthDay'],lengths=Object.fromEntries(birthNames.map(name=>[name,fields[name].value.length]));
+  const birthPickers=form.querySelectorAll?.('[data-birth-picker]')||[];
   function updateAge(){
    const info=birthInfo(fields.birthYear.value,fields.birthMonth.value,fields.birthDay.value,fields.date.value);
    fields.birthDay.setCustomValidity(info.error);form.querySelector('[data-age-number]').value=info.age===null?'—':info.age+'세';
    form.querySelector('[data-age-kind]').textContent=info.age===null?'':!info.kind?'연령 초과':info.kind==='silver'?'실버':'일반';
    form.querySelector('[data-sales-age]').textContent=info.error||'세는나이 기준 · 60세 이하 일반 / 61~70세 실버';
+   for(const picker of birthPickers){
+    const field=fields[picker.dataset.birthPicker];
+    if(picker.dataset.birthPicker==='birthDay'){
+     const year=Number(fields.birthYear.value),month=Number(fields.birthMonth.value),days=year>=1900&&month>=1&&month<=12?new Date(Date.UTC(year,month,0)).getUTCDate():31;
+     if(picker.options.length!==days+1){picker.replaceChildren();for(let day=0;day<=days;day++){const option=global.document.createElement('option');option.value=day?String(day).padStart(2,'0'):'';option.textContent=day?day+'일':'선택';picker.append(option);}}
+    }
+    picker.value=field.value?String(field.value).padStart(field.maxLength,'0'):'';
+   }
    return info;
   }
   function update(){
@@ -108,9 +117,13 @@
    panel.dataset.state=result.state;summary.textContent=result.text;list.replaceChildren();
    for(const item of result.items){const badge=global.document.createElement('span');badge.dataset.state=item.state;badge.textContent=item.label+' '+labels[item.state]+(item.quantity!==null&&item.quantity!==undefined?' '+item.quantity+'건':'');badge.title=item.reason;list.append(badge);}
   }
-  function change(event){if(event.target===chooser)preferred=chooser.value;update();}
+  function applyPicker(el){
+   const name=el.dataset?.birthPicker;if(!name)return false;
+   fields[name].value=el.value;lengths[name]=el.value.length;update();return true;
+  }
+  function change(event){if(applyPicker(event.target))return;if(event.target===chooser)preferred=chooser.value;update();}
   function input(event){
-   const el=event.target;let next=null;
+   const el=event.target;let next=null;if(applyPicker(el))return;
    if(el===chooser)preferred=chooser.value;
    if(birthNames.includes(el.name)&&!event.isComposing){
     const previousLength=lengths[el.name];el.value=el.value.normalize('NFKC').replace(/\D/g,'').slice(0,el.maxLength);lengths[el.name]=el.value.length;

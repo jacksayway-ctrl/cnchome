@@ -587,3 +587,26 @@ body.policy-window #tm-preview{max-width:none}
 #tm-preview header:has(.header-grade-item) .header-grades{grid-column:1/-1;grid-row:2;min-height:0}
 #tm-preview header:has(.header-grade-item)>.action{grid-column:2;grid-row:1}
 @media(max-width:760px){#tm-preview .header-grades{gap:14px;padding:10px}#tm-preview .header-grade-item{gap:5px;font-size:12px}#tm-preview .header-grade-item strong{font-size:13px}}
+
+/* Inline intake labels, single-choice premium buttons, and optional date lists. */
+#tm-preview [data-sales-form] label:is(.sales-customer-field,.sales-phone-field,.sales-staff-field,.sales-time-field){display:grid;grid-template-columns:max-content minmax(0,1fr);align-items:center;gap:9px}
+#tm-preview [data-sales-form] .sales-birth-control{display:flex;min-width:0;flex:1;position:relative}
+#tm-preview [data-sales-form] .sales-birth-control input{padding-right:32px}
+#tm-preview [data-sales-form] .sales-birth-picker{position:absolute;right:1px;top:1px;bottom:1px;width:30px;display:grid;place-items:center;background:#edf4ff;border-left:1px solid #cdd9e7;border-radius:0 6px 6px 0;color:#174d94}
+#tm-preview [data-sales-form] .sales-birth-picker select{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;padding:0}
+#tm-preview [data-sales-form] .sales-birth-picker:focus-within{outline:3px solid #79aaff;outline-offset:1px}
+#tm-preview [data-sales-form] .sales-premium-field{border:0;padding:0;margin:0;min-width:0}
+#tm-preview [data-sales-form] .sales-premium-field legend{font-size:13px;margin-bottom:5px}
+#tm-preview [data-sales-form] .sales-premium-options{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}
+#tm-preview [data-sales-form] .sales-premium-options label{display:flex;align-items:center;justify-content:center;gap:4px;padding:8px 4px;border:1px solid #cdd9e7;border-radius:7px;white-space:nowrap;cursor:pointer;font-size:12px;background:#fff}
+#tm-preview [data-sales-form] .sales-premium-options input{width:14px;height:14px;padding:0;margin:0;accent-color:#1464ec;flex-shrink:0}
+#tm-preview [data-sales-form] .sales-premium-options label:has(input:checked){background:#eaf3ff;border-color:#1464ec;color:#174d94;font-weight:700}
+#tm-preview [data-sales-form] .sales-premium-options label:focus-within{outline:2px solid #79aaff;outline-offset:2px}
+@media(min-width:600px){#tm-preview [data-sales-form][data-intake-admin=true] .sales-premium-field{grid-column:span 3}}
+@media(max-width:599px){
+ #tm-preview [data-sales-form] .sales-customer-field,#tm-preview [data-sales-form] .sales-phone-field,#tm-preview [data-sales-form] .sales-premium-field{grid-column:1/-1}
+ #tm-preview [data-sales-form] .sales-birth-fields{grid-template-columns:minmax(0,1fr) 90px;gap:7px}
+ #tm-preview [data-sales-form] .sales-birth-inputs{grid-template-columns:1.4fr 1fr 1fr;gap:4px}
+ #tm-preview [data-sales-form] .sales-birth-control input{padding-left:4px;padding-right:24px}
+ #tm-preview [data-sales-form] .sales-birth-picker{width:22px}
+}
