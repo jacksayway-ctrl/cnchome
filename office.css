@@ -506,3 +506,7 @@ body.policy-window #tm-preview{max-width:none}
 #tm-preview [data-policy-carrier="ga"] .policy-source-table thead th:first-child,#tm-preview [data-policy-carrier="ga"] .policy-province-cell{width:1%;min-width:0;white-space:nowrap}
 #tm-preview [data-policy-carrier="ga"] .policy-source-table thead th:nth-last-child(-n+2),#tm-preview [data-policy-carrier="ga"] tr[data-policy-source-key]>td:nth-last-child(-n+2){width:1%;white-space:nowrap;text-align:center}
 #tm-preview [data-policy-carrier="ga"]>div:not(.policy-source-scroll),#tm-preview [data-policy-carrier="ga"]>p{contain:inline-size}
+#tm-preview .sales-intake-details table{min-width:980px}
+#tm-preview .sales-intake-details th{white-space:nowrap}
+#tm-preview .sales-intake-details td{overflow-wrap:anywhere}
+#tm-preview .sales-intake-details td:nth-child(5),#tm-preview .sales-intake-details td:nth-child(7){white-space:nowrap}

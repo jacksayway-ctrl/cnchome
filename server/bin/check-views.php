@@ -23,6 +23,7 @@ foreach(['admin','employee'] as $role){
   check(!str_contains($sidebar,'data-page="admin'),'no legacy admin sidebar links');
   check(substr_count($sidebar,'data-aw-section=')===($role==='admin'?6:0),'role-specific initial sidebar');
   check(str_contains($sidebar,'data-page="home"')===($role==='employee'),'employee home visibility');
+  check(str_contains($html,'<div hidden class="sample">'),'live pages hide the example banner before JavaScript');
   file_put_contents($directory.'/'.$role.'-'.$page.'.html',$html);
  }
 }

@@ -105,6 +105,15 @@ CREATE TABLE IF NOT EXISTS sales_events (
  FOREIGN KEY (actor_id) REFERENCES app_users(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- Optional consultation fields for new intakes; existing records remain unchanged.
+CREATE TABLE IF NOT EXISTS sales_consultation_details (
+ sale_id BIGINT UNSIGNED PRIMARY KEY,
+ consultation_time VARCHAR(5) NOT NULL DEFAULT '',
+ consultation_place VARCHAR(500) NOT NULL DEFAULT '',
+ premium_band VARCHAR(6) NOT NULL DEFAULT '',
+ FOREIGN KEY (sale_id) REFERENCES sales_records(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- Shared intake policies, independent of browser/account local storage.
 CREATE TABLE IF NOT EXISTS intake_policy_state (
  id TINYINT PRIMARY KEY,

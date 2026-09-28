@@ -2212,9 +2212,9 @@ function gradeLiveChrome(){
  root.querySelectorAll('[data-page]').forEach(b=>{b.hidden=live.user.role==='admin'?!(b.dataset.page==='grade'||b.dataset.page.startsWith('admin')):!['home','regions','attendance','sales','grade','as','payslips','myInfo'].includes(b.dataset.page);});
  root.querySelectorAll('.top-notice,.payroll-link').forEach(el=>el.hidden=live.user.role==='admin');
  root.querySelectorAll('.nav-cut,.aw-nav-group').forEach(el=>el.hidden=live.user.role!=='admin');
- root.querySelector('.work > header').hidden=live.user.role==='admin';root.querySelector('.work > .sample').hidden=live.user.role==='admin';
- if(live.user.role==='employee'){root.querySelector('.work > header h1').textContent=live.user.display_name+'님, 안녕하세요';root.querySelector('.work > .sample').textContent='기존 사용자 기능 · 예시 내역입니다. 테스트 계정의 저장된 자료는 하단 테스트 내역에서 확인할 수 있습니다.';}
- if(!root.querySelector('#live-account')){
+ root.querySelector('.work > header').hidden=live.user.role==='admin';root.querySelector('.work > .sample').hidden=true;
+ if(live.user.role==='employee')root.querySelector('.work > header h1').textContent=live.user.display_name+'님, 안녕하세요';
+ if(live.user.role==='admin'&&!root.querySelector('#live-account')){
   const bar=document.createElement('div');bar.id='live-account';bar.className='notice';
   bar.innerHTML=`<div class="row"><strong>${gradeEscape(live.user.display_name)} · ${live.user.role==='admin'?'관리자':'직원'}</strong><button type="button" class="secondary" id="live-refresh">최신 기준 불러오기</button>${live.user.role==='admin'?'<a href="/preview.php?role=admin" target="_blank" rel="noopener">기존 화면 미리보기</a>':''}</div><p class="sub" id="live-page-status"></p>`;
   main.before(bar);
@@ -2226,7 +2226,7 @@ function gradeLiveChrome(){
   });
  }
  const status=root.querySelector('#live-page-status');
- status.textContent=page==='grade'||page==='adminGrade'?'그레이드 기준·변경 이력: DB 연결됨':'이 메뉴는 미리보기입니다. 입력·승인·지급 조작은 실제 업무 DB에 반영되지 않습니다.';
+ if(status)status.textContent=page==='grade'||page==='adminGrade'?'그레이드 기준·변경 이력: DB 연결됨':'이 메뉴는 미리보기입니다. 입력·승인·지급 조작은 실제 업무 DB에 반영되지 않습니다.';
  if(page==='adminGrade'){
   const notice=main.querySelector('.notice:not(.grade-editor .notice)');
   if(notice)notice.textContent='확인 후 적용하면 DB에 저장됩니다. 직원은 본인 부서 기준을 조회합니다. 브라우저의 기존 미리보기 기준은 자동으로 가져오지 않습니다.';
