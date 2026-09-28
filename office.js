@@ -480,7 +480,8 @@ function policySourceTable(key,rows,sourceItems=null){
   }).join('');
  }).join('');
  const widths=policySourceColumnWidths(rows[0].map((cell,index)=>sourceItems?cell:raw[0]?.[index]||cell));
- return '<div class="policy-source-scroll"><table class="policy-source-table"><colgroup>'+widths.map(width=>'<col style="width:'+width+'px">').join('')+'</colgroup><thead><tr><th>시·도</th>'+rows[0].map(cell=>'<th>'+cell+'</th>').join('')+'</tr></thead><tbody>'+body+'</tbody></table></div>';
+ const columns=sourceItems?'':'<colgroup>'+widths.map(width=>'<col style="width:'+width+'px">').join('')+'</colgroup>';
+ return '<div class="policy-source-scroll"><table class="policy-source-table">'+columns+'<thead><tr><th>시·도</th>'+rows[0].map(cell=>'<th>'+cell+'</th>').join('')+'</tr></thead><tbody>'+body+'</tbody></table></div>';
 }
 function policyHoverRows(group,path=[]){
  const place=PolicyRegionRules.catalog[group];if(!place)return [];
@@ -516,12 +517,13 @@ function regionConditionsTable(){
  requestAnimationFrame(policyFitSourceScrollers);
  const entries=regionPolicyEntries();
  if(!entries.length)return panel('접수 정책표','<p class="sub">선택한 거래처에 등록된 정책이 없습니다.</p>');
- const sections=[];let columnMin=400;
+ const sections=[];let columnMin=400,hasGa=false;
  const carriers=[['ga','GA'],['hanwha','한화'],['shinhan','신한'],...intakeCodes.filter(c=>!['ga','hanwha','shinhan'].includes(c.id)).map(c=>[c.id,c.label])];
  for(const [id,label] of carriers){
   let policies=entries.filter(([key])=>policyKeyParts(key).carrier===id).sort(([a],[b])=>Number(a.endsWith(':silver'))-Number(b.endsWith(':silver')));
   if(!policies.length)continue;
   if(id==='ga'){
+   hasGa=true;
    const dates=['general','silver'].map(kind=>{const item=policies.find(([key])=>policyKeyParts(key).kind===kind)?.[1];return '<div>'+(kind==='general'?'일반':'실버')+' '+(item?regionPolicyDateBadge(item.savedAt):'<span class="sub">미등록 · 수량 0</span>')+'</div>';}).join('');
    const content='<div class="policy-table-heading"><h3>GA · 일반 / 실버</h3></div>'+dates+policySourceTable(policies[0][0],[['지역 · 적용 조건','일반','실버']],policyGaSourceItems(policies))+'<p class="sub">같은 적용 범위의 정책이 없는 상품은 0으로 표시합니다. 수량은 원문 범위의 공유 수량입니다.</p>';
    sections.push('<section class="policy-carrier-column" data-policy-carrier="ga" style="min-width:0">'+content+'</section>');
@@ -539,7 +541,8 @@ function regionConditionsTable(){
   }
   sections.push('<section class="policy-carrier-column" data-policy-carrier="'+policyEscape(id)+'" style="min-width:0">'+cards.join('')+'</section>');
  }
- return panel('접수 정책표','<p><a class="secondary" data-policy-new-window href="/employee.php?page=regions&amp;policyWindow=1" target="_blank" rel="noopener">정책표 새 창으로 보기</a></p><div class="policy-carrier-scroll"><div class="policy-carrier-columns" style="display:grid;grid-template-columns:repeat('+sections.length+',minmax('+columnMin+'px,1fr));gap:16px;align-items:start">'+sections.join('')+'</div></div>'+'<p class="sub">접수 가능 → 확인 필요 → 접수 불가 순으로 표시하며, 각 구역 안에서 시·도별로 묶습니다. 정책별 등록일과 수량·연령·제외 조건을 확인해 주세요.</p>');
+ const otherCount=sections.length-Number(hasGa),columns=[...(hasGa?['fit-content(340px)']:[]),...(otherCount?['repeat('+otherCount+',minmax('+columnMin+'px,1fr))']:[])].join(' ');
+ return panel('접수 정책표','<p><a class="secondary" data-policy-new-window href="/employee.php?page=regions&amp;policyWindow=1" target="_blank" rel="noopener">정책표 새 창으로 보기</a></p><div class="policy-carrier-scroll"><div class="policy-carrier-columns" style="display:grid;grid-template-columns:'+columns+';gap:16px;align-items:start">'+sections.join('')+'</div></div>'+'<p class="sub">접수 가능 → 확인 필요 → 접수 불가 순으로 표시하며, 각 구역 안에서 시·도별로 묶습니다. 정책별 등록일과 수량·연령·제외 조건을 확인해 주세요.</p>');
 }
 root.addEventListener('click',e=>{const link=e.target.closest('[data-policy-new-window]');if(!link)return;e.preventDefault();window.open(link.href,'_blank','popup,width=1280,height=900,scrollbars=yes,resizable=yes,noopener');});
 function regionRefreshPolicyHeader(){const target=root.querySelector('#tm-region-policy-date');if(target)target.innerHTML=regionPolicyDateSummary()}

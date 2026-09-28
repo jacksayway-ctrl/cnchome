@@ -501,3 +501,8 @@ body.policy-window #tm-preview{max-width:none}
 #tm-preview .policy-source-table{width:100%;border-collapse:collapse;table-layout:fixed}
 #tm-preview .policy-source-table th,#tm-preview .policy-source-table td{padding:9px 8px;white-space:normal;word-break:keep-all;overflow-wrap:anywhere;line-height:1.5}
 #tm-preview .policy-province-cell{vertical-align:top;background:#eef4ff;color:#174265;min-width:65px;padding:10px;border:1px solid var(--tm-line)}
+#tm-preview [data-policy-carrier="ga"] .policy-source-table{table-layout:auto}
+#tm-preview [data-policy-carrier="ga"] .policy-source-table th,#tm-preview [data-policy-carrier="ga"] .policy-source-table td{padding:9px 6px}
+#tm-preview [data-policy-carrier="ga"] .policy-source-table thead th:first-child,#tm-preview [data-policy-carrier="ga"] .policy-province-cell{width:1%;min-width:0;white-space:nowrap}
+#tm-preview [data-policy-carrier="ga"] .policy-source-table thead th:nth-last-child(-n+2),#tm-preview [data-policy-carrier="ga"] tr[data-policy-source-key]>td:nth-last-child(-n+2){width:1%;white-space:nowrap;text-align:center}
+#tm-preview [data-policy-carrier="ga"]>div:not(.policy-source-scroll),#tm-preview [data-policy-carrier="ga"]>p{contain:inline-size}

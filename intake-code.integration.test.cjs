@@ -339,11 +339,11 @@ test('live registration uses POST and reports failure without local success',asy
  assert.equal(a.storage.has(a.api.policyStorageKey),false);
 });
 
-test('registered carriers form equal horizontal columns and empty carriers are hidden',()=>{
+test('GA sizes to its content while other carrier columns share the remaining width',()=>{
  const a=boot();a.api.parse('한화\n지역\t수량\n수도권\t4');a.api.publish('hanwha','general');
  let html=a.api.markup().map;assert.match(html,/grid-template-columns:repeat\(1,minmax/);assert.doesNotMatch(html,/등록된 정책 없음|data-policy-carrier="ga"|data-policy-carrier="shinhan"/);
  a.api.parse('GA\n지역\t수량\n부산\t2');a.api.publish('ga','general');a.api.parse('신한\n지역\t수량\n인천\t3');a.api.publish('shinhan','general');
- html=a.api.markup().map;assert.match(html,/grid-template-columns:repeat\(3,minmax/);assert.ok(html.indexOf('data-policy-carrier="ga"')<html.indexOf('data-policy-carrier="hanwha"'));assert.ok(html.indexOf('data-policy-carrier="hanwha"')<html.indexOf('data-policy-carrier="shinhan"'));
+ html=a.api.markup().map;assert.match(html,/grid-template-columns:fit-content\(340px\) repeat\(2,minmax/);assert.ok(html.indexOf('data-policy-carrier="ga"')<html.indexOf('data-policy-carrier="hanwha"'));assert.ok(html.indexOf('data-policy-carrier="hanwha"')<html.indexOf('data-policy-carrier="shinhan"'));
 });
 
 test('common Hanwha policies appear once with new-window access',()=>{
