@@ -74,7 +74,7 @@ function policyReadClients(raw){
  if(!seen.has('legacy'))clients.unshift({id:'legacy',label:'메타버스'});
  return clients;
 }
-let policyClients=policyReadClients(null),policyPublicationClient='',policyViewClient='legacy';
+let policyClients=policyReadClients(null),policyPublicationClient='legacy',policyViewClient='legacy';
 try{if(!window.PolicySync?.enabled)policyClients=policyReadClients(localStorage.getItem(policyClientStorageKey))}catch(error){}
 function policyClientOptions(selected){return '<option value="">거래처 선택</option>'+policyClients.map(c=>'<option value="'+c.id+'" '+(selected===c.id?'selected':'')+'>'+policyEscape(c.label)+'</option>').join('')}
 function policyClientKey(carrier,kind,client=policyPublicationClient){return client==='legacy'?carrier+':'+kind:carrier+':'+client+':'+kind}
@@ -2473,7 +2473,7 @@ function policyServerApply(data){
  if(!policyPublicationClient&&clients.length===1)policyPublicationClient=clients[0].id;
  if(!PolicySync.ready){
   const latest=Object.values(publications).sort((a,b)=>b.savedAt.localeCompare(a.savedAt))[0];
-  if(latest){policyViewClient=latest.client;policyPublicationClient=latest.client;policyPublicationCarrier=latest.carrier;policyPublicationKind=latest.kind;policyRegisteredRows=policyCleanRows(latest.rows);policyRegisteredKey=policyClientKey(latest.carrier,latest.kind,latest.client);policyRegisteredCode=policyKeyLabel(policyRegisteredKey);}
+  if(latest){policyViewClient=latest.client;policyPublicationCarrier=latest.carrier;policyPublicationKind=latest.kind;policyRegisteredRows=policyCleanRows(latest.rows);policyRegisteredKey=policyClientKey(latest.carrier,latest.kind,latest.client);policyRegisteredCode=policyKeyLabel(policyRegisteredKey);}
  }
 
  regionCarrierSettings.splice(1,regionCarrierSettings.length-1,...intakeCodes.map(c=>({...c,visible:true,enabled:true})));
