@@ -29,3 +29,10 @@ test('policy assessment follows age product, carrier, numeric quota and explicit
  assert.equal(assess(limited,rules,locate('경기도 수원시'),'general','GA').state,'partial');assert.equal(assess(limited,rules,place,'general','GA').state,'blocked');assert.equal(assess(limited,rules,locate('경기도 수원시 권선구'),'general','GA').state,'possible');
  assert.equal(assess(null,rules,place,'general','GA').state,'review');assert.equal(assess(data,rules,locate('경기도'),'general','GA').state,'review');
 });
+
+test('automatic codes include only confirmed available policies in GA, Hanwha, Shinhan order',()=>{
+ const {availableCodes}=require('./intake-details.js').core;
+ const item=(codeId,state='possible')=>({codeId,codeLabel:codeId,state});
+ assert.deepEqual(availableCodes([item('shinhan'),item('ga','blocked'),item('hanwha'),item('ga'),item('ga'),item('unknown','review'),item('limited','partial')]),[{id:'ga',label:'ga'},{id:'hanwha',label:'hanwha'},{id:'shinhan',label:'shinhan'}]);
+ assert.deepEqual(availableCodes([item('ga','blocked'),item('hanwha','review')]),[]);
+});
