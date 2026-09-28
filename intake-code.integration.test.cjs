@@ -14,6 +14,7 @@ const closing = 'render();\n})();';
 assert.ok(app.includes(closing), 'the app exposes a stable closing marker');
 app = app.replace(closing, `globalThis.integrationHooks = {
   save: intakeCodeSave,
+  hoverRows(province,name){return policyHoverRows(PolicyRegionRules.catalog.findIndex(p=>p.province===province&&p.name===name));},
   grouped(items){return policyGroupedRegionTable(items);},
   convertText(text){policyApplyConvertedText(text);return this.snapshot();},
   parse(text) {
@@ -40,6 +41,8 @@ app = app.replace(closing, `globalThis.integrationHooks = {
   },
   addClient: policyClientSave,
   publishWithoutClient() { policyPublicationClient=''; return policyPublishRows(); },
+  filter(kind,carrier='all'){root.querySelector('#tm-age').selectedIndex=kind;mapCarrier=carrier;},
+  combined(province,name){const i=PolicyRegionRules.catalog.findIndex(p=>p.province===province&&p.name===name);return policyResultForGroup(i);},
   selectedKeys() { return [...policySelectedKeys()]; },
   client(id) { policyPublicationClient=id; policyViewClient=id; },
   clientResult(id, carrier, province, name) { return JSON.parse(JSON.stringify(PolicyRegionRules.evaluate(policyPublishedScopes.get(policyClientKey(carrier,'general',id)),{province,name,path:[]}))); },
@@ -355,4 +358,17 @@ test('text and OCR tabular input share the same regional postprocessing',()=>{
 test('municipalities are grouped under their province headings',()=>{
  const a=boot();const html=a.api.grouped([{place:{province:'경기',name:'광주시'},index:0,result:{state:'possible',items:[]}},{place:{province:'경남',name:'진주시'},index:1,result:{state:'possible',items:[]}},{place:{province:'경기',name:'이천시'},index:2,result:{state:'possible',items:[]}}]);
  assert.equal((html.match(/data-policy-province=/g)||[]).length,2);assert.match(html,/경기도<\/strong> · 2개/);assert.ok(html.indexOf('광주시')<html.indexOf('이천시'));assert.match(html,/경상남도/);
+});
+
+test('combined map includes GA silver and Shinhan alongside Hanwha and respects age filters',()=>{
+ const a=boot();a.api.parse('한화\n서울 4');a.api.publish('hanwha','general');a.api.parse('GA\n실버\n부산 2');a.api.publish('ga','auto');a.api.parse('신한\n인천 3');a.api.publish('shinhan','auto');
+ a.api.filter(2);assert.equal(a.api.selectedKeys().length,4);for(const [p,n] of [['서울','서울특별시'],['부산','부산광역시'],['인천','인천광역시']])assert.equal(a.api.combined(p,n).state,'possible');
+ a.api.filter(0);assert.ok(!a.api.selectedKeys().includes('ga:silver'));assert.equal(a.api.combined('부산','부산광역시').state,'blocked');
+ a.api.filter(2,'ga');assert.equal(a.api.selectedKeys().length,1);assert.equal(a.api.combined('부산','부산광역시').state,'possible');
+});
+
+test('map hover links to the matching original policy rows including exclusions',()=>{
+ const a=boot();a.api.parse('한화\n지역\t수량\n경상남도전체 (창원 제외)\t4\n서울\t2');a.api.publish('hanwha','auto');a.api.filter(2);
+ assert.ok(a.api.hoverRows('경남','진주시').some(x=>x.row===1));assert.ok(a.api.hoverRows('경남','창원시').some(x=>x.row===1));assert.ok(a.api.hoverRows('서울','서울특별시').some(x=>x.row===2));
+ assert.match(a.api.markup().map,/data-policy-source-row="1"/);assert.match(a.api.markup().map,/policy-map-workspace/);
 });
