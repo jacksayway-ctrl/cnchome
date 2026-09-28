@@ -438,11 +438,15 @@ function policySourceTable(key,rows){
  rows.slice(1).forEach((cells,offset)=>{const index=offset+1,scope=byIndex.get(index),provinces=[...new Set([...(scope?.include||[]),...(scope?.exclude||[])].map(target=>target.province))];const province=provinces.length===1?provinces[0]:provinces.length>1?'multi':scope?.province||'review';if(!groups.has(province))groups.set(province,[]);groups.get(province).push({cells,index,priority:policySourcePriority(scope),quantity:scope?.quantity||0});});
  const compare=(a,b)=>a.priority-b.priority||(a.priority===0?b.quantity-a.quantity:0);
  for(const items of groups.values())items.sort((a,b)=>compare(a,b)||a.index-b.index);
- const body=[...groups].sort(([a,aa],[b,bb])=>compare(aa[0],bb[0])||a.localeCompare(b,'ko')).map(([province,items])=>items.map(({cells,index},position)=>{
+ const orderedGroups=[0,1,2].flatMap(priority=>[...groups].map(([province,items])=>[province,items.filter(item=>item.priority===priority)]).filter(([,items])=>items.length).sort(([a,aa],[b,bb])=>compare(aa[0],bb[0])||a.localeCompare(b,'ko')));
+ const body=orderedGroups.map(([province,items],groupIndex)=>{
+  const priority=items[0].priority,heading=groupIndex===0||orderedGroups[groupIndex-1][1][0].priority!==priority?'<tr class="policy-source-status"><th colspan="'+(rows[0].length+1)+'">'+['접수 가능 지역','확인 필요 지역','접수 불가 지역 · 수량 0 포함'][priority]+'</th></tr>':'';
+  return heading+items.map(({cells,index},position)=>{
   const name=PolicyRegionRules.provinceNames[province]||(province==='multi'?'여러 시·도':'지역 확인'),display=[...cells];
   if(PolicyRegionRules.provinceNames[province]){for(const prefix of [name,province]){if(display[0].startsWith(prefix)){const rest=display[0].slice(prefix.length);if(!rest||/^(?:\s|:|：|전체|전역)/.test(rest)){display[0]=rest.replace(/^\s*[:：]?\s*/,'')||'전체';break;}}}}
   return '<tr data-policy-source-key="'+policyEscape(key)+'" data-policy-source-row="'+index+'">'+(position===0?'<th class="policy-province-cell" scope="rowgroup" rowspan="'+items.length+'">'+policyEscape(name)+'</th>':'')+display.map(cell=>'<td>'+cell+'</td>').join('')+'</tr>';
- }).join('')).join('');
+  }).join('');
+ }).join('');
  const widths=policySourceColumnWidths(rows[0].map((cell,index)=>raw[0]?.[index]||cell));
  return '<div class="policy-source-scroll"><table class="policy-source-table"><colgroup>'+widths.map(width=>'<col style="width:'+width+'px">').join('')+'</colgroup><thead><tr><th>시·도</th>'+rows[0].map(cell=>'<th>'+cell+'</th>').join('')+'</tr></thead><tbody>'+body+'</tbody></table></div>';
 }
@@ -480,7 +484,7 @@ function regionConditionsTable(){
   }
   sections.push('<section class="policy-carrier-column" data-policy-carrier="'+policyEscape(id)+'" style="min-width:0">'+cards.join('')+'</section>');
  }
- return panel('접수 정책표','<p><a class="secondary" data-policy-new-window href="/employee.php?page=regions&amp;policyWindow=1" target="_blank" rel="noopener">정책표 새 창으로 보기</a></p><div class="policy-carrier-scroll"><div class="policy-carrier-columns" style="display:grid;grid-template-columns:repeat('+sections.length+',minmax('+columnMin+'px,1fr));gap:16px;align-items:start">'+sections.join('')+'</div></div>'+'<p class="sub">시·도별로 묶고, 접수 가능한 지역과 수량이 많은 지역부터 표시합니다. 정책별 등록일과 수량·연령·제외 조건을 확인해 주세요.</p>');
+ return panel('접수 정책표','<p><a class="secondary" data-policy-new-window href="/employee.php?page=regions&amp;policyWindow=1" target="_blank" rel="noopener">정책표 새 창으로 보기</a></p><div class="policy-carrier-scroll"><div class="policy-carrier-columns" style="display:grid;grid-template-columns:repeat('+sections.length+',minmax('+columnMin+'px,1fr));gap:16px;align-items:start">'+sections.join('')+'</div></div>'+'<p class="sub">접수 가능 → 확인 필요 → 접수 불가 순으로 표시하며, 각 구역 안에서 시·도별로 묶습니다. 정책별 등록일과 수량·연령·제외 조건을 확인해 주세요.</p>');
 }
 root.addEventListener('click',e=>{const link=e.target.closest('[data-policy-new-window]');if(!link)return;e.preventDefault();window.open(link.href,'_blank','popup,width=1280,height=900,scrollbars=yes,resizable=yes,noopener');});
 function regionRefreshPolicyHeader(){const target=root.querySelector('#tm-region-policy-date');if(target)target.innerHTML=regionPolicyDateSummary()}

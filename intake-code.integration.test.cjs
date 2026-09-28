@@ -378,15 +378,18 @@ test('policy source table shows Gyeonggi once across its original rows',()=>{
  const html=a.api.markup().map;assert.match(html,/rowspan="2">경기도<\/th>/);assert.equal((html.match(/class="policy-province-cell"[^>]*>경기도<\/th>/g)||[]).length,1);assert.doesNotMatch(html,/<td>경기도 :/);assert.match(html,/data-policy-source-row="2"/);
 });
 
-test('policy display ranks available provinces and rows without changing source row identities',()=>{
+test('policy display puts all blocked rows below available provinces without changing source row identities',()=>{
  const a=boot();
  a.api.parse('한화\n지역\t수량\t상태\n경기도 : 이천\t0\t마감\n경기도 : 수원\t2\t가능\n경기도 : 용인\t5\t가능\n경기도 : 성남\t9\t불가\n경상남도 : 진주\t0\t마감\n서울\t3\t가능');
  assert.equal(a.api.publish('hanwha','general'),true);
  const before=a.api.snapshot().policies;
  const html=a.api.markup().map;
  const order=[...html.matchAll(/data-policy-source-row="(\d+)"/g)].map(match=>Number(match[1]));
- assert.deepEqual(order,[3,2,1,4,6,5]);
- assert.match(html,/rowspan="4">경기도<\/th>/);
+ assert.deepEqual(order,[3,2,6,1,4,5]);
+ assert.match(html,/rowspan="2">경기도<\/th>/);
+ const blockedHeading=html.indexOf('접수 불가 지역 · 수량 0 포함');
+ for(const index of [3,2,6])assert.ok(html.indexOf('data-policy-source-row="'+index+'"')<blockedHeading);
+ for(const index of [1,4,5])assert.ok(html.indexOf('data-policy-source-row="'+index+'"')>blockedHeading);
  assert.deepEqual(a.api.snapshot().policies,before);
  a.api.filter(2);
  assert.ok(a.api.hoverRows('경기','용인시').some(item=>item.row===3));
