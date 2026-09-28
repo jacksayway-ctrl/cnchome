@@ -495,5 +495,9 @@ body.policy-window #tm-preview{max-width:none}
 #tm-preview .policy-map-workspace>.region-map-layout{grid-column:1;grid-row:2;display:block;margin-top:0}
 #tm-preview .policy-map-workspace .region-map-panel{margin-top:0}
 
-#tm-preview .policy-source-table{width:100%;border-collapse:collapse}
+#tm-preview .policy-map-workspace>#tm-region-conditions{min-width:0}
+#tm-preview .policy-carrier-scroll{max-width:100%;overflow-x:auto;padding-bottom:8px}
+#tm-preview .policy-source-scroll{max-width:100%;scrollbar-gutter:stable}
+#tm-preview .policy-source-table{width:100%;border-collapse:collapse;table-layout:fixed}
+#tm-preview .policy-source-table th,#tm-preview .policy-source-table td{padding:9px 8px;white-space:normal;word-break:keep-all;overflow-wrap:anywhere;line-height:1.5}
 #tm-preview .policy-province-cell{vertical-align:top;background:#eef4ff;color:#174265;min-width:65px;padding:10px;border:1px solid var(--tm-line)}

@@ -426,15 +426,25 @@ function regionPolicyExampleTable(){
  const groups=[{label:'GA',kind:'일반 · 60세 이하',days:0,regions:[['수도권 (서울·인천·경기)','4건'],['광주·전남','1건']]},{label:'한화',kind:'일반 · 60세 이하',days:1,regions:[['서울특별시','3건'],['부산광역시','2건']]},{label:'신한',kind:'실버 · 61~70세',days:2,regions:[['인천광역시','2건'],['경기도','1건']]}];
  return '<p class="sub">날짜·지역 표시 예시입니다. 아래 지역과 수량은 실제 접수 기준이 아닙니다. 연령은 만 나이가 아닌 세는나이입니다.</p><div class="policy-example-columns">'+table(groups.map(g=>g.label),[groups.map(g=>regionPolicyDateBadge(PolicyDates.exampleDate(g.days),true)),groups.map(g=>policyEscape(g.kind)),groups.map(g=>'<ul class="policy-region-list">'+g.regions.map(([name,count])=>'<li><span>'+policyEscape(name)+'</span><strong>'+count+'</strong></li>').join('')+'</ul>')])+'</div>';
 }
+function policySourceColumnWidths(headers){
+ return [88,...headers.map((header,index)=>/수량|인원|배정|이월|건수|한도/.test(header)?68:/상태|접수여부|가능여부/.test(header)?100:/상품|구분/.test(header)?90:index===0?160:140)];
+}
+function policySourcePriority(scope){
+ if(scope?.unavailable||scope?.quantity===0)return 2;
+ return scope?.quantity>0&&scope.include.length&&!scope.errors.length&&!scope.quantityReview?0:1;
+}
 function policySourceTable(key,rows){
  const raw=policyPublications[key]?.rows||[],scopes=policyScopesForRows(raw),byIndex=new Map(scopes.map(scope=>[scope.index,scope])),groups=new Map();
- rows.slice(1).forEach((cells,offset)=>{const index=offset+1,scope=byIndex.get(index),provinces=[...new Set([...(scope?.include||[]),...(scope?.exclude||[])].map(target=>target.province))];const province=provinces.length===1?provinces[0]:provinces.length>1?'multi':scope?.province||'review';if(!groups.has(province))groups.set(province,[]);groups.get(province).push({cells,index});});
- const body=[...groups].sort(([a],[b])=>a.localeCompare(b,'ko')).map(([province,items])=>items.map(({cells,index},position)=>{
+ rows.slice(1).forEach((cells,offset)=>{const index=offset+1,scope=byIndex.get(index),provinces=[...new Set([...(scope?.include||[]),...(scope?.exclude||[])].map(target=>target.province))];const province=provinces.length===1?provinces[0]:provinces.length>1?'multi':scope?.province||'review';if(!groups.has(province))groups.set(province,[]);groups.get(province).push({cells,index,priority:policySourcePriority(scope),quantity:scope?.quantity||0});});
+ const compare=(a,b)=>a.priority-b.priority||(a.priority===0?b.quantity-a.quantity:0);
+ for(const items of groups.values())items.sort((a,b)=>compare(a,b)||a.index-b.index);
+ const body=[...groups].sort(([a,aa],[b,bb])=>compare(aa[0],bb[0])||a.localeCompare(b,'ko')).map(([province,items])=>items.map(({cells,index},position)=>{
   const name=PolicyRegionRules.provinceNames[province]||(province==='multi'?'여러 시·도':'지역 확인'),display=[...cells];
   if(PolicyRegionRules.provinceNames[province]){for(const prefix of [name,province]){if(display[0].startsWith(prefix)){const rest=display[0].slice(prefix.length);if(!rest||/^(?:\s|:|：|전체|전역)/.test(rest)){display[0]=rest.replace(/^\s*[:：]?\s*/,'')||'전체';break;}}}}
   return '<tr data-policy-source-key="'+policyEscape(key)+'" data-policy-source-row="'+index+'">'+(position===0?'<th class="policy-province-cell" scope="rowgroup" rowspan="'+items.length+'">'+policyEscape(name)+'</th>':'')+display.map(cell=>'<td>'+cell+'</td>').join('')+'</tr>';
  }).join('')).join('');
- return '<div class="policy-source-scroll"><table class="policy-source-table"><thead><tr><th>시·도</th>'+rows[0].map(cell=>'<th>'+cell+'</th>').join('')+'</tr></thead><tbody>'+body+'</tbody></table></div>';
+ const widths=policySourceColumnWidths(rows[0].map((cell,index)=>raw[0]?.[index]||cell));
+ return '<div class="policy-source-scroll"><table class="policy-source-table"><colgroup>'+widths.map(width=>'<col style="width:'+width+'px">').join('')+'</colgroup><thead><tr><th>시·도</th>'+rows[0].map(cell=>'<th>'+cell+'</th>').join('')+'</tr></thead><tbody>'+body+'</tbody></table></div>';
 }
 function policyHoverRows(group,path=[]){
  const place=PolicyRegionRules.catalog[group];if(!place)return [];
@@ -453,7 +463,7 @@ function policyFollowMap(group,path=[]){
 function regionConditionsTable(){
  const entries=regionPolicyEntries();
  if(!entries.length)return panel('접수 정책표','<p class="sub">선택한 거래처에 등록된 정책이 없습니다.</p>');
- const sections=[];
+ const sections=[];let columnMin=400;
  const carriers=[['ga','GA'],['hanwha','한화'],['shinhan','신한'],...intakeCodes.filter(c=>!['ga','hanwha','shinhan'].includes(c.id)).map(c=>[c.id,c.label])];
  for(const [id,label] of carriers){
   let policies=entries.filter(([key])=>policyKeyParts(key).carrier===id).sort(([a],[b])=>Number(a.endsWith(':silver'))-Number(b.endsWith(':silver')));
@@ -465,11 +475,12 @@ function regionConditionsTable(){
    const kind=policyKeyParts(key).kind==='general'?'일반':'실버';
    const width=Math.max(0,...item.rows.map(row=>row.length));
    const rows=item.rows.map(row=>Array.from({length:width},(_,i)=>policyEscape(row[i]||'').replace(/\n/g,'<br>')));
+   columnMin=Math.max(columnMin,16+policySourceColumnWidths(Array.from({length:width},(_,i)=>item.rows[0][i]||'')).reduce((sum,value)=>sum+value,0));
    cards.push('<div class="policy-table-heading"><h3>'+policyEscape(label)+(common?' · 일반·실버 공통':' · '+kind)+'</h3>'+regionPolicyDateBadge(item.savedAt)+'</div>'+policySourceTable(key,rows));
   }
   sections.push('<section class="policy-carrier-column" data-policy-carrier="'+policyEscape(id)+'" style="min-width:0">'+cards.join('')+'</section>');
  }
- return panel('접수 정책표','<p><a class="secondary" data-policy-new-window href="/employee.php?page=regions&amp;policyWindow=1" target="_blank" rel="noopener">정책표 새 창으로 보기</a></p><div style="overflow-x:auto"><div class="policy-carrier-columns" style="display:grid;grid-template-columns:repeat('+sections.length+',minmax(260px,1fr));gap:16px;align-items:start">'+sections.join('')+'</div></div>'+'<p class="sub">선택한 거래처의 등록 정책 원문입니다. 정책별 등록일과 가능지역·수량·연령·제외 조건을 확인해 주세요.</p>');
+ return panel('접수 정책표','<p><a class="secondary" data-policy-new-window href="/employee.php?page=regions&amp;policyWindow=1" target="_blank" rel="noopener">정책표 새 창으로 보기</a></p><div class="policy-carrier-scroll"><div class="policy-carrier-columns" style="display:grid;grid-template-columns:repeat('+sections.length+',minmax('+columnMin+'px,1fr));gap:16px;align-items:start">'+sections.join('')+'</div></div>'+'<p class="sub">시·도별로 묶고, 접수 가능한 지역과 수량이 많은 지역부터 표시합니다. 정책별 등록일과 수량·연령·제외 조건을 확인해 주세요.</p>');
 }
 root.addEventListener('click',e=>{const link=e.target.closest('[data-policy-new-window]');if(!link)return;e.preventDefault();window.open(link.href,'_blank','popup,width=1280,height=900,scrollbars=yes,resizable=yes,noopener');});
 function regionRefreshPolicyHeader(){const target=root.querySelector('#tm-region-policy-date');if(target)target.innerHTML=regionPolicyDateSummary()}
