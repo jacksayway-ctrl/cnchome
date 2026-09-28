@@ -14,6 +14,9 @@ const closing = 'render();\n})();';
 assert.ok(app.includes(closing), 'the app exposes a stable closing marker');
 app = app.replace(closing, `globalThis.integrationHooks = {
   save: intakeCodeSave,
+  gaItems(){return JSON.parse(JSON.stringify(policyGaSourceItems(regionPolicyEntries().filter(([key])=>policyKeyParts(key).carrier==='ga'))));},
+  sourceMatches: policySourceMatches,
+  fitScroller: policyFitSourceScroller,
   hoverRows(province,name){return policyHoverRows(PolicyRegionRules.catalog.findIndex(p=>p.province===province&&p.name===name));},
   grouped(items){return policyGroupedRegionTable(items);},
   convertText(text){policyApplyConvertedText(text);return this.snapshot();},
@@ -396,4 +399,59 @@ test('policy display puts all blocked rows below available provinces without cha
  assert.equal(a.api.combined('경기','성남시').state,'blocked');
  assert.match(html,/minmax\(432px,1fr\)/);
  assert.match(html,/<colgroup><col style="width:88px"><col style="width:160px"><col style="width:68px"><col style="width:100px"><\/colgroup>/);
+});
+
+test('GA always displays both age columns and zero-fills a missing product',()=>{
+ for(const kind of ['general','silver']){
+  const a=boot();a.api.parse('GA\n지역\t수량\n서울\t4');assert.equal(a.api.publish('ga',kind),true);
+  const items=JSON.parse(JSON.stringify(a.api.gaItems()));assert.equal(items.length,1);
+  assert.deepEqual(items[0].cells.slice(1),kind==='general'?['4','0']:['0','4']);
+  const html=a.api.markup().map;
+  assert.match(html,/<th>일반<\/th><th>실버<\/th>/);
+  assert.match(html,/미등록 · 수량 0/);
+  assert.equal((html.match(/class="policy-table-heading"/g)||[]).length,1);
+ }
+});
+
+test('GA combines equivalent regions, retains original hover references, and puts double-zero rows last',()=>{
+ const a=boot();a.api.parse('GA\n지역\t수량\n서울\t4\n부산\t2\n대구\t0');assert.equal(a.api.publish('ga','general'),true);
+ a.api.parse('GA\n지역\t수량\n서울특별시\t3\n인천\t1\n대구\t0');assert.equal(a.api.publish('ga','silver'),true);
+ const before=a.api.snapshot().policies,items=JSON.parse(JSON.stringify(a.api.gaItems()));assert.equal(items.length,4);
+ const seoul=items.find(item=>item.province==='서울');assert.deepEqual(seoul.cells.slice(1),['4','3']);assert.equal(seoul.refs.length,2);
+ assert.deepEqual(items.find(item=>item.province==='부산').cells.slice(1),['2','0']);
+ assert.deepEqual(items.find(item=>item.province==='인천').cells.slice(1),['0','1']);
+ assert.deepEqual(items.find(item=>item.province==='대구').cells.slice(1),['0','0']);
+ a.api.filter(2);
+ const matches=a.api.hoverRows('서울','서울특별시');
+ for(const kind of ['general','silver'])assert.equal(a.api.sourceMatches({policySourceRefs:JSON.stringify(seoul.refs)},matches.filter(item=>item.key.endsWith(':'+kind))),true);
+ const html=a.api.markup().map,blocked=html.indexOf('접수 불가 지역 · 수량 0 포함');
+ assert.ok(html.indexOf('>서울특별시</th>')<blocked);assert.ok(html.indexOf('>인천광역시</th>')<blocked);assert.ok(html.indexOf('>대구광역시</th>')>blocked);
+ assert.deepEqual(a.api.snapshot().policies,before);
+});
+
+test('GA keeps different exclusion scopes and duplicate quotas separate',()=>{
+ const a=boot();a.api.parse('GA\n지역\t수량\n경기도 (수원 제외)\t4\n서울\t2\n서울\t5');assert.equal(a.api.publish('ga','general'),true);
+ a.api.parse('GA\n지역\t수량\n경기도\t3');assert.equal(a.api.publish('ga','silver'),true);
+ const items=JSON.parse(JSON.stringify(a.api.gaItems()));assert.equal(items.length,4);
+ assert.equal(items.filter(item=>item.province==='경기').length,2);
+ assert.ok(items.some(item=>item.cells[0].includes('수원')&&item.cells[1]==='4'&&item.cells[2]==='0'));
+ assert.deepEqual(items.filter(item=>item.province==='서울').map(item=>item.cells.slice(1)),[['2','0'],['5','0']]);
+});
+
+test('GA dual-column uploads retain rows with only one age quantity',()=>{
+ const a=boot();a.api.parse('GA\n지역\t일반\t실버\n서울\t4\t\n부산\t\t2');assert.equal(a.api.publish('ga','auto'),true);
+ const items=JSON.parse(JSON.stringify(a.api.gaItems()));
+ assert.deepEqual(items.find(item=>item.province==='서울').cells.slice(1),['4','0']);
+ assert.deepEqual(items.find(item=>item.province==='부산').cells.slice(1),['0','2']);
+});
+
+test('policy scroll height includes all available and review content before blocked rows',()=>{
+ const a=boot();
+ function scroller({blocked=true,visible=true,bottom=1200,scrollTop=0}={}){
+  return {style:{},scrollTop,offsetHeight:1500,clientHeight:1484,getBoundingClientRect:()=>({top:100}),querySelector(selector){return selector==='[data-policy-source-status="2"]'?(blocked?{getBoundingClientRect:()=>({bottom})}:null):(visible?{}:null);}};
+ }
+ const large=scroller();a.api.fitScroller(large);assert.equal(large.style.maxHeight,'1116px');
+ const resized=scroller({bottom:800,scrollTop:70});a.api.fitScroller(resized);assert.equal(resized.style.maxHeight,'786px');assert.equal(resized.scrollTop,70);
+ const allVisible=scroller({blocked:false});a.api.fitScroller(allVisible);assert.equal(allVisible.style.maxHeight,'none');
+ const allBlocked=scroller({visible:false});a.api.fitScroller(allBlocked);assert.equal(allBlocked.style.maxHeight,'440px');
 });

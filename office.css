@@ -486,7 +486,7 @@ body.policy-window #tm-preview{max-width:none}
 #tm-preview .policy-province-group{margin-top:14px;border:1px solid var(--tm-line);border-radius:8px;overflow:hidden}
 #tm-preview .policy-province-group>summary{padding:12px;background:#eef4ff;color:#174265;cursor:pointer}
 
-#tm-preview .policy-source-scroll{max-height:440px;overflow:auto;scroll-behavior:auto}
+#tm-preview .policy-source-scroll{max-height:none;overflow:auto;scroll-behavior:auto}
 #tm-preview .policy-source-scroll>.scroll{overflow:visible}
 #tm-preview .policy-source-scroll thead{position:sticky;top:0;z-index:1;background:#eef4ff}
 #tm-preview tr.policy-source-highlight>td{background:#dbeafe!important;color:#123d73;box-shadow:inset 0 2px #3b82f6,inset 0 -2px #3b82f6}
