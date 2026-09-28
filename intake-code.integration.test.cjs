@@ -24,11 +24,11 @@ app = app.replace(closing, `globalThis.integrationHooks = {
     policyRows = policyCleanRows(parsePolicyText(text));
     return this.snapshot();
   },
-  publish(carrier, kind = 'general') {
+  publish(carrier, kind = 'general', reviewed = false) {
     if (carrier !== undefined) policyPublicationCarrier = carrier;
     if (!policyPublicationClient) policyPublicationClient = 'legacy';
     policyPublicationKind = kind;
-    return policyPublishRows();
+    return policyPublishRows({reviewed});
   },
   snapshot() {
     return JSON.parse(JSON.stringify({
@@ -443,6 +443,21 @@ test('GA dual-column uploads retain rows with only one age quantity',()=>{
  const items=JSON.parse(JSON.stringify(a.api.gaItems()));
  assert.deepEqual(items.find(item=>item.province==='서울').cells.slice(1),['4','0']);
  assert.deepEqual(items.find(item=>item.province==='부산').cells.slice(1),['0','2']);
+});
+
+test('GA keeps numeric quantities visible when region or quantity review is needed',()=>{
+ for(const kind of ['general','silver'])for(const reason of ['region','quantity']){
+  const a=boot();
+  a.api.parse(reason==='region'?'GA\n지역\t수량\n서울 #\t4':'GA\n지역\t수량\t상태\n서울\t4\t확인 필요');
+  assert.equal(a.api.publish('ga',kind,true),true);
+  const item=a.api.gaItems()[0];
+  assert.equal(item.cells[kind==='general'?1:2],'4');
+  assert.equal(item.priority,1);
+  assert.ok(item.cells[0].includes(reason==='region'?'지역·조건 확인 필요':'수량 확인 필요'));
+  assert.equal(a.api.result('ga','서울','서울특별시',kind).state,'review');
+ }
+ const unknown=boot();unknown.api.parse('GA\n지역\t수량\n서울\t확인 필요');assert.equal(unknown.api.publish('ga','silver',true),true);
+ assert.equal(unknown.api.gaItems()[0].cells[2],'확인 필요');
 });
 
 test('policy scroll height includes all available and review content before blocked rows',()=>{

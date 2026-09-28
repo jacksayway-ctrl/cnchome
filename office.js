@@ -454,7 +454,8 @@ function policyGaSourceItems(policies){
    const qi=headers.findIndex(header=>/수량|인원|배정|이월|건수|한도/.test(header));
    const ri=headers.findIndex(header=>/지역|범위|구역|시.?군/.test(header)&&!/불가|제외|하위|세부|읍|면|동/.test(header));
    const notes=scope.row.flatMap((value,index)=>index===(qi<0?1:qi)||index===(ri<0?0:ri)||/상품|구분/.test(headers[index]||'')||!String(value).trim()?[]:[(headers[index]?headers[index]+': ':'')+value]);
-   entry.products[kind]={priority,quantity:scope.quantity,display:priority===2?'0':priority===1?'확인 필요':String(scope.quantity),notes};
+   if(priority===1)notes.push(scope.quantityReview||scope.quantity===null?'수량 확인 필요':'지역·조건 확인 필요');
+   entry.products[kind]={priority,quantity:scope.quantity,display:priority===2?'0':Number.isSafeInteger(scope.quantity)?String(scope.quantity):'확인 필요',notes};
    entry.refs.push({key,row:scope.index});
   }
  }
