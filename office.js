@@ -433,15 +433,17 @@ function regionConditionsTable(){
  const carriers=[['ga','GA'],['hanwha','한화'],['shinhan','신한'],...intakeCodes.filter(c=>!['ga','hanwha','shinhan'].includes(c.id)).map(c=>[c.id,c.label])];
  for(const [id,label] of carriers){
   const policies=entries.filter(([key])=>policyKeyParts(key).carrier===id).sort(([a],[b])=>Number(a.endsWith(':silver'))-Number(b.endsWith(':silver')));
-  if(!policies.length){sections.push('<h3>'+policyEscape(label)+'</h3><p class="sub">등록된 정책 없음</p>');continue}
+  if(!policies.length)continue;
+  const cards=[];
   for(const [key,item] of policies){
    const kind=policyKeyParts(key).kind==='general'?'일반':'실버';
    const width=Math.max(0,...item.rows.map(row=>row.length));
    const rows=item.rows.map(row=>Array.from({length:width},(_,i)=>policyEscape(row[i]||'').replace(/\n/g,'<br>')));
-   sections.push('<div class="policy-table-heading"><h3>'+policyEscape(label)+' · '+kind+'</h3>'+regionPolicyDateBadge(item.savedAt)+'</div>'+table(rows[0],rows.slice(1)));
+   cards.push('<div class="policy-table-heading"><h3>'+policyEscape(label)+' · '+kind+'</h3>'+regionPolicyDateBadge(item.savedAt)+'</div>'+table(rows[0],rows.slice(1)));
   }
+  sections.push('<section class="policy-carrier-column" data-policy-carrier="'+policyEscape(id)+'" style="min-width:0">'+cards.join('')+'</section>');
  }
- return panel('접수 정책표',sections.join('')+'<p class="sub">선택한 거래처의 등록 정책 원문입니다. 정책별 등록일과 가능지역·수량·연령·제외 조건을 확인해 주세요.</p>');
+ return panel('접수 정책표','<div style="overflow-x:auto"><div class="policy-carrier-columns" style="display:grid;grid-template-columns:repeat('+sections.length+',minmax(260px,1fr));gap:16px;align-items:start">'+sections.join('')+'</div></div>'+'<p class="sub">선택한 거래처의 등록 정책 원문입니다. 정책별 등록일과 가능지역·수량·연령·제외 조건을 확인해 주세요.</p>');
 }
 function regionRefreshPolicyHeader(){const target=root.querySelector('#tm-region-policy-date');if(target)target.innerHTML=regionPolicyDateSummary()}
 function regionPage(){if(window.PolicySync?.enabled&&(!PolicySync.ready||!policyHasPublications()))return '<h2>접수 가능지역</h2>'+policyServerStatusMarkup()+'<p class="notice">'+(PolicySync.ready?'아직 서버에 등록된 정책이 없습니다.':'서버 정책을 불러오는 중입니다.')+'</p>';normalizeMapCarrier();return `<div class="region-page-heading"><h2>접수 가능지역</h2>${policyServerStatusMarkup()}<div id="tm-region-policy-date" class="region-policy-date" aria-live="polite">${regionPolicyDateSummary()}</div></div><div class="toolbar"><label>거래처<select id="tm-region-client">${policyClientOptions(policyViewClient)}</select></label><input id="tm-region-search" aria-label="지역 검색" placeholder="시·군·구, 읍·면·동 검색"><select id="tm-age" aria-label="보험 상품 구분"><option ${policyHasPublications()&&[...policyPublishedScopes.keys()].some(k=>k.endsWith(':general'))?'selected':''}>일반 · 61세 이하</option><option ${!policyHasPublications()||![...policyPublishedScopes.keys()].some(k=>k.endsWith(':general'))?'selected':''}>실버 · 62~70세</option></select><label>고객 나이 (세는나이)<input id="tm-customer-age" type="number" min="1" max="120" step="1" placeholder="예: 61" style="width:110px"></label></div><p id="tm-region-age-note" class="sub">일반 61세 이하 · 실버 62~70세 · 만 나이가 아닙니다.</p><div id="tm-region-conditions">${regionConditionsTable()}</div><div class="region-map-layout"><section class="panel region-map-panel"><div class="toolbar"><div class="map-carrier-buttons" role="group" aria-label="접수 코드별 가능지역">${[regionCarrierSettings.find(c=>c.id==='all'),...visibleRegionCarriers()].filter(Boolean).map(c=>`<button type="button" data-map-carrier="${c.id}" aria-pressed="${mapCarrier===c.id}" ${c.enabled?'':'disabled title="등록된 정책 없음"'}>${policyEscape(c.label)}${c.enabled?'':' · 정책 없음'}</button>`).join('')}</div></div><div id="tm-region-map"></div>${policyHasPublications()?'<p class="sub policy-map-legend"><span>파랑: 가능</span> · <span>노랑: 일부 제한</span> · <span>빨강: 불가</span> · 회색: 확인 필요</p><p class="sub">지도는 기존 시·군·구 경계를 사용합니다. 읍·면·동 제한과 경계가 갱신된 지역은 상세 목록을 기준으로 확인해 주세요.</p>':''}</section><section class="panel region-table-panel"><h3>시·군별 접수 지역</h3><div id="tm-region-results"></div><p class="sub">관리자가 공개한 정책만 표시합니다. 접수 연령과 세부 조건은 해당 정책을 확인해 주세요.</p></section></div>`}
