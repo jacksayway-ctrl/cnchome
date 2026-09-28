@@ -14,6 +14,7 @@ const closing = 'render();\n})();';
 assert.ok(app.includes(closing), 'the app exposes a stable closing marker');
 app = app.replace(closing, `globalThis.integrationHooks = {
   save: intakeCodeSave,
+  grouped(items){return policyGroupedRegionTable(items);},
   convertText(text){policyApplyConvertedText(text);return this.snapshot();},
   parse(text) {
     policyRows = policyCleanRows(parsePolicyText(text));
@@ -341,7 +342,7 @@ test('registered carriers form equal horizontal columns and empty carriers are h
 
 test('common Hanwha policies appear once with new-window access',()=>{
  const a=boot();a.api.parse('한화\n지역\t수량\n수도권\t4');a.api.publish('hanwha','auto');
- const html=a.api.markup().map;assert.equal((html.match(/class="policy-table-heading"/g)||[]).length,1);assert.match(html,/한화 · 일반·실버 공통/);assert.match(html,/data-policy-new-window[^>]+target="_blank"/);
+ const html=a.api.markup().map;assert.equal((html.match(/class="policy-table-heading"/g)||[]).length,1);assert.match(html,/한화 · 일반·실버 공통/);assert.match(html,/data-policy-new-window[^>]+policyWindow=1[^>]+target="_blank"/);
  const b=boot();b.api.parse('한화\n일반\n수도권 4\n실버\n부산 2');b.api.publish('hanwha','auto');assert.equal((b.api.markup().map.match(/class="policy-table-heading"/g)||[]).length,2);
 });
 
@@ -349,4 +350,9 @@ test('text and OCR tabular input share the same regional postprocessing',()=>{
  const a=boot(),b=boot();a.api.convertText('한화\n경상남도전체 4\n광주, 이천 3\n수도권 (서울특별시 강남구 제외) 2');b.api.convertText('한화\n지역\t수량\n경상남도전체\t4\n광주, 이천\t3\n수도권 (서울특별시 강남구 제외)\t2');
  assert.equal(a.api.publish('hanwha','auto'),true);assert.equal(b.api.publish('hanwha','auto'),true);
  for(const [province,name] of [['경남','진주시'],['경기','광주시'],['경기','이천시']])assert.equal(JSON.stringify(a.api.result('hanwha',province,name)),JSON.stringify(b.api.result('hanwha',province,name)));
+});
+
+test('municipalities are grouped under their province headings',()=>{
+ const a=boot();const html=a.api.grouped([{place:{province:'경기',name:'광주시'},index:0,result:{state:'possible',items:[]}},{place:{province:'경남',name:'진주시'},index:1,result:{state:'possible',items:[]}},{place:{province:'경기',name:'이천시'},index:2,result:{state:'possible',items:[]}}]);
+ assert.equal((html.match(/data-policy-province=/g)||[]).length,2);assert.match(html,/경기도<\/strong> · 2개/);assert.ok(html.indexOf('광주시')<html.indexOf('이천시'));assert.match(html,/경상남도/);
 });

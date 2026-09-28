@@ -471,3 +471,17 @@ html [hidden]{display:none!important}
 #tm-preview .policy-region-list{list-style:none;padding:0;margin:0}
 #tm-preview .policy-region-list li{display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid var(--tm-line)}
 #tm-preview .policy-region-list strong{white-space:nowrap;color:#174e90}
+
+/* Policy popup keeps the authenticated policy/map view without office navigation. */
+body.policy-window .cnc-session-bar,
+body.policy-window #tm-preview .shell>aside,
+body.policy-window #tm-preview .work>.top-notice,
+body.policy-window #tm-preview .work>header,
+body.policy-window #tm-preview .work>.sample,
+body.policy-window #tm-preview .region-table-panel,
+body.policy-window #tm-preview [data-policy-new-window]{display:none!important}
+body.policy-window #tm-preview .shell,
+body.policy-window #tm-preview .region-map-layout{grid-template-columns:minmax(0,1fr)}
+body.policy-window #tm-preview{max-width:none}
+#tm-preview .policy-province-group{margin-top:14px;border:1px solid var(--tm-line);border-radius:8px;overflow:hidden}
+#tm-preview .policy-province-group>summary{padding:12px;background:#eef4ff;color:#174265;cursor:pointer}

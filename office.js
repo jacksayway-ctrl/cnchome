@@ -445,7 +445,7 @@ function regionConditionsTable(){
   }
   sections.push('<section class="policy-carrier-column" data-policy-carrier="'+policyEscape(id)+'" style="min-width:0">'+cards.join('')+'</section>');
  }
- return panel('접수 정책표','<p><a class="secondary" data-policy-new-window href="/employee.php?page=regions" target="_blank" rel="noopener">정책표 새 창으로 보기</a></p><div style="overflow-x:auto"><div class="policy-carrier-columns" style="display:grid;grid-template-columns:repeat('+sections.length+',minmax(260px,1fr));gap:16px;align-items:start">'+sections.join('')+'</div></div>'+'<p class="sub">선택한 거래처의 등록 정책 원문입니다. 정책별 등록일과 가능지역·수량·연령·제외 조건을 확인해 주세요.</p>');
+ return panel('접수 정책표','<p><a class="secondary" data-policy-new-window href="/employee.php?page=regions&amp;policyWindow=1" target="_blank" rel="noopener">정책표 새 창으로 보기</a></p><div style="overflow-x:auto"><div class="policy-carrier-columns" style="display:grid;grid-template-columns:repeat('+sections.length+',minmax(260px,1fr));gap:16px;align-items:start">'+sections.join('')+'</div></div>'+'<p class="sub">선택한 거래처의 등록 정책 원문입니다. 정책별 등록일과 가능지역·수량·연령·제외 조건을 확인해 주세요.</p>');
 }
 root.addEventListener('click',e=>{const link=e.target.closest('[data-policy-new-window]');if(!link)return;e.preventDefault();window.open(link.href,'_blank','popup,width=1280,height=900,scrollbars=yes,resizable=yes,noopener');});
 function regionRefreshPolicyHeader(){const target=root.querySelector('#tm-region-policy-date');if(target)target.innerHTML=regionPolicyDateSummary()}
@@ -2365,6 +2365,10 @@ function policyPublishedDetails(index,result){
   return '<div class="policy-region-detail"><strong>'+policyEscape(policyKeyLabel(item.key))+'</strong> '+policyResultPill(item)+'<p class="sub">'+policyEscape(item.reason)+(shared?' · '+policyEscape(shared):'')+'</p>'+(details?'<ul class="policy-child-regions">'+details+'</ul>':'')+'</div>';
  }).join('');
 }
+function policyGroupedRegionTable(items){
+ const groups=new Map();for(const item of items){const key=item.place.province;if(!groups.has(key))groups.set(key,[]);groups.get(key).push(item);}
+ return [...groups].sort(([a],[b])=>a.localeCompare(b,'ko')).map(([province,rows])=>'<details class="policy-province-group" data-policy-province="'+policyEscape(province)+'" open><summary><strong>'+policyEscape(PolicyRegionRules.provinceNames[province]||province)+'</strong> · '+rows.length+'개 시·군</summary>'+table(['시·군','접수 상태','읍·면·동 등 상세 / 제외 지역'],rows.map(({place,index,result})=>['<button type="button" class="region-select-button" data-region-select="'+index+'" aria-pressed="'+(mapSelectedGroup===index)+'">'+policyEscape(place.name)+'</button>',policyResultPill(result),policyPublishedDetails(index,result)]))+'</details>').join('')||'<p class="sub">검색 조건에 맞는 지역이 없습니다.</p>';
+}
 function policyFilterPublishedRegions(){
  normalizeMapCarrier();const q=(root.querySelector('#tm-region-search')?.value||'').replace(/\s/g,'');
  const keys=policySelectedKeys(),results=PolicyRegionRules.catalog.map((place,index)=>({place,index,result:policyResultForGroup(index)}));
@@ -2374,7 +2378,7 @@ function policyFilterPublishedRegions(){
   return (!q||search.includes(q))&&(policyRegionStatus==='all'||(policyRegionStatus==='blocked'?result.items.some(item=>item.state==='blocked')||keys.some(key=>policyPathsForPlace(policyPublishedScopes.get(key),place).some(path=>PolicyRegionRules.evaluate(policyPublishedScopes.get(key),{...place,path}).state==='blocked')):result.state===policyRegionStatus));
  }).sort((a,b)=>['partial','possible','review','blocked'].indexOf(a.result.state)-['partial','possible','review','blocked'].indexOf(b.result.state)||a.place.province.localeCompare(b.place.province,'ko')||a.place.name.localeCompare(b.place.name,'ko'));
  const controls='<label>접수 상태<select id="tm-region-status"><option value="all">전체 지역</option><option value="possible" '+(policyRegionStatus==='possible'?'selected':'')+'>접수 가능</option><option value="partial" '+(policyRegionStatus==='partial'?'selected':'')+'>일부 지역만 가능</option><option value="blocked" '+(policyRegionStatus==='blocked'?'selected':'')+'>접수 불가 지역 포함</option><option value="review" '+(policyRegionStatus==='review'?'selected':'')+'>확인 필요</option></select></label>';
- root.querySelector('#tm-region-results').innerHTML=controls+(keys.length?'<p class="sub">'+filtered.length+'개 시·군 · 수량은 정책 행별 공유 수량이며 시·군별로 합산하지 않습니다.</p>'+table(['시·군 (1차 분류)','접수 상태','읍·면·동 등 상세 / 제외 지역'],filtered.map(({place,index,result})=>['<button type="button" class="region-select-button" data-region-select="'+index+'" aria-pressed="'+(mapSelectedGroup===index)+'">'+policyEscape(place.name)+'</button><div class="sub">'+policyEscape(PolicyRegionRules.provinceNames[place.province])+'</div>',policyResultPill(result),policyPublishedDetails(index,result)])):'<p class="notice">선택한 접수 코드·상품에 등록된 정책이 없습니다.</p>');
+ root.querySelector('#tm-region-results').innerHTML=controls+(keys.length?'<p class="sub">'+filtered.length+'개 시·군 · 수량은 정책 행별 공유 수량이며 시·군별로 합산하지 않습니다.</p>'+policyGroupedRegionTable(filtered):'<p class="notice">선택한 접수 코드·상품에 등록된 정책이 없습니다.</p>');
  updateRegionMap();
 }
 function policyMapShapeStatus(shape,index){

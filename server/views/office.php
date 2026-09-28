@@ -2,7 +2,7 @@
 <html lang="ko"<?= $preview ? '' : ' data-cnc-role="'.view_h($role).'"' ?>>
 <head>
 <?php require __DIR__.'/partials/head.php'; ?>
-</head><body>
+</head><body<?= ($page==='regions' && ($_GET['policyWindow']??'')==='1') ? ' class="policy-window"' : '' ?>>
 <div id="tm-preview">
 <noscript><p class="notice">메뉴·지도·계산 기능을 사용하려면 브라우저의 JavaScript를 켜 주세요.</p></noscript>
 <div class="shell">
