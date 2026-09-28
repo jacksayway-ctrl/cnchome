@@ -755,6 +755,7 @@ function adminHome(){
  panel('팀별 현황',teamSummary)+teamPanels+
  `<div class="notice">팀 목록에 새 팀을 추가하면 팀별 요약과 직원 현황 구역이 자동으로 확장됩니다.</div>`
 }
+let policyRegistrationPending=false,policyRegistrationStatus={message:'',kind:'info'};
 let policyRows=[],policyRegisteredRows=[],policyImageData='',policyImageName='',policyRegistered=false,policyOcrRunning=false,policyOcrProgress=0,policyPaddleOcr=null,policyPaddlePromise=null,policyIntakeTitle='';
 function policyCleanText(value){return String(value??'')}
 function policyCleanRows(rows){return rows.map(row=>row.map(policyCleanText))}
@@ -1181,7 +1182,7 @@ function policyFillMissingProvinces(){
  if(changed)policySyncCityText();
 }
 
-function policyRefreshPreview(){const convert=root.querySelector('[data-action="policy-parse"]');if(convert)convert.disabled=policyOcrRunning;policyFillMissingProvinces();const source=root.querySelector('#tm-policy-source');if(source)source.open=!policyRows.length;const target=root.querySelector('#tm-policy-preview');if(target)target.innerHTML=policyPreviewMarkup();const register=root.querySelector('[data-action="policy-register"]');if(register)register.disabled=!policyRows.length||(window.PolicySync?.enabled&&(!PolicySync.ready||PolicySync.saving));policyRefreshAnalysis()}
+function policyRefreshPreview(){const convert=root.querySelector('[data-action="policy-parse"]');if(convert)convert.disabled=policyOcrRunning;policyFillMissingProvinces();const source=root.querySelector('#tm-policy-source');if(source)source.open=!policyRows.length;const target=root.querySelector('#tm-policy-preview');if(target)target.innerHTML=policyPreviewMarkup();const register=root.querySelector('[data-action="policy-register"]');if(register)register.disabled=policyRegistrationPending||!!window.PolicySync?.saving;policyRefreshAnalysis()}
 let policyTimerStarted=0,policyTimerElapsed=0,policyTimerInterval=null,policyTimerPhase='';
 function policyTimerText(){return policyTimerPhase+' · '+((policyTimerInterval!==null?window.performance.now()-policyTimerStarted:policyTimerElapsed)/1000).toFixed(1)+'초'}
 function policyTimerMarkup(){return '<div id="tm-policy-timer" role="timer" aria-live="off" aria-label="정책표 변환 경과 시간" style="margin:12px 0;padding:10px 14px;border-radius:8px;background:#eef4ff;color:#174e90;font-variant-numeric:tabular-nums;font-weight:700;'+(policyTimerPhase?'':'display:none')+'">'+(policyTimerPhase?policyTimerText():'')+'</div>'}
@@ -1825,7 +1826,7 @@ function adminIntake(){
   ['지역별 수량','오늘 배정·남은 수량·묶음 공유','마감 지역'],
   ['적용 일정','지역 정책 시작일·종료일과 변경 이력','예약 변경']
  ]));
- const policyPanel=panel('정책표 등록',`<p class="sub">엑셀에서 복사한 표, 일반 텍스트 또는 정책표 이미지를 붙여넣을 수 있습니다. 붙여넣은 뒤 변환 버튼을 눌러 주세요. 일반·실버와 지역별 수량을 자동 분류하며, 결과를 확인한 뒤 등록합니다.</p>${policyPublicationControls()}<details id="tm-policy-source" class="policy-paste-source" ${policyRows.length?'':'open'}><summary>정책표 붙여넣기 · 원문 텍스트</summary><label>엑셀 표·텍스트·이미지 붙여넣기<textarea id="tm-policy-paste" rows="7" placeholder="여기에 엑셀 표나 텍스트를 붙여넣으세요. 이미지도 Ctrl+V로 붙여넣을 수 있습니다."></textarea></label></details><div class="toolbar"><label class="secondary" style="display:inline-flex;align-items:center;cursor:pointer">이미지 선택<input id="tm-policy-image" type="file" accept="image/png,image/jpeg,image/webp" hidden></label><button type="button" class="secondary" data-action="policy-parse" ${policyOcrRunning?'disabled':''}>변환</button><button type="button" class="secondary" data-action="policy-analyze">OCR 분석 내역</button><button type="button" class="secondary" data-action="policy-clear">초기화</button><button type="button" class="action" data-action="policy-register" ${policyRows.length?'':'disabled'}>정책표 등록</button></div>${policyTimerMarkup()}<div id="tm-policy-preview" aria-live="polite">${policyPreviewMarkup()}</div><div id="tm-policy-analysis" aria-live="polite">${policyAnalysisMarkup()}</div>`);
+ const policyPanel=panel('정책표 등록',`<p class="sub">엑셀에서 복사한 표, 일반 텍스트 또는 정책표 이미지를 붙여넣을 수 있습니다. 붙여넣은 뒤 변환 버튼을 눌러 주세요. 일반·실버와 지역별 수량을 자동 분류하며, 결과를 확인한 뒤 등록합니다.</p>${policyPublicationControls()}<details id="tm-policy-source" class="policy-paste-source" ${policyRows.length?'':'open'}><summary>정책표 붙여넣기 · 원문 텍스트</summary><label>엑셀 표·텍스트·이미지 붙여넣기<textarea id="tm-policy-paste" rows="7" placeholder="여기에 엑셀 표나 텍스트를 붙여넣으세요. 이미지도 Ctrl+V로 붙여넣을 수 있습니다."></textarea></label></details><div class="toolbar"><label class="secondary" style="display:inline-flex;align-items:center;cursor:pointer">이미지 선택<input id="tm-policy-image" type="file" accept="image/png,image/jpeg,image/webp" hidden></label><button type="button" class="secondary" data-action="policy-parse" ${policyOcrRunning?'disabled':''}>변환</button><button type="button" class="secondary" data-action="policy-analyze">OCR 분석 내역</button><button type="button" class="secondary" data-action="policy-clear">초기화</button><button type="button" class="action" data-action="policy-register" ${policyRegistrationPending?'disabled':''}>${policyRegistrationPending?'저장 중…':'정책표 등록'}</button></div><p id="tm-policy-register-status" role="status" aria-live="polite" style="padding:12px;border-radius:8px;background:#eef4ff;white-space:pre-wrap" ${policyRegistrationStatus.message?'':'hidden'}>${policyEscape(policyRegistrationStatus.message)}</p>${policyTimerMarkup()}<div id="tm-policy-preview" aria-live="polite">${policyPreviewMarkup()}</div><div id="tm-policy-analysis" aria-live="polite">${policyAnalysisMarkup()}</div>`);
  const registeredPanel=panel('등록 결과 미리보기',`<p class="sub">등록된 정책표의 행·열과 실제 내용을 확인할 수 있습니다. 한화·신한·G/A는 접수 코드이며 지역명과 별도로 관리합니다.</p><div id="tm-policy-registered-preview" aria-live="polite">${policyRegisteredPreviewMarkup()}</div>`);
  const items=[['policy','정책표 등록',policyPanel+registeredPanel+policyNationalCatalogPanel()+management],['clients','거래처 관리',policyClientManagerPanel()],['codes','접수 코드 관리',intakeCodeManagerPanel()]];
  return '<div class="toolbar" role="group" aria-label="접수 관리 메뉴">'+items.map(([key,label])=>'<button type="button" class="'+(adminIntakeSection===key?'action':'secondary')+'" data-intake-section-button="'+key+'" aria-pressed="'+(adminIntakeSection===key)+'" aria-controls="tm-intake-section-'+key+'">'+label+'</button>').join('')+'</div>'+items.map(([key,label,content])=>'<section id="tm-intake-section-'+key+'" data-intake-section-panel="'+key+'" aria-label="'+label+'"'+(adminIntakeSection===key?'':' hidden style="display:none"')+'>'+content+'</section>').join('');
@@ -2150,7 +2151,7 @@ function adminSettings(){return adminPage('운영 설정','공지, 팀 구성, �
  ])+intakeCodeManagerPanel()}
 window.CNCEmployeePages={home,sales,attendance,as:asPage};
 function render(){if(window.CNCHOME_LIVE){page=pageFromUrl();const url=new URL(window.location.href);url.searchParams.set('page',page);window.history.replaceState(window.history.state,'',url);}gradePolicy=gradePolicyAt(gradeEntries,gradeToday(),gradeEmployeeDepartment());gradeRefreshHeader();const adminView=page.startsWith('admin');root.querySelector('.work > header').hidden=adminView;root.querySelector('.work > .sample').hidden=adminView;root.querySelector('.header-grades').hidden=adminView;root.querySelector('header').classList.toggle('admin-header',adminView);const noticeButton=root.querySelector('.notice-confirm');noticeButton.disabled=noticeRead;noticeButton.textContent=noticeRead?'확인 완료':'확인했습니다';main.innerHTML=window.SalesWorkspace?.handles(page)?SalesWorkspace.render(page):HRWorkspace.handles(page)?HRWorkspace.render(page):AdminWorkspace.pages[page]?AdminWorkspace.render(page):({home,regions:regionPage,attendance,sales,grade,as:asPage,adminHome:()=>AdminWorkspace.home()+adminHome(),adminIntake,adminPerformance,adminGrade,adminStaff:()=>AdminWorkspace.staffLinks()+adminStaff(),adminSettings:()=>AdminWorkspace.settings()+adminSettings()})[page]();root.querySelectorAll('[data-page]').forEach(b=>{b.classList.toggle('active',b.dataset.page===page);if(b.dataset.page===page)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current')});if(page==='regions')filterRegions();if(page==='adminGrade'&&!window.CNCHOME_LIVE)gradeUpdatePreview();if(window.CNCHOME_LIVE){gradeLiveChrome();HRWorkspace.chrome();window.SalesWorkspace?.chrome()}}
-function toast(s){const t=root.querySelector('#tm-toast');t.textContent=s;t.hidden=false}
+function toast(s){const t=root.querySelector('#tm-toast');t.textContent=s;t.hidden=false;if(page==='adminIntake')policyRegistrationMessage(s);}
 function open(title,html){root.querySelector('#tm-dialog-title').textContent=title;body.innerHTML=html;modal.showModal()}
 function intake(){if(window.SalesWorkspace?.intake())return;open('보험 접수 등록',`<p class="sub">입력 체험용입니다. 실제 접수나 저장은 되지 않습니다.</p><form id="tm-intake-form"><div class="fields"><label>거래처<select required>${policyClientOptions(policyViewClient)}</select></label><label>접수 코드<select id="tm-intake-code" required>${intakeCodeOptions()}</select></label><label>상품 구분<select required><option>일반</option><option>실버</option></select></label><label>고객명<input required placeholder="예시 이름"></label><label>전화번호<input type="tel" required pattern="[0-9-]{10,13}" placeholder="010-0000-0000"></label><label>출생연도<input type="number" min="1920" max="2026" required placeholder="1965"></label><label class="full">상담받을 주소<input required placeholder="시·군·구 및 상세 주소"></label><label>통화 가능시간<input type="time" required></label><label>방문 가능시간<input type="time" required></label><label class="full">상담 메모<textarea rows="2"></textarea></label></div><button class="action" type="submit">입력 완료 체험</button></form>`)}
 root.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.salesStatus){salesStatus=b.dataset.salesStatus;root.querySelectorAll('[data-sales-status]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.salesStatus===salesStatus)));root.querySelector('#tm-sales-list').innerHTML=salesStatusRows();return}if(b.dataset.homeStatus){homeStatus=homeStatus===b.dataset.homeStatus?null:b.dataset.homeStatus;root.querySelectorAll('[data-home-status]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.homeStatus===homeStatus)));const target=root.querySelector('#tm-home-status-list');target.innerHTML=homeStatusList();return}if(b.dataset.page){if(window.location.hash==='#'+b.dataset.page){page=b.dataset.page;render();main.scrollTop=0}else{window.location.hash=b.dataset.page}return}if(b.dataset.day){selected=+b.dataset.day;render();return}switch(b.dataset.action){case 'close':modal.close();break;case 'intake':intake();break;case 'staff-add':open('직원 등록',`<p class="sub">신규 직원의 기본정보와 소속·권한을 입력해 주세요.</p><form id="tm-staff-add-form"><div class="fields"><label>직원 이름<input name="name" required autocomplete="off" placeholder="이름"></label><label>연락처<input name="phone" type="tel" required placeholder="010-0000-0000"></label><label>소속팀<select name="team" required><option value="">팀 선택</option>${adminTeams.map(team=>`<option value="${team.id}">${team.name}</option>`).join('')}</select></label><label>권한<select name="role" required><option>상담원</option><option>팀장</option><option>관리자</option></select></label><label>입사일<input name="startDate" type="date" required value="2026-09-23"></label><label>근무 상태<select name="attendance"><option>출근</option><option>미출근</option><option>휴가</option></select></label></div><button type="submit" class="action">직원 등록</button></form>`);break;case 'notice-detail':open('보험팀 중요 공지','<p>접수 가능지역을 확인한 후 상담해 주세요.</p>');break;case 'notice':noticeRead=true;render();toast('공지 확인 완료 · 미리보기에서만 반영됩니다.');break;case 'cash':open('현금 수령 확인',`<p>오늘 일그레이드 <strong>${gradeMoney(gradeCalculate(gradePolicy,'daily',AdminWorkspace.todayDaily().count).bonus)}</strong>을 받으셨나요?</p><p class="sub">예시 수령 확인이며 실제 지급 기록은 생성되지 않습니다.</p><button class="action" data-action="confirm-cash">예시 수령 확인</button>`);break;case 'confirm-cash':cashReceived=true;modal.close();render();toast('예시 수령 확인 완료');break;case 'clockout':open('퇴근 기록 확인',`<p>예시 시각 <strong>16:40</strong>으로 퇴근을 기록합니다.</p><p class="sub">점심 제외 5시간 40분 → 인정 6시간</p><button class="action" data-action="confirm-clockout">예시 퇴근 확인</button>`);break;case 'confirm-clockout':clockedOut=true;modal.close();render();toast('퇴근 기록 체험 완료');break;case 'outing':open('외출 사전 승인 신청',`<form id="tm-outing-form"><div class="fields"><label>외출 구분<select name="kind"><option>개인 외출</option><option>업무 외출</option></select></label><label>예정일<input type="date" value="2026-09-22" required></label><label>외출 예정<input type="time" name="start" required></label><label>복귀 예정<input type="time" name="end" required></label><label class="full">사유<textarea required rows="2"></textarea></label></div><p class="sub">승인 후 외출 시작이 가능합니다.</p><button type="submit" class="action">신청 체험</button></form>`);break;case 'as-detail':open('진행 중인 A/S · 예시 상세',`<p><strong>김예시</strong> · 한화</p><p>전화번호: 010-0000-1200</p><p>주소: 경기도 부천시 예시로 1, 예시동 101호</p><p>${pill('접수 중복','amber')}</p><label>재콜 예정 시각<input type="datetime-local" value="2026-09-22T16:50"></label><p class="sub">표시된 연락처와 주소는 가상 자료입니다.</p><button class="action" data-action="recall">재콜 일정 확인 체험</button>`);break;case 'recall':modal.close();toast('재콜 일정 확인 체험 완료 · 실제로 저장되지 않습니다.');break;}});
@@ -2163,7 +2164,7 @@ root.addEventListener('click',async e=>{const button=e.target.closest('[data-act
  }else if(action==='policy-city-suggest'){
  const index=Number(button.dataset.row),start=Number(button.dataset.start),end=Number(button.dataset.end),current=policyRows[index]?.[0];
  if(policyCityDrafts.has(index)&&policyCityDrafts.get(index)!==current){toast('입력한 지역명을 먼저 수정 적용해 주세요.');return}if(typeof current==='string'&&current.slice(start,end)===button.dataset.token&&policyCityData.some(c=>c.name===button.dataset.city))policyUpdateCityRow(index,current.slice(0,start)+button.dataset.city+current.slice(end),'후보 선택');
- }else if(action==='policy-analyze'){policyAnalyzeExisting();}else if(action==='policy-ocr'){policyRunOcr();}else if(action==='policy-parse'){policyConvertInput();}else if(action==='policy-clear'){policyTimerStop('');policyCancelAutoConvert();policyOcrTiming=policyOcrTotalTiming=0;policyIntakeTitle='';policyDetectedCodes=[];policyCodeTitles=[];policyCityDrafts.clear();policyCityOriginalRows=[];policyCityAudit=[];policyAnalysis=[];policyRows=[];policyImageData='';policyImageName='';policyRegistered=false;const input=root.querySelector('#tm-policy-paste');if(input)input.value='';const file=root.querySelector('#tm-policy-image');if(file)file.value='';policyRefreshPreview();}else if(action==='policy-register'){if(!policyRows.length){toast('먼저 정책표를 표로 변환해 주세요.');return}if([...root.querySelectorAll('[data-city-row]')].some(input=>!input.value.trim())){toast('지역명이 빈 행을 확인해 주세요.');return}for(const input of root.querySelectorAll('[data-city-row]')){const index=Number(input.dataset.cityRow),value=input.value.trim();if(policyRows[index]&&policyRows[index][0]!==value){policyCityAudit.push({row:index,from:policyRows[index][0],to:value,reason:'등록 시 직접 수정'});policyRows[index][0]=value}}policyCityDrafts.clear();policySyncCityText();if(!await policyPublishRows())return;policyRegistered=true;policyRegisteredRows=policyCleanRows(policyRows);policyRegisteredKey=policyPublicationKind==='auto'?'':policyClientKey(policyPublicationCarrier,policyPublicationKind);policyRegisteredCode=policyRegisteredKey?policyKeyLabel(policyRegisteredKey):'일반 · 61세 이하 / 실버 · 62~70세 자동 분류';policyScopeSelected=0;policyScopeCity='';policyScopeDetail='';policyRefreshPreview();policyRefreshRegistered();toast('정책표를 저장했습니다. 직원용 접수 가능지역의 목록·지도에 반영되었습니다.');}});
+ }else if(action==='policy-analyze'){policyAnalyzeExisting();}else if(action==='policy-ocr'){policyRunOcr();}else if(action==='policy-parse'){policyConvertInput();}else if(action==='policy-clear'){policyTimerStop('');policyCancelAutoConvert();policyOcrTiming=policyOcrTotalTiming=0;policyIntakeTitle='';policyDetectedCodes=[];policyCodeTitles=[];policyCityDrafts.clear();policyCityOriginalRows=[];policyCityAudit=[];policyAnalysis=[];policyRows=[];policyImageData='';policyImageName='';policyRegistered=false;const input=root.querySelector('#tm-policy-paste');if(input)input.value='';const file=root.querySelector('#tm-policy-image');if(file)file.value='';policyRefreshPreview();}else if(action==='policy-register'){await policyRegister();}});
 root.addEventListener('input',e=>{if(['tm-region-search','tm-customer-age'].includes(e.target.id))filterRegions()});
 root.addEventListener('change',e=>{if(e.target.id==='tm-age')filterRegions();if(e.target.id==='tm-map-carrier'){mapCarrier=e.target.value;filterRegions();}});
 root.addEventListener('submit',e=>{e.preventDefault();if(e.target.id==='tm-staff-add-form'){if(!e.target.reportValidity())return;const f=new FormData(e.target);adminEmployees.push({name:String(f.get('name')).trim(),phone:String(f.get('phone')).trim(),team:String(f.get('team')),role:String(f.get('role')),startDate:String(f.get('startDate')),attendance:String(f.get('attendance')),normal:0,pending:0,as:0,monthly:0,grade:'60건 이하'});modal.close();page='adminStaff';render();toast('직원이 등록되었습니다. · 미리보기에서만 반영됩니다.');return}if(e.target.id==='tm-outing-form'){const f=new FormData(e.target);if(f.get('end')<=f.get('start')){toast('복귀 예정 시간은 외출 예정 시간 이후로 입력해 주세요.');return}outing='pending';root.dataset.outingKind=f.get('kind');modal.close();render();toast('외출 신청 체험 완료 · 관리자 승인 대기 상태입니다.')}else if(e.target.id==='tm-intake-form'){modal.close();toast('접수 입력 체험 완료 · 실제 접수·수량·실적에는 반영되지 않습니다.')}});
@@ -2418,6 +2419,41 @@ try{
 }catch(error){/* Keep the original screen when no valid saved policy is available. */}
 
 
+
+function policyRegistrationMessage(message,kind='info'){
+ policyRegistrationStatus={message:String(message),kind};
+ const el=root.querySelector('#tm-policy-register-status');if(!el)return;
+ el.textContent=policyRegistrationStatus.message;el.hidden=false;el.dataset.state=kind;
+ el.setAttribute('role',kind==='error'?'alert':'status');
+ el.style.background=kind==='error'?'#fff1f2':kind==='success'?'#ecfdf5':'#eef4ff';
+}
+async function policyRegister(){
+ if(policyRegistrationPending)return false;
+ policyRegistrationPending=true;const button=root.querySelector('[data-action="policy-register"]');
+ if(button){button.disabled=true;button.textContent='저장 중…';}
+ try{
+  policyRegistrationMessage('등록 내용을 확인하고 있습니다.','progress');
+  if(!policyRows.length)throw new Error('먼저 정책표를 붙여넣고 변환 버튼을 눌러 주세요.');
+  if(window.PolicySync?.enabled&&!PolicySync.ready){
+   policyRegistrationMessage('서버 정책 연결을 다시 확인하고 있습니다.','progress');
+   if(!await PolicySync.load())throw new Error(PolicySync.error||'정책 DB를 불러오지 못했습니다. 다시 로그인한 뒤 등록해 주세요.');
+  }
+  const inputs=[...root.querySelectorAll('[data-city-row]')];
+  if(inputs.some(input=>!input.value.trim()))throw new Error('지역명이 빈 행을 확인해 주세요.');
+  for(const input of inputs){const index=Number(input.dataset.cityRow),value=input.value.trim();if(policyRows[index]&&policyRows[index][0]!==value){policyCityAudit.push({row:index,from:policyRows[index][0],to:value,reason:'등록 시 직접 수정'});policyRows[index][0]=value;}}
+  policyCityDrafts.clear();policySyncCityText();
+  const rows=policyCleanRows(policyRows),client=policyPublicationClient,carrier=policyPublicationCarrier;
+  if(!await policyPublishRows())return false;
+  policyRegistered=true;policyRegisteredRows=rows;
+  policyRegisteredKey=policyPublicationKind==='auto'?'':policyClientKey(carrier,policyPublicationKind,client);
+  policyRegisteredCode=policyRegisteredKey?policyKeyLabel(policyRegisteredKey):'일반 · 61세 이하 / 실버 · 62~70세 자동 분류';
+  policyScopeSelected=0;policyScopeCity='';policyScopeDetail='';policyRefreshPreview();policyRefreshRegistered();
+  const message=window.PolicySync?.enabled?'DB 저장 및 재조회 확인 완료. 상담원 접수 가능지역에서 확인할 수 있습니다.':'정책표를 저장했습니다.';
+  toast(message);policyRegistrationMessage(message,'success');return true;
+ }catch(error){toast(error.message||'정책 등록 중 오류가 발생했습니다.');policyRegistrationMessage(error.message||'정책 등록 중 오류가 발생했습니다.','error');return false;}
+ finally{policyRegistrationPending=false;const current=root.querySelector('[data-action="policy-register"]');if(current){current.disabled=false;current.textContent='정책표 등록';}}
+}
+
 function policyServerStatusMarkup(){
  if(!window.PolicySync?.enabled)return '';
  const message=PolicySync.error||(!PolicySync.ready?'서버 정책을 불러오는 중입니다.':PolicySync.saving?'서버 DB에 저장 중입니다.':'서버 DB 정책 · 직원 페이지와 공유됩니다.');
@@ -2427,6 +2463,7 @@ function policyServerApply(data){
  const codes=IntakeCodeCatalog.read(JSON.stringify({version:1,codes:data.codes})),clients=policyReadClients(JSON.stringify({version:1,clients:data.clients}));
  const publications=policyReadPublications(JSON.stringify({version:1,policies:data.policies}),codes);
  intakeCodes=codes;policyClients=clients;policyPublications=publications;
+ if(!policyPublicationClient&&clients.length===1)policyPublicationClient=clients[0].id;
  if(!PolicySync.ready){
   const latest=Object.values(publications).sort((a,b)=>b.savedAt.localeCompare(a.savedAt))[0];
   if(latest){policyViewClient=latest.client;policyPublicationClient=latest.client;policyPublicationCarrier=latest.carrier;policyPublicationKind=latest.kind;policyRegisteredRows=policyCleanRows(latest.rows);policyRegisteredKey=policyClientKey(latest.carrier,latest.kind,latest.client);policyRegisteredCode=policyKeyLabel(policyRegisteredKey);}
@@ -2446,7 +2483,7 @@ function policyServerApply(data){
 }
 function policyServerNotify(){
  for(const target of root.querySelectorAll('[data-policy-server-status]'))target.outerHTML=policyServerStatusMarkup();
- const button=root.querySelector('[data-action="policy-register"]');if(button)button.disabled=!policyRows.length||!PolicySync.ready||PolicySync.saving;
+ const button=root.querySelector('[data-action="policy-register"]');if(button){button.disabled=policyRegistrationPending||PolicySync.saving;button.textContent=button.disabled?'저장 중…':'정책표 등록';}
  if(page==='adminIntake')policyRefreshRegistered();
  if(page==='regions'){
   const search=root.querySelector('#tm-region-search')?.value,age=root.querySelector('#tm-customer-age')?.value,kind=root.querySelector('#tm-age')?.selectedIndex;
@@ -2464,8 +2501,19 @@ async function policySaveCodeServer(input){
  try{await PolicySync.save({action:'code',...input});intakeCodeRefreshViews();return true;}catch(error){toast(error.message);return false;}
 }
 async function policyPublishServer(groups){
- try{await PolicySync.save({action:'publish',client:policyPublicationClient,carrier:policyPublicationCarrier,groups});intakeCodeRefreshViews();return true;}catch(error){toast(error.message);return false;}
+ const client=policyPublicationClient,carrier=policyPublicationCarrier;let acknowledged=false;
+ try{
+  await PolicySync.save({action:'publish',client,carrier,groups});
+  acknowledged=true;policyRegistrationMessage('DB 저장 응답을 받았습니다. 저장된 정책을 다시 조회하고 있습니다.','progress');
+  const saved=await PolicySync.readback();
+  for(const [kind,rows] of Object.entries(groups)){
+   const key=policyClientKey(carrier,kind,client),item=saved.policies[key];
+   if(!item||JSON.stringify(item.rows)!==JSON.stringify(rows))throw new Error('DB 저장 후 조회 내용이 달라졌습니다. 다른 관리자 변경 여부를 확인한 뒤 최신 정책을 불러와 주세요.');
+  }
+  intakeCodeRefreshViews();return true;
+ }catch(error){const message=(acknowledged?'DB 저장 응답은 받았지만 재조회 확인에 실패했습니다. 최신 정책을 불러와 저장 여부를 확인해 주세요. ':'')+error.message;toast(message);policyRegistrationMessage(message,'error');return false;}
 }
+
 root.addEventListener('click',e=>{if(e.target.closest('[data-policy-server-refresh]'))PolicySync.load();});
 window.PolicySync?.init({apply:policyServerApply,notify:policyServerNotify,active:()=>page==='regions'||(page==='adminIntake'&&!policyRows.length&&!modal.open)});
 

@@ -22,12 +22,12 @@
   if(!context||context.role!=='admin')throw new Error('관리자만 정책을 저장할 수 있습니다.');
   if(saving)throw new Error('정책을 저장 중입니다. 잠시 기다려 주세요.');
   if(revision===null)throw new Error('서버 정책을 먼저 불러와 주세요. 새로고침 후 다시 시도해 주세요.');
-  saving=true;notify();
-  try{const data=await request({method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':context.csrf,'X-CNC-Role':context.role},body:JSON.stringify({...payload,revision})});accept(data);return data;}
+  saving=true;
+  try{notify();const data=await request({method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':context.csrf,'X-CNC-Role':context.role},body:JSON.stringify({...payload,revision})});accept(data);return data;}
   catch(e){if(e.status===409){saving=false;await load();}throw new Error(e.name==='AbortError'?'저장 응답이 지연됐습니다. 새로고침하여 저장 여부를 확인해 주세요.':e.message)}
   finally{saving=false;notify();}
  }
- root.PolicySync={enabled:!!context,role:context?.role,get ready(){return revision!==null},get saving(){return saving},get error(){return error},load,save,
+ root.PolicySync={enabled:!!context,role:context?.role,get ready(){return revision!==null},get saving(){return saving},get error(){return error},load,save,async readback(){const data=await request();accept(data);return data;},
   init(options){if(!context)return;apply=options.apply;notify=options.notify;active=options.active||active;load();setInterval(()=>{if(!document.hidden&&active())load()},15000);root.addEventListener('focus',()=>{if(active())load()});}
  };
 })(typeof window!=='undefined'?window:globalThis);

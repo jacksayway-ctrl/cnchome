@@ -33,3 +33,9 @@ test('empty or unauthenticated server never enables offline publication',async()
  const sync=boot('admin',async()=>response({error:'로그인 필요'},401));assert.equal(await sync.load(),false);assert.equal(sync.ready,false);
  await assert.rejects(()=>sync.save({action:'publish'}),/먼저 불러/);
 });
+test('readback performs an independent server read and propagates DB failure',async()=>{
+ let reads=0,failed=false;
+ const sync=boot('admin',async()=>{reads++;return failed?response({error:'readback unavailable'},503):response(sample(reads));});
+ await sync.load();const saved=await sync.readback();assert.equal(reads,2);assert.equal(saved.revision,2);
+ failed=true;await assert.rejects(()=>sync.readback(),/readback unavailable/);
+});
