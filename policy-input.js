@@ -3,7 +3,7 @@
  const compact=v=>String(v??'').replace(/\s/g,'');
  const ageWords=/(?:\d+\s*[~～–-]\s*)?\d+\s*세\s*(?:이하|이상|까지)?/g;
  function kindHeading(value){const text=String(value??'').replace(ageWords,'').replace(/(?:세는나이|만나이아님|만 나이 아님)/g,'').replace(/[\s()[\]·:：-]/g,'');return text==='일반'?'general':text==='실버'?'silver':''}
- function kindForAge(value){const age=Number(value);return value!==''&&Number.isInteger(age)&&age>=1&&age<=61?'general':Number.isInteger(age)&&age>=62&&age<=70?'silver':''}
+ function kindForAge(value){const age=Number(value);return value!==''&&Number.isInteger(age)&&age>=1&&age<=60?'general':Number.isInteger(age)&&age>=61&&age<=70?'silver':''}
  function inline(value){
   let text=String(value??''),kind='';
   const prefix=text.match(/^\s*(일반|실버)(?=\s|[:：]|\d+\s*세)/),suffix=text.match(/(?:\s+|[·:：])(일반|실버)\s*$/);

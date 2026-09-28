@@ -28,7 +28,7 @@ test('unknown product is not guessed and similar geographic names remain literal
  assert.throws(()=>input.groups([['지역','수량'],['수도권','4']],'auto'),/구분이 없는/);
 });
 test('counting-age boundaries distinguish 61, 62, 70 and 71',()=>{
- assert.equal(input.kindForAge(61),'general');assert.equal(input.kindForAge(62),'silver');assert.equal(input.kindForAge(70),'silver');for(const age of [71,0,-1,61.5,''])assert.equal(input.kindForAge(age),'');
+ assert.equal(input.kindForAge(60),'general');assert.equal(input.kindForAge(61),'silver');assert.equal(input.kindForAge(62),'silver');assert.equal(input.kindForAge(70),'silver');for(const age of [71,0,-1,61.5,''])assert.equal(input.kindForAge(age),'');
 });
 
 test('Hanwha/Shinhan unclassified rows apply to both products without changing input',()=>{

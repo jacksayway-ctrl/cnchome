@@ -5,7 +5,7 @@ require_once __DIR__.'/hr.php';
 function sales_kind(int $birthYear, string $date): string {
     $age=(int)substr($date,0,4)-$birthYear+1;
     hr_assert($age>=1&&$age<=70,'보험 접수는 세는나이 70세까지 가능합니다.');
-    return $age<=61?'general':'silver';
+    return $age<=60?'general':'silver';
 }
 function sales_month(string $month): bool {return (bool)preg_match('/^\d{4}-(0[1-9]|1[0-2])$/D',$month);}
 function sales_test_user(array $user): bool {return ($user['username']??'')==='user1'&&($user['display_name']??'')==='테스트 직원';}
