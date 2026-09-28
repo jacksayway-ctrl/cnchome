@@ -10,12 +10,20 @@ test('all imported legal localities attach to an existing exact parent with no o
 });
 test('initial-only search continues through province, city, myeon and ri',()=>{
  assert(names('ㄱ').includes('경기도'));assert(names('ᄀ').includes('경기도'));
- assert(names('경기도 ㅇㅊ').includes('경기도 이천시'));assert(names('경기도 ㅇㅊ').includes('경기도 연천군'));assert.deepEqual(names('경기도 이천시 ㅅㅅ'),['경기도 이천시 설성면']);
+ assert(names('경기도 ㅇㅊ').includes('경기도 이천시'));assert(names('경기도 ㅇㅊ').includes('경기도 연천군'));assert.equal(names('경기도 이천시 ㅅㅅ')[0],'경기도 이천시 설성면');
  assert(names('경기도 이천시 설성면 ㅈ').includes('경기도 이천시 설성면 장능리'));
  assert.deepEqual(names('경기도 이천시 설성면 ㅈㄴ'),['경기도 이천시 설성면 장능리']);
  assert.deepEqual(names('경기도 수원시 영통구 ㅁㅍ'),['경기도 수원시 영통구 망포동']);
  assert(names('세종특별자치시 ㅈㅊㅇ').includes('세종특별자치시 조치원읍'));
  assert.deepEqual(names('경기도 이천시 설성면 장능리 상담실'),[]);
+});
+test('one initial per address level finds the complete path without selecting ambiguous matches',()=>{
+ for(const query of ['ㄱㅇㅅ','ㄱ ㅇ ㅅ','ᄀᄋᄉ'])assert(names(query).includes('경기도 이천시 설성면'));
+ assert(names('ㄱㅇㅅㅈ').includes('경기도 이천시 설성면 장능리'));
+ assert(names('경기도 ㅇㅅ').includes('경기도 이천시 설성면'));
+ assert(names('ㄱㅇㅅ').includes('경기도 고양시'),'normal full-name initials remain supported');
+ assert(names('ㄱㅇㅅ').length>1);assert.equal(new Set(names('ㄱㅇㅅ')).size,names('ㄱㅇㅅ').length);
+ assert(names('ㄱㅇㅅ').indexOf('경기도 이천시 설성면')<100,'requested path is visible in the dropdown');
 });
 test('editing address or an unfinished locality initial never reuses the previous policy decision',()=>{
  const snap={codes:[{id:'ga',label:'GA',aliases:[]}],clients:[{id:'legacy',label:'메타버스'}],policies:{p:{client:'legacy',carrier:'ga',kind:'general',rows:[['지역','수량'],['경기도 이천시 설성면 장능리 필수','4']]}}};

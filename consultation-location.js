@@ -49,9 +49,16 @@
   }
   if(!remaining)return scope;
   const matches=scope.filter(node=>node.aliases.some(alias=>startsWith(alias,remaining)));
-  if(scoped)return matches.length?matches:direct();
+  // One initial per successive address level: ㄱㅇㅅ -> 경기도 / 이천시 / 설성면.
+  const compound=[];
+  if(remaining.length>=2&&[...remaining].every(letter=>initials.includes(letter))){
+   function walk(nodes,offset){for(const node of nodes){if(!startsWith(node.name,remaining[offset]))continue;if(offset===remaining.length-1)compound.push(node);else walk(node.children,offset+1);}}
+   walk(scope,0);
+  }
+  const unique=nodes=>[...new Map(nodes.map(node=>[node.id,node])).values()];
+  if(scoped)return unique([...(matches.length?matches:compound.length?[]:direct()),...compound]);
   // Also allow direct city/district searches; full paths distinguish identical names.
-  return matches.length?[...matches,...roots.flatMap(node=>node.children).filter(node=>node.aliases.some(alias=>startsWith(alias,value)))]:direct();
+  return unique([...(matches.length?[...matches,...roots.flatMap(node=>node.children).filter(node=>node.aliases.some(alias=>startsWith(alias,value)))]:direct()),...compound]);
  }
  function attach(form){
   const input=form?.querySelector('[name="consultationPlace"]'),list=form?.querySelector('[data-place-options]'),status=form?.querySelector('[data-place-status]');
