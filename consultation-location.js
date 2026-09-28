@@ -1,13 +1,15 @@
 (function(global){
  'use strict';
  const initials='ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ';
- const compact=value=>String(value||'').normalize('NFC').replace(/\s+/gu,'');
+ const compact=value=>String(value||'').normalize('NFC').replace(/[ᄀ-ᄒ]/g,c=>initials[c.charCodeAt(0)-0x1100]).replace(/\s+/gu,'');
+ const treeCache=new WeakMap(),flatCache=new WeakMap();
  function startsWith(value,query){
   const text=compact(value),search=compact(query);
   return [...search].every((letter,i)=>{const code=text.charCodeAt(i)-0xac00;return letter===text[i]||(initials.includes(letter)&&code>=0&&code<11172&&initials[Math.floor(code/588)]===letter);});
  }
- function buildIndex(catalog){
+ function buildIndex(catalog,localities=global.KoreaLocalities){
   if(!catalog)return [];
+  const cached=treeCache.get(catalog);if(cached&&cached.localities===localities)return cached.roots;
   const roots=Object.entries(catalog.provinceNames).map(([key,name])=>({id:key,label:name,name,aliases:[name,key,...(key==='강원'?['강원도']:key==='전북'?['전라북도']:[])],children:[]}));
   const byProvince=new Map(roots.map(item=>[item.id,item])),byCity=new Map();
   for(const city of catalog.municipalities){
@@ -19,13 +21,24 @@
    const parent=district.autonomous?byProvince.get(district.province):byCity.get(district.parentId);if(!parent)continue;
    parent.children.push({id:district.id,name:district.name,label:parent.label+' '+district.name,aliases:[...district.aliases,district.name.replace(/구$/,'')],children:[]});
   }
+  const paths=new Map();function register(nodes){for(const node of nodes){paths.set(node.label,node);register(node.children);}}register(roots);
+  for(const [province,parentName,places] of localities?.groups||[]){
+   const label=catalog.provinceNames[province]+(parentName?' '+parentName:'');const parent=paths.get(label);if(!parent)continue;
+   for(const place of places){let target=parent;for(const name of place.split(' ')){
+    let child=target.children.find(item=>item.name===name);
+    if(!child){child={id:target.id+':'+name,name,label:target.label+' '+name,aliases:[name],children:[]};target.children.push(child);paths.set(child.label,child);}target=child;
+   }}
+  }
   function sort(nodes){for(const node of nodes){node.children.sort((a,b)=>a.name.localeCompare(b.name,'ko'));sort(node.children);}}sort(roots);
+  const flat=[];function flatten(nodes,depth){for(const node of nodes){flat.push({node,depth});flatten(node.children,depth+1);}}flatten(roots,0);
+  flatCache.set(roots,flat.filter(x=>x.depth>0).sort((a,b)=>a.depth-b.depth||a.node.label.localeCompare(b.node.label,'ko')).map(x=>x.node));
+  treeCache.set(catalog,{localities,roots});
   return roots;
  }
  function suggestions(value,roots){
   let remaining=compact(value),scope=roots,scoped=false;
   function descendants(nodes){return nodes.flatMap(node=>[...node.children,...descendants(node.children)]);}
-  const direct=()=>descendants(roots).filter(node=>node.aliases.some(alias=>startsWith(alias,value)));
+  const direct=()=>(flatCache.get(roots)||descendants(roots)).filter(node=>node.aliases.some(alias=>startsWith(alias,value)));
   // Resolve complete province/city aliases first, then filter only their children.
   while(remaining){
    let match=null;
@@ -38,7 +51,7 @@
   const matches=scope.filter(node=>node.aliases.some(alias=>startsWith(alias,remaining)));
   if(scoped)return matches.length?matches:direct();
   // Also allow direct city/district searches; full paths distinguish identical names.
-  return [...matches,...direct()];
+  return matches.length?[...matches,...roots.flatMap(node=>node.children).filter(node=>node.aliases.some(alias=>startsWith(alias,value)))]:direct();
  }
  function attach(form){
   const input=form?.querySelector('[name="consultationPlace"]'),list=form?.querySelector('[data-place-options]'),status=form?.querySelector('[data-place-status]');
@@ -48,13 +61,13 @@
   function highlight(index){active=index;for(const [i,node] of [...list.children].entries())node.setAttribute('aria-selected',String(i===index));if(index>=0){input.setAttribute('aria-activedescendant',list.children[index].id);list.children[index].scrollIntoView?.({block:'nearest'});}}
   function choose(index){const item=options[index];if(!item)return;input.value=item.label+' ';input.focus();input.setSelectionRange(input.value.length,input.value.length);input.dispatchEvent(new global.Event('input',{bubbles:true}));}
   function render(){
-   options=suggestions(input.value,roots);active=-1;input.removeAttribute('aria-activedescendant');list.replaceChildren();
+   const found=suggestions(input.value,roots);options=found.slice(0,100);active=-1;input.removeAttribute('aria-activedescendant');list.replaceChildren();
    for(const [index,item] of options.entries()){
     const row=global.document.createElement('button');row.type='button';row.tabIndex=-1;row.id=list.id+'-'+index;row.setAttribute('role','option');row.setAttribute('aria-selected','false');row.textContent=item.label;row.dataset.placeIndex=String(index);
     row.addEventListener('pointerdown',event=>event.preventDefault());row.addEventListener('mousedown',event=>event.preventDefault());row.addEventListener('click',()=>choose(index));list.append(row);
    }
    list.hidden=!options.length;input.setAttribute('aria-expanded',String(!!options.length));list.scrollTop=0;
-   status.textContent=options.length?'지역 '+options.length+'개 · 선택 후 시·군·구를 이어서 입력하세요.':'상세 주소나 건물·카페 이름을 이어서 입력할 수 있습니다.';
+   status.textContent=options.length?(found.length>options.length?'지역 '+found.length+'개 중 '+options.length+'개 표시 · 글자를 더 입력하면 좁혀집니다.':'지역 '+options.length+'개 · 읍·면·동·리도 첫 글자나 초성으로 선택하세요.'):'상세 주소나 건물·카페 이름을 이어서 입력할 수 있습니다.';
   }
   input.addEventListener('input',render);input.addEventListener('focus',render);
   input.addEventListener('compositionstart',()=>{composing=true;});input.addEventListener('compositionend',()=>{composing=false;render();});

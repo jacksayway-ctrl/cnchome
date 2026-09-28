@@ -1,6 +1,7 @@
 (function(global){
  'use strict';
  const compact=value=>String(value||'').replace(/\s/g,'');
+ const locationSearch=global.ConsultationLocation||(typeof require==='function'?require('./consultation-location.js'):null);
  const codeName=value=>compact(value).replace(/[^\p{L}\p{N}]/gu,'').toLowerCase();
  const policyScopes=new WeakMap();
  function scopesFor(policy,snapshot,rules){
@@ -20,7 +21,7 @@
   if(result.birthDate>date)result.error='생년월일은 접수일 이후일 수 없습니다.';
   return result;
  }
- function placeIndex(catalog){
+ function placeIndex(catalog,localities=global.KoreaLocalities){
   const list=[],provinceAliases=key=>[catalog.provinceNames[key],key,...(key==='강원'?['강원도']:key==='전북'?['전라북도']:[])];
   for(const [province,name] of Object.entries(catalog.provinceNames)){
    const metro=catalog.municipalities.find(item=>item.province===province&&item.metropolitan);
@@ -35,6 +36,8 @@
    const prefixes=district.autonomous?provinceAliases(district.province):provinceAliases(district.province).flatMap(p=>(parent?.aliases||[district.parent]).map(a=>p+a));
    list.push({id:district.id,label:catalog.provinceNames[district.province]+' '+(district.autonomous?'':district.parent+' ')+district.name,aliases:[...local,...prefixes.flatMap(p=>local.map(a=>p+a))],place:{province:district.province,name:district.parent,path:[district.name]}});
   }
+  const nodes=new Map();function collect(items){for(const node of items){nodes.set(node.id,node);collect(node.children);}}
+  collect(locationSearch.core.buildIndex(catalog,localities));for(const item of list)item.children=nodes.get(item.id)?.children||[];
   return list;
  }
  function resolveLocation(value,index){
@@ -45,15 +48,21 @@
   const item=matches[0];if(!item.place)return {label:item.label,place:null};
   // Preserve only complete administrative suffixes. Café/building text is not a region.
   let offset=0,consumed=0;while(offset<value.length&&consumed<length){if(!/\s/.test(value[offset]))consumed++;offset++;}
-  const tail=value.slice(offset).trim(),path=[...item.place.path];
-  for(const token of tail.split(/\s+/)){if(/^[가-힣0-9·]+(?:읍|면|동|리)$/.test(token))path.push(token);else break;}
-  const children=index.filter(x=>x.place&&x.place.province===item.place.province&&x.place.name===item.place.name&&x.place.path.length>item.place.path.length);
-  const incomplete=!!tail&&children.some(child=>child.place.path[item.place.path.length]?.startsWith(tail));
+  let tail=value.slice(offset).trim(),children=item.children||[];const path=[...item.place.path];
+  while(tail&&children.length){
+   const remaining=compact(tail);let match=null;
+   for(const child of children)for(const alias of child.aliases){const key=compact(alias);if(key&&remaining.startsWith(key)&&(!match||key.length>match.key.length))match={child,key};}
+   if(!match)break;
+   let position=0,count=0;while(position<tail.length&&count<match.key.length){if(!/\s/.test(tail[position]))count++;position++;}
+   path.push(match.child.name);tail=tail.slice(position).trim();children=match.child.children;
+  }
+  const incomplete=!!tail&&children.some(child=>child.aliases.some(alias=>locationSearch.core.startsWith(alias,tail)));
+  if(!incomplete)for(const token of tail.split(/\s+/)){if(/^[가-힣0-9·]+(?:읍|면|동|리)$/.test(token))path.push(token);else break;}
   return {label:item.label+(path.length>item.place.path.length?' '+path.slice(item.place.path.length).join(' '):''),place:{...item.place,path},incomplete};
  }
  function assess(snapshot,rules,location,kind,carrier){
   if(!snapshot)return {state:'review',text:'정책을 불러오는 중입니다.',items:[]};
-  if(!location?.place||location.incomplete)return {state:'review',text:'상담 장소의 시·군·구를 선택하면 접수 가능 여부를 표시합니다.',items:[]};
+  if(!location?.place||location.incomplete)return {state:'review',text:'상담 장소의 지역을 선택해 주세요. 읍·면·동·리까지 초성으로 검색할 수 있습니다.',items:[]};
   const wanted=codeName(carrier),codes=snapshot.codes.filter(code=>!wanted||[code.id,code.label,...(code.aliases||[])].some(name=>codeName(name)===wanted));
   if(!codes.length)return {state:'review',text:'입력한 접수 코드를 찾을 수 없습니다. GA·한화·신한 등 등록 코드를 확인해 주세요.',items:[]};
   const items=[];
