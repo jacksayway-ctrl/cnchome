@@ -82,20 +82,25 @@
  let cleanup=()=>{};
  function attach(form,options){
   if(!form)return;cleanup();
-  const fields=form.elements,index=placeIndex(global.KoreaRegionCatalog),panel=form.querySelector('[data-intake-eligibility]'),summary=form.querySelector('[data-intake-decision]'),list=form.querySelector('[data-intake-options]');
+  const fields=form.elements,panel=form.querySelector('[data-intake-eligibility]'),summary=form.querySelector('[data-intake-decision]'),list=form.querySelector('[data-intake-options]');
   const labels={possible:'가능',partial:'일부 가능 · 상세 확인',review:'확인 필요',blocked:'불가'};
-  const chooser=form.querySelector('[data-carrier-choice]');let preferred='';
-  function update(){
-   const info=birthInfo(fields.birthYear.value,fields.birthMonth.value,fields.birthDay.value,fields.date.value),team=options.team();
+  const chooser=form.querySelector('[data-carrier-choice]');let preferred='',index=null;
+  const birthNames=['birthYear','birthMonth','birthDay'],lengths=Object.fromEntries(birthNames.map(name=>[name,fields[name].value.length]));
+  function updateAge(){
+   const info=birthInfo(fields.birthYear.value,fields.birthMonth.value,fields.birthDay.value,fields.date.value);
    fields.birthDay.setCustomValidity(info.error);form.querySelector('[data-age-number]').value=info.age===null?'—':info.age+'세';
    form.querySelector('[data-age-kind]').textContent=info.age===null?'':!info.kind?'연령 초과':info.kind==='silver'?'실버':'일반';
    form.querySelector('[data-sales-age]').textContent=info.error||'세는나이 기준 · 60세 이하 일반 / 61~70세 실버';
+   return info;
+  }
+  function update(){
+   const info=updateAge(),team=options.team();
    let result;
    if(team!=='insurance')result={state:'review',text:team?'보험 접수 정책 적용 대상이 아닙니다.':'담당 직원을 선택하면 해당 부서의 접수 기준을 확인합니다.',items:[]};
    else if(info.error||info.age===null)result={state:'review',text:info.error||'생년월일을 입력하면 나이에 맞는 접수 정책을 확인합니다.',items:[]};
    else if(!info.kind)result={state:'blocked',text:'접수 불가 · 보험 접수는 세는나이 70세까지 가능합니다.',items:[]};
    else if(global.PolicySync?.error)result={state:'review',text:'정책 조회 실패 · 연결을 확인한 뒤 다시 확인해 주세요.',items:[]};
-   else result=assess(global.PolicySync?.snapshot,global.PolicyRegionRules,resolveLocation(fields.consultationPlace.value,index),info.kind,'');
+   else {try{index=index||placeIndex(global.KoreaRegionCatalog);result=assess(global.PolicySync?.snapshot,global.PolicyRegionRules,resolveLocation(fields.consultationPlace.value,index),info.kind,'');}catch(error){result={state:'review',text:'지역 정책을 확인할 수 없습니다. 잠시 후 다시 확인해 주세요.',items:[]};}}
    const available=availableCodes(result.items);if(!available.some(code=>code.id===preferred))preferred='';
    const selected=available.find(code=>code.id===preferred)||available[0];fields.carrier.value=selected?.label||'';
    if(chooser){chooser.replaceChildren();const empty=global.document.createElement('option');empty.value='';empty.textContent=available.length?'가능 코드 자동 선택':'선택 가능한 코드 없음';chooser.append(empty);for(const code of available){const option=global.document.createElement('option');option.value=code.id;option.textContent=code.label;chooser.append(option);}chooser.value=selected?.id||'';chooser.disabled=!available.length;}
@@ -105,12 +110,19 @@
   }
   function change(event){if(event.target===chooser)preferred=chooser.value;update();}
   function input(event){
-   const el=event.target;if(el===chooser)preferred=chooser.value;if(['birthYear','birthMonth','birthDay'].includes(el.name)&&!event.isComposing){el.value=el.value.replace(/\D/g,'').slice(0,el.maxLength);const next={birthYear:'birthMonth',birthMonth:'birthDay'}[el.name];const valid=el.name==='birthYear'?Number(el.value)>=1900&&Number(el.value)<=Number(fields.date.value.slice(0,4)):Number(el.value)>=1&&Number(el.value)<=12;if(next&&el.value.length===el.maxLength&&valid)fields[next].focus();}
-   update();
+   const el=event.target;let next=null;
+   if(el===chooser)preferred=chooser.value;
+   if(birthNames.includes(el.name)&&!event.isComposing){
+    const previousLength=lengths[el.name];el.value=el.value.normalize('NFKC').replace(/\D/g,'').slice(0,el.maxLength);lengths[el.name]=el.value.length;
+    const valid=el.name==='birthYear'?Number(el.value)>=1900&&Number(el.value)<=Number(fields.date.value.slice(0,4)):Number(el.value)>=1&&Number(el.value)<=12;
+    if(previousLength<el.maxLength&&el.value.length===el.maxLength&&valid)next={birthYear:'birthMonth',birthMonth:'birthDay'}[el.name];
+   }
+   // Render age before focus changes or any location/policy lookup.
+   update();if(next)fields[next].focus();
   }
-  form.addEventListener('input',input);form.addEventListener('change',change);
+  form.addEventListener('input',input,true);form.addEventListener('change',change,true);form.addEventListener('compositionend',input,true);
   const unsubscribe=global.PolicySync?.subscribe(update)||(()=>{}),dialog=form.closest('dialog');
-  cleanup=()=>{unsubscribe();form.removeEventListener('input',input);form.removeEventListener('change',change);dialog?.removeEventListener('close',onClose);};
+  cleanup=()=>{unsubscribe();form.removeEventListener('input',input,true);form.removeEventListener('change',change,true);form.removeEventListener('compositionend',input,true);dialog?.removeEventListener('close',onClose);};
   function onClose(){cleanup();}dialog?.addEventListener('close',onClose,{once:true});
   update();global.PolicySync?.load();
  }
