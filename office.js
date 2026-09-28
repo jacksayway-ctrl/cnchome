@@ -1,5 +1,6 @@
 (()=>{
 const root=document.getElementById('tm-preview'), main=root.querySelector('#tm-main'), modal=root.querySelector('#tm-dialog'), body=root.querySelector('#tm-dialog-body');
+if((window.CNCHOME_POLICY||window.CNCHOME_LIVE)&&!window.PolicySync){main.innerHTML='<p role="alert">정책 연결 파일을 불러오지 못했습니다. 새로고침해 주세요.</p>';return;}
 GradeNumbers.bind(root);
 const pageNames=[...new Set(['payslips','home','regions','attendance','sales','grade','as','adminHome','adminIntake','adminPerformance','adminGrade','adminAttendance','adminAs','adminStaff','adminSettings',...Object.keys(AdminWorkspace.pages)])];
 function pageFromUrl(){const name=window.location.hash.slice(1)||window.CNCHOME_LIVE?.page||new URLSearchParams(window.location.search).get('page')||'';if(window.CNCHOME_LIVE){if(window.CNCHOME_LIVE.user.role!=='admin')return ['home','regions','attendance','sales','grade','as','payslips','myInfo'].includes(name)?name:'home';return pageNames.includes(name)&&(name.startsWith('admin')||name==='grade')?name:'adminHome';}return pageNames.includes(name)?name:'home'}
@@ -59,7 +60,7 @@ const regionSelectedEdges={"0":"M267.0,208.9L266.7,208.6L266.7,207.5L266.9,206.7
 // Preview settings; replace with saved administrator policy when backend is connected.
 const intakeCodeStorageKey='cnchome.intakeCodes.v1';
 let intakeCodes=IntakeCodeCatalog.read(null);
-try{intakeCodes=IntakeCodeCatalog.read(localStorage.getItem(intakeCodeStorageKey))}catch(error){/* Default codes remain usable if storage is unavailable. */}
+try{if(!window.PolicySync?.enabled)intakeCodes=IntakeCodeCatalog.read(localStorage.getItem(intakeCodeStorageKey))}catch(error){/* Default codes remain usable if storage is unavailable. */}
 const regionCarrierSettings=[{id:'all',label:'가능지역 모두',visible:true,enabled:true},...intakeCodes.map(c=>({...c,visible:true,enabled:true}))];
 function policyCodeHeader(text){return PolicyRegionRules.readIntakeCodeHeader(text,intakeCodes)}
 const policyClientStorageKey='cnchome.policyClients.v1';
@@ -74,12 +75,13 @@ function policyReadClients(raw){
  return clients;
 }
 let policyClients=policyReadClients(null),policyPublicationClient='',policyViewClient='legacy';
-try{policyClients=policyReadClients(localStorage.getItem(policyClientStorageKey))}catch(error){}
+try{if(!window.PolicySync?.enabled)policyClients=policyReadClients(localStorage.getItem(policyClientStorageKey))}catch(error){}
 function policyClientOptions(selected){return '<option value="">거래처 선택</option>'+policyClients.map(c=>'<option value="'+c.id+'" '+(selected===c.id?'selected':'')+'>'+policyEscape(c.label)+'</option>').join('')}
 function policyClientKey(carrier,kind,client=policyPublicationClient){return client==='legacy'?carrier+':'+kind:carrier+':'+client+':'+kind}
 function policyKeyParts(key){const parts=key.split(':');return {carrier:parts[0],client:parts.length===3?parts[1]:'legacy',kind:parts[parts.length-1]}}
 function policyClientManagerPanel(){return panel('거래처 관리','<p class="sub">거래처를 먼저 등록한 뒤 거래처별로 한화·신한·G/A 등 접수 코드의 정책표를 올려 주세요.</p><button type="button" class="action" data-action="policy-client-add">거래처 추가</button>'+table(['거래처','등록 정책','관리'],policyClients.map(c=>[policyEscape(c.label),Object.keys(policyPublications).filter(k=>policyKeyParts(k).client===c.id).length+'건','<button type="button" class="secondary" data-action="policy-client-edit" data-client-id="'+c.id+'">수정</button>'])))}
 function policyClientSave(input){
+ if(window.PolicySync?.enabled)return policySaveClientServer(input);
  try{
   const label=String(input.label||'').trim();if(!label||label.length>60||/[\p{Cc}\p{Cf}]/u.test(label))throw new Error('거래처명은 1~60자로 입력해 주세요.');
   const clients=policyReadClients(localStorage.getItem(policyClientStorageKey));
@@ -96,16 +98,16 @@ root.addEventListener('click',e=>{
  const client=policyClients.find(c=>c.id===button.dataset.clientId);
  open(client?'거래처 수정':'거래처 추가','<form id="tm-policy-client-form" data-client-id="'+(client?.id||'')+'"><label>거래처명<input name="label" required maxlength="60" value="'+policyEscape(client?.label||'')+'" placeholder="거래처 이름"></label><button type="submit" class="action">저장</button></form>');
 });
-root.addEventListener('submit',e=>{
+root.addEventListener('submit',async e=>{
  if(e.target.id!=='tm-policy-client-form')return;e.preventDefault();
- const id=policyClientSave({id:e.target.dataset.clientId,label:new FormData(e.target).get('label')});
+ const id=await policyClientSave({id:e.target.dataset.clientId,label:new FormData(e.target).get('label')});
  if(id){policyPublicationClient=id;modal.close();render();toast('거래처를 저장했습니다.')}
 });
 function intakeCodeOptions(selected=''){
  return '<option value="">접수 코드 선택</option>'+intakeCodes.map(c=>'<option value="'+c.id+'" '+(selected===c.id?'selected':'')+'>'+policyEscape(c.label)+'</option>').join('');
 }
 function intakeCodeManagerContent(){
- return '<p class="sub">접수 코드를 추가하거나 이름을 수정합니다. 이름을 바꿔도 기존 지역·수량 정책은 유지되며 이전 이름으로 된 표도 연결됩니다.</p><button type="button" class="action" data-action="intake-code-add">접수 코드 추가</button>'+table(['접수 코드','표에서 사용하는 다른 표기','등록 정책','관리'],intakeCodes.map(c=>[policyEscape(c.label),c.aliases.map(policyEscape).join(', ')||'—',Object.keys(policyPublications).filter(key=>key.startsWith(c.id+':')).length+'건','<button type="button" class="secondary" data-action="intake-code-edit" data-code-id="'+c.id+'" aria-label="'+policyEscape(c.label)+' 접수 코드 수정">수정</button>']))+'<p class="sub">새 코드는 정책 등록 목록과 접수 입력 화면에 바로 표시됩니다. 가능지역 목록·지도에는 해당 코드의 정책을 등록한 뒤 표시됩니다. 저장 내용은 이 브라우저에서 유지됩니다.</p>';
+ return '<p class="sub">접수 코드를 추가하거나 이름을 수정합니다. 이름을 바꿔도 기존 지역·수량 정책은 유지되며 이전 이름으로 된 표도 연결됩니다.</p><button type="button" class="action" data-action="intake-code-add">접수 코드 추가</button>'+table(['접수 코드','표에서 사용하는 다른 표기','등록 정책','관리'],intakeCodes.map(c=>[policyEscape(c.label),c.aliases.map(policyEscape).join(', ')||'—',Object.keys(policyPublications).filter(key=>key.startsWith(c.id+':')).length+'건','<button type="button" class="secondary" data-action="intake-code-edit" data-code-id="'+c.id+'" aria-label="'+policyEscape(c.label)+' 접수 코드 수정">수정</button>']))+'<p class="sub">새 코드는 정책 등록 목록과 접수 입력 화면에 바로 표시됩니다. 가능지역 목록·지도에는 해당 코드의 정책을 등록한 뒤 표시됩니다. 저장한 접수 코드는 서버에서 직원 페이지와 공유됩니다.</p>';
 }
 function intakeCodeManagerPanel(){return panel('접수 코드 관리','<div id="tm-intake-code-manager">'+intakeCodeManagerContent()+'</div>')}
 function intakeCodeRefreshViews(){
@@ -116,6 +118,7 @@ function intakeCodeRefreshViews(){
  if(page==='adminIntake'){policyRefreshPreview();policyRefreshRegistered()}
 }
 function intakeCodeSave(input){
+ if(window.PolicySync?.enabled)return policySaveCodeServer(input);
  try{
   // Merge against the latest saved registry so another tab's additions are retained.
   const current=IntakeCodeCatalog.read(localStorage.getItem(intakeCodeStorageKey));
@@ -135,10 +138,10 @@ function intakeCodeOpen(id=''){
  open(code?'접수 코드 수정':'접수 코드 추가','<form id="tm-intake-code-form" data-code-id="'+(code?.id||'')+'"><div class="fields"><label class="full">접수 코드 이름<input name="label" required maxlength="40" value="'+policyEscape(code?.label||'')+'" placeholder="예: 한화, 신한, G/A"></label><label class="full">다른 표기 (선택)<input name="aliases" value="'+policyEscape(code?.aliases.join(', ')||'')+'" placeholder="표에서 쓰는 다른 이름을 쉼표로 구분"></label></div><p class="sub">완전히 일치하는 코드 표제만 구분합니다. 지역명이나 OCR 원문은 바꾸지 않습니다.</p><p id="tm-intake-code-error" role="alert"></p><button type="submit" class="action">'+(code?'수정 저장':'추가 저장')+'</button></form>');
 }
 root.addEventListener('click',e=>{const button=e.target.closest('[data-action^="intake-code-"]');if(!button)return;intakeCodeOpen(button.dataset.action==='intake-code-edit'?button.dataset.codeId:'')});
-root.addEventListener('submit',e=>{
+root.addEventListener('submit',async e=>{
  if(e.target.id!=='tm-intake-code-form')return;e.preventDefault();if(!e.target.reportValidity())return;
  const form=new FormData(e.target),id=e.target.dataset.codeId;
- if(intakeCodeSave({...(id?{id}:{}),label:String(form.get('label')||''),aliases:String(form.get('aliases')||'').split(/[,，\n]/).map(s=>s.trim()).filter(Boolean)})){
+ if(await intakeCodeSave({...(id?{id}:{}),label:String(form.get('label')||''),aliases:String(form.get('aliases')||'').split(/[,，\n]/).map(s=>s.trim()).filter(Boolean)})){
   modal.close();toast(id?'접수 코드가 수정되었습니다. 기존 정책 연결은 유지됩니다.':'접수 코드가 추가되었습니다. 정책표를 등록해 주세요.');
  }
 });
@@ -425,7 +428,7 @@ function regionPolicyExampleTable(){
 }
 function regionConditionsTable(){
  const entries=regionPolicyEntries();
- if(!entries.length)return panel('접수 정책표 · 예시',regionPolicyExampleTable()+'<p class="sub">선택한 거래처에 등록된 정책이 없습니다.</p>');
+ if(!entries.length)return panel('접수 정책표','<p class="sub">선택한 거래처에 등록된 정책이 없습니다.</p>');
  const sections=[];
  const carriers=[['ga','GA'],['hanwha','한화'],['shinhan','신한'],...intakeCodes.filter(c=>!['ga','hanwha','shinhan'].includes(c.id)).map(c=>[c.id,c.label])];
  for(const [id,label] of carriers){
@@ -438,10 +441,10 @@ function regionConditionsTable(){
    sections.push('<div class="policy-table-heading"><h3>'+policyEscape(label)+' · '+kind+'</h3>'+regionPolicyDateBadge(item.savedAt)+'</div>'+table(rows[0],rows.slice(1)));
   }
  }
- return panel('접수 정책표',sections.join('')+'<p class="sub">선택한 거래처의 등록 정책 원문입니다. 정책별 등록일과 가능지역·수량·연령·제외 조건을 확인해 주세요.</p>')+'<details class="panel policy-date-examples" open><summary>정책 등록일 표시 예시</summary>'+regionPolicyExampleTable()+'</details>';
+ return panel('접수 정책표',sections.join('')+'<p class="sub">선택한 거래처의 등록 정책 원문입니다. 정책별 등록일과 가능지역·수량·연령·제외 조건을 확인해 주세요.</p>');
 }
 function regionRefreshPolicyHeader(){const target=root.querySelector('#tm-region-policy-date');if(target)target.innerHTML=regionPolicyDateSummary()}
-function regionPage(){normalizeMapCarrier();return `<div class="region-page-heading"><h2>접수 가능지역</h2><div id="tm-region-policy-date" class="region-policy-date" aria-live="polite">${regionPolicyDateSummary()}</div></div><div class="toolbar"><label>거래처<select id="tm-region-client">${policyClientOptions(policyViewClient)}</select></label><input id="tm-region-search" aria-label="지역 검색" placeholder="시·군·구, 읍·면·동 검색"><select id="tm-age" aria-label="보험 상품 구분"><option ${policyHasPublications()&&[...policyPublishedScopes.keys()].some(k=>k.endsWith(':general'))?'selected':''}>일반 · 61세 이하</option><option ${!policyHasPublications()||![...policyPublishedScopes.keys()].some(k=>k.endsWith(':general'))?'selected':''}>실버 · 62~70세</option></select><label>고객 나이 (세는나이)<input id="tm-customer-age" type="number" min="1" max="120" step="1" placeholder="예: 61" style="width:110px"></label></div><p id="tm-region-age-note" class="sub">일반 61세 이하 · 실버 62~70세 · 만 나이가 아닙니다.</p><div id="tm-region-conditions">${regionConditionsTable()}</div><div class="region-map-layout"><section class="panel region-map-panel"><div class="toolbar"><div class="map-carrier-buttons" role="group" aria-label="접수 코드별 가능지역">${[regionCarrierSettings.find(c=>c.id==='all'),...visibleRegionCarriers()].filter(Boolean).map(c=>`<button type="button" data-map-carrier="${c.id}" aria-pressed="${mapCarrier===c.id}" ${c.enabled?'':'disabled title="등록된 정책 없음"'}>${policyEscape(c.label)}${c.enabled?'':' · 정책 없음'}</button>`).join('')}</div></div><div id="tm-region-map"></div>${policyHasPublications()?'<p class="sub policy-map-legend"><span>파랑: 가능</span> · <span>노랑: 일부 제한</span> · <span>빨강: 불가</span> · 회색: 확인 필요</p><p class="sub">지도는 기존 시·군·구 경계를 사용합니다. 읍·면·동 제한과 경계가 갱신된 지역은 상세 목록을 기준으로 확인해 주세요.</p>':''}</section><section class="panel region-table-panel"><h3>시·군별 접수 지역</h3><div id="tm-region-results"></div><p class="sub">관리자가 공개한 정책만 표시합니다. 접수 연령과 세부 조건은 해당 정책을 확인해 주세요.</p></section></div>`}
+function regionPage(){if(window.PolicySync?.enabled&&(!PolicySync.ready||!policyHasPublications()))return '<h2>접수 가능지역</h2>'+policyServerStatusMarkup()+'<p class="notice">'+(PolicySync.ready?'아직 서버에 등록된 정책이 없습니다.':'서버 정책을 불러오는 중입니다.')+'</p>';normalizeMapCarrier();return `<div class="region-page-heading"><h2>접수 가능지역</h2>${policyServerStatusMarkup()}<div id="tm-region-policy-date" class="region-policy-date" aria-live="polite">${regionPolicyDateSummary()}</div></div><div class="toolbar"><label>거래처<select id="tm-region-client">${policyClientOptions(policyViewClient)}</select></label><input id="tm-region-search" aria-label="지역 검색" placeholder="시·군·구, 읍·면·동 검색"><select id="tm-age" aria-label="보험 상품 구분"><option ${policyHasPublications()&&[...policyPublishedScopes.keys()].some(k=>k.endsWith(':general'))?'selected':''}>일반 · 61세 이하</option><option ${!policyHasPublications()||![...policyPublishedScopes.keys()].some(k=>k.endsWith(':general'))?'selected':''}>실버 · 62~70세</option></select><label>고객 나이 (세는나이)<input id="tm-customer-age" type="number" min="1" max="120" step="1" placeholder="예: 61" style="width:110px"></label></div><p id="tm-region-age-note" class="sub">일반 61세 이하 · 실버 62~70세 · 만 나이가 아닙니다.</p><div id="tm-region-conditions">${regionConditionsTable()}</div><div class="region-map-layout"><section class="panel region-map-panel"><div class="toolbar"><div class="map-carrier-buttons" role="group" aria-label="접수 코드별 가능지역">${[regionCarrierSettings.find(c=>c.id==='all'),...visibleRegionCarriers()].filter(Boolean).map(c=>`<button type="button" data-map-carrier="${c.id}" aria-pressed="${mapCarrier===c.id}" ${c.enabled?'':'disabled title="등록된 정책 없음"'}>${policyEscape(c.label)}${c.enabled?'':' · 정책 없음'}</button>`).join('')}</div></div><div id="tm-region-map"></div>${policyHasPublications()?'<p class="sub policy-map-legend"><span>파랑: 가능</span> · <span>노랑: 일부 제한</span> · <span>빨강: 불가</span> · 회색: 확인 필요</p><p class="sub">지도는 기존 시·군·구 경계를 사용합니다. 읍·면·동 제한과 경계가 갱신된 지역은 상세 목록을 기준으로 확인해 주세요.</p>':''}</section><section class="panel region-table-panel"><h3>시·군별 접수 지역</h3><div id="tm-region-results"></div><p class="sub">관리자가 공개한 정책만 표시합니다. 접수 연령과 세부 조건은 해당 정책을 확인해 주세요.</p></section></div>`}
 function regionPolicyTable(carriers,rows){
  return `<div class="scroll"><table class="region-policy-table"><thead><tr><th rowspan="2" scope="col">지역</th>${carriers.map(c=>`<th colspan="2" scope="colgroup" class="carrier-group">${policyEscape(c.label)}</th>`).join('')}<th rowspan="2" scope="col" class="coverage-start">적용 범위</th></tr><tr>${carriers.map(()=>'<th scope="col" class="carrier-start">일반</th><th scope="col">실버</th>').join('')}</tr></thead><tbody>${rows.map(row=>`<tr>${row.map((cell,i)=>`<td${i===row.length-1?' class="coverage-start"':i>0&&i%2===1?' class="carrier-start"':''}>${cell}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
 }
@@ -458,7 +461,7 @@ function regionApplyAge(){
  root.querySelector('#tm-age').selectedIndex=kind==='general'?0:1;
  if(note)note.textContent='세는나이 '+value+'세 · '+(kind==='general'?'일반 정책 적용 (61세 이하)':'실버 정책 적용 (62~70세)');return true;
 }
-function filterRegions(){regionRefreshPolicyHeader();if(!regionApplyAge())return;const summary=root.querySelector('#tm-region-conditions');if(summary)summary.innerHTML=regionConditionsTable();if(policyHasPublications()){policyFilterPublishedRegions();return}normalizeMapCarrier();const q=root.querySelector('#tm-region-search').value.trim(),general=root.querySelector('#tm-age').selectedIndex===0;const canReceive=r=>regionCanReceive(r,general);const rows=regions.filter(r=>r.join(' ').includes(q)).sort((a,b)=>Number(canReceive(b))-Number(canReceive(a))||a[0].localeCompare(b[0],'ko'));const carriers=visibleRegionCarriers().filter(c=>mapCarrier==='all'||mapCarrier===c.id);const columns=carriers.flatMap(c=>['general','silver'].map(kind=>({carrier:c,kind})));root.querySelector('#tm-region-results').innerHTML=carriers.length?regionPolicyTable(carriers,rows.map(r=>{const p=regionInsurancePolicies[regions.indexOf(r)];return [`<button type="button" class="region-select-button" data-region-select="${regions.indexOf(r)}" aria-pressed="${mapSelectedGroup===regions.indexOf(r)}">${regionDisplayName(r)}</button>`,...columns.map(({carrier:c,kind})=>p[c.id][kind]?pill(p[c.id][kind],Number(p[c.id][kind].split('/')[1])>0?'green':'pink'):pill(c.id==='hanwha'?'구분 확인':'자료 대기','amber')),r[0]===r[1]?r[4]:r[0]+' · '+r[4]];}))+(rows.length?'':'<p>검색 결과가 없습니다.</p>'):'<p>현재 공개된 접수 정책이 없습니다.</p>';updateRegionMap()}
+function filterRegions(){if(window.PolicySync?.enabled&&(!PolicySync.ready||!policyHasPublications()))return;regionRefreshPolicyHeader();if(!regionApplyAge())return;const summary=root.querySelector('#tm-region-conditions');if(summary)summary.innerHTML=regionConditionsTable();if(policyHasPublications()){policyFilterPublishedRegions();return}normalizeMapCarrier();const q=root.querySelector('#tm-region-search').value.trim(),general=root.querySelector('#tm-age').selectedIndex===0;const canReceive=r=>regionCanReceive(r,general);const rows=regions.filter(r=>r.join(' ').includes(q)).sort((a,b)=>Number(canReceive(b))-Number(canReceive(a))||a[0].localeCompare(b[0],'ko'));const carriers=visibleRegionCarriers().filter(c=>mapCarrier==='all'||mapCarrier===c.id);const columns=carriers.flatMap(c=>['general','silver'].map(kind=>({carrier:c,kind})));root.querySelector('#tm-region-results').innerHTML=carriers.length?regionPolicyTable(carriers,rows.map(r=>{const p=regionInsurancePolicies[regions.indexOf(r)];return [`<button type="button" class="region-select-button" data-region-select="${regions.indexOf(r)}" aria-pressed="${mapSelectedGroup===regions.indexOf(r)}">${regionDisplayName(r)}</button>`,...columns.map(({carrier:c,kind})=>p[c.id][kind]?pill(p[c.id][kind],Number(p[c.id][kind].split('/')[1])>0?'green':'pink'):pill(c.id==='hanwha'?'구분 확인':'자료 대기','amber')),r[0]===r[1]?r[4]:r[0]+' · '+r[4]];}))+(rows.length?'':'<p>검색 결과가 없습니다.</p>'):'<p>현재 공개된 접수 정책이 없습니다.</p>';updateRegionMap()}
 const attendanceToday=new Date();
 let attendanceYear=attendanceToday.getFullYear(),attendanceMonth=attendanceToday.getMonth()+1;
 function attendanceRecords(){const records=[
@@ -1178,7 +1181,7 @@ function policyFillMissingProvinces(){
  if(changed)policySyncCityText();
 }
 
-function policyRefreshPreview(){const convert=root.querySelector('[data-action="policy-parse"]');if(convert)convert.disabled=policyOcrRunning;policyFillMissingProvinces();const source=root.querySelector('#tm-policy-source');if(source)source.open=!policyRows.length;const target=root.querySelector('#tm-policy-preview');if(target)target.innerHTML=policyPreviewMarkup();const register=root.querySelector('[data-action="policy-register"]');if(register)register.disabled=!policyRows.length;policyRefreshAnalysis()}
+function policyRefreshPreview(){const convert=root.querySelector('[data-action="policy-parse"]');if(convert)convert.disabled=policyOcrRunning;policyFillMissingProvinces();const source=root.querySelector('#tm-policy-source');if(source)source.open=!policyRows.length;const target=root.querySelector('#tm-policy-preview');if(target)target.innerHTML=policyPreviewMarkup();const register=root.querySelector('[data-action="policy-register"]');if(register)register.disabled=!policyRows.length||(window.PolicySync?.enabled&&(!PolicySync.ready||PolicySync.saving));policyRefreshAnalysis()}
 let policyTimerStarted=0,policyTimerElapsed=0,policyTimerInterval=null,policyTimerPhase='';
 function policyTimerText(){return policyTimerPhase+' · '+((policyTimerInterval!==null?window.performance.now()-policyTimerStarted:policyTimerElapsed)/1000).toFixed(1)+'초'}
 function policyTimerMarkup(){return '<div id="tm-policy-timer" role="timer" aria-live="off" aria-label="정책표 변환 경과 시간" style="margin:12px 0;padding:10px 14px;border-radius:8px;background:#eef4ff;color:#174e90;font-variant-numeric:tabular-nums;font-weight:700;'+(policyTimerPhase?'':'display:none')+'">'+(policyTimerPhase?policyTimerText():'')+'</div>'}
@@ -2155,12 +2158,12 @@ root.addEventListener('paste',e=>{if(e.target.id!=='tm-policy-paste')return;cons
 root.addEventListener('change',e=>{if(e.target.id==='tm-policy-image'&&e.target.files?.[0])policyHandleImage(e.target.files[0]);});
 root.addEventListener('change',e=>{if(e.target.id==='tm-policy-scope-detail'){policyScopeDetail=e.target.value;policyRefreshScopeResult()}else if(e.target.id==='tm-policy-scope-city'){policyScopeCity=e.target.value;policyRefreshScopeResult()}});
 root.addEventListener('input',e=>{if(e.target.matches('[data-city-row]'))policyCityDrafts.set(Number(e.target.dataset.cityRow),e.target.value)});
-root.addEventListener('click',e=>{const button=e.target.closest('[data-action^="policy-"]');if(!button)return;const action=button.dataset.action;if(policyOcrRunning){toast('OCR 분석이 끝난 뒤 다시 시도해 주세요.');return}if(action==='policy-city-save-all'){policyApplyAllCityRows();}else if(action==='policy-city-save'){
+root.addEventListener('click',async e=>{const button=e.target.closest('[data-action^="policy-"]');if(!button)return;const action=button.dataset.action;if(window.PolicySync?.saving){toast('정책을 저장 중입니다. 잠시 기다려 주세요.');return}if(policyOcrRunning){toast('OCR 분석이 끝난 뒤 다시 시도해 주세요.');return}if(action==='policy-city-save-all'){policyApplyAllCityRows();}else if(action==='policy-city-save'){
  const index=Number(button.dataset.row);policyUpdateCityRow(index,root.querySelector('[data-city-row="'+index+'"]')?.value||'','직접 수정');
  }else if(action==='policy-city-suggest'){
  const index=Number(button.dataset.row),start=Number(button.dataset.start),end=Number(button.dataset.end),current=policyRows[index]?.[0];
  if(policyCityDrafts.has(index)&&policyCityDrafts.get(index)!==current){toast('입력한 지역명을 먼저 수정 적용해 주세요.');return}if(typeof current==='string'&&current.slice(start,end)===button.dataset.token&&policyCityData.some(c=>c.name===button.dataset.city))policyUpdateCityRow(index,current.slice(0,start)+button.dataset.city+current.slice(end),'후보 선택');
- }else if(action==='policy-analyze'){policyAnalyzeExisting();}else if(action==='policy-ocr'){policyRunOcr();}else if(action==='policy-parse'){policyConvertInput();}else if(action==='policy-clear'){policyTimerStop('');policyCancelAutoConvert();policyOcrTiming=policyOcrTotalTiming=0;policyIntakeTitle='';policyDetectedCodes=[];policyCodeTitles=[];policyCityDrafts.clear();policyCityOriginalRows=[];policyCityAudit=[];policyAnalysis=[];policyRows=[];policyImageData='';policyImageName='';policyRegistered=false;const input=root.querySelector('#tm-policy-paste');if(input)input.value='';const file=root.querySelector('#tm-policy-image');if(file)file.value='';policyRefreshPreview();}else if(action==='policy-register'){if(!policyRows.length){toast('먼저 정책표를 표로 변환해 주세요.');return}if([...root.querySelectorAll('[data-city-row]')].some(input=>!input.value.trim())){toast('지역명이 빈 행을 확인해 주세요.');return}for(const input of root.querySelectorAll('[data-city-row]')){const index=Number(input.dataset.cityRow),value=input.value.trim();if(policyRows[index]&&policyRows[index][0]!==value){policyCityAudit.push({row:index,from:policyRows[index][0],to:value,reason:'등록 시 직접 수정'});policyRows[index][0]=value}}policyCityDrafts.clear();policySyncCityText();if(!policyPublishRows())return;policyRegistered=true;policyRegisteredRows=policyCleanRows(policyRows);policyRegisteredKey=policyPublicationKind==='auto'?'':policyClientKey(policyPublicationCarrier,policyPublicationKind);policyRegisteredCode=policyRegisteredKey?policyKeyLabel(policyRegisteredKey):'일반 · 61세 이하 / 실버 · 62~70세 자동 분류';policyScopeSelected=0;policyScopeCity='';policyScopeDetail='';policyRefreshPreview();policyRefreshRegistered();toast('정책표를 저장했습니다. 직원용 접수 가능지역의 목록·지도에 반영되었습니다.');}});
+ }else if(action==='policy-analyze'){policyAnalyzeExisting();}else if(action==='policy-ocr'){policyRunOcr();}else if(action==='policy-parse'){policyConvertInput();}else if(action==='policy-clear'){policyTimerStop('');policyCancelAutoConvert();policyOcrTiming=policyOcrTotalTiming=0;policyIntakeTitle='';policyDetectedCodes=[];policyCodeTitles=[];policyCityDrafts.clear();policyCityOriginalRows=[];policyCityAudit=[];policyAnalysis=[];policyRows=[];policyImageData='';policyImageName='';policyRegistered=false;const input=root.querySelector('#tm-policy-paste');if(input)input.value='';const file=root.querySelector('#tm-policy-image');if(file)file.value='';policyRefreshPreview();}else if(action==='policy-register'){if(!policyRows.length){toast('먼저 정책표를 표로 변환해 주세요.');return}if([...root.querySelectorAll('[data-city-row]')].some(input=>!input.value.trim())){toast('지역명이 빈 행을 확인해 주세요.');return}for(const input of root.querySelectorAll('[data-city-row]')){const index=Number(input.dataset.cityRow),value=input.value.trim();if(policyRows[index]&&policyRows[index][0]!==value){policyCityAudit.push({row:index,from:policyRows[index][0],to:value,reason:'등록 시 직접 수정'});policyRows[index][0]=value}}policyCityDrafts.clear();policySyncCityText();if(!await policyPublishRows())return;policyRegistered=true;policyRegisteredRows=policyCleanRows(policyRows);policyRegisteredKey=policyPublicationKind==='auto'?'':policyClientKey(policyPublicationCarrier,policyPublicationKind);policyRegisteredCode=policyRegisteredKey?policyKeyLabel(policyRegisteredKey):'일반 · 61세 이하 / 실버 · 62~70세 자동 분류';policyScopeSelected=0;policyScopeCity='';policyScopeDetail='';policyRefreshPreview();policyRefreshRegistered();toast('정책표를 저장했습니다. 직원용 접수 가능지역의 목록·지도에 반영되었습니다.');}});
 root.addEventListener('input',e=>{if(['tm-region-search','tm-customer-age'].includes(e.target.id))filterRegions()});
 root.addEventListener('change',e=>{if(e.target.id==='tm-age')filterRegions();if(e.target.id==='tm-map-carrier'){mapCarrier=e.target.value;filterRegions();}});
 root.addEventListener('submit',e=>{e.preventDefault();if(e.target.id==='tm-staff-add-form'){if(!e.target.reportValidity())return;const f=new FormData(e.target);adminEmployees.push({name:String(f.get('name')).trim(),phone:String(f.get('phone')).trim(),team:String(f.get('team')),role:String(f.get('role')),startDate:String(f.get('startDate')),attendance:String(f.get('attendance')),normal:0,pending:0,as:0,monthly:0,grade:'60건 이하'});modal.close();page='adminStaff';render();toast('직원이 등록되었습니다. · 미리보기에서만 반영됩니다.');return}if(e.target.id==='tm-outing-form'){const f=new FormData(e.target);if(f.get('end')<=f.get('start')){toast('복귀 예정 시간은 외출 예정 시간 이후로 입력해 주세요.');return}outing='pending';root.dataset.outingKind=f.get('kind');modal.close();render();toast('외출 신청 체험 완료 · 관리자 승인 대기 상태입니다.')}else if(e.target.id==='tm-intake-form'){modal.close();toast('접수 입력 체험 완료 · 실제 접수·수량·실적에는 반영되지 않습니다.')}});
@@ -2260,7 +2263,7 @@ function policyReadPublications(value,codes=intakeCodes){
  return valid;
 }
 function policyPublicationControls(){
- return '<div class="row"><label>등록 거래처<select id="tm-policy-publication-client">'+policyClientOptions(policyPublicationClient)+'</select></label><label>등록 접수 코드<select id="tm-policy-publication-carrier">'+intakeCodeOptions(policyPublicationCarrier)+'</select></label><label>등록 상품<select id="tm-policy-publication-kind"><option value="">상품 선택</option><option value="auto" '+(policyPublicationKind==='auto'?'selected':'')+'>자동 분류 · 한화/신한 미구분은 모두 적용</option><option value="general" '+(policyPublicationKind==='general'?'selected':'')+'>일반 · 61세 이하</option><option value="silver" '+(policyPublicationKind==='silver'?'selected':'')+'>실버 · 62~70세</option></select></label></div><p class="sub">만 나이가 아닌 세는나이 기준입니다. 일반·실버는 지역명이 아닌 상품 구분이며, 두 상품이 있으면 각각 등록합니다. 자동 분류 시 한화·신한의 구분 없는 행은 일반·실버 모두에 적용하며, 구분이 적힌 행은 해당 상품에만 적용합니다. 일반 또는 실버를 직접 선택하면 선택한 상품에만 등록합니다. 등록하면 해당 거래처·접수 코드·상품의 이전 정책만 대체합니다. 이 브라우저에 저장되어 직원용 접수 가능지역 화면과 같은 브라우저의 다른 탭에 반영됩니다.</p>';
+ return policyServerStatusMarkup()+'<div class="row"><label>등록 거래처<select id="tm-policy-publication-client">'+policyClientOptions(policyPublicationClient)+'</select></label><label>등록 접수 코드<select id="tm-policy-publication-carrier">'+intakeCodeOptions(policyPublicationCarrier)+'</select></label><label>등록 상품<select id="tm-policy-publication-kind"><option value="">상품 선택</option><option value="auto" '+(policyPublicationKind==='auto'?'selected':'')+'>자동 분류 · 한화/신한 미구분은 모두 적용</option><option value="general" '+(policyPublicationKind==='general'?'selected':'')+'>일반 · 61세 이하</option><option value="silver" '+(policyPublicationKind==='silver'?'selected':'')+'>실버 · 62~70세</option></select></label></div><p class="sub">만 나이가 아닌 세는나이 기준입니다. 일반·실버는 지역명이 아닌 상품 구분이며, 두 상품이 있으면 각각 등록합니다. 자동 분류 시 한화·신한의 구분 없는 행은 일반·실버 모두에 적용하며, 구분이 적힌 행은 해당 상품에만 적용합니다. 일반 또는 실버를 직접 선택하면 선택한 상품에만 등록합니다. 등록하면 해당 거래처·접수 코드·상품의 이전 정책만 대체합니다. 정책표 등록 완료 후 서버 DB에 저장되며, 직원은 다른 PC에서도 접수 가능지역에서 확인할 수 있습니다.</p>';
 }
 function policyNationalCatalogRows(query=''){
  const q=query.replace(/\s/g,'');
@@ -2285,6 +2288,7 @@ function policyPublishRows(){
  if(!scopes.length){toast('등록할 지역 데이터가 없습니다.');return false}
  const errors=scopes.filter(s=>s.errors.length);
  if(errors.length){policyRefreshPreview();toast('적용 범위를 확인할 행이 '+errors.length+'개 있습니다. 분류 결과의 확인 내용을 수정한 뒤 등록해 주세요.');return false}
+ if(window.PolicySync?.enabled)return policyPublishServer(groups);
  let updated,nextCodes;
  try{
   nextCodes=IntakeCodeCatalog.read(localStorage.getItem(intakeCodeStorageKey));
@@ -2395,6 +2399,7 @@ function policyPublishedSearchMatch(index,q){
  return [place.province,PolicyRegionRules.provinceNames[place.province],place.name,...place.aliases,...paths.map(p=>p.join(''))].join('').replace(/\s/g,'').includes(q.replace(/\s/g,''));
 }
 window.addEventListener('storage',e=>{
+ if(window.PolicySync?.enabled)return;
  if(e.key!==policyStorageKey&&e.key!==intakeCodeStorageKey&&e.key!==policyClientStorageKey)return;
  try{
   intakeCodes=IntakeCodeCatalog.read(localStorage.getItem(intakeCodeStorageKey));
@@ -2407,10 +2412,62 @@ window.addEventListener('storage',e=>{
  }catch(error){toast('다른 탭의 변경 내용을 읽지 못했습니다. 새로고침 후 확인해 주세요.')}
 });
 try{
- policyPublications=policyReadPublications(localStorage.getItem(policyStorageKey));policyRebuildPublishedRegions();
+ if(!window.PolicySync?.enabled)policyPublications=policyReadPublications(localStorage.getItem(policyStorageKey));policyRebuildPublishedRegions();
  const latest=Object.values(policyPublications).sort((a,b)=>b.savedAt.localeCompare(a.savedAt))[0];
  if(latest){policyRegisteredRows=policyCleanRows(latest.rows);policyRegisteredKey=policyClientKey(latest.carrier,latest.kind,latest.client);policyViewClient=latest.client;policyRebuildPublishedRegions();policyRegisteredCode=policyKeyLabel(policyRegisteredKey);policyPublicationCarrier=latest.carrier;policyPublicationKind=latest.kind;}
 }catch(error){/* Keep the original screen when no valid saved policy is available. */}
+
+
+function policyServerStatusMarkup(){
+ if(!window.PolicySync?.enabled)return '';
+ const message=PolicySync.error||(!PolicySync.ready?'서버 정책을 불러오는 중입니다.':PolicySync.saving?'서버 DB에 저장 중입니다.':'서버 DB 정책 · 직원 페이지와 공유됩니다.');
+ return '<div class="sub" data-policy-server-status role="status">'+policyEscape(message)+' <button type="button" class="secondary" data-policy-server-refresh>최신 정책 불러오기</button></div>';
+}
+function policyServerApply(data){
+ const codes=IntakeCodeCatalog.read(JSON.stringify({version:1,codes:data.codes})),clients=policyReadClients(JSON.stringify({version:1,clients:data.clients}));
+ const publications=policyReadPublications(JSON.stringify({version:1,policies:data.policies}),codes);
+ intakeCodes=codes;policyClients=clients;policyPublications=publications;
+ if(!PolicySync.ready){
+  const latest=Object.values(publications).sort((a,b)=>b.savedAt.localeCompare(a.savedAt))[0];
+  if(latest){policyViewClient=latest.client;policyPublicationClient=latest.client;policyPublicationCarrier=latest.carrier;policyPublicationKind=latest.kind;policyRegisteredRows=policyCleanRows(latest.rows);policyRegisteredKey=policyClientKey(latest.carrier,latest.kind,latest.client);policyRegisteredCode=policyKeyLabel(policyRegisteredKey);}
+ }
+
+ regionCarrierSettings.splice(1,regionCarrierSettings.length-1,...intakeCodes.map(c=>({...c,visible:true,enabled:true})));
+ if(policyRegisteredKey)policyRegisteredCode=policyKeyLabel(policyRegisteredKey);
+ policyRebuildPublishedRegions();
+ if(!policyClients.some(c=>c.id===policyViewClient))policyViewClient='legacy';
+ // Keep the administrator's in-progress table; only refresh shared catalog choices.
+ for(const [selector,value,html] of [
+  ['#tm-policy-publication-client',policyPublicationClient,policyClientOptions(policyPublicationClient)],
+  ['#tm-region-client',policyViewClient,policyClientOptions(policyViewClient)],
+  ['#tm-policy-publication-carrier',policyPublicationCarrier,intakeCodeOptions(policyPublicationCarrier)]]){
+  const select=root.querySelector(selector);if(select){select.innerHTML=html;select.value=value;}
+ }
+}
+function policyServerNotify(){
+ for(const target of root.querySelectorAll('[data-policy-server-status]'))target.outerHTML=policyServerStatusMarkup();
+ const button=root.querySelector('[data-action="policy-register"]');if(button)button.disabled=!policyRows.length||!PolicySync.ready||PolicySync.saving;
+ if(page==='adminIntake')policyRefreshRegistered();
+ if(page==='regions'){
+  const search=root.querySelector('#tm-region-search')?.value,age=root.querySelector('#tm-customer-age')?.value,kind=root.querySelector('#tm-age')?.selectedIndex;
+  render();
+  if(search!==undefined&&root.querySelector('#tm-region-search'))root.querySelector('#tm-region-search').value=search;
+  if(age!==undefined&&root.querySelector('#tm-customer-age'))root.querySelector('#tm-customer-age').value=age;
+  if(kind!==undefined&&root.querySelector('#tm-age'))root.querySelector('#tm-age').selectedIndex=kind;
+  if(policyHasPublications())filterRegions();
+ }
+}
+async function policySaveClientServer(input){
+ try{const data=await PolicySync.save({action:'client',...input});return data.changedId;}catch(error){toast(error.message);return false;}
+}
+async function policySaveCodeServer(input){
+ try{await PolicySync.save({action:'code',...input});intakeCodeRefreshViews();return true;}catch(error){toast(error.message);return false;}
+}
+async function policyPublishServer(groups){
+ try{await PolicySync.save({action:'publish',client:policyPublicationClient,carrier:policyPublicationCarrier,groups});intakeCodeRefreshViews();return true;}catch(error){toast(error.message);return false;}
+}
+root.addEventListener('click',e=>{if(e.target.closest('[data-policy-server-refresh]'))PolicySync.load();});
+window.PolicySync?.init({apply:policyServerApply,notify:policyServerNotify,active:()=>page==='regions'||(page==='adminIntake'&&!policyRows.length&&!modal.open)});
 
 AdminWorkspace.init({root,employees:adminEmployees,dailyAward:(count,employee='staff-0',department)=>count?gradeCalculate(gradePolicyAt(gradeEntries,gradeToday(),department||gradeEmployeeDepartment(employee)),'daily',count).achievement:0,render,open,close:()=>modal.close(),toast});
 HRWorkspace.init({root,render,toast});

@@ -11,3 +11,7 @@
 <?php require __DIR__.'/boot.php'; ?>
 <script src="<?= view_h(asset_url('session-navigation.js')) ?>" defer></script>
 <?php if (!$preview): ?><script src="<?= view_h(asset_url('test-workspace.js')) ?>" defer></script><?php endif; ?>
+
+<?php if (is_array($user) && isset($user['role'], $_SESSION['csrf'])): ?>
+<script>window.CNCHOME_POLICY=<?= view_json(['role'=>$user['role'],'csrf'=>$_SESSION['csrf']]) ?>;</script>
+<?php endif; ?>

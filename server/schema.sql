@@ -104,3 +104,21 @@ CREATE TABLE IF NOT EXISTS sales_events (
  FOREIGN KEY (sale_id) REFERENCES sales_records(id),
  FOREIGN KEY (actor_id) REFERENCES app_users(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Shared intake policies, independent of browser/account local storage.
+CREATE TABLE IF NOT EXISTS intake_policy_state (
+ id TINYINT PRIMARY KEY,
+ revision BIGINT UNSIGNED NOT NULL DEFAULT 0,
+ state JSON NOT NULL,
+ updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+INSERT IGNORE INTO intake_policy_state(id,revision,state) VALUES(1,0,'{}');
+CREATE TABLE IF NOT EXISTS intake_policy_history (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+ revision BIGINT UNSIGNED NOT NULL UNIQUE,
+ actor_id BIGINT UNSIGNED NOT NULL,
+ action VARCHAR(20) NOT NULL,
+ payload JSON NOT NULL,
+ created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+ FOREIGN KEY (actor_id) REFERENCES app_users(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

@@ -52,7 +52,7 @@ app = app.replace(closing, `globalThis.integrationHooks = {
   policyStorageKey: policyStorageKey
 };\n${closing}`);
 
-function boot(saved = new Map()) {
+function boot(saved = new Map(), remote = null) {
   const storage = new Map(saved);
   const elements = new Map();
   const windowEvents = new Map();
@@ -70,7 +70,7 @@ function boot(saved = new Map()) {
   }
 
   const context = {
-    console, Date, Math, Map, Set, structuredClone, URL, URLSearchParams, TextEncoder, TextDecoder,
+    console, Date, Math, Map, Set, structuredClone, URL, URLSearchParams, TextEncoder, TextDecoder, AbortController,
     crypto: webcrypto, document: {getElementById: () => get('root'), createElement: tag => get('created-'+tag)},
     MutationObserver: class {observe() {}},
     location: {hash: ''},
@@ -87,9 +87,10 @@ function boot(saved = new Map()) {
     },
     requestAnimationFrame() {}, setTimeout, clearTimeout, setInterval() {}
   };
+  if(remote){context.CNCHOME_POLICY={role:remote.role||'admin',csrf:'test-token'};context.fetch=remote.fetch;}
   context.window = context;
   vm.createContext(context);
-  for (const file of ['korea-regions.js', 'intake-codes.js', 'region-rules.js', 'grade-numbers.js', 'grade-calendar.js', 'grade-calendar-preview.js', 'policy-dates.js', 'policy-input.js', 'admin-workspace.js', 'hr-workspace.js']) {
+  for (const file of ['korea-regions.js', 'intake-codes.js', 'region-rules.js', 'grade-numbers.js', 'grade-calendar.js', 'grade-calendar-preview.js', 'policy-dates.js', 'policy-input.js', 'policy-sync.js', 'admin-workspace.js', 'hr-workspace.js']) {
     vm.runInContext(fs.readFileSync(path.join(__dirname, file), 'utf8'), context, {filename: file});
   }
   vm.runInContext(app, context, {filename: 'office.js'});
@@ -300,4 +301,32 @@ test('unclassified Hanwha and Shinhan publication persists both products and sur
 test('Hanwha publication with no product selection applies both',()=>{
  const a=boot();a.api.parse('한화\n지역\t수량\n수도권\t4');assert.equal(a.api.publish('hanwha',''),true);
  for(const kind of ['general','silver'])assert.equal(a.api.result('hanwha','서울','서울특별시',kind).quantity,4);
+});
+
+test('employee policy page uses server rows and never renders local/example policies',async()=>{
+ const local=boot();local.api.parse('한화\n지역\t수량\n수도권\t99');local.api.publish('hanwha','auto');
+ let resolveGet;
+ const remote=boot(local.storage,{role:'employee',fetch:async()=>new Promise(resolve=>resolveGet=resolve)});
+ assert.match(remote.api.markup().map,/불러오는 중/);assert.doesNotMatch(remote.api.markup().map,/접수 정책표 · 예시|정책 등록일 표시 예시/);
+ resolveGet({ok:true,status:200,json:async()=>({revision:1,version:1,clients:[{id:'legacy',label:'메타버스'}],codes:[{id:'hanwha',label:'한화',aliases:[]}],policies:{'hanwha:general':{client:'legacy',carrier:'hanwha',kind:'general',rows:[['지역','수량'],['수도권','4']],savedAt:'2026-09-28T06:00:00Z'}}})});
+ await new Promise(r=>setImmediate(r));
+ assert.equal(remote.api.result('hanwha','서울','서울특별시').quantity,4);
+ const html=remote.api.markup().map;assert.match(html,/접수 정책표/);assert.doesNotMatch(html,/접수 정책표 · 예시|정책 등록일 표시 예시|실제 접수 기준이 아닙니다/);
+});
+test('empty server policy store has no sample fallback',async()=>{
+ const a=boot(new Map(),{role:'employee',fetch:async()=>({ok:true,status:200,json:async()=>({revision:0,version:1,clients:[{id:'legacy',label:'메타버스'}],codes:[],policies:{}})})});
+ await new Promise(r=>setImmediate(r));assert.match(a.api.markup().map,/아직 서버에 등록된 정책이 없습니다/);assert.doesNotMatch(a.api.markup().map,/예시/);
+});
+test('live registration uses POST and reports failure without local success',async()=>{
+ let fail=true,posted;
+ const state={revision:0,version:1,clients:[{id:'legacy',label:'메타버스'}],codes:[{id:'hanwha',label:'한화',aliases:[]}],policies:{}};
+ const a=boot(new Map(),{fetch:async(url,options)=>{
+  if(options.method==='POST'){posted=JSON.parse(options.body);if(fail)return {ok:false,status:503,json:async()=>({error:'DB unavailable'})};state.revision++;for(const [kind,rows] of Object.entries(posted.groups))state.policies['hanwha:'+kind]={client:'legacy',carrier:'hanwha',kind,rows,savedAt:'2026-09-28T06:00:00Z'};}
+  return {ok:true,status:200,json:async()=>JSON.parse(JSON.stringify(state))};
+ }});
+ await new Promise(r=>setImmediate(r));a.api.parse('한화\n지역\t수량\n수도권\t4');
+ assert.equal(await a.api.publish('hanwha','auto'),false);assert.deepEqual(plain(a.api.snapshot().policies),{});
+ fail=false;assert.equal(await a.api.publish('hanwha','auto'),true);assert.equal(posted.action,'publish');assert.equal(posted.revision,0);
+ for(const kind of ['general','silver'])assert.equal(a.api.result('hanwha','서울','서울특별시',kind).quantity,4);
+ assert.equal(a.storage.has(a.api.policyStorageKey),false);
 });

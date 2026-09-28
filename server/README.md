@@ -1,6 +1,6 @@
 # Cafe24 PHP application
 
-Ubuntu 24.04, PHP 8.3 FPM, MySQL 8, Nginx HTTPS. PHP controllers and templates serve every application entry point. Employee/admin navigation is rendered according to the authenticated role before first paint. Login, grade/history, employee profiles and published payroll retain their existing DB APIs. Intake policies retain browser-local storage. Reception statuses now use the sales API; other prototype workflows retain their existing storage behavior. See [PHP migration and offline deployment](../docs/PHP_MIGRATION.md). Legacy HTML URLs redirect to PHP; `/preview.php?role=admin` and `/payroll.php?role=admin` require an administrator session.
+Ubuntu 24.04, PHP 8.3 FPM, MySQL 8, Nginx HTTPS. PHP controllers and templates serve every application entry point. Employee/admin navigation is rendered according to the authenticated role before first paint. Login, grade/history, employee profiles and published payroll retain their existing DB APIs. Intake policies, clients and intake codes are shared through the authenticated intake-policy API and MySQL. Reception statuses now use the sales API; other prototype workflows retain their existing storage behavior. See [PHP migration and offline deployment](../docs/PHP_MIGRATION.md). Legacy HTML URLs redirect to PHP; `/preview.php?role=admin` and `/payroll.php?role=admin` require an administrator session.
 
 ## Deploy
 
@@ -34,7 +34,7 @@ Old browser-only criteria are **not** silently imported. Review and explicitly s
 
 `sales-api.php`와 `sales_records`가 접수 및 현재 상태를 저장하고 `sales_events`가 변경 이력을 보존합니다. 관리자는 전체, 직원은 본인 내역만 조회·변경할 수 있습니다. CSRF, 역할별 세션, 변경 버전, 중복 요청 키를 검사합니다. 관리자 업무현황의 보험·화장품 달력과 직원 실적/A/S 화면은 최초 접수일에 가접수·정상접수·A/S를 각각 집계하며, 열린 화면은 5초 간격으로 갱신합니다. 기존 `test_employee_data`는 테스트 자료 보기로 분리하며 실제 실적에 합산하지 않습니다. 급여 자동 산정에 새 실적을 연결하지는 않습니다.
 
-보험은 접수일의 연도−출생연도+1인 세는나이를 적용합니다. 일반은 61세 이하, 실버는 62~70세이고 71세 이상은 등록되지 않습니다. 정책 텍스트·이미지는 변환 버튼으로 처리합니다. 일반/실버 제목·상품 열은 지역명과 분리하고, 혼합표는 두 상품의 정책으로 저장합니다. `수도권 4`는 서울·인천·경기 묶음의 공유 수량 4건, `광주주전남 1`은 광주·전남 묶음의 공유 수량 1건입니다. 정책표 자체는 기존 브라우저 저장 방식을 유지합니다.
+보험은 접수일의 연도−출생연도+1인 세는나이를 적용합니다. 일반은 61세 이하, 실버는 62~70세이고 71세 이상은 등록되지 않습니다. 정책 텍스트·이미지는 변환 버튼으로 처리합니다. 일반/실버 제목·상품 열은 지역명과 분리하고, 혼합표는 두 상품의 정책으로 저장합니다. `수도권 4`는 서울·인천·경기 묶음의 공유 수량 4건, `광주주전남 1`은 광주·전남 묶음의 공유 수량 1건입니다. 정책표·거래처·접수 코드는 서버 MySQL에 저장되며 직원 페이지에서도 조회합니다.
 
 검증: `php server/bin/check-sales.php`는 운영 DB에 접속하지 않는 SQLite 검증입니다. `node --test policy-input.test.cjs sales-workspace.test.cjs intake-code.integration.test.cjs` 및 `node scripts/check-php-browser.cjs`에서 정책 분류, 연령 경계, 수동 변환, 접수 상태 전환과 달력 자동 갱신을 확인합니다.
 
@@ -65,3 +65,16 @@ Local tracked edits stop automatic deployment rather than being discarded. A fai
 - 배포 시 요청된 `user1` 직원 테스트 계정을 최초 1회 생성합니다. 이미 있으면 비밀번호와 기존 정보를 유지합니다. 실제 데이터는 자동 생성하지 않습니다.
 - 주소 검색은 Kakao 우편번호 공식 스크립트를 사용합니다. 외부 연결 실패 시 직접 입력할 수 있습니다.
 - 로컬 검증: `php server/bin/check-hr.php` (PDO SQLite 필요), `NODE_PATH=... node scripts/check-hr-dom.cjs` (jsdom 필요).
+
+
+## 접수 정책 DB 공유 · 2026-09-28
+
+- 관리자 ‘정책표 등록’은 `/intake-policy-api.php`로 저장합니다. DB 성공 응답 후에만 등록 완료를 표시합니다.
+- `intake_policy_state`는 거래처·접수 코드·상품별 최신 정책을, `intake_policy_history`는 등록자·변경 버전·저장 내용을 기록합니다.
+- 직원 로그인 후 ‘접수 가능지역’은 서버 정책만 표시합니다. 정책 예시와 브라우저의 과거 정책은 실제 접수 기준으로 표시하지 않습니다.
+- 직원 화면은 15초마다, 창으로 돌아왔을 때, ‘최신 정책 불러오기’를 눌렀을 때 서버를 조회합니다.
+- 미리보기 주소의 정책 등록도 관리자 세션으로 같은 DB에 저장합니다. 다른 예시 업무 기능까지 운영 기능으로 전환한 것은 아닙니다.
+- 관리자만 POST 가능하며 역할별 세션·CSRF·변경 버전 검사를 적용합니다. 충돌 시 작성 중인 표는 남기고 최신 버전을 조회해 재등록하도록 안내합니다.
+- 기존 브라우저 정책은 자동 업로드하지 않습니다. 관리자에서 거래처·접수 코드를 서버에 등록한 뒤 정책표를 다시 등록해야 합니다.
+- 기존 deploy.sh/install-bundle.sh의 migrate.php 실행으로 테이블이 추가됩니다. 기존 직원·급여 테이블과 자료는 변경하지 않습니다.
+- 검증: `php server/bin/check-intake-policy.php` (SQLite 격리 DB), `node --test policy-sync.test.cjs policy-input.test.cjs intake-code.integration.test.cjs session-isolation.test.cjs`.
