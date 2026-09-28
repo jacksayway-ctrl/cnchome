@@ -38,7 +38,8 @@ function sales_mutate(array $user,array $in): void {
             hr_assert($consultationTime===''||(bool)preg_match('/^(?:[01]\d|2[0-3]):[0-5]\d$/D',$consultationTime),'상담 시간을 확인해 주세요.');
             hr_assert(mb_strlen($consultationPlace)<=500,'상담 장소는 500자 이내로 입력해 주세요.');
             hr_assert(in_array($premiumBand,['','100000','200000','300000'],true),'현재 납부 보험료를 선택해 주세요.');
-            hr_assert($name!==''&&mb_strlen($name)<=100,'고객명을 확인해 주세요.');hr_assert((bool)preg_match('/^[0-9-]{9,15}$/D',$phone),'전화번호를 확인해 주세요.');hr_assert($address!==''&&mb_strlen($address)<=500&&mb_strlen($carrier)<=100&&mb_strlen($note)<=1000,'주소·접수 코드·메모 길이를 확인해 주세요.');
+            hr_assert($name!==''&&mb_strlen($name)<=100,'고객명을 확인해 주세요.');hr_assert((bool)preg_match('/^[0-9-]{9,15}$/D',$phone),'전화번호를 확인해 주세요.');
+            hr_assert(mb_strlen($address)<=500,'주소는 500자 이내로 입력해 주세요.');hr_assert(mb_strlen($carrier)<=100&&mb_strlen($note)<=1000,'접수 코드·메모 길이를 확인해 주세요.');
             $birth=filter_var($in['birthYear']??null,FILTER_VALIDATE_INT);hr_assert($birth!==false&&$birth>=1900&&$birth<=(int)substr($date,0,4),'출생연도를 확인해 주세요.');
             $kind=$employee['department']==='insurance'?sales_kind($birth,$date):'';
             $key=(string)($in['requestKey']??'');hr_assert((bool)preg_match('/^[a-f0-9-]{36}$/D',$key),'접수 화면을 다시 열어 주세요.');

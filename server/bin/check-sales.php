@@ -39,6 +39,7 @@ check((int)$d->query('SELECT count(*) FROM sales_events')->fetchColumn()===5,'pe
 $invalid=$create;$invalid['requestKey']='cccccccc-cccc-cccc-cccc-cccccccccccc';
 foreach(['24:00','12:60','09:15:30','9:15'] as $value)rejects(fn()=>sales_mutate($one,array_replace($invalid,['consultationTime'=>$value])),'invalid consultation time');
 rejects(fn()=>sales_mutate($one,array_replace($invalid,['consultationPlace'=>str_repeat('가',501)])),'consultation place length');
+rejects(fn()=>sales_mutate($one,array_replace($invalid,['address'=>str_repeat('가',501)])),'legacy address length');
 foreach(['50000','400000','twenty'] as $value)rejects(fn()=>sales_mutate($one,array_replace($invalid,['premiumBand'=>$value])),'invalid premium band');
 check((int)$d->query('SELECT count(*) FROM sales_records')->fetchColumn()===2,'invalid consultation fields cannot create a sale');
 foreach(['100000','200000','300000'] as $index=>$band){$input=array_replace($create,['premiumBand'=>$band,'requestKey'=>sprintf('%08d-cccc-cccc-cccc-cccccccccccc',$index+1)]);sales_mutate($one,$input);$saved=array_values(array_filter(sales_snapshot($one,$month)['records'],fn($sale)=>$sale['premiumBand']===$band));check(count($saved)>0,'premium option round-trip '.$band);}
@@ -46,4 +47,10 @@ $legacy=$create;unset($legacy['consultationTime'],$legacy['consultationPlace'],$
 $d->exec('DELETE FROM sales_consultation_details WHERE sale_id='.$legacyId);
 $legacyRow=array_values(array_filter(sales_snapshot($one,$month)['records'],fn($sale)=>(int)$sale['id']===$legacyId))[0];
 check($legacyRow['consultationTime']===''&&$legacyRow['consultationPlace']===''&&$legacyRow['premiumBand']==='','pre-migration records remain readable with empty consultation fields');
-echo "PASS: sales ownership, role isolation, age boundaries, duplicate prevention, stale changes, both departments, test separation, status history and consultation persistence/validation.\n";
+check($legacyRow['address']==='검증용 주소','existing addresses remain readable');
+$withoutAddress=array_replace($create,['requestKey'=>'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee','consultationPlace'=>'경기도 수원시 영통구 상담 카페']);unset($withoutAddress['address']);
+sales_mutate($one,$withoutAddress);$withoutAddressId=(int)$d->query("SELECT id FROM sales_records WHERE request_key='eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee'")->fetchColumn();
+$withoutAddressRow=array_values(array_filter(sales_snapshot($one,$month)['records'],fn($sale)=>(int)$sale['id']===$withoutAddressId))[0];
+check($withoutAddressRow['address']===''&&$withoutAddressRow['consultationPlace']==='경기도 수원시 영통구 상담 카페','intake without address preserves selected consultation place');
+check($d->query('SELECT address FROM sales_records WHERE id='.$withoutAddressId)->fetchColumn()==='','omitted address is stored as an empty string');
+echo "PASS: sales ownership, role isolation, age boundaries, duplicate prevention, stale changes, both departments, test separation, status history, optional address compatibility and consultation persistence/validation.\n";

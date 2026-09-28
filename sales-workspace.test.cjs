@@ -26,13 +26,13 @@ test('employee and admin intake forms submit and display consultation fields',as
   const api=context.SalesWorkspace;
   api.init({root:{addEventListener(type,fn){if(!events.has(type))events.set(type,[]);events.get(type).push(fn);},querySelector:()=>null,querySelectorAll:()=>[]},open(title,html){formHtml=html;},close(){closed++;},toast(){},render(){}});
   await new Promise(setImmediate);assert.equal(api.intake(),true);
-  assert.match(formHtml,/name="consultationTime" type="time"/);assert.match(formHtml,/name="consultationPlace" maxlength="500"/);
+  assert.doesNotMatch(formHtml,/name="address"/);assert.match(formHtml,/role="combobox"/);assert.match(formHtml,/name="consultationTime" type="time"/);assert.match(formHtml,/name="consultationPlace" maxlength="500"/);
   for(const [value,label] of [['100000','10만 원 이상'],['200000','20만 원 이상'],['300000','30만 원 이상']])assert.ok(formHtml.includes('<option value="'+value+'">'+label+'</option>'));
   const date=formHtml.match(/name="date"[^>]*value="([^"]+)"/)[1];
-  const form={dataset:{requestKey:'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'},reportValidity:()=>true,values:{employeeId:'2',date,customer:'검증 고객',phone:'010-0000-0000',address:'검증 주소',carrier:'GA',birthYear:'1980',consultationTime:'14:30',consultationPlace:'직장 <상담실>',premiumBand:'200000',note:'메모'}};
+  const form={dataset:{requestKey:'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'},reportValidity:()=>true,values:{employeeId:'2',date,customer:'검증 고객',phone:'010-0000-0000',carrier:'GA',birthYear:'1980',consultationTime:'14:30',consultationPlace:'직장 <상담실>',premiumBand:'200000',note:'메모'}};
   for(const handler of events.get('submit'))handler({target:{closest:()=>form},preventDefault(){}});
   await new Promise(setImmediate);
-  assert.equal(posts.length,1);assert.equal(posts[0].consultationTime,'14:30');assert.equal(posts[0].consultationPlace,'직장 <상담실>');assert.equal(posts[0].premiumBand,'200000');assert.equal(closed,1);
+  assert.equal(posts.length,1);assert.equal(Object.hasOwn(posts[0],'address'),false);assert.equal(posts[0].consultationTime,'14:30');assert.equal(posts[0].consultationPlace,'직장 <상담실>');assert.equal(posts[0].premiumBand,'200000');assert.equal(closed,1);
   const html=api.render(page);assert.match(html,/14:30/);assert.match(html,/직장 &lt;상담실&gt;/);assert.match(html,/20만 원 이상/);assert.doesNotMatch(html,/<상담실>/);
  }
 });

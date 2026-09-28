@@ -510,3 +510,11 @@ body.policy-window #tm-preview{max-width:none}
 #tm-preview .sales-intake-details th{white-space:nowrap}
 #tm-preview .sales-intake-details td{overflow-wrap:anywhere}
 #tm-preview .sales-intake-details td:nth-child(5),#tm-preview .sales-intake-details td:nth-child(7){white-space:nowrap}
+#tm-preview .sales-place-field{display:grid;gap:6px;min-width:0}
+#tm-preview .sales-place-control{position:relative;min-width:0}
+#tm-preview .sales-place-control input{width:100%}
+#tm-preview .sales-place-options{position:absolute;z-index:5;top:calc(100% + 3px);left:0;right:0;max-height:220px;overflow-y:auto;overscroll-behavior:contain;background:#fff;border:1px solid #9ab9e2;border-radius:8px;box-shadow:0 8px 20px #19355226}
+#tm-preview .sales-place-options[hidden]{display:none}
+#tm-preview .sales-place-options button{display:block;width:100%;padding:10px 12px;border:0;border-bottom:1px solid #edf1f7;background:#fff;text-align:left;color:#243449;line-height:1.5;white-space:normal}
+#tm-preview .sales-place-options button:hover,#tm-preview .sales-place-options button[aria-selected=true]{background:#eaf3ff;color:#164f99}
+#tm-preview .sales-place-field small{color:#64748b;font-size:12px;line-height:1.5}
