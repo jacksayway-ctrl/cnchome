@@ -96,10 +96,7 @@ const root=path.resolve(__dirname,'..');
     assert.match(await page.locator('#tm-region-policy-date').innerText(),/2026\.09\.25 정책표.*1일 전 등록.*등록일 확인 필요 1건/s);
     assert.match(await page.locator('.policy-table-heading .policy-date-badge').first().innerText(),/등록일 확인 필요/);
     assert.equal(await page.locator('#tm-region-policy-date .today').count(),0);
-    await page.locator('#tm-customer-age').fill('61');assert.equal(await page.locator('#tm-age').evaluate(el=>el.selectedIndex),0);
-    await page.locator('#tm-customer-age').fill('62');assert.equal(await page.locator('#tm-age').evaluate(el=>el.selectedIndex),1);
-    await page.locator('#tm-customer-age').fill('70');assert.equal(await page.locator('#tm-region-map').isVisible(),true);
-    await page.locator('#tm-customer-age').fill('71');assert.equal(await page.locator('#tm-region-map').isVisible(),false);assert.match(await page.locator('#tm-region-results').innerText(),/가능한 보험 상품이 없습니다/);
+    assert.equal(await page.locator('#tm-region-client,#tm-region-search,#tm-age,#tm-customer-age').count(),0);
     await page.setViewportSize({width:390,height:844});await page.reload();assert.equal(await page.locator('aside [data-page]').count(),8);await page.screenshot({path:path.join(root,'.build/employee-mobile.png')});
    }
   }

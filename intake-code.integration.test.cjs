@@ -273,7 +273,7 @@ test('same code policies remain independent across clients and survive reload an
  assert.equal(a.api.clientResult(second,'hanwha','경기','구리시').quantity,2);
  assert.deepEqual(plain(a.api.selectedKeys()),['hanwha:'+second+':general']);
  assert.equal(a.api.publishWithoutClient(),false);
- const ui=a.api.markup();assert.ok(ui.admin.includes('거래처 관리'));assert.ok(ui.admin.includes('tm-policy-publication-client'));assert.ok(ui.map.includes('tm-region-client'));
+ const ui=a.api.markup();assert.ok(ui.admin.includes('거래처 관리'));assert.ok(ui.admin.includes('tm-policy-publication-client'));assert.ok(!ui.map.includes('tm-region-client'));
  assert.equal(a.api.addClient({id:first,label:'거래처 A 수정'}),first);
  const b=boot(a.storage);
  assert.equal(b.api.clientResult(first,'hanwha','경기','용인시').quantity,5);
