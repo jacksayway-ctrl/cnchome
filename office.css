@@ -518,3 +518,12 @@ body.policy-window #tm-preview{max-width:none}
 #tm-preview .sales-place-options button{display:block;width:100%;padding:10px 12px;border:0;border-bottom:1px solid #edf1f7;background:#fff;text-align:left;color:#243449;line-height:1.5;white-space:normal}
 #tm-preview .sales-place-options button:hover,#tm-preview .sales-place-options button[aria-selected=true]{background:#eaf3ff;color:#164f99}
 #tm-preview .sales-place-field small{color:#64748b;font-size:12px;line-height:1.5}
+
+#tm-preview .sales-birth-fields{display:grid;grid-template-columns:minmax(0,2.5fr) minmax(65px,1fr) minmax(70px,1fr);gap:10px;align-items:end}
+#tm-preview .sales-birth-fields fieldset{border:0;padding:0;margin:0;min-width:0}#tm-preview .sales-birth-fields legend{font-size:13px;margin-bottom:5px}
+#tm-preview .sales-birth-inputs{display:grid;grid-template-columns:1.6fr 1fr 1fr;gap:6px}#tm-preview .sales-birth-fields input{width:100%;min-width:0;padding:9px 6px;text-align:center}#tm-preview .sales-birth-fields input[readonly]{background:#edf4ff;color:#174d94;font-weight:700}
+#tm-preview .sales-intake-eligibility{padding:12px;border:1px solid #d8e1ed;border-radius:8px;background:#f6f8fb;font-size:13px}#tm-preview .sales-intake-eligibility p{margin:7px 0 0;line-height:1.5;overflow-wrap:anywhere}
+#tm-preview .sales-intake-options{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}#tm-preview .sales-intake-options span{padding:5px 8px;border-radius:5px;background:#fff;border:1px solid #d8e1ed}
+#tm-preview [data-intake-eligibility][data-state=possible]{border-color:#9ed1b7;background:#eff9f3}#tm-preview [data-intake-eligibility][data-state=blocked]{border-color:#f0b3b3;background:#fff1f1}
+#tm-preview .sales-intake-options [data-state=possible]{color:#17643a}#tm-preview .sales-intake-options [data-state=blocked]{color:#a42b2b}#tm-preview .sales-intake-options [data-state=partial],#tm-preview .sales-intake-options [data-state=review]{color:#875211}
+@media(max-width:480px){#tm-preview .sales-birth-fields{grid-template-columns:1fr 1fr}#tm-preview .sales-birth-fields fieldset{grid-column:1/-1}}

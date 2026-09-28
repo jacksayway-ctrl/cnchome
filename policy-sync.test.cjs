@@ -39,3 +39,12 @@ test('readback performs an independent server read and propagates DB failure',as
  await sync.load();const saved=await sync.readback();assert.equal(reads,2);assert.equal(saved.revision,2);
  failed=true;await assert.rejects(()=>sync.readback(),/readback unavailable/);
 });
+test('intake subscribers receive current policy snapshots and connection errors and can unsubscribe',async()=>{
+ let revision=1,failed=false,notifications=0;
+ const sync=boot('employee',async()=>failed?response({error:'offline'},503):response(sample(revision)));
+ const unsubscribe=sync.subscribe(()=>notifications++);assert.equal(sync.snapshot,null);
+ await sync.load();assert.equal(sync.snapshot.revision,1);assert.equal(notifications,1);
+ failed=true;await sync.load();assert.equal(sync.error,'offline');assert.equal(notifications,2);
+ failed=false;revision=2;await sync.load();assert.equal(sync.snapshot.revision,2);assert.equal(notifications,3);
+ unsubscribe();revision=3;await sync.load();assert.equal(notifications,3);
+});

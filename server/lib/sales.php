@@ -12,12 +12,12 @@ function sales_test_user(array $user): bool {return ($user['username']??'')==='u
 function sales_snapshot(array $user,string $month): array {
     hr_assert(sales_month($month),'조회할 월을 확인해 주세요.');
     $admin=$user['role']==='admin';$d=db();
-    $q=$d->prepare('SELECT s.*,u.display_name AS employee_name,c.consultation_time,c.consultation_place,c.premium_band FROM sales_records s JOIN app_users u ON u.id=s.employee_id LEFT JOIN sales_consultation_details c ON c.sale_id=s.id WHERE s.first_date>=? AND s.first_date<?'.($admin?'':' AND s.employee_id=?').' ORDER BY s.first_date,s.id');
+    $q=$d->prepare('SELECT s.*,u.display_name AS employee_name,c.consultation_time,c.consultation_place,c.premium_band,b.birth_date FROM sales_records s JOIN app_users u ON u.id=s.employee_id LEFT JOIN sales_consultation_details c ON c.sale_id=s.id LEFT JOIN sales_birth_details b ON b.sale_id=s.id WHERE s.first_date>=? AND s.first_date<?'.($admin?'':' AND s.employee_id=?').' ORDER BY s.first_date,s.id');
     // Include the adjoining days so a selectable seven-day week is complete at month boundaries.
     $start=(new DateTimeImmutable($month.'-01'))->modify('-6 days')->format('Y-m-d');
     $next=(new DateTimeImmutable($month.'-01'))->modify('+1 month')->modify('+6 days')->format('Y-m-d');
     $q->execute($admin?[$start,$next]:[$start,$next,$user['id']]);$records=[];
-    foreach($q->fetchAll() as $r)$records[]=['id'=>(string)$r['id'],'date'=>$r['first_date'],'employeeId'=>(int)$r['employee_id'],'employee'=>$r['employee_name'],'team'=>$r['department'],'customer'=>$r['customer_name'],'carrier'=>$r['carrier'],'kind'=>$r['insurance_kind'],'status'=>$r['status'],'revision'=>(int)$r['revision'],'isTest'=>(bool)$r['is_test'],'phone'=>$r['phone'],'address'=>$r['address'],'birthYear'=>(int)$r['birth_year'],'note'=>$r['note'],'consultationTime'=>$r['consultation_time']??'','consultationPlace'=>$r['consultation_place']??'','premiumBand'=>$r['premium_band']??''];
+    foreach($q->fetchAll() as $r)$records[]=['id'=>(string)$r['id'],'date'=>$r['first_date'],'employeeId'=>(int)$r['employee_id'],'employee'=>$r['employee_name'],'team'=>$r['department'],'customer'=>$r['customer_name'],'carrier'=>$r['carrier'],'kind'=>$r['insurance_kind'],'status'=>$r['status'],'revision'=>(int)$r['revision'],'isTest'=>(bool)$r['is_test'],'phone'=>$r['phone'],'address'=>$r['address'],'birthYear'=>(int)$r['birth_year'],'birthDate'=>$r['birth_date']??'','note'=>$r['note'],'consultationTime'=>$r['consultation_time']??'','consultationPlace'=>$r['consultation_place']??'','premiumBand'=>$r['premium_band']??''];
     // Keep existing test-account changes visible as explicitly marked test records.
     $q=$d->prepare('SELECT t.state,t.revision,u.id,u.display_name,u.department FROM test_employee_data t JOIN app_users u ON u.id=t.user_id'.($admin?'':' WHERE u.id=?'));
     $q->execute($admin?[]:[$user['id']]);
@@ -41,6 +41,12 @@ function sales_mutate(array $user,array $in): void {
             hr_assert($name!==''&&mb_strlen($name)<=100,'고객명을 확인해 주세요.');hr_assert((bool)preg_match('/^[0-9-]{9,15}$/D',$phone),'전화번호를 확인해 주세요.');
             hr_assert(mb_strlen($address)<=500,'주소는 500자 이내로 입력해 주세요.');hr_assert(mb_strlen($carrier)<=100&&mb_strlen($note)<=1000,'접수 코드·메모 길이를 확인해 주세요.');
             $birth=filter_var($in['birthYear']??null,FILTER_VALIDATE_INT);hr_assert($birth!==false&&$birth>=1900&&$birth<=(int)substr($date,0,4),'출생연도를 확인해 주세요.');
+            $birthDate='';$birthMonth=$in['birthMonth']??'';$birthDay=$in['birthDay']??'';
+            if($birthMonth!==''||$birthDay!==''){
+                hr_assert((is_string($birthMonth)||is_int($birthMonth))&&(is_string($birthDay)||is_int($birthDay)),'생년월일을 확인해 주세요.');
+                hr_assert((bool)preg_match('/^\d{1,2}$/D',(string)$birthMonth)&&(bool)preg_match('/^\d{1,2}$/D',(string)$birthDay)&&checkdate((int)$birthMonth,(int)$birthDay,$birth),'올바른 생년월일을 입력해 주세요.');
+                $birthDate=sprintf('%04d-%02d-%02d',$birth,(int)$birthMonth,(int)$birthDay);hr_assert($birthDate<=$date,'생년월일은 접수일 이후일 수 없습니다.');
+            }
             $kind=$employee['department']==='insurance'?sales_kind($birth,$date):'';
             $key=(string)($in['requestKey']??'');hr_assert((bool)preg_match('/^[a-f0-9-]{36}$/D',$key),'접수 화면을 다시 열어 주세요.');
             $q=$d->prepare('SELECT employee_id FROM sales_records WHERE request_key=?');$q->execute([$key]);$existing=$q->fetch();
@@ -49,6 +55,7 @@ function sales_mutate(array $user,array $in): void {
             $q->execute([$owner,$employee['department'],$date,$name,$phone,$address,$carrier,$kind,$birth,$note,sales_test_user($employee)?1:0,$key]);
             $id=(int)$d->lastInsertId();
             $q=$d->prepare('INSERT INTO sales_consultation_details(sale_id,consultation_time,consultation_place,premium_band) VALUES(?,?,?,?)');$q->execute([$id,$consultationTime,$consultationPlace,$premiumBand]);
+            if($birthDate!==''){$q=$d->prepare('INSERT INTO sales_birth_details(sale_id,birth_date) VALUES(?,?)');$q->execute([$id,$birthDate]);}
             $q=$d->prepare('INSERT INTO sales_events(sale_id,actor_id,old_status,new_status) VALUES(?,?,?,?)');$q->execute([$id,$user['id'],'','pending']);
         }elseif($action==='status'){
             $status=$in['status']??'';hr_assert(in_array($status,['pending','normal','as'],true),'접수 상태를 확인해 주세요.');$id=(string)($in['id']??'');

@@ -146,3 +146,10 @@ CREATE TABLE IF NOT EXISTS intake_policy_history (
  created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
  FOREIGN KEY (actor_id) REFERENCES app_users(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Full birth dates for new intakes; legacy birth-year-only rows stay readable.
+CREATE TABLE IF NOT EXISTS sales_birth_details (
+ sale_id BIGINT UNSIGNED PRIMARY KEY,
+ birth_date DATE NOT NULL,
+ FOREIGN KEY (sale_id) REFERENCES sales_records(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
