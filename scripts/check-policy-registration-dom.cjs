@@ -10,10 +10,12 @@ for(const el of w.document.querySelectorAll('script:not([src])'))w.eval(el.textC
 for(const file of ['korea-regions.js','intake-codes.js','region-rules.js','grade-numbers.js','grade-calendar.js','grade-calendar-preview.js','policy-dates.js','policy-input.js','policy-sync.js','admin-workspace.js','hr-workspace.js','office.js'])w.eval(fs.readFileSync(path.join(root,file),'utf8'));
 const delay=()=>new Promise(r=>setTimeout(r,50));
 (async()=>{await delay();console.log('READY',w.PolicySync.ready,'ERR',w.PolicySync.error);
-const d=w.document;d.querySelector('#tm-policy-paste').value='한화\n지역\t수량\n수도권\t4\n부산\t2';d.querySelector('[data-action="policy-parse"]').click();await delay();d.querySelector('#tm-policy-publication-client').value='legacy';d.querySelector('#tm-policy-publication-client').dispatchEvent(new w.Event('change',{bubbles:true}));
+const d=w.document;d.querySelector('#tm-policy-paste').value='한화\n지역\t수량\n경상남도전체\t4\n부산\t2';d.querySelector('[data-action="policy-parse"]').click();await delay();d.querySelector('#tm-policy-publication-client').value='legacy';d.querySelector('#tm-policy-publication-client').dispatchEvent(new w.Event('change',{bubbles:true}));
 const btn=d.querySelector('[data-action="policy-register"]');
-const bulk=d.querySelector('[data-action="policy-city-save-all"]');assert.equal(btn.nextElementSibling,bulk);assert.equal(bulk.disabled,false);
+assert.match(d.querySelector('#tm-policy-edit-feedback').textContent,/경상남도 전체 시·군에 적용/);assert.doesNotMatch(d.querySelector('#tm-policy-edit-feedback').textContent,/경상남도전체 · 전국 시·군·구 기준에 없음/);
+const bulk=d.querySelector('[data-action="policy-city-save-all"]');assert.equal(btn.nextElementSibling,bulk);assert.equal(bulk.nextElementSibling.id,'tm-policy-check-count');assert.equal(bulk.nextElementSibling.textContent,'체크할 항목 : 0건');assert.equal(bulk.disabled,false);
 const edit=(row,value)=>{const el=d.querySelector('[data-city-row="'+row+'"]');el.value=value;el.dispatchEvent(new w.Event('input',{bubbles:true}));};
+edit(1,'없는지역명');bulk.click();await delay();assert.equal(d.querySelector('#tm-policy-check-count').textContent,'체크할 항목 : 1건');
 edit(1,'서울');edit(2,'대전');bulk.click();await delay();
 assert.equal(d.querySelector('[data-policy-cell="1:0"]').value,'서울특별시');assert.equal(d.querySelector('[data-policy-cell="2:0"]').value,'대전광역시');
 assert.match(d.querySelector('#tm-policy-register-status').textContent,/2개 행/);assert.equal(posts,0);

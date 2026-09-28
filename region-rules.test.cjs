@@ -108,3 +108,12 @@ test('an unsectioned mixed province policy does not invent regional categories o
  assert.ok(groups.every(g=>g.sections[0].scopes[0]===scopes[0]));
 });
 console.log('Policy category regression tests passed');
+
+test('full Gyeongsangnam-do names cover every in-province city and county',()=>{
+ for(const name of ['경상남도전체','경상남도 전체','경남전체','경남 전체']){
+  const s=scope(name,4);assert.deepEqual(s.errors,[]);
+  for(const place of R.catalog.filter(x=>x.province==='경남')){assert.equal(state(s,place),'possible');assert.equal(R.evaluate([s],place).quantity,4);}
+  assert.equal(state(s,p('부산','부산광역시')),'blocked');assert.equal(state(s,p('강원','고성군')),'blocked');
+ }
+ const excluded=scope('경상남도전체 (창원 제외)',4);assert.deepEqual(excluded.errors,[]);assert.equal(state(excluded,p('경남','창원시')),'blocked');assert.equal(state(excluded,p('경남','진주시')),'possible');
+});
