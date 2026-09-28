@@ -287,3 +287,17 @@ test('existing two-part policy keys are attributed to Metaverse without changing
  assert.equal(b.api.clientResult('legacy','hanwha','경기','용인시').quantity,5);
  assert.equal(b.api.clientResult(newClient,'hanwha','경기','용인시').state,'blocked');
 });
+
+test('unclassified Hanwha and Shinhan publication persists both products and survives reload',()=>{
+ for(const [carrier,title] of [['hanwha','한화'],['shinhan','신한']]){
+  const a=boot();a.api.parse(title+'\n지역\t수량\n수도권\t4\n광주주전남\t1');
+  assert.equal(a.api.publish(carrier,'auto'),true);
+  for(const kind of ['general','silver'])assert.equal(a.api.result(carrier,'서울','서울특별시',kind).quantity,4);
+  const b=boot(a.storage);
+  for(const kind of ['general','silver'])assert.equal(b.api.result(carrier,'광주','광주광역시',kind).quantity,1);
+ }
+});
+test('Hanwha publication with no product selection applies both',()=>{
+ const a=boot();a.api.parse('한화\n지역\t수량\n수도권\t4');assert.equal(a.api.publish('hanwha',''),true);
+ for(const kind of ['general','silver'])assert.equal(a.api.result('hanwha','서울','서울특별시',kind).quantity,4);
+});

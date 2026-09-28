@@ -40,9 +40,21 @@
   }
   return {rows:result,kinds};
  }
- function groups(rows,fallback){
+ function groups(rows,fallback,carrier=''){
   const header=rows[0]||[],index=header.findIndex(x=>/^(?:상품(?:구분)?|구분|연령구분)$/.test(compact(x))),result={};
-  for(const row of rows.slice(1)){const kind=(index>=0?kindHeading(row[index]):'')||(fallback==='general'||fallback==='silver'?fallback:'');if(!kind)throw Error('일반·실버 구분이 없는 행이 있습니다. 등록 상품을 선택해 주세요.');if(fallback!=='auto'&&fallback&&kind!==fallback)throw Error('표의 일반·실버 구분과 선택한 등록 상품이 다릅니다. 자동 분류를 선택해 주세요.');(result[kind]??=[header]).push(row);}
+  const commonCarrier=carrier==='hanwha'||carrier==='shinhan';
+  for(const row of rows.slice(1)){
+   const raw=index>=0?String(row[index]??'').trim():'',explicit=kindHeading(raw);
+   if(raw&&!explicit)throw Error('상품 구분을 확인해 주세요. 일반 또는 실버로 입력하거나 공통 적용 행은 비워 주세요.');
+   const kind=explicit||(fallback==='general'||fallback==='silver'?fallback:'');
+   if(!kind&&commonCarrier&&(!fallback||fallback==='auto')){
+    for(const target of ['general','silver']){const copy=[...row];if(index>=0)copy[index]=target==='general'?'일반':'실버';(result[target]??=[[...header]]).push(copy);}
+    continue;
+   }
+   if(!kind)throw Error('일반·실버 구분이 없는 행이 있습니다. 등록 상품을 선택해 주세요.');
+   if(fallback!=='auto'&&fallback&&kind!==fallback)throw Error('표의 일반·실버 구분과 선택한 등록 상품이 다릅니다. 자동 분류를 선택해 주세요.');
+   (result[kind]??=[[...header]]).push([...row]);
+  }
   return result;
  }
  const api={prepare,groups,kindHeading,kindForAge};

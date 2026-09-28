@@ -775,7 +775,7 @@ function policyDraftCodeMetadata(){
 function parsePolicyText(text){
  policyDetectedCodes=[];policyCodeTitles=[];policyIntakeTitle='';
  const prepared=PolicyInput.prepare(text,policyCodeHeader);let parsed=prepared.rows;
- policyPublicationKind=prepared.kinds.length>1?'auto':prepared.kinds[0]||(['general','silver'].includes(policyPublicationKind)?policyPublicationKind:'');
+ policyPublicationKind=prepared.kinds.length>1?'auto':prepared.kinds[0]||'auto';
  const kindSelect=root.querySelector('#tm-policy-publication-kind');if(kindSelect)kindSelect.value=policyPublicationKind;
  if(!parsed.length)return [];
  const codes=[];
@@ -2260,7 +2260,7 @@ function policyReadPublications(value,codes=intakeCodes){
  return valid;
 }
 function policyPublicationControls(){
- return '<div class="row"><label>등록 거래처<select id="tm-policy-publication-client">'+policyClientOptions(policyPublicationClient)+'</select></label><label>등록 접수 코드<select id="tm-policy-publication-carrier">'+intakeCodeOptions(policyPublicationCarrier)+'</select></label><label>등록 상품<select id="tm-policy-publication-kind"><option value="">상품 선택</option><option value="auto" '+(policyPublicationKind==='auto'?'selected':'')+'>일반·실버 자동 분류</option><option value="general" '+(policyPublicationKind==='general'?'selected':'')+'>일반 · 61세 이하</option><option value="silver" '+(policyPublicationKind==='silver'?'selected':'')+'>실버 · 62~70세</option></select></label></div><p class="sub">만 나이가 아닌 세는나이 기준입니다. 일반·실버는 지역명이 아닌 상품 구분이며, 두 상품이 있으면 각각 등록합니다. 등록하면 해당 거래처·접수 코드·상품의 이전 정책만 대체합니다. 이 브라우저에 저장되어 직원용 접수 가능지역 화면과 같은 브라우저의 다른 탭에 반영됩니다.</p>';
+ return '<div class="row"><label>등록 거래처<select id="tm-policy-publication-client">'+policyClientOptions(policyPublicationClient)+'</select></label><label>등록 접수 코드<select id="tm-policy-publication-carrier">'+intakeCodeOptions(policyPublicationCarrier)+'</select></label><label>등록 상품<select id="tm-policy-publication-kind"><option value="">상품 선택</option><option value="auto" '+(policyPublicationKind==='auto'?'selected':'')+'>자동 분류 · 한화/신한 미구분은 모두 적용</option><option value="general" '+(policyPublicationKind==='general'?'selected':'')+'>일반 · 61세 이하</option><option value="silver" '+(policyPublicationKind==='silver'?'selected':'')+'>실버 · 62~70세</option></select></label></div><p class="sub">만 나이가 아닌 세는나이 기준입니다. 일반·실버는 지역명이 아닌 상품 구분이며, 두 상품이 있으면 각각 등록합니다. 자동 분류 시 한화·신한의 구분 없는 행은 일반·실버 모두에 적용하며, 구분이 적힌 행은 해당 상품에만 적용합니다. 일반 또는 실버를 직접 선택하면 선택한 상품에만 등록합니다. 등록하면 해당 거래처·접수 코드·상품의 이전 정책만 대체합니다. 이 브라우저에 저장되어 직원용 접수 가능지역 화면과 같은 브라우저의 다른 탭에 반영됩니다.</p>';
 }
 function policyNationalCatalogRows(query=''){
  const q=query.replace(/\s/g,'');
@@ -2278,8 +2278,9 @@ function policyPublishRows(){
  if(metadata.unknown.length){toast('등록되지 않은 접수 코드가 있습니다: '+metadata.unknown.join(', ')+'. 접수 코드 관리에서 추가한 뒤 등록해 주세요.');return false}
  if(policyDetectedCodes.length>1){toast('한 표에 여러 접수 코드가 있습니다. 정책을 접수 코드별로 나누어 등록해 주세요.');return false}
  if(policyDetectedCodes.length===1&&policyDetectedCodes[0]!==policyPublicationCarrier){toast('표에 기재된 접수 코드와 선택한 접수 코드가 다릅니다. 등록 접수 코드를 확인해 주세요.');return false}
+ if(!policyPublicationKind&&['hanwha','shinhan'].includes(policyPublicationCarrier)){policyPublicationKind='auto';const select=root.querySelector('#tm-policy-publication-kind');if(select)select.value='auto';}
  if(!intakeCodes.some(c=>c.id===policyPublicationCarrier)||!['general','silver','auto'].includes(policyPublicationKind)){toast('등록할 접수 코드와 일반·실버 상품을 선택해 주세요.');return false}
- let groups;try{groups=PolicyInput.groups(policyRows,policyPublicationKind)}catch(error){toast(error.message);return false}
+ let groups;try{groups=PolicyInput.groups(policyRows,policyPublicationKind,policyPublicationCarrier)}catch(error){toast(error.message);return false}
  const scopes=policyScopesForRows(policyRows);
  if(!scopes.length){toast('등록할 지역 데이터가 없습니다.');return false}
  const errors=scopes.filter(s=>s.errors.length);

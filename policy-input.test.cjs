@@ -30,3 +30,25 @@ test('unknown product is not guessed and similar geographic names remain literal
 test('counting-age boundaries distinguish 61, 62, 70 and 71',()=>{
  assert.equal(input.kindForAge(61),'general');assert.equal(input.kindForAge(62),'silver');assert.equal(input.kindForAge(70),'silver');for(const age of [71,0,-1,61.5,''])assert.equal(input.kindForAge(age),'');
 });
+
+test('Hanwha/Shinhan unclassified rows apply to both products without changing input',()=>{
+ const rows=[['지역','수량','제외지역'],['수도권','4','서울특별시 강남구'],['광주주전남','0','']];
+ const before=JSON.stringify(rows);
+ for(const carrier of ['hanwha','shinhan']){
+  const g=input.groups(rows,'auto',carrier);
+  for(const kind of ['general','silver']){assert.deepEqual(g[kind],rows);assert.equal(rules.evaluate(rules.parseRows(g[kind]),{province:'서울',name:'강남구'}).state,'blocked');}
+  g.general[1][1]='99';assert.equal(g.silver[1][1],'4');
+ }
+ assert.equal(JSON.stringify(rows),before);
+ for(const carrier of ['ga','code_custom',''])assert.throws(()=>input.groups(rows,'auto',carrier),/구분이 없는/);
+});
+test('mixed explicit and common product rows keep their scopes',()=>{
+ const rows=[['지역','수량','상품 구분'],['수도권','4',''],['부산광역시','2','일반'],['대구광역시','1','실버']];
+ for(const carrier of ['hanwha','shinhan']){
+  const g=input.groups(rows,'auto',carrier);
+  assert.deepEqual(g.general.slice(1),[['수도권','4','일반'],['부산광역시','2','일반']]);
+  assert.deepEqual(g.silver.slice(1),[['수도권','4','실버'],['대구광역시','1','실버']]);
+  assert.throws(()=>input.groups([rows[0],['수도권','4','오타']],'auto',carrier),/상품 구분을 확인/);
+  const manual=input.groups([rows[0],rows[1]],'silver',carrier);assert.deepEqual(Object.keys(manual),['silver']);
+ }
+});
