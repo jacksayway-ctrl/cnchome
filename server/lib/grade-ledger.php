@@ -8,7 +8,7 @@ function grade_dates(string $month): array {
     for($d=new DateTimeImmutable($month.'-01');$d->format('Y-m')===$month;$d=$d->modify('+1 day'))if((int)$d->format('N')<=5)$out[]=$d->format('Y-m-d');return $out;
 }
 function grade_week(string $date): array {$d=new DateTimeImmutable($date);$d=$d->modify('-'.((int)$d->format('N')-1).' days');return array_map(fn($i)=>$d->modify('+'.$i.' days')->format('Y-m-d'),range(0,4));}
-function grade_zero_policy(int $rate=15000): array {$r=['min'=>0,'max'=>null,'hourly'=>0,'achievement'=>0,'extraStart'=>null,'extra'=>0];return ['version'=>1,'weeklyBasis'=>'average','dailyCash'=>['start'=>6,'perCase'=>0],'daily'=>[$r],'weekly'=>[$r],'monthly'=>[array_replace($r,['hourly'=>$rate])]];}
+function grade_zero_policy(int $rate=15000): array {return grade_empty_policy($rate);}
 function grade_evaluate(array $p,string $period,float $count,int $days=5): array {
     if($period==='daily')return ['hourly'=>0,'bonus'=>max(0,(int)floor($count)-(int)$p['dailyCash']['start']+1)*(int)$p['dailyCash']['perCase']];
     $reference=$period==='monthly'&&isset($p['monthlyReference']);$average=$period==='weekly'&&$p['weeklyBasis']==='average';$value=$average?$count/max(1,$days):$count;$lower=0;
@@ -47,11 +47,20 @@ function grade_ledger(string $month,array $records,array $entries,array $profile
     }
     $base=(int)floor($base);$monthly=grade_round_parts($parts);$daily=(int)round($daily);return ['month'=>$month,'count'=>$count,'hours'=>$hours,'days'=>count($dates),'base'=>$base,'daily'=>$daily,'weekly'=>$weekly,'monthly'=>$monthly,'salary'=>$base+$monthly+$weekly,'total'=>$base+$monthly+$weekly+$daily,'parts'=>array_values($parts),'weeks'=>$weeks,'dailyDetails'=>$dailyDetails,'general'=>$general];
 }
-function grade_history(string $department): array {$q=db()->prepare('SELECT id,effective_date AS date,saved_at AS savedAt,policy FROM grade_versions WHERE department=? ORDER BY effective_date,id');$q->execute([$department]);return array_map(function($r){$r['policy']=json_decode($r['policy'],true,512,JSON_THROW_ON_ERROR);return $r;},$q->fetchAll());}
+function grade_history(string $department): array {$q=db()->prepare('SELECT id,effective_date AS date,saved_at AS savedAt,policy FROM grade_versions WHERE department=? ORDER BY effective_date,id');$q->execute([$department]);return grade_resolve_entries(array_map(function($r){$r['policy']=json_decode($r['policy'],true,512,JSON_THROW_ON_ERROR);return $r;},$q->fetchAll()));}
 function grade_forecast_records(string $month,int $count): array {
     $days=grade_dates($month);$size=count($days);$rows=[];foreach($days as $i=>$day)$rows[$day]=['date'=>$day,'count'=>intdiv($count,$size)+($i<$count%$size?1:0),'hours'=>6];
     // Adjacent month days are estimates at the same daily average, needed for complete boundary weeks.
     foreach(array_merge(grade_week($days[0]),grade_week(end($days))) as $day)if(!isset($rows[$day]))$rows[$day]=['date'=>$day,'count'=>$count/$size,'hours'=>6];return array_values($rows);
+}
+function grade_daily_sample_records(string $month,int $dailyCount): array {
+    hr_assert($dailyCount>=0&&$dailyCount<=1000000,'하루 정상 접수 건수를 확인해 주세요.');$dates=grade_dates($month);
+    $dates=array_values(array_unique(array_merge($dates,grade_week($dates[0]),grade_week(end($dates)))));sort($dates);
+    return array_map(fn($date)=>['date'=>$date,'count'=>$dailyCount,'hours'=>6],$dates);
+}
+function grade_sample_estimates(string $month,array $entries): array {
+    $samples=[];foreach(range(10,15) as $count){$g=grade_ledger($month,grade_daily_sample_records($month,$count),$entries);$samples[]=['perDay'=>$count,'count'=>$g['count'],'daily'=>$g['daily'],'weekly'=>$g['weekly'],'monthly'=>$g['monthly'],'gradeTotal'=>$g['daily']+$g['weekly']+$g['monthly'],'paydayGrade'=>$g['weekly']+$g['monthly']];}
+    return ['month'=>$month,'days'=>count(grade_dates($month)),'samples'=>$samples];
 }
 function grade_employee_context(array $employee,string $month): array {
     $uid=(int)($employee['userId']??0);$p=$employee['profile'];$counts=[];$hours=[];$days=grade_dates($month);$from=grade_week($days[0])[0];$through=min(hr_today(),grade_week(end($days))[4]);$d=db();

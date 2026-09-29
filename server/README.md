@@ -48,6 +48,10 @@ With jsdom installed separately: `node scripts/check-grade-history-dom.cjs` and 
 
 `php server/bin/check-policy.php` validates PHP policy rules. Actual PHP-FPM/MySQL integration must also pass the acceptance checks above on the server.
 
+The live grade editor saves daily, weekly and monthly criteria separately through `grade-api.php?role=admin`. Each immutable `grade_versions.policy` records `savedPeriod`; `grade_history()` / `entries_for()` resolve those changes in effective-date order while retaining the original `savedPolicy` for audit views. Legacy rows remain whole-policy updates. Read policies through these helpers so a scheduled weekly change cannot revert a newer daily criterion. Unselected draft fields stay in the editor. The six 10–15 normal-case examples use the PHP ledger, Monday–Friday weeks, and exclude prepaid daily grades from the payday total.
+
+`php server/bin/check-grade-settings.php` uses an isolated SQLite database to check partial saves, effective dates, revision conflicts and forecast amounts. `node scripts/check-grade-server-dom.cjs` checks separate save controls and the intake button in the policy window.
+
 ## Automatic Cafe24 deployment
 
 Run `bash /opt/cnchome/server/enable-auto-deploy.sh` once as root after pulling this version. A systemd timer checks GitHub main every minute and deploys changed commits. It uses the existing public repository and does not require sharing root credentials or adding a GitHub password. Repository write access now authorizes server deployments; the deployment script executes with server administration privileges.

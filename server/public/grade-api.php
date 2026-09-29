@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 require __DIR__.'/_runtime.php';
-require_once CNC_RUNTIME_DIR.'/policy.php';
+require_once CNC_RUNTIME_DIR.'/grade-settings.php';
 header('Content-Type: application/json; charset=utf-8');
 function reply(int $code,array $body): never { http_response_code($code); echo json_encode($body,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR); exit; }
 try {
@@ -14,16 +14,13 @@ try {
     $raw=file_get_contents('php://input',false,null,0,131073);
     if (strlen($raw)>131072) reply(413,['error'=>'요청이 너무 큽니다.']);
     $input=json_decode($raw,true,512,JSON_THROW_ON_ERROR);
-    if (!in_array($input['department']??null,['insurance','cosmetics','health'],true) || !valid_day($input['date']??null) || !is_int($input['revision']??null)) reply(422,['error'=>'부서·적용일·변경 버전을 확인해 주세요.']);
-    $policy=normalize_policy($input['policy']??null);
-    $d=db(); $d->beginTransaction();
-    $revision=(int)$d->query('SELECT revision FROM grade_revision WHERE id=1 FOR UPDATE')->fetchColumn();
-    if ($revision!==$input['revision']) { $d->rollBack(); reply(409,['error'=>'다른 관리자가 기준을 변경했습니다. 수정값을 따로 기록한 뒤 새로고침하여 최신 기준을 확인해 주세요.']); }
-    $q=$d->prepare('INSERT INTO grade_versions(department,effective_date,actor_id,actor_name,policy) VALUES(?,?,?,?,?)');
-    $q->execute([$input['department'],$input['date'],$user['id'],$user['display_name'],json_encode($policy,JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE)]);
-    $d->exec('UPDATE grade_revision SET revision=revision+1 WHERE id=1');
-    $entries=entries_for($user); $d->commit();
-    reply(200,['entries'=>$entries,'revision'=>$revision+1]);
+    if(!is_array($input))reply(422,['error'=>'입력 형식을 확인해 주세요.']);
+    $saved=grade_save_settings($user,$input);
+    reply(200,snapshot($user)+['saved'=>$saved]);
+} catch(GradeRevisionConflict $e) {
+    reply(409,['error'=>$e->getMessage()]);
+} catch(HRForbidden $e) {
+    reply(403,['error'=>$e->getMessage()]);
 } catch(InvalidArgumentException|JsonException $e) {
     reply(422,['error'=>'입력한 기준을 확인해 주세요. '.$e->getMessage()]);
 } catch(Throwable $e) {

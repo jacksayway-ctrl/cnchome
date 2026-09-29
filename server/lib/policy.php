@@ -8,6 +8,37 @@ function valid_day(mixed $s): bool {
     if (!is_string($s) || !preg_match('/^\d{4}-\d{2}-\d{2}$/D',$s) || $s<'2000-01-01' || $s>'2099-12-31') return false;
     [$y,$m,$d]=array_map('intval',explode('-',$s)); return checkdate($m,$d,$y);
 }
+function grade_empty_policy(int $rate=15000): array {
+    $row=['min'=>0,'max'=>null,'hourly'=>0,'achievement'=>0,'extraStart'=>null,'extra'=>0];
+    return ['version'=>1,'weeklyBasis'=>'average','dailyCash'=>['start'=>6,'perCase'=>0],'daily'=>[$row],'weekly'=>[$row],'monthly'=>[array_replace($row,['hourly'=>$rate])]];
+}
+function grade_period_fields(string $period): array {
+    return match($period){
+        'daily'=>['daily','dailyCash'],
+        'weekly'=>['weekly','weeklyBasis','weeklyAuto','weeklyDraftVersion','weeklyStartEightVersion'],
+        'monthly'=>['monthly','monthlyReference','monthlyManualVersion'],
+        default=>throw new InvalidArgumentException('저장할 일·주·월그레이드를 선택해 주세요.')
+    };
+}
+function grade_merge_period(array $base,array $changes,string $period): array {
+    foreach(grade_period_fields($period) as $key){unset($base[$key]);if(array_key_exists($key,$changes))$base[$key]=$changes[$key];}
+    return normalize_policy($base);
+}
+/** Resolve independent period changes chronologically; later weekly saves cannot revert a daily save. */
+function grade_resolve_entries(array $entries): array {
+    usort($entries,fn($a,$b)=>strcmp($a['date'],$b['date'])?:strcmp($a['savedAt']??'',$b['savedAt']??'')?:($a['id']??0)<=>($b['id']??0));
+    $current=grade_empty_policy();
+    foreach($entries as &$entry){
+        $saved=$entry['policy'];$period=$saved['savedPeriod']??'all';unset($saved['savedPeriod']);
+        $current=$period==='all'?$saved:grade_merge_period($current,$saved,$period);
+        $entry['policy']=$current;$entry['savedPolicy']=$saved;$entry['period']=$period;
+    }unset($entry);return $entries;
+}
+function grade_preview_entries(array $entries,string $date,array $policy): array {
+    foreach($entries as &$entry)$entry['policy']=($entry['savedPolicy']??$entry['policy'])+['savedPeriod'=>$entry['period']??'all'];unset($entry);
+    $entries[]=['date'=>$date,'savedAt'=>'9999','policy'=>$policy];
+    return grade_resolve_entries($entries);
+}
 function normalize_policy(mixed $p): array {
     if (!is_array($p) || ($p['version']??null)!==1 || !in_array($p['weeklyBasis']??null,['average','total'],true)) throw new InvalidArgumentException('그레이드 기준 형식이 올바르지 않습니다.');
     $out=['version'=>1,'weeklyBasis'=>$p['weeklyBasis']];
