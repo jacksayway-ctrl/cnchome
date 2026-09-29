@@ -12,7 +12,7 @@ function hr_contract_end(string $start,string $term): string {
     hr_assert(hr_day($start),'계약 개시일을 입력해 주세요.');
     $d=new DateTimeImmutable($start);
     if($term==='week')return $d->modify('+6 days')->format('Y-m-d');
-    $months=['month'=>1,'quarter'=>3,'year'=>12,'twoYears'=>24];
+    $months=['month'=>1,'quarter'=>3,'tenMonths'=>10,'year'=>12,'twoYears'=>24];
     hr_assert(isset($months[$term]),'계약 기간을 선택해 주세요.');
     $target=$d->modify('first day of this month')->modify('+'.$months[$term].' months');
     // Same day next period, minus one day. If that day is absent, use month end.

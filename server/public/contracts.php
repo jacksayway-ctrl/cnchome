@@ -28,8 +28,10 @@ try {
     if($id&&!$selected){http_response_code(404);render_view('error',['title'=>'계약서를 찾을 수 없습니다.','message'=>'계약 번호 또는 열람 권한을 확인해 주세요.','role'=>$role]);exit;}
     $basicRequested=isset($_GET['template'])&&!$id;
     $company=contract_company_row();
-    $documentOnly=isset($_GET['document'])||isset($_GET['download']);$download=isset($_GET['download']);
+    $documentOnly=isset($_GET['document'])||isset($_GET['download'])||($_GET['popup']??'')==='1';$download=isset($_GET['download']);
     if($documentOnly){
+        if(!$selected&&!$basicRequested&&!$download&&$role==='employee')$selected=contract_list($user)[0]??null;
+        if(!$selected&&!$download)$basicRequested=true;
         if($basicRequested)$selected=contract_basic_form($company['settings']);
         if(!$selected){http_response_code(404);exit;}
         if($download){$filename=$basicRequested?'employment-contract-template.html':'employment-contract-'.$selected['id'].'-v'.$selected['version'].'.html';header('Content-Type: text/html; charset=utf-8');header('Content-Disposition: attachment; filename="'.$filename.'"');}

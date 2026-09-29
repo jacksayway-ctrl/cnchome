@@ -6,8 +6,9 @@ document.querySelectorAll('[data-contract-period-form]').forEach(form=>{
  async function update(){const request=++sequence;end.readOnly=!['custom'].includes(preset.value);if(preset.value==='custom')return;if(preset.value==='unlimited'){end.value='';return;}if(!start.value)return;
   const params=new URLSearchParams({role:'admin',calculate:'1',term:preset.value,start:start.value});const employee=form.querySelector('[name="employeeId"]');if(employee?.value)params.set('employeeId',employee.value);
   const days=form.querySelectorAll('[name$="[working]"]');if(days.length){let checked=0;days.forEach((day,i)=>{if(day.checked){checked++;params.append('days[]',['월','화','수','목','금','토','일'][i]);}});if(!checked)params.append('days[]','');}
+  const templateDays=form.querySelectorAll('[data-template-workday]');if(templateDays.length){const selected=[...templateDays].filter(day=>day.checked);if(!selected.length)params.append('days[]','');else selected.forEach(day=>params.append('days[]',day.value));}
   try{const response=await fetch('/contracts.php?'+params,{credentials:'same-origin',cache:'no-store'});const data=await response.json();if(request!==sequence)return;if(!response.ok)throw Error(data.error||'계약기간 계산 실패');end.value=data.contractEnd;message.textContent='자동 계산: '+data.contractStart+' ~ '+data.contractEnd;}catch(error){if(request===sequence)message.textContent=error.message;}
  }
- form.addEventListener('change',event=>{if(event.target===preset||event.target===start||event.target.name==='employeeId'||event.target.name.endsWith('[working]'))update();});end.readOnly=preset.value!=='custom';
+ form.addEventListener('change',event=>{if(event.target===preset||event.target===start||event.target.name==='employeeId'||event.target.name.endsWith('[working]')||event.target.matches('[data-template-workday]'))update();});end.readOnly=preset.value!=='custom';
 });
 document.querySelector('[data-contract-filter]')?.addEventListener('change',event=>{const form=event.currentTarget;if(event.target.name==='team')form.elements.employeeId.value='0';form.requestSubmit();});

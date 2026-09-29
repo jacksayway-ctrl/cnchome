@@ -139,6 +139,23 @@ $five=contract_find($fiveId,$admin);check($five['terms']['contractEnd']==='2027-
 $customTerms=$five['terms'];$customTerms['periodPreset']='custom';$customTerms['contractType']='무기계약';$customTerms['contractEnd']='2027-02-10';
 $five=saved_terms($fiveId,$customTerms,$admin);check($five['terms']['contractType']==='기간제'&&$five['terms']['contractEnd']==='2027-02-10','custom period overrides prior indefinite selector');
 check(!$d->inTransaction(),'rejected mutations always roll back');
+// Shared defaults remain separate from issued contracts and employee-specific data.
+check(contract_period('2026-09-29','custom','',['월'])['contractEnd']==='2027-07-28','missing end defaults to ten inclusive months');
+check(contract_period('2026-04-30','tenMonths','',['월'])['contractEnd']==='2027-02-28','ten months clamps to month end');
+$basic=contract_basic_form(contract_company_defaults());
+check($basic['terms']['contractStart']===hr_today()&&$basic['terms']['employeeName']===''&&$basic['terms']['hireDate']==='','shared form defaults to today without personal data');
+check(array_column(array_filter($basic['terms']['schedule'],fn($day)=>!$day['working']),'day')===['토','일'],'shared form has both weekend rest days');
+$template=contract_template_values(contract_company_row()['settings']);$template['contractStart']='2026-10-01';$template['contractEnd']='';$template['periodPreset']='custom';$template['employeeName']='must not be shared';$template['hireDate']='1999-01-01';
+$revision=contract_company_row()['revision'];$beforeTemplates=$d->query('SELECT id,issued_snapshot FROM hr_contracts ORDER BY id')->fetchAll();
+rejects(fn()=>contract_mutate($one,['action'=>'saveTemplate','revision'=>$revision,'template'=>$template]),'employee cannot edit common template');
+contract_mutate($admin,['action'=>'saveTemplate','revision'=>$revision,'template'=>$template]);
+$settings=contract_company_row();check($settings['settings']['employerName']===$company['employerName'],'template update retains employer details');
+$shared=contract_basic_form($settings['settings']);check($shared['terms']['contractStart']==='2026-10-01'&&$shared['terms']['contractEnd']==='2027-07-31','saved template dates render consistently');
+check($shared['terms']['employeeName']===''&&$shared['terms']['hireDate']==='','template input cannot publish employee identity');
+rejects(fn()=>contract_mutate($admin,['action'=>'saveTemplate','revision'=>$revision,'template'=>$template]),'stale template write rejected');
+contract_mutate($admin,['action'=>'saveCompany','revision'=>$settings['revision'],'company'=>$company]);
+check(contract_company_row()['settings']['template']===$settings['settings']['template'],'company details update retains template edits');
+check($beforeTemplates===$d->query('SELECT id,issued_snapshot FROM hr_contracts ORDER BY id')->fetchAll(),'template edits never rewrite issued agreements');
 echo "PASS: contract permissions, required fields, schedules, immutable issue snapshots, stale writes, receipt without signature, recipient isolation, automatic periods and atomic approval/application history.\n";
 
 // Optional local render fixtures, outside the checkout by default.

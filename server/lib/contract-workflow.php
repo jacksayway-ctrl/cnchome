@@ -3,15 +3,16 @@ declare(strict_types=1);
 
 function contract_period(string $start,string $term,string $end,array $days): array {
     hr_assert(hr_day($start),'계약 시작일을 입력해 주세요.');
-    hr_assert(in_array($term,['fiveDays','month','quarter','custom','unlimited'],true),'계약기간을 선택해 주세요.');
+    hr_assert(in_array($term,['fiveDays','month','quarter','tenMonths','custom','unlimited'],true),'계약기간을 선택해 주세요.');
     if($term==='unlimited')return ['contractStart'=>$start,'contractEnd'=>'','contractType'=>'무기계약','periodPreset'=>$term];
+    if($term==='custom'&&$end==='')$term='tenMonths';
     if($term==='fiveDays'){
         $names=['월','화','수','목','금','토','일'];
         hr_assert($days&&count(array_diff($days,$names))===0,'5일 계약을 계산할 근무요일을 선택해 주세요.');
         $d=new DateTimeImmutable($start);$count=0;
         for($i=0;$i<50;$i++,$d=$d->modify('+1 day'))if(in_array($names[(int)$d->format('N')-1],$days,true)&&++$count===5)break;
         $end=$d->format('Y-m-d');
-    }elseif(in_array($term,['month','quarter'],true))$end=hr_contract_end($start,$term);
+    }elseif(in_array($term,['month','quarter','tenMonths'],true))$end=hr_contract_end($start,$term);
     hr_assert(hr_day($end)&&$end>=$start,'계약 종료일은 시작일 이후로 입력해 주세요.');
     return ['contractStart'=>$start,'contractEnd'=>$end,'contractType'=>'기간제','periodPreset'=>$term];
 }
@@ -45,10 +46,14 @@ function contract_workflow_mutate(array $user,array $in,array $row): void {
         $q=$d->prepare("SELECT c.id FROM hr_contracts c JOIN hr_contract_approvals a ON a.contract_id=c.id WHERE c.employee_id=? AND c.version>? AND a.state='applied'");$q->execute([$row['employee_id'],$row['version']]);hr_assert(!$q->fetch(),'더 최신 계약이 적용되어 있습니다.');
         $before=json_decode($employee['profile'],true,512,JSON_THROW_ON_ERROR);$after=$before;
         foreach(['contractStart','contractEnd','contractType'] as $key)$after[$key]=$t[$key];
+        if(!empty($t['hireDate'])){
+            hr_assert(hr_day($t['hireDate'])&&$t['hireDate']<=$t['contractStart'],'입사일은 계약 시작일 이전 또는 같은 날로 입력해 주세요.');
+            $after['startDate']=$t['hireDate'];
+        }
         $after['contractTerm']='';$after['payday']=(string)$t['paymentDay'];
         $q=$d->prepare('UPDATE hr_employees SET profile=?,revision=revision+1 WHERE id=?');$q->execute([hr_json($after),$row['employee_id']]);
-        $snapshot['before']=array_intersect_key($before,array_flip(['contractStart','contractEnd','contractType','payday']));
-        $snapshot['after']=array_intersect_key($after,array_flip(['contractStart','contractEnd','contractType','payday']));$snapshot['signedConfirmed']=true;
+        $snapshot['before']=array_intersect_key($before,array_flip(['startDate','contractStart','contractEnd','contractType','payday']));
+        $snapshot['after']=array_intersect_key($after,array_flip(['startDate','contractStart','contractEnd','contractType','payday']));$snapshot['signedConfirmed']=true;
         contract_workflow_store($id,'applied',$user,$reason);
     }elseif($action==='withdraw'){
         hr_assert($user['role']==='admin'&&in_array($state,['pending','approved','rejected'],true),'이미 적용되었거나 회수한 계약입니다.');

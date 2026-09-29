@@ -21,7 +21,7 @@ if($documentOnly): ?>
 <header class="contract-sheet-heading"><h1>근 로 계 약 서</h1><div><?php if($isBasicForm): ?>기본 양식 · 직원별 발급 전<?php else: ?>문서 <?= view_h($selected['employee_no']) ?> · 제<?= $selected['version'] ?>판<?= $selected['status']==='draft'?' · 미발행 초안':'' ?><?php endif ?></div></header>
 <table class="contract-main-form"><colgroup><col class="contract-label-col"><col><col class="contract-label-col"><col></colgroup><tbody>
 <tr><th>근무지</th><td><?= view_h($terms['workplace']) ?></td><th>담당업무</th><td><?= view_h($terms['duties']) ?></td></tr>
-<tr><th>계약기간</th><td colspan="3"><?= view_h($dateText($terms['contractStart'])) ?>부터 <?= $terms['contractType']==='무기계약'?'기간의 정함 없음':view_h($dateText($terms['contractEnd'])).'까지' ?> · 임금 적용일 <?= view_h($isBasicForm?$dateText($terms['wageEffective']):$terms['wageEffective']) ?></td></tr>
+<tr><th>계약기간</th><td colspan="3"><?= view_h($dateText($terms['contractStart'])) ?>부터 <?= $terms['contractType']==='무기계약'?'기간의 정함 없음':view_h($dateText($terms['contractEnd'])).'까지' ?><?php if($isBasicForm||!empty($terms['hireDate'])): ?><br>입사일 <?= view_h($dateText($terms['hireDate']??'')) ?><?php endif ?> · 임금 적용일 <?= view_h($isBasicForm?$dateText($terms['wageEffective']):$terms['wageEffective']) ?></td></tr>
 <tr><th>임금</th><td colspan="3">
 <p><b>월 지급금액:</b> 근로시간에 따른 기본급과 주휴·회사 지원수당 및 약정 수당을 합산한다.</p>
 <p><strong>기본시급 <?= $money($terms['baseHourly']) ?> + 주휴·회사 지원 시간당 환산액 <?= $money($terms['supportHourly']) ?> = 합산 보장 <?= $money($terms['baseHourly']+$terms['supportHourly']) ?>/시간</strong></p>
@@ -34,17 +34,10 @@ if($documentOnly): ?>
 <tr><th>급여지급</th><td colspan="3"><?= view_h($terms['paymentPeriod']) ?> 산정분을 <?= view_h($terms['paymentTiming']) ?> <?= (int)$terms['paymentDay'] ?>일에 <?= view_h($terms['paymentMethod']) ?>한다. 해당 일이 없으면 말일, 휴일이면 직전 영업일에 지급한다. 세금·사회보험 등 법정 공제액과 계산 내역을 구분한 임금명세서를 교부한다.</td></tr>
 <tr><th>계약요건</th><td colspan="3">계약기간·근무장소·담당업무 등 근로조건의 변경은 당사자의 합의와 관계 법령에 따른다. 계약기간 연장 시 변경 내용을 서면으로 정한다.</td></tr>
 <tr><th>근로 및<br>휴일휴식</th><td colspan="3">
-<?php if($isBasicForm): ?>
-<p>근무요일: ____________________ · 주 ____일</p>
-<p>근로시간: ____:____ ~ ____:____ · 휴게: ____:____ ~ ____:____</p>
-<p>소정근로 주 ____시간 (휴게 제외) · 휴무일: __________요일.</p>
-<p>휴게는 자유롭게 사용하며 근로 4시간에 30분 이상, 8시간에 1시간 이상을 근로 도중 부여한다.</p>
-<?php else: ?>
 <?php foreach($groups as $group): ?><p><b><?= view_h(implode('·',$group['days'])) ?>요일</b> <?= view_h($group['start'].'~'.$group['end']) ?><?php if($group['breakStart']): ?> · 휴게 <?= view_h($group['breakStart'].'~'.$group['breakEnd']) ?><?php endif ?></p><?php endforeach ?>
-<?php if($rest): ?><p>휴무일: <?= view_h(implode('·',$rest)) ?>요일.</p><?php endif ?>
+<?php if($rest): ?><p><b>주 휴일: <?= view_h(implode('·',$rest)) ?>요일</b></p><?php endif ?>
 <p>주 <?= $hours['days'] ?>일 · 소정근로 주 <?= $duration($hours['minutes']) ?> (휴게 제외). 휴게는 자유롭게 사용하며 근로 4시간에 30분 이상, 8시간에 1시간 이상을 근로 도중 부여한다.</p>
-<?php endif ?>
-<p>주휴일: 매주 <?= $isBasicForm?'____':view_h($terms['weeklyHoliday']) ?>요일. 법정 요건에 따라 유급으로 부여하며 근로자의 날·그 밖의 휴일·연차유급휴가는 적용 법령에 따른다. <?= view_h(trim($terms['holidayDetail'].' '.$terms['leaveDetail'])) ?></p>
+<p>유급 주휴일: 매주 <?= view_h($terms['weeklyHoliday']) ?>요일. 법정 요건에 따라 유급으로 부여하며 근로자의 날·그 밖의 휴일·연차유급휴가는 적용 법령에 따른다. <?= view_h(trim($terms['holidayDetail'].' '.$terms['leaveDetail'])) ?></p>
 </td></tr>
 <tr><th>복무규정</th><td colspan="3">근로자는 관계 법령과 취업규칙을 준수하고 담당 업무를 성실히 수행한다. 손해배상 등은 관계 법령에 따르며 위약금이나 손해배상액을 예정하지 않는다.</td></tr>
 <tr><th>퇴사</th><td colspan="3">퇴직 시 업무 인수인계에 협조하며 임금·퇴직급여 등 금품 청산은 관계 법령에 따른다.</td></tr>

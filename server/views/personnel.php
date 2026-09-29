@@ -12,7 +12,7 @@
 <a class="nf-button" href="/personnel.php?role=admin&amp;new=1&amp;popup=1" target="_blank" rel="noopener" data-personnel-window>직원 등록</a>
 <?php if($record&&!$editing): ?><a class="nf-button" href="/personnel.php?role=admin&amp;id=<?= $record['id'] ?>&amp;edit=1<?= $popup?'&amp;popup=1':'' ?>">인사정보 수정</a><?php endif; ?>
 <?php endif; ?>
-<?php if(!$editing): ?><a class="<?= $admin?'':'nf-contract-open' ?>" href="/contracts.php?role=<?= h($role) ?>">근로계약서</a><?php endif; ?>
+<?php if(!$editing): ?><a class="<?= $admin?'':'nf-contract-open' ?>" href="/contracts.php?role=<?= h($role) ?><?= $admin?'':'&amp;document=1' ?>"<?= $admin?'':' target="_blank" rel="noopener"' ?>>근로계약서</a><?php endif; ?>
 <?php if($record&&!$editing): ?><button type="button" data-print>인사기록카드 인쇄</button><?php endif; ?>
 </div>
 <?php if($editing): ?>

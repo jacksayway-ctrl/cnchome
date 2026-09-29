@@ -31,23 +31,47 @@ function contract_company_row(): array {
 }
 function contract_default_terms(array $employee,array $company): array {
     $p=json_decode($employee['profile'],true,512,JSON_THROW_ON_ERROR);$rate=(int)($p['payAmount']??15000);
+    $start=hr_today();$end=($p['contractEnd']??'')?:hr_contract_end($start,'tenMonths');
     $base=(int)round($rate/1.2);$schedule=[];
     foreach(['월','화','수','목','금','토','일'] as $day)$schedule[]=['day'=>$day,'working'=>in_array($day,$p['workDays']??[],true),'start'=>$p['workStart']??'','end'=>$p['workEnd']??'','breakStart'=>$p['breakStart']??'','breakEnd'=>$p['breakEnd']??''];
     $terms=array_replace(contract_company_defaults(),$company,[
-        'employeeName'=>$p['name']??'','employeeBirth'=>$p['birthDate']??'','employeeAddress'=>trim(($p['address']??'').' '.($p['addressDetail']??'')),'employeePhone'=>$p['phone']??'',
-        'periodPreset'=>($p['contractType']??'무기계약')==='무기계약'?'unlimited':'custom','contractType'=>$p['contractType']??'무기계약','contractStart'=>($p['contractStart']??'')?:($p['startDate']??''),'contractEnd'=>$p['contractEnd']??'',
+        'employeeName'=>$p['name']??'','employeeBirth'=>$p['birthDate']??'','employeeAddress'=>trim(($p['address']??'').' '.($p['addressDetail']??'')),'employeePhone'=>$p['phone']??'','hireDate'=>$p['startDate']??'',
+        'periodPreset'=>($p['contractEnd']??'')?'custom':'tenMonths','contractType'=>'기간제','contractStart'=>$start,'contractEnd'=>$end,
         'signedDate'=>hr_today(),'wageEffective'=>hr_today(),'workplace'=>($p['workplace']??'')?:(($company['employerName']??'')?:'씨앤씨'),'duties'=>($p['duties']??'')?:'전화상담',
         'baseHourly'=>$p['payType']==='시급제'?$base:12500,'supportHourly'=>$p['payType']==='시급제'?$rate-$base:2500,
         'paymentDay'=>($p['payday']??'')?:($company['paymentDay']??15),'weeklyHoliday'=>$p['weeklyHoliday']??'일','holidayDetail'=>'','leaveDetail'=>'','schedule'=>$schedule,'existingWageAgreement'=>false,'insurancePension'=>'확인 필요','insuranceHealth'=>'확인 필요','insuranceEmployment'=>'확인 필요','insuranceAccident'=>'적용','insuranceException'=>'',
     ]);
+    unset($terms['template']);
     foreach($terms as $key=>$value)if(is_string($value))$terms[$key]=preg_replace('/\s+/u',' ',trim($value));
     return $terms;
 }
 function contract_basic_form(array $company): array {
     // A shared, unsaved form: no personnel data, recipient, issue or approval record.
-    $terms=contract_default_terms(['profile'=>hr_json(['payType'=>'시급제','payAmount'=>15000,'contractType'=>'기간제'])],$company);
-    $terms['signedDate']='';$terms['wageEffective']='';
+    $v=contract_template_values($company);
+    $terms=contract_default_terms(['profile'=>hr_json(array_replace($v,['payType'=>'시급제','payAmount'=>$v['baseHourly']+$v['supportHourly']]))],$company);
+    foreach(['contractStart','contractEnd','contractType','periodPreset','baseHourly','supportHourly','workplace','duties','weeklyHoliday'] as $key)$terms[$key]=$v[$key];
+    $terms['signedDate']='';$terms['wageEffective']=$v['contractStart'];
     return ['id'=>0,'version'=>0,'status'=>'template','employee_no'=>'','terms'=>$terms,'issued_snapshot'=>null,'content_hash'=>'','issued_at'=>null];
+}
+function contract_template_values(array $company): array {
+    $v=array_replace(['contractStart'=>hr_today(),'contractEnd'=>'','periodPreset'=>'tenMonths','workDays'=>['월','화','수','목','금'],'workStart'=>'10:00','workEnd'=>'17:00','breakStart'=>'12:00','breakEnd'=>'13:00','weeklyHoliday'=>'일','baseHourly'=>12500,'supportHourly'=>2500,'workplace'=>$company['employerName']??'씨앤씨','duties'=>'전화상담'],$company['template']??[]);
+    return array_replace($v,contract_period($v['contractStart'],$v['periodPreset'],$v['contractEnd'],$v['workDays']));
+}
+function contract_template_input(array $input): array {
+    $v=[];
+    foreach(['contractStart'=>10,'contractEnd'=>10,'periodPreset'=>15,'workStart'=>5,'workEnd'=>5,'breakStart'=>5,'breakEnd'=>5,'weeklyHoliday'=>1,'workplace'=>100,'duties'=>100] as $key=>$max)$v[$key]=contract_text($input[$key]??'',$max,$key);
+    if($v['contractStart']==='')$v['contractStart']=hr_today();
+    if($v['periodPreset']==='')$v['periodPreset']='tenMonths';
+    $days=$input['workDays']??[];hr_assert(is_array($days)&&$days,'근무요일을 선택해 주세요.');
+    $names=['월','화','수','목','금','토','일'];foreach($days as $day)hr_assert(is_string($day)&&in_array($day,$names,true),'근무요일을 확인해 주세요.');
+    $v['workDays']=array_values(array_intersect($names,$days));
+    hr_assert(in_array($v['weeklyHoliday'],$names,true)&&!in_array($v['weeklyHoliday'],$v['workDays'],true),'유급 주휴일은 근무하지 않는 요일을 선택해 주세요.');
+    $s=contract_time_minutes($v['workStart']);$e=contract_time_minutes($v['workEnd']);$bs=contract_time_minutes($v['breakStart']);$be=contract_time_minutes($v['breakEnd']);
+    hr_assert($s!==null&&$e!==null&&$e>$s&&$bs!==null&&$be!==null&&$bs>=$s&&$be<=$e&&$be>$bs,'근로시간과 근로 도중의 휴게시간을 입력해 주세요.');
+    $minutes=$e-$s-($be-$bs);hr_assert($minutes>0&&$minutes<=480&&$minutes*count($v['workDays'])<=2400,'일 8시간·주 40시간 이내의 근로시간을 입력해 주세요.');
+    hr_assert(($minutes<240||$be-$bs>=30)&&($minutes<480||$be-$bs>=60),'근로시간에 맞는 휴게시간을 입력해 주세요.');
+    $v['baseHourly']=contract_number($input['baseHourly']??0,1000000,'기본시급');$v['supportHourly']=contract_number($input['supportHourly']??0,1000000,'주휴·회사 지원 환산액');hr_assert($v['baseHourly']>0,'기본시급을 입력해 주세요.');
+    return array_replace($v,contract_period($v['contractStart'],$v['periodPreset'],$v['contractEnd'],$v['workDays']));
 }
 function contract_time_minutes(string $value): ?int {
     if(preg_match('/^(\d{2}):(\d{2})$/D',$value,$m)!==1||(int)$m[1]>23||(int)$m[2]>59)return null;
@@ -55,8 +79,9 @@ function contract_time_minutes(string $value): ?int {
 }
 function contract_terms(array $in): array {
     $t=contract_company($in);
-    foreach(['employeeName'=>50,'employeeBirth'=>10,'employeeAddress'=>120,'employeePhone'=>20,'contractType'=>10,'contractStart'=>10,'contractEnd'=>10,'signedDate'=>10,'wageEffective'=>10,'workplace'=>100,'duties'=>100,'weeklyHoliday'=>1,'holidayDetail'=>100,'leaveDetail'=>100,'insurancePension'=>10,'insuranceHealth'=>10,'insuranceEmployment'=>10,'insuranceAccident'=>10,'insuranceException'=>100] as $key=>$max)$t[$key]=contract_text($in[$key]??'',$max,$key);
-    foreach(['employeeBirth','contractStart','contractEnd','signedDate','wageEffective'] as $k)hr_assert($t[$k]===''||hr_day($t[$k]),'날짜 형식을 확인해 주세요: '.$k);
+    foreach(['employeeName'=>50,'employeeBirth'=>10,'employeeAddress'=>120,'employeePhone'=>20,'hireDate'=>10,'contractType'=>10,'contractStart'=>10,'contractEnd'=>10,'signedDate'=>10,'wageEffective'=>10,'workplace'=>100,'duties'=>100,'weeklyHoliday'=>1,'holidayDetail'=>100,'leaveDetail'=>100,'insurancePension'=>10,'insuranceHealth'=>10,'insuranceEmployment'=>10,'insuranceAccident'=>10,'insuranceException'=>100] as $key=>$max)$t[$key]=contract_text($in[$key]??'',$max,$key);
+    if($t['contractStart']==='')$t['contractStart']=hr_today();
+    foreach(['employeeBirth','hireDate','contractStart','contractEnd','signedDate','wageEffective'] as $k)hr_assert($t[$k]===''||hr_day($t[$k]),'날짜 형식을 확인해 주세요: '.$k);
     hr_assert(in_array($t['contractType'],['기간제','무기계약'],true),'계약 구분을 선택해 주세요.');
     hr_assert(in_array($t['weeklyHoliday'],['월','화','수','목','금','토','일'],true),'주휴일을 선택해 주세요.');
     $t['baseHourly']=contract_number($in['baseHourly']??0,1000000,'기본시급');
@@ -99,6 +124,7 @@ function contract_issue_errors(array $t,array $employee): array {
     if($t['contractType']==='기간제'&&$t['wageEffective']!==''&&$t['contractEnd']!==''&&$t['wageEffective']>$t['contractEnd'])$errors[]='임금 적용일은 계약기간 안에 있어야 합니다.';
     if($t['employeeBirth']!==''&&$t['employeeBirth']>hr_today())$errors[]='생년월일을 확인해 주세요.';
     if($t['wageEffective']!==''&&$t['contractStart']!==''&&$t['wageEffective']<$t['contractStart'])$errors[]='임금 적용일은 계약 시작일 이후여야 합니다.';
+    if(!empty($t['hireDate'])&&(!hr_day($t['hireDate'])||$t['hireDate']>$t['contractStart']))$errors[]='입사일은 계약 시작일 이전 또는 같은 날로 입력해 주세요.';
     if($t['wageEffective']!==''&&$t['wageEffective']<hr_today())$errors[]='새 임금 구분은 소급 적용할 수 없습니다. 적용일을 오늘 이후로 입력해 주세요.';
     if($t['baseHourly']<=0)$errors[]='기본시급을 입력해 주세요.';
     if(substr($t['wageEffective'],0,4)==='2026'&&$t['baseHourly']<10320)$errors[]='2026년 기본시급은 최저임금 10,320원 이상이어야 합니다.';
@@ -138,15 +164,21 @@ function contract_log(int $id,array $user,string $event,?array $snapshot=null): 
 }
 function contract_mutate(array $user,array $in): int {
     $action=contract_text($in['action']??'',30,'처리');$admin=$user['role']==='admin';
-    hr_assert(in_array($action,$admin?['saveCompany','create','revise','save','issue','apply','withdraw']:['acknowledge','approve','reject'],true),'처리 권한이 없습니다.');
+    hr_assert(in_array($action,$admin?['saveCompany','saveTemplate','create','revise','save','issue','apply','withdraw']:['acknowledge','approve','reject'],true),'처리 권한이 없습니다.');
     $d=db();$d->beginTransaction();
     try{
-        if($action==='saveCompany'){
-            $settings=contract_company($in['company']??[]);$revision=contract_number($in['revision']??0,100000000,'수정 번호');
+        if(in_array($action,['saveCompany','saveTemplate'],true)){
+            $settings=$action==='saveCompany'?contract_company($in['company']??[]):null;
+            if($action==='saveTemplate')hr_assert(is_array($in['template']??null),'기본 양식 입력 내용을 확인해 주세요.');
+            $template=$action==='saveTemplate'?contract_template_input($in['template']):null;
+            $revision=contract_number($in['revision']??0,100000000,'수정 번호');
             // Insert-or-ignore serializes first-time creation across different administrators.
             $q=$d->prepare('INSERT IGNORE INTO hr_contract_settings(id,settings,revision,updated_by) VALUES(1,?,0,?)');$q->execute([hr_json(contract_company_defaults()),$user['id']]);
-            $q=$d->query('SELECT revision FROM hr_contract_settings WHERE id=1 FOR UPDATE');$old=$q->fetch();
+            $q=$d->query('SELECT revision,settings FROM hr_contract_settings WHERE id=1 FOR UPDATE');$old=$q->fetch();
             hr_assert((int)$old['revision']===$revision,'회사 서식이 변경됐습니다. 새로고침 후 다시 저장해 주세요.');
+            $oldSettings=json_decode($old['settings'],true,512,JSON_THROW_ON_ERROR);
+            if($action==='saveTemplate'){$settings=$oldSettings;$settings['template']=$template;}
+            elseif(isset($oldSettings['template']))$settings['template']=$oldSettings['template'];
             $q=$d->prepare('UPDATE hr_contract_settings SET settings=?,revision=revision+1,updated_by=? WHERE id=1');$q->execute([hr_json($settings),$user['id']]);
             $d->commit();return 0;
         }
@@ -161,7 +193,7 @@ function contract_mutate(array $user,array $in): int {
             $q=$d->prepare('SELECT COALESCE(MAX(version),0)+1 FROM hr_contracts WHERE employee_id=?');$q->execute([$employeeId]);$version=(int)$q->fetchColumn();
             $terms=$source?$source['issued_snapshot']['terms']:contract_default_terms($employee,contract_company_row()['settings']);
             if($source){$terms['signedDate']=hr_today();$terms['wageEffective']=hr_today();$terms['existingWageAgreement']=false;}
-            if($action==='create'&&isset($in['periodPreset']))$terms=array_replace($terms,contract_period(contract_text($in['contractStart']??'',10,'계약 시작일'),contract_text($in['periodPreset'],15,'기간 선택'),contract_text($in['contractEnd']??'',10,'종료일'),array_column(array_filter($terms['schedule'],fn($day)=>$day['working']),'day')));
+            if($action==='create'&&isset($in['periodPreset']))$terms=array_replace($terms,contract_period(contract_text($in['contractStart']??'',10,'계약 시작일')?:hr_today(),contract_text($in['periodPreset'],15,'기간 선택'),contract_text($in['contractEnd']??'',10,'종료일'),array_column(array_filter($terms['schedule'],fn($day)=>$day['working']),'day')));
             if($action==='create'&&$terms['contractStart']>hr_today())$terms['wageEffective']=$terms['contractStart'];
             $q=$d->prepare('INSERT INTO hr_contracts(employee_id,version,terms,created_by) VALUES(?,?,?,?)');$q->execute([$employeeId,$version,hr_json($terms),$user['id']]);$id=(int)$d->lastInsertId();contract_log($id,$user,$source?'revisedDraft':'created');
         }else{
