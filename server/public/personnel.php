@@ -34,7 +34,7 @@ try {
     if(isset($_SESSION['personnel_saved'])){$saved=true;unset($_SESSION['personnel_saved']);}
     $accounts=[];
     if($editing&&empty($record['user_id']))$accounts=db()->query("SELECT id,username,display_name FROM app_users WHERE role='employee' AND active=1 AND id NOT IN (SELECT user_id FROM hr_employees WHERE user_id IS NOT NULL) ORDER BY display_name")->fetchAll();
-    native_start($admin?'인사기록카드':'내 정보 · 인사기록카드',$user,$admin?'adminStaff':'myInfo');
+    native_start($admin?'인사기록카드':'내 정보 · 인사기록카드',$user,$admin?($isNew?'adminStaffRegister':'adminStaff'):'myInfo');
     require view_root().'/personnel.php';
     native_end();
 }catch(HRForbidden $e){
