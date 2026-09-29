@@ -416,11 +416,11 @@ function regionPolicyDateBadge(savedAt,example=false){
 function regionPolicyEntries(){return Object.entries(policyPublications).filter(([key])=>policyKeyParts(key).client===policyViewClient)}
 function regionPolicyDateSummary(){
  const entries=regionPolicyEntries();
- if(!entries.length)return regionPolicyDateBadge(PolicyDates.exampleDate(0),true);
+ if(!entries.length)return '<span class="policy-date-note">등록 정책 없음</span>';
  const dates=entries.map(([,item])=>PolicyDates.describe(item.savedAt));
  const valid=dates.filter(info=>info.date).sort((a,b)=>b.date.localeCompare(a.date));
  const older=dates.filter(info=>info.state==='past').length,unknown=dates.filter(info=>info.state==='unknown').length;
- return '<span class="policy-date-title">최근 정책 등록</span>'+regionPolicyDateBadge(valid[0]?.date||'')+(older?'<span class="policy-date-note">이전 날짜 정책 '+older+'건</span>':'')+(unknown?'<span class="policy-date-note">등록일 확인 필요 '+unknown+'건</span>':'');
+ return regionPolicyDateBadge(valid[0]?.date||'')+(older?'<span class="policy-date-note">이전 날짜 정책 '+older+'건</span>':'')+(unknown?'<span class="policy-date-note">등록일 확인 필요 '+unknown+'건</span>':'');
 }
 function regionPolicyExampleTable(){
  const groups=[{label:'GA',kind:'일반 · 60세 이하',days:0,regions:[['수도권 (서울·인천·경기)','4건'],['광주·전남','1건']]},{label:'한화',kind:'일반 · 60세 이하',days:1,regions:[['서울특별시','3건'],['부산광역시','2건']]},{label:'신한',kind:'실버 · 61~70세',days:2,regions:[['인천광역시','2건'],['경기도','1건']]}];
@@ -514,10 +514,13 @@ function policyFollowMap(group,path=[]){
  }
  for(const [scroller,row] of first){const rect=row.getBoundingClientRect(),box=scroller.getBoundingClientRect(),header=scroller.querySelector('thead')?.getBoundingClientRect().height||42;if(rect.top<box.top+header)scroller.scrollTop+=rect.top-box.top-header;else if(rect.bottom>box.bottom)scroller.scrollTop+=rect.bottom-box.bottom;}
 }
+function regionConditionsPanel(content){
+ return '<section class="panel policy-registration-panel"><div class="policy-registration-heading"><h3>접수 정책표</h3><div id="tm-region-policy-date" class="region-policy-date" aria-live="polite">'+regionPolicyDateSummary()+'</div></div>'+content+'<div class="policy-window-actions"><a class="action policy-window-button" data-policy-new-window href="/employee.php?page=regions&amp;policyWindow=1" target="_blank" rel="noopener">↗ 정책표 새창으로 보기</a></div></section>';
+}
 function regionConditionsTable(){
  requestAnimationFrame(policyFitSourceScrollers);
  const entries=regionPolicyEntries();
- if(!entries.length)return panel('접수 정책표','<p class="sub">선택한 거래처에 등록된 정책이 없습니다.</p>');
+ if(!entries.length)return regionConditionsPanel('<p class="sub">선택한 거래처에 등록된 정책이 없습니다.</p>');
  const sections=[];let columnMin=400,hasGa=false;
  const carriers=[['ga','GA'],['hanwha','한화'],['shinhan','신한'],...intakeCodes.filter(c=>!['ga','hanwha','shinhan'].includes(c.id)).map(c=>[c.id,c.label])];
  for(const [id,label] of carriers){
@@ -543,11 +546,11 @@ function regionConditionsTable(){
   sections.push('<section class="policy-carrier-column" data-policy-carrier="'+policyEscape(id)+'" style="min-width:0">'+cards.join('')+'</section>');
  }
  const otherCount=sections.length-Number(hasGa),columns=[...(hasGa?['fit-content(340px)']:[]),...(otherCount?['repeat('+otherCount+',minmax('+columnMin+'px,1fr))']:[])].join(' ');
- return panel('접수 정책표','<p><a class="secondary" data-policy-new-window href="/employee.php?page=regions&amp;policyWindow=1" target="_blank" rel="noopener">정책표 새 창으로 보기</a></p><div class="policy-carrier-scroll"><div class="policy-carrier-columns" style="display:grid;grid-template-columns:'+columns+';gap:16px;align-items:start">'+sections.join('')+'</div></div>'+'<p class="sub">접수 가능 → 확인 필요 → 접수 불가 순으로 표시하며, 각 구역 안에서 시·도별로 묶습니다. 정책별 등록일과 수량·연령·제외 조건을 확인해 주세요.</p>');
+ return regionConditionsPanel('<div class="policy-carrier-scroll"><div class="policy-carrier-columns" style="display:grid;grid-template-columns:'+columns+';gap:16px;align-items:start">'+sections.join('')+'</div></div>'+'<p class="sub">접수 가능 → 확인 필요 → 접수 불가 순으로 표시하며, 각 구역 안에서 시·도별로 묶습니다. 정책별 등록일과 수량·연령·제외 조건을 확인해 주세요.</p>');
 }
 root.addEventListener('click',e=>{const link=e.target.closest('[data-policy-new-window]');if(!link)return;e.preventDefault();window.open(link.href,'_blank','popup,width=1280,height=900,scrollbars=yes,resizable=yes,noopener');});
 function regionRefreshPolicyHeader(){const target=root.querySelector('#tm-region-policy-date');if(target)target.innerHTML=regionPolicyDateSummary()}
-function regionPage(){if(window.PolicySync?.enabled&&(!PolicySync.ready||!policyHasPublications()))return '<h2>접수 가능지역</h2>'+policyServerStatusMarkup()+'<p class="notice">'+(PolicySync.ready?'아직 서버에 등록된 정책이 없습니다.':'서버 정책을 불러오는 중입니다.')+'</p>';normalizeMapCarrier();return `<div class="region-page-heading"><h2>접수 가능지역</h2>${policyServerStatusMarkup()}<div id="tm-region-policy-date" class="region-policy-date" aria-live="polite">${regionPolicyDateSummary()}</div></div><p id="tm-region-age-note" class="sub">일반 60세 이하 · 실버 61~70세 · 만 나이가 아닙니다.</p><div class="policy-map-workspace"><div id="tm-region-conditions">${regionConditionsTable()}</div><div class="region-map-layout"><section class="panel region-map-panel"><div class="toolbar"><div class="map-carrier-buttons" role="group" aria-label="접수 코드별 가능지역">${[regionCarrierSettings.find(c=>c.id==='all'),...visibleRegionCarriers()].filter(Boolean).map(c=>`<button type="button" data-map-carrier="${c.id}" aria-pressed="${mapCarrier===c.id}" ${c.enabled?'':'disabled title="등록된 정책 없음"'}>${policyEscape(c.label)}${c.enabled?'':' · 정책 없음'}</button>`).join('')}</div></div><div id="tm-region-map"></div>${policyHasPublications()?'<p class="sub policy-map-legend"><span>파랑: 가능</span> · <span>노랑: 일부 제한</span> · <span>빨강: 불가</span> · 회색: 확인 필요</p><p class="sub">지도는 기존 시·군·구 경계를 사용합니다. 읍·면·동 제한과 경계가 갱신된 지역은 상세 목록을 기준으로 확인해 주세요.</p>':''}</section><section class="panel region-table-panel"><h3>시·군별 접수 지역</h3><div id="tm-region-results"></div><p class="sub">관리자가 공개한 정책만 표시합니다. 접수 연령과 세부 조건은 해당 정책을 확인해 주세요.</p></section></div></div>`}
+function regionPage(){if(window.PolicySync?.enabled&&(!PolicySync.ready||!policyHasPublications()))return '<h2>접수 가능지역</h2>'+policyServerStatusMarkup()+'<p class="notice">'+(PolicySync.ready?'아직 서버에 등록된 정책이 없습니다.':'서버 정책을 불러오는 중입니다.')+'</p>';normalizeMapCarrier();return `<div class="region-page-heading"><h2>접수 가능지역</h2>${policyServerStatusMarkup()}</div><p id="tm-region-age-note" class="sub">일반 60세 이하 · 실버 61~70세 · 만 나이가 아닙니다.</p><div class="policy-map-workspace"><div id="tm-region-conditions">${regionConditionsTable()}</div><div class="region-map-layout"><section class="panel region-map-panel"><div class="toolbar"><div class="map-carrier-buttons" role="group" aria-label="접수 코드별 가능지역">${[regionCarrierSettings.find(c=>c.id==='all'),...visibleRegionCarriers()].filter(Boolean).map(c=>`<button type="button" data-map-carrier="${c.id}" aria-pressed="${mapCarrier===c.id}" ${c.enabled?'':'disabled title="등록된 정책 없음"'}>${policyEscape(c.label)}${c.enabled?'':' · 정책 없음'}</button>`).join('')}</div></div><div id="tm-region-map"></div>${policyHasPublications()?'<p class="sub policy-map-legend"><span>파랑: 가능</span> · <span>노랑: 일부 제한</span> · <span>빨강: 불가</span> · 회색: 확인 필요</p><p class="sub">지도는 기존 시·군·구 경계를 사용합니다. 읍·면·동 제한과 경계가 갱신된 지역은 상세 목록을 기준으로 확인해 주세요.</p>':''}</section><section class="panel region-table-panel"><h3>시·군별 접수 지역</h3><div id="tm-region-results"></div><p class="sub">관리자가 공개한 정책만 표시합니다. 접수 연령과 세부 조건은 해당 정책을 확인해 주세요.</p></section></div></div>`}
 function regionPolicyTable(carriers,rows){
  return `<div class="scroll"><table class="region-policy-table"><thead><tr><th rowspan="2" scope="col">지역</th>${carriers.map(c=>`<th colspan="2" scope="colgroup" class="carrier-group">${policyEscape(c.label)}</th>`).join('')}<th rowspan="2" scope="col" class="coverage-start">적용 범위</th></tr><tr>${carriers.map(()=>'<th scope="col" class="carrier-start">일반</th><th scope="col">실버</th>').join('')}</tr></thead><tbody>${rows.map(row=>`<tr>${row.map((cell,i)=>`<td${i===row.length-1?' class="coverage-start"':i>0&&i%2===1?' class="carrier-start"':''}>${cell}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
 }

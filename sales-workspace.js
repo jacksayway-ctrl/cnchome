@@ -43,7 +43,7 @@
   const ready=store?.month===month,records=rows().filter(r=>page!=='as'||r.status==='as');
   const title=admin()?(page==='adminHome'?'관리자 홈 · 업무현황':'실적 관리'):page==='as'?'나의 A/S':'나의 실적';
   const testAvailable=showTest||store?.records?.some(r=>r.isTest);
-  const top=(page==='adminHome'?(global.AdminWorkspace?.home()||''):'')+'<div class="sales-workspace"><div class="sales-page-toolbar" aria-label="실적 조회 및 접수"><h2>'+title+'</h2><div class="sales-month-controls"><button class="secondary" type="button" data-sales-month="-1">이전 달</button><input type="month" aria-label="실적 조회 월" data-sales-month-input value="'+month+'"><button class="secondary" type="button" data-sales-month="1">다음 달</button></div><button class="secondary sales-refresh-button" type="button" data-sales-refresh>새로고침</button>'+(testAvailable?'<label class="sales-test-toggle"><input type="checkbox" data-sales-test '+(showTest?'checked':'')+'><span>테스트 자료 보기</span></label>':'')+'<button class="action sales-register-button" type="button" data-sales-new>＋ 접수 등록</button></div><p class="sub" data-sales-sync>'+esc(error||(!ready?'접수 내역을 불러오는 중입니다.':'5초마다 자동 갱신 · 마지막 확인 '+lastFetch))+'</p>'+(showTest?'<p class="notice">테스트 계정의 가상 자료입니다. 실제 실적에는 합산하지 않습니다.</p>':'')+'<p class="sub">최초 접수일 기준 · 상태 변경 시 가접수·정상접수·A/S 건수가 함께 바뀝니다.</p>';
+  const top=(page==='adminHome'?(global.AdminWorkspace?.home()||''):'')+'<div class="sales-workspace"><div class="sales-page-toolbar" aria-label="실적 조회 및 접수"><h2>'+title+'</h2><div class="sales-month-controls"><button class="secondary" type="button" data-sales-month="-1">이전 달</button><input type="month" aria-label="실적 조회 월" data-sales-month-input value="'+month+'"><button class="secondary" type="button" data-sales-month="1">다음 달</button></div><button class="secondary sales-refresh-button" type="button" data-sales-refresh>새로고침</button>'+(testAvailable?'<label class="sales-test-toggle"><input type="checkbox" data-sales-test '+(showTest?'checked':'')+'><span>테스트 자료 보기</span></label>':'')+'</div><p class="sub" data-sales-sync>'+esc(error||(!ready?'접수 내역을 불러오는 중입니다.':'5초마다 자동 갱신 · 마지막 확인 '+lastFetch))+'</p>'+(showTest?'<p class="notice">테스트 계정의 가상 자료입니다. 실제 실적에는 합산하지 않습니다.</p>':'')+'<p class="sub">최초 접수일 기준 · 상태 변경 시 가접수·정상접수·A/S 건수가 함께 바뀝니다.</p>';
   if(!ready)return top+'</div>';
   const visibleTeams=admin()?Object.keys(teams).filter(t=>t!=='health'||records.some(r=>r.team===t)):[live().user.department];
   return top+'<div class="sales-live-totals">'+summary(counts(records))+'</div>'+(page==='adminPerformance'?weekly():'')+'<div class="team-calendar-stack">'+visibleTeams.map(t=>calendar(t,records)).join('')+'</div>'+details(records)+'</div>';
@@ -52,6 +52,7 @@
  function chrome(){
   if(!bridge)return;
   bridge.root.querySelector('.work')?.classList.toggle('sales-compact-header',!admin()&&route()==='sales');
+  bridge.root.querySelector('.work')?.classList.toggle('region-intake-page',route()==='regions');
   if(!active())return;
   const status=bridge.root.querySelector('#live-page-status');if(status)status.textContent=error||(!store?'접수 내역을 불러오는 중입니다.':'저장된 접수 상태를 표시합니다. 변경 즉시 반영 · 다른 화면의 변경은 5초마다 갱신');
   for(const el of bridge.root.querySelectorAll('.work > .sample'))el.hidden=true;
