@@ -30,3 +30,8 @@
 #tm-preview .hr-table{overflow:auto}#tm-preview .hr-table table{min-width:700px}
 #tm-preview .hr-dialog .hr-table table{min-width:540px}
 @media(max-width:700px){#tm-preview .hr-sheet{grid-template-columns:1fr}#tm-preview .hr-paper{padding:12px}#tm-preview .hr-summary{grid-template-columns:1fr}#tm-preview .hr-dialog{width:96vw}#tm-preview .hr-fields{gap:8px}}
+
+/* Payment totals keep each caption and amount together on one compact line. */
+#tm-preview .hr-summary.hr-pay-totals{display:flex;flex-wrap:nowrap;gap:8px;overflow-x:auto}
+#tm-preview .hr-summary.hr-pay-totals>div{display:flex;align-items:baseline;justify-content:space-between;flex:1 0 auto;gap:10px;padding:10px 12px;white-space:nowrap}
+#tm-preview .hr-summary.hr-pay-totals strong{display:inline;margin:0;font-size:17px}

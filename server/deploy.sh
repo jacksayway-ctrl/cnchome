@@ -5,6 +5,7 @@ cd "$(dirname "$0")/.."
 [[ -f /etc/cnchome/database.json ]] || { echo 'DB 연결 설정이 없습니다.'; exit 1; }
 while IFS= read -r -d '' file; do php -l "$file" >/dev/null; done < <(find server -name '*.php' -type f -print0)
 php server/bin/check-views.php
+php server/bin/check-pay-statements.php
 nginx -t
 backup="/var/backups/cnchome/$(date +%Y%m%d-%H%M%S)"
 install -d -m 700 "$backup"

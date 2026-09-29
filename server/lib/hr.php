@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__.'/holiday-pay.php';
+require_once __DIR__.'/pay-statements.php';
 function hr_today(): string { return (new DateTimeImmutable('now',new DateTimeZone('Asia/Seoul')))->format('Y-m-d'); }
 function hr_json(mixed $v): string { return json_encode($v,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR); }
 function hr_day(string $s): bool { $d=DateTimeImmutable::createFromFormat('!Y-m-d',$s); return $d && $d->format('Y-m-d')===$s; }
@@ -19,7 +20,7 @@ function hr_contract_end(string $start,string $term): string {
 }
 function hr_profile(array $in): array {
     $p=[];
-    foreach(['name'=>60,'phone'=>20,'email'=>120,'birthDate'=>10,'address'=>240,'addressDetail'=>240,'postcode'=>10,'team'=>20,'role'=>20,'startDate'=>10,'endDate'=>10,'employment'=>10,'workplace'=>240,'duties'=>240,'weeklyHoliday'=>5,'payType'=>10,'wageEffective'=>10,'bank'=>50,'accountNumber'=>40,'accountHolder'=>60,'contractStart'=>10,'contractEnd'=>10,'contractTerm'=>20,'contractType'=>20,'memo'=>1000] as $key=>$max){
+    foreach(['name'=>60,'phone'=>20,'email'=>120,'birthDate'=>10,'address'=>240,'addressDetail'=>240,'postcode'=>10,'team'=>20,'role'=>20,'startDate'=>10,'endDate'=>10,'employment'=>10,'workplace'=>240,'duties'=>240,'weeklyHoliday'=>5,'payType'=>10,'wageEffective'=>10,'bank'=>50,'accountNumber'=>40,'accountHolder'=>60,'contractStart'=>10,'contractEnd'=>10,'contractTerm'=>20,'contractType'=>20,'memo'=>1000,'gender'=>10,'nationality'=>60,'career'=>2000,'jobType'=>80,'renewalDate'=>10,'retirementReason'=>240,'deathDate'=>10,'deathReason'=>240,'emergencyName'=>60,'emergencyPhone'=>20,'workStart'=>5,'workEnd'=>5,'breakStart'=>5,'breakEnd'=>5,'payday'=>2,'qualification'=>500] as $key=>$max){
         hr_assert(!isset($in[$key])||is_string($in[$key]),'입력 형식을 확인해 주세요.');
         $p[$key]=trim($in[$key]??''); hr_assert(mb_strlen($p[$key])<=$max,'입력 내용이 너무 깁니다: '.$key);
     }
@@ -27,7 +28,14 @@ function hr_profile(array $in): array {
     hr_assert(in_array($p['team'],['insurance','cosmetics','health'],true),'부서를 확인해 주세요.');
     hr_assert(in_array($p['role'],['상담원','팀장','관리자'],true),'직책을 확인해 주세요.');
     hr_assert(in_array($p['employment'],['재직','휴직','퇴사'],true)&&hr_day($p['startDate']),'입사일과 재직 상태를 확인해 주세요.');
-    foreach(['birthDate','endDate','wageEffective','contractStart','contractEnd'] as $key)hr_assert($p[$key]===''||hr_day($p[$key]),'날짜를 확인해 주세요: '.$key);
+    foreach(['birthDate','endDate','wageEffective','contractStart','contractEnd','renewalDate','deathDate'] as $key)hr_assert($p[$key]===''||hr_day($p[$key]),'날짜를 확인해 주세요: '.$key);
+    hr_assert(in_array($p['gender'],['','남','여','기타'],true),'성별을 확인해 주세요.');
+    hr_assert($p['birthDate']===''||$p['birthDate']<=hr_today(),'생년월일을 확인해 주세요.');
+    hr_assert($p['renewalDate']===''||$p['renewalDate']>=$p['startDate'],'고용 갱신일은 입사일 이후로 입력해 주세요.');
+    hr_assert($p['deathDate']===''||$p['deathDate']>=$p['startDate'],'사망일은 입사일 이후로 입력해 주세요.');
+    hr_assert($p['emergencyPhone']===''||preg_match('/^0[0-9 -]{8,14}$/D',$p['emergencyPhone'])===1,'비상 연락처를 확인해 주세요.');
+    foreach(['workStart','workEnd','breakStart','breakEnd'] as $key)hr_assert($p[$key]===''||preg_match('/^(?:[01][0-9]|2[0-3]):[0-5][0-9]$/D',$p[$key])===1,'근로·휴게 시간을 확인해 주세요.');
+    hr_assert($p['payday']===''||(ctype_digit($p['payday'])&&(int)$p['payday']>=1&&(int)$p['payday']<=31),'급여일은 매월 1~31일로 입력해 주세요.');
     hr_assert(!$p['email']||filter_var($p['email'],FILTER_VALIDATE_EMAIL)!==false,'이메일을 확인해 주세요.');
     hr_assert($p['employment']!=='퇴사'||($p['endDate']!==''&&$p['endDate']>=$p['startDate']),'퇴사일을 확인해 주세요.');
     hr_assert(in_array($p['payType'],['시급제','월급제'],true),'급여 방식을 확인해 주세요.');
@@ -50,9 +58,10 @@ function hr_calculate(array $profile,array $input): array {
     $split=$inclusive?hr_holiday_split($rate,$minutes,$input['weeklyMinutes']??[],$input['month']??''):null;
     $holiday=$split['holiday']??0;
     $base=$split['base']??($profile['payType']==='월급제'?$rate:(int)round($rate*$minutes/60));
-    hr_assert($deductions<=$base+$holiday+$allowance,'공제액은 지급 총액을 초과할 수 없습니다.');
+    if(!isset($input['statementVersion']))hr_assert($deductions<=$base+$holiday+$allowance,'공제액은 지급 총액을 초과할 수 없습니다.');
     $note=trim((string)($input['note']??''));hr_assert(mb_strlen($note)<=1000,'산정 메모는 1,000자까지 입력할 수 있습니다.');
-    return ['payType'=>$profile['payType'],'rate'=>$rate,'minutes'=>$minutes,'base'=>$base,'allowance'=>$allowance,'deductions'=>$deductions,'gross'=>$base+$holiday+$allowance,'net'=>$base+$holiday+$allowance-$deductions,'note'=>$note,'holidayInclusive'=>$inclusive,'holiday'=>$holiday,'baseRate'=>$split['baseRate']??$rate,'holidayRate'=>$split['holidayRate']??0,'weeklyBreakdown'=>$split['weeklyBreakdown']??[]];
+    $calculated=['payType'=>$profile['payType'],'rate'=>$rate,'minutes'=>$minutes,'base'=>$base,'allowance'=>$allowance,'deductions'=>$deductions,'gross'=>$base+$holiday+$allowance,'net'=>$base+$holiday+$allowance-$deductions,'note'=>$note,'holidayInclusive'=>$inclusive,'holiday'=>$holiday,'baseRate'=>$split['baseRate']??$rate,'holidayRate'=>$split['holidayRate']??0,'weeklyBreakdown'=>$split['weeklyBreakdown']??[]];
+    return pay_statement_enrich($profile,$input,$calculated);
 }
 function hr_can_change(array $row,string $action,bool $admin,string $today): bool {
     if($row['month']!==substr($today,0,7)||$row['status']==='confirmed')return false;
@@ -85,8 +94,10 @@ function hr_mutate(array $user,array $in): void {
     try {
     $d=db();$d->beginTransaction();
     if($action==='saveStaff'){
-        $p=hr_profile($in['profile']??[]);$id=hr_int($in['id']??0);$existing=null;
+        $id=hr_int($in['id']??0);$existing=null;
         if($id){$q=$d->prepare('SELECT * FROM hr_employees WHERE id=? FOR UPDATE');$q->execute([$id]);$existing=$q->fetch();hr_assert((bool)$existing,'직원을 찾을 수 없습니다.');hr_assert((int)$existing['revision']===($in['revision']??null),'다른 창에서 변경했습니다. 새로고침해 주세요.');}
+        $prior=$existing?json_decode($existing['profile'],true,512,JSON_THROW_ON_ERROR):[];
+        $p=hr_profile(array_replace($prior,$in['profile']??[]));
         $uid=$existing['user_id']??null;
         if(!$existing){
             $day=str_replace('-','',hr_today());
@@ -124,6 +135,7 @@ function hr_mutate(array $user,array $in): void {
         }elseif($action==='publish'){
             hr_assert(!empty($row['user_id']),'먼저 직원 정보에 로그인 계정을 연결해 주세요.');$p=json_decode($row['profile'],true,512,JSON_THROW_ON_ERROR);
             $eventSnapshot=['name'=>$p['name'],'employeeNo'=>$row['employee_no'],'month'=>$row['month'],'calculation'=>json_decode($row['calculation'],true,512,JSON_THROW_ON_ERROR),'bank'=>$p['bank'],'accountNumber'=>$p['accountNumber'],'accountHolder'=>$p['accountHolder']];
+            pay_statement_publish_check($eventSnapshot['calculation']);
             $q=$d->prepare("UPDATE hr_payroll SET status='published',published_snapshot=?,published_at=UTC_TIMESTAMP(6),revision=revision+1 WHERE id=?");$q->execute([hr_json($eventSnapshot),$id]);
         }elseif($action==='request'){
             hr_assert($note!=='','수정요청 메모를 입력해 주세요.');$q=$d->prepare("UPDATE hr_payroll SET status='requested',revision=revision+1 WHERE id=?");$q->execute([$id]);

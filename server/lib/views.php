@@ -31,7 +31,7 @@ function department_label(string $department): string {
     return ['insurance'=>'보험팀','cosmetics'=>'화장품팀','health'=>'건강보조식품팀'][$department]??'소속 확인 필요';
 }
 function render_view(string $name, array $data=[]): void {
-    if (!in_array($name,['office','payroll','login','documents','error'],true)) throw new InvalidArgumentException('Unknown view');
+    if (!in_array($name,['office','payroll','login','documents','error','contracts','contract-document','personnel','pay-statements'],true)) throw new InvalidArgumentException('Unknown view');
     $navigation=app_navigation();$preview=false;$boot=null;$user=null;$role='employee';$page='home';
     extract($data,EXTR_OVERWRITE);
     require view_root().'/'.$name.'.php';

@@ -35,4 +35,4 @@ file_put_contents($directory.'/office-preview.html',html_view('office',['preview
 file_put_contents($directory.'/payroll-preview.html',html_view('payroll',['role'=>'admin']));
 check(in_array('payroll-requirements.json',document_files(),true),'all operating rules present');
 check(!in_array('../bootstrap.php',document_files(),true),'documents traversal rejected');
-echo 'PASS: 29 role-checked PHP routes, escaped output, original-menu exclusion, document allowlist and rendered fixtures.'.PHP_EOL;
+echo 'PASS: role-checked PHP routes, escaped output, original-menu exclusion, document allowlist and rendered fixtures.'.PHP_EOL;

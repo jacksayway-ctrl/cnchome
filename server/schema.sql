@@ -164,3 +164,45 @@ CREATE TABLE IF NOT EXISTS daily_grade_receipts (
  PRIMARY KEY (employee_id, performance_date, milestone),
  FOREIGN KEY (employee_id) REFERENCES app_users(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Versioned employment contracts and read receipts.
+CREATE TABLE IF NOT EXISTS hr_contract_settings (
+ id TINYINT UNSIGNED PRIMARY KEY,
+ settings JSON NOT NULL,
+ revision INT UNSIGNED NOT NULL DEFAULT 1,
+ updated_by BIGINT UNSIGNED NOT NULL,
+ updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+ FOREIGN KEY (updated_by) REFERENCES app_users(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS hr_contracts (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+ employee_id BIGINT UNSIGNED NOT NULL,
+ recipient_user_id BIGINT UNSIGNED NULL,
+ version INT UNSIGNED NOT NULL,
+ revision INT UNSIGNED NOT NULL DEFAULT 1,
+ status ENUM('draft','issued','received') NOT NULL DEFAULT 'draft',
+ terms JSON NOT NULL,
+ issued_snapshot JSON NULL,
+ content_hash CHAR(64) NULL,
+ created_by BIGINT UNSIGNED NOT NULL,
+ received_by BIGINT UNSIGNED NULL,
+ created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+ issued_at DATETIME(6) NULL,
+ received_at DATETIME(6) NULL,
+ UNIQUE KEY employee_contract_version(employee_id,version),
+ KEY contract_recipient(recipient_user_id,status),
+ FOREIGN KEY (employee_id) REFERENCES hr_employees(id),
+ FOREIGN KEY (recipient_user_id) REFERENCES app_users(id),
+ FOREIGN KEY (created_by) REFERENCES app_users(id),
+ FOREIGN KEY (received_by) REFERENCES app_users(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS hr_contract_events (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+ contract_id BIGINT UNSIGNED NOT NULL,
+ actor_id BIGINT UNSIGNED NOT NULL,
+ event VARCHAR(30) NOT NULL,
+ snapshot JSON NULL,
+ created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+ FOREIGN KEY (contract_id) REFERENCES hr_contracts(id),
+ FOREIGN KEY (actor_id) REFERENCES app_users(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

@@ -2,11 +2,12 @@
 declare(strict_types=1);
 require __DIR__.'/_runtime.php';
 require_once CNC_RUNTIME_DIR.'/hr.php';
-require_once CNC_RUNTIME_DIR.'/views.php';
+require_once CNC_RUNTIME_DIR.'/native.php';
 try {
     session_boot();$user=current_user();
     if (!$user) {header('Location: /login.php?role='.session_role());exit;}
     $role=$user['role'];$page=office_page($role,$_GET['page']??null);
+    if(isset(native_routes()[$page])){header('Location: '.native_url($page,$role));exit;}
     $boot=snapshot($user)+['user'=>$user,'page'=>$page,'csrf'=>$_SESSION['csrf'],'hr'=>hr_snapshot($user)];
     render_view('office',compact('boot','user','role','page'));
 } catch (Throwable $e) {

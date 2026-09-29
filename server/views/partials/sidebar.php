@@ -5,6 +5,7 @@
 <nav aria-label="<?= $role==='admin'&&!$preview?'관리자':'직원' ?> 메뉴">
 <?php if ($preview || $role==='employee'): ?>
 <?php foreach ($navigation['employee'] as [$route,$label,$icon]): if ($preview&&in_array($route,['myInfo','payslips'],true)) continue; ?>
+<?php if($route==='contracts'): ?><a class="native-menu-link" href="/contracts.php?role=employee"><span class="ui-icon ui-icon-document" aria-hidden="true"></span><?= view_h($label) ?></a><?php continue;endif; ?>
 <button type="button" data-page="<?= view_h($route) ?>"<?= $page===$route?' class="active" aria-current="page"':'' ?>><span class="ui-icon ui-icon-<?= view_h($icon) ?>" aria-hidden="true"></span><?= view_h($label) ?></button>
 <?php endforeach; ?>
 <?php endif; ?>
