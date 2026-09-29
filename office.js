@@ -515,7 +515,7 @@ function policyFollowMap(group,path=[]){
  for(const [scroller,row] of first){const rect=row.getBoundingClientRect(),box=scroller.getBoundingClientRect(),header=scroller.querySelector('thead')?.getBoundingClientRect().height||42;if(rect.top<box.top+header)scroller.scrollTop+=rect.top-box.top-header;else if(rect.bottom>box.bottom)scroller.scrollTop+=rect.bottom-box.bottom;}
 }
 function regionConditionsPanel(content){
- return '<section class="panel policy-registration-panel"><div class="policy-registration-heading"><h3>접수 정책표</h3><div id="tm-region-policy-date" class="region-policy-date" aria-live="polite">'+regionPolicyDateSummary()+'</div></div>'+content+'<div class="policy-window-actions"><a class="action policy-window-button" data-policy-new-window href="/employee.php?page=regions&amp;policyWindow=1" target="_blank" rel="noopener">↗ 정책표 새창으로 보기</a></div></section>';
+ return '<section class="panel policy-registration-panel"><div class="policy-registration-heading"><h3>접수 정책표</h3><a class="action policy-window-button" data-policy-new-window href="/employee.php?page=regions&amp;policyWindow=1" target="_blank" rel="noopener">↗ 새창으로 보기</a><div id="tm-region-policy-date" class="region-policy-date" aria-live="polite">'+regionPolicyDateSummary()+'</div></div>'+content+'</section>';
 }
 function regionConditionsTable(){
  requestAnimationFrame(policyFitSourceScrollers);
@@ -2217,7 +2217,6 @@ function gradeLiveChrome(){
  root.querySelectorAll('.payroll-link').forEach(el=>el.hidden=live.user.role==='admin');
  root.querySelectorAll('.nav-cut,.aw-nav-group').forEach(el=>el.hidden=live.user.role!=='admin');
  root.querySelector('.work > header').hidden=live.user.role==='admin';root.querySelector('.work > .sample').hidden=true;
- if(live.user.role==='employee')root.querySelector('.work > header h1').textContent=live.user.display_name+'님, 안녕하세요';
  if(live.user.role==='admin'&&!root.querySelector('#live-account')){
   const bar=document.createElement('div');bar.id='live-account';bar.className='notice';
   bar.innerHTML=`<div class="row"><strong>${gradeEscape(live.user.display_name)} · ${live.user.role==='admin'?'관리자':'직원'}</strong><button type="button" class="secondary" id="live-refresh">최신 기준 불러오기</button>${live.user.role==='admin'?'<a href="/preview.php?role=admin" target="_blank" rel="noopener">기존 화면 미리보기</a>':''}</div><p class="sub" id="live-page-status"></p>`;

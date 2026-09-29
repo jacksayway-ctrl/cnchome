@@ -51,7 +51,7 @@
  function redraw(){if(active())bridge.render()}
  function chrome(){
   if(!bridge)return;
-  bridge.root.querySelector('.work')?.classList.toggle('sales-compact-header',!admin()&&route()==='sales');
+  bridge.root.querySelector('.work')?.classList.toggle('employee-compact-header',!admin());
   bridge.root.querySelector('.work')?.classList.toggle('region-intake-page',route()==='regions');
   if(!active())return;
   const status=bridge.root.querySelector('#live-page-status');if(status)status.textContent=error||(!store?'접수 내역을 불러오는 중입니다.':'저장된 접수 상태를 표시합니다. 변경 즉시 반영 · 다른 화면의 변경은 5초마다 갱신');
