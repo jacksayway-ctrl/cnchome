@@ -1,10 +1,10 @@
 <?php if(!$selected): ?>
-<section class="contract-panel"><p>아직 발급된 근로계약서가 없습니다. 관리자가 발급하면 이 화면에서 계약서를 확인하고 인쇄할 수 있습니다.</p></section>
+<?php require view_root().'/partials/contract-basic-preview.php'; ?>
 <?php else: $terms=$selected['issued_snapshot']['terms']??$selected['terms']; ?>
 <section class="contract-panel contract-preview-panel">
 <div class="contract-employee-toolbar nf-no-print">
 <form method="get" action="/contracts.php" class="contract-version-select"><input type="hidden" name="role" value="employee"><label>내 계약서 <select name="id" aria-label="내 근로계약서 선택"><?php foreach($contracts as $row): $t=$row['issued_snapshot']['terms']??$row['terms']; ?><option value="<?= (int)$row['id'] ?>" <?= $selected['id']===$row['id']?'selected':'' ?>>제<?= (int)$row['version'] ?>판 · <?= view_h($t['contractStart'].' ~ '.($t['contractEnd']?:'기간의 정함 없음')) ?> · <?= view_h(contract_status($row)) ?></option><?php endforeach ?></select></label><button>불러오기</button></form>
-<div class="contract-actions"><button type="button" data-contract-print>인쇄 / PDF 저장</button><a href="/contracts.php?role=employee&amp;id=<?= (int)$selected['id'] ?>&amp;download=1">계약서 사본 저장</a></div>
+<div class="contract-actions"><button type="button" data-contract-print>인쇄 / PDF 저장</button><a href="/contracts.php?role=employee&amp;id=<?= (int)$selected['id'] ?>&amp;download=1">계약서 사본 저장</a><a href="/contracts.php?role=employee&amp;template=1">기본 양식 보기</a></div>
 </div>
 <p class="contract-hint nf-no-print"><?= view_h(contract_status($selected)) ?> · A4 세로 한 장 인쇄용입니다. 인쇄할 때 머리글·바닥글을 끄고 배율 100%를 선택해 주세요.</p>
 <div class="contract-inline-preview"><?php $documentOnly=false;require view_root().'/contract-document.php'; ?></div>

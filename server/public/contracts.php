@@ -26,14 +26,17 @@ try {
     $id=isset($_GET['id'])&&is_string($_GET['id'])&&ctype_digit($_GET['id'])?(int)$_GET['id']:0;
     $selected=$id?contract_find($id,$user):null;
     if($id&&!$selected){http_response_code(404);render_view('error',['title'=>'계약서를 찾을 수 없습니다.','message'=>'계약 번호 또는 열람 권한을 확인해 주세요.','role'=>$role]);exit;}
+    $basicRequested=isset($_GET['template'])&&!$id;
+    $company=contract_company_row();
     $documentOnly=isset($_GET['document'])||isset($_GET['download']);$download=isset($_GET['download']);
     if($documentOnly){
+        if($basicRequested)$selected=contract_basic_form($company['settings']);
         if(!$selected){http_response_code(404);exit;}
-        if($download){header('Content-Type: text/html; charset=utf-8');header('Content-Disposition: attachment; filename="employment-contract-'.$selected['id'].'-v'.$selected['version'].'.html"');}
+        if($download){$filename=$basicRequested?'employment-contract-template.html':'employment-contract-'.$selected['id'].'-v'.$selected['version'].'.html';header('Content-Type: text/html; charset=utf-8');header('Content-Disposition: attachment; filename="'.$filename.'"');}
         render_view('contract-document',compact('user','role','selected','documentOnly','download'));exit;
     }
-    $company=contract_company_row();$contracts=contract_list($user);
-    if(!$selected&&$role==='employee'&&$contracts)$selected=$contracts[0];
+    $contracts=contract_list($user);
+    if(!$selected&&!$basicRequested&&$role==='employee'&&$contracts)$selected=$contracts[0];
     $employees=$role==='admin'?db()->query('SELECT id,employee_no,profile FROM hr_employees ORDER BY id')->fetchAll():[];
     $filterTeam='';$filterEmployee=0;$filterProfile=null;
     if($role==='admin'){
@@ -43,7 +46,7 @@ try {
         $match=null;foreach($employees as $e)if((int)$e['id']===$filterEmployee)$match=$e;
         if(!$match)$filterEmployee=0;else $filterProfile=json_decode($match['profile'],true,512,JSON_THROW_ON_ERROR);
         if($filterTeam||$filterEmployee){$ids=array_map(fn($e)=>(int)$e['id'],$employees);$contracts=array_values(array_filter($contracts,fn($c)=>in_array((int)$c['employee_id'],$ids,true)&&(!$filterEmployee||(int)$c['employee_id']===$filterEmployee)));}
-        if(!$id&&$filterEmployee)$selected=$contracts[0]??null;
+        if(!$id&&!$basicRequested&&$filterEmployee)$selected=$contracts[0]??null;
     }
     $events=[];
     if($selected){$q=db()->prepare('SELECT ce.event,ce.created_at,ce.snapshot,u.display_name FROM hr_contract_events ce JOIN app_users u ON u.id=ce.actor_id WHERE ce.contract_id=? ORDER BY ce.id DESC LIMIT 30');$q->execute([$selected['id']]);$events=$q->fetchAll();}

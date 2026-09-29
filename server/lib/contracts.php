@@ -43,6 +43,12 @@ function contract_default_terms(array $employee,array $company): array {
     foreach($terms as $key=>$value)if(is_string($value))$terms[$key]=preg_replace('/\s+/u',' ',trim($value));
     return $terms;
 }
+function contract_basic_form(array $company): array {
+    // A shared, unsaved form: no personnel data, recipient, issue or approval record.
+    $terms=contract_default_terms(['profile'=>hr_json(['payType'=>'시급제','payAmount'=>15000,'contractType'=>'기간제'])],$company);
+    $terms['signedDate']='';$terms['wageEffective']='';
+    return ['id'=>0,'version'=>0,'status'=>'template','employee_no'=>'','terms'=>$terms,'issued_snapshot'=>null,'content_hash'=>'','issued_at'=>null];
+}
 function contract_time_minutes(string $value): ?int {
     if(preg_match('/^(\d{2}):(\d{2})$/D',$value,$m)!==1||(int)$m[1]>23||(int)$m[2]>59)return null;
     return (int)$m[1]*60+(int)$m[2];

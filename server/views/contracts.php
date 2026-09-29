@@ -36,6 +36,7 @@ function contract_payment_fields(array $values,string $prefix): void {
 <?php if($error): ?><p class="contract-alert" role="alert"><?= view_h($error) ?></p><?php endif; ?>
 <?php if($notice): ?><p class="contract-notice" role="status"><?= view_h($notice) ?></p><?php endif; ?>
 <?php if($role==='employee'){require view_root().'/partials/employee-contract-page.php';echo '<script src="'.view_h(asset_url('contract.js')).'" defer></script>';native_end();return;} ?>
+<?php if(!$selected){require view_root().'/partials/contract-basic-preview.php';}else{ ?><p class="contract-actions nf-no-print"><a href="/contracts.php?role=admin&amp;template=1">직원 공통 기본 양식 보기</a></p><?php } ?>
 <?php if($filterProfile): ?><p class="contract-selection-info"><strong><?= view_h($filterProfile['name']) ?></strong> · <?= view_h(department_label($filterProfile['team'])) ?> · <?= view_h($filterProfile['role']) ?> · 입사 <?= view_h($filterProfile['startDate']) ?> · 급여일 <?= view_h($filterProfile['payday']?:'15') ?>일</p><?php endif ?>
 <p class="contract-description">관리자 발급 → 직원 내용 승인 → 관리자 최종 적용 순서로 진행합니다. 승인 기록과 계약서 사본을 보관하며, 당사자 서명은 별도로 확인합니다.</p>
 <?php if($role==='admin'): ?>
