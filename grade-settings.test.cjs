@@ -5,7 +5,7 @@ const vm = require('node:vm');
 const html = fs.readFileSync(require('node:path').join(__dirname, 'office.js'), 'utf8');
 const code = html.slice(html.indexOf('// Editable grade policy.'), html.indexOf('function adminAttendance()'));
 const listeners={};
-const context = vm.createContext({GradeNumbers:require('./grade-numbers.js'),GradeCalendar:require('./grade-calendar.js'),GradeCalendarPreview:require('./grade-calendar-preview.js'),fmt:n=>n.toLocaleString("ko-KR"),Intl,Date,structuredClone,root:{addEventListener(type,fn){(listeners[type]??=[]).push(fn)}},window:{addEventListener(){}},localStorage:{getItem(){return null}}});
+const context = vm.createContext({GradeNumbers:require('./grade-numbers.js'),GradeCalendar:require('./grade-calendar.js'),GradeCalendarPreview:require('./grade-calendar-preview.js'),fmt:n=>n.toLocaleString("ko-KR"),Intl,Date,structuredClone,queueMicrotask,root:{querySelectorAll(){return []},addEventListener(type,fn){(listeners[type]??=[]).push(fn)}},window:{addEventListener(){}},localStorage:{getItem(){return null}}});
 vm.runInContext(code+'\nglobalThis.api={gradeDefaults,gradeValidate,gradeCalculate,gradeValidDate,gradePolicyAt,gradeReadStore,gradeSyncWeeklyBounds,gradeGenerateWeekly,gradePrepareDraft,gradeDailyCashTable,gradeOriginalMonthlyTable,gradeAggregateCalculate,gradeReferenceMonthly,gradePreviewHtml,gradeUpdatePreview};',context);
 const {gradeDefaults,gradeValidate,gradeCalculate,gradeValidDate,gradePolicyAt,gradeReadStore}=context.api;
 test('monthly screenshot boundaries use only the current tier and include its first count',()=>{
@@ -78,8 +78,15 @@ test('weekly draft starts at eight with unchanged amounts and preserves later ed
  draft.weeklyAuto.start=9;draft.weekly=context.api.gradeGenerateWeekly(9,30000);assert.equal(context.api.gradePrepareDraft(draft).weekly[1].min,9);
 });
 
-test('original monthly table preserves supplied labels and estimates without the deleted footer',()=>{
- const html=context.api.gradeOriginalMonthlyTable();for(const label of ['100건 이하','101~110건','111~120건','121~130건','131~140건','141~150건','151~160건','161~170건','171건 이상','18,000원','600,000원','3,026,000원','2,694,000원','2,794,000원','1,980,000','2,005,000','2,187,000','2,237,000','2,362,000','2,594,000','0.5건','취소건 제외 실오더 기준'])assert.ok(html.includes(label),label);assert.ok(!html.includes('100건이상 추가건당'));assert.equal((html.match(/<th>/g)||[]).length,7);assert.ok(!html.includes('<th>기본</th>'));assert.ok(!html.includes('<td>7</td>'));
+test('monthly table requests server estimates and separates all-grade total from payday amount',()=>{
+ const html=context.api.gradeOriginalMonthlyTable();
+ for(const label of ['100건 이하','101~110건','171건 이상','18,000원','600,000원','일그레이드 합계','주그레이드 합계','예상 총액','급여일 예상액'])assert.ok(html.includes(label),label);
+ assert.equal((html.match(/<th>/g)||[]).length,10);
+ assert.equal((html.match(/data-estimate-column="daily"/g)||[]).length,9);
+ assert.equal((html.match(/data-estimate-column="weekly"/g)||[]).length,9);
+ assert.equal((html.match(/data-estimate-column="total"/g)||[]).length,9);
+ assert.equal((html.match(/data-estimate-column="salary"/g)||[]).length,9);
+ assert.ok(!html.includes('<td>7</td>'));
 });
 
 test('aggregate 150 cases at 22 six-hour days uses current monthly table and counts cash once',()=>{

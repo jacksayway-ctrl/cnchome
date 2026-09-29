@@ -8,6 +8,8 @@ try {
     session_boot();$user=current_user();
     if(!$user){header('Location: /login.php?role='.session_role());exit;}
     $role=$user['role'];$error='';$failedPost=[];
+    $editWindow=($_GET['editWindow']??'')==='1';$previewOnly=($_GET['view']??'')==='preview';
+    if($editWindow&&$role!=='admin')throw new HRForbidden('계약 수정 창은 관리자만 사용할 수 있습니다.');
     if(isset($_GET['calculate'])){
         if($role!=='admin')throw new HRForbidden('관리자만 사용할 수 있습니다.');
         try{$start=contract_text($_GET['start']??'',10,'시작일');$term=contract_text($_GET['term']??'',15,'기간');$days=$_GET['days']??['월','화','수','목','금'];hr_assert(is_array($days),'근무요일을 확인해 주세요.');foreach($days as $day)hr_assert(is_string($day),'근무요일을 확인해 주세요.');
@@ -20,12 +22,14 @@ try {
         try{
             hr_assert(is_string($_POST['csrf']??null)&&csrf_ok($_POST['csrf']),'인증 시간이 만료됐습니다. 새로고침 후 다시 시도해 주세요.');
             $id=contract_mutate($user,$_POST);$_SESSION['contract_notice']='저장했습니다.';
-            header('Location: /contracts.php?role='.$role.($id?'&id='.$id:''),true,303);exit;
+            $windowQuery=($editWindow?'&editWindow=1':'').((($_POST['afterSave']??'')==='preview'||in_array($_POST['action']??'',['issue','apply','withdraw'],true))?'&view=preview':'');
+            header('Location: /contracts.php?role='.$role.($id?'&id='.$id:'').$windowQuery,true,303);exit;
         }catch(InvalidArgumentException $e){$error=$e->getMessage();$failedPost=$_POST;http_response_code(422);}
     }
     $id=isset($_GET['id'])&&is_string($_GET['id'])&&ctype_digit($_GET['id'])?(int)$_GET['id']:0;
     $selected=$id?contract_find($id,$user):null;
     if($id&&!$selected){http_response_code(404);render_view('error',['title'=>'계약서를 찾을 수 없습니다.','message'=>'계약 번호 또는 열람 권한을 확인해 주세요.','role'=>$role]);exit;}
+    if($editWindow&&!$selected){http_response_code(404);render_view('error',['title'=>'계약서를 선택해 주세요.','message'=>'계약 관리 목록에서 수정할 행을 눌러 주세요.','role'=>$role]);exit;}
     $basicRequested=isset($_GET['template'])&&!$id;
     $company=contract_company_row();
     $documentOnly=isset($_GET['document'])||isset($_GET['download'])||($_GET['popup']??'')==='1';$download=isset($_GET['download']);
@@ -38,7 +42,6 @@ try {
         render_view('contract-document',compact('user','role','selected','documentOnly','download'));exit;
     }
     $contracts=contract_list($user);
-    if(!$selected&&!$basicRequested&&$role==='employee'&&$contracts)$selected=$contracts[0];
     $employees=$role==='admin'?db()->query('SELECT id,employee_no,profile FROM hr_employees ORDER BY id')->fetchAll():[];
     $filterTeam='';$filterEmployee=0;$filterProfile=null;
     if($role==='admin'){
@@ -48,12 +51,11 @@ try {
         $match=null;foreach($employees as $e)if((int)$e['id']===$filterEmployee)$match=$e;
         if(!$match)$filterEmployee=0;else $filterProfile=json_decode($match['profile'],true,512,JSON_THROW_ON_ERROR);
         if($filterTeam||$filterEmployee){$ids=array_map(fn($e)=>(int)$e['id'],$employees);$contracts=array_values(array_filter($contracts,fn($c)=>in_array((int)$c['employee_id'],$ids,true)&&(!$filterEmployee||(int)$c['employee_id']===$filterEmployee)));}
-        if(!$id&&!$basicRequested&&$filterEmployee)$selected=$contracts[0]??null;
     }
     $events=[];
     if($selected){$q=db()->prepare('SELECT ce.event,ce.created_at,ce.snapshot,u.display_name FROM hr_contract_events ce JOIN app_users u ON u.id=ce.actor_id WHERE ce.contract_id=? ORDER BY ce.id DESC LIMIT 30');$q->execute([$selected['id']]);$events=$q->fetchAll();}
     $notice=$_SESSION['contract_notice']??'';unset($_SESSION['contract_notice']);
-    render_view('contracts',compact('user','role','selected','company','contracts','employees','events','error','notice','failedPost','filterTeam','filterEmployee','filterProfile'));
+    render_view('contracts',compact('user','role','selected','company','contracts','employees','events','error','notice','failedPost','filterTeam','filterEmployee','filterProfile','basicRequested','editWindow','previewOnly'));
 } catch(HRForbidden $e){http_response_code(403);render_view('error',['title'=>'처리 권한 없음','message'=>$e->getMessage(),'role'=>session_role()]);}
 catch(Throwable $e){
     error_log('cnchome contracts: '.$e->getMessage());http_response_code(503);

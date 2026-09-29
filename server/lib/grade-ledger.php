@@ -73,3 +73,9 @@ function grade_payroll_input(array $input,array $grade): array {
     $grade['dailyOutstanding']=max(0,$grade['daily']-$dailyPaid);
     $input['gradeSnapshot']=$grade;$input['prepaidDaily']=$dailyPaid;$input['dailyGradeSettlement']='cash';return $input;
 }
+function grade_personal_totals(array $employee,string $month): array {
+    $grade=grade_employee_context($employee,$month);$profile=$employee['profile'];
+    $rate=(int)($profile['payAmount']??15000);$base=($profile['payType']??'시급제')==='월급제'?$rate:(int)round($grade['hours']*$rate);
+    $payday=$base+$grade['weekly']+$grade['monthly'];
+    return ['month'=>$month,'asOf'=>$grade['asOf'],'count'=>$grade['count'],'hours'=>$grade['hours'],'rate'=>$rate,'workPay'=>$base,'daily'=>$grade['daily'],'weekly'=>$grade['weekly'],'monthly'=>$grade['monthly'],'dailyPaid'=>$grade['dailyReceived'],'dailyPending'=>$grade['dailyOutstanding'],'total'=>$payday+$grade['daily'],'payday'=>$payday];
+}

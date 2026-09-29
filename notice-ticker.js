@@ -3,9 +3,9 @@
  function mergeActivity(previous,incoming){const items=new Map(previous.map(item=>[item.id,item]));for(const item of incoming)items.set(item.id,item);return [...items.values()].sort((a,b)=>a.id-b.id).slice(-100);}
  function changedNotices(previous,incoming){const old=new Map(previous.map(item=>[item.id,item]));return incoming.filter(item=>!old.has(item.id)||old.get(item.id).title!==item.title||old.get(item.id).body!==item.body);}
  function attach(bar){
-  const live=global.CNCHOME_LIVE;if(!live||bar.querySelector('.cnc-notice-area'))return;
-  const doc=global.document,area=doc.createElement('div');area.className='cnc-notice-area';bar.prepend(area);
-  let company=[],activity=[],cursor=null,busy=false,dialog=null;
+  const live=global.CNCHOME_LIVE;if(!live||bar.dataset.noticeAttached)return;bar.dataset.noticeAttached='true';
+  const doc=global.document,area=bar.querySelector('.cnc-notice-area')||doc.createElement('div');area.className='cnc-notice-area';area.replaceChildren();bar.prepend(area);
+  let company=live.notices?.company||[],activity=live.notices?.activity||[],cursor=live.notices?.cursor??null,busy=false,dialog=null;
   const url=()=>'/notices-api.php?role='+encodeURIComponent(live.user.role)+(cursor===null?'':'&after='+cursor);
   function element(tag,className,text){const node=doc.createElement(tag);if(className)node.className=className;if(text!==undefined)node.textContent=text;return node;}
   function showDialog(title){if(dialog)dialog.remove();dialog=element('dialog','cnc-notice-dialog');dialog.setAttribute('aria-label',title);const head=element('div','cnc-notice-dialog-heading');head.append(element('h2','',title));const close=element('button','','닫기');close.type='button';close.addEventListener('click',()=>dialog.close());head.append(close);dialog.append(head);doc.body.append(dialog);dialog.showModal();return dialog;}
@@ -39,6 +39,7 @@
    return {box,update(nextItems){const changes=changedNotices(items,nextItems);items=nextItems;pending=pending.filter(item=>items.some(value=>value.id===item.id));for(const item of changes){pending=pending.filter(value=>value.id!==item.id);pending.push(item);}if(!current||!items.some(item=>item.id===current.id))next();},resize:animate,error(message){viewport.title=message;if(!current){text.textContent=message;text.style.animation='none';}}};
   }
   const left=channel('회사 공지','company','접수 가능지역을 확인한 후 상담해 주세요.'),right=channel('정책 수량 감소','activity','새로운 수량 감소 알림이 없습니다.');
+  left.update(company.slice().reverse());right.update(activity);
   async function refresh(body){
    if(busy)return;busy=true;
    try{const response=await global.fetch(url(),{method:body?'POST':'GET',credentials:'same-origin',cache:'no-store',headers:{'Content-Type':'application/json','X-CSRF-Token':live.csrf},...(body?{body:JSON.stringify(body)}:{})});const data=await response.json();if(!response.ok)throw Error(data.error||'공지를 불러오지 못했습니다.');company=data.company||[];activity=mergeActivity(activity,data.activity||[]);cursor=Number(data.cursor)||0;left.update(company.slice().reverse());right.update(activity);return true;}

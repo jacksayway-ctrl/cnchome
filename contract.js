@@ -1,4 +1,13 @@
-document.querySelectorAll('[data-contract-print]').forEach(button=>button.addEventListener('click',()=>window.print()));
+document.querySelectorAll('[data-contract-print]').forEach(button=>button.addEventListener('click',()=>{const row=button.closest('[data-contract-detail]');if(row){document.body.classList.add('contract-print-one');row.classList.add('contract-print-target');}window.print();}));
+window.addEventListener('afterprint',()=>{document.body.classList.remove('contract-print-one');document.querySelectorAll('.contract-print-target').forEach(row=>row.classList.remove('contract-print-target'));});
+function contractToggle(row){const detail=document.getElementById(row.dataset.contractToggle);if(!detail)return;detail.hidden=!detail.hidden;row.setAttribute('aria-expanded',String(!detail.hidden));}
+function contractWindow(link,event){if(event.ctrlKey||event.metaKey||event.shiftKey||event.altKey)return;const popup=window.open(link.href,'_blank','popup,width=950,height=950,scrollbars=yes,resizable=yes');if(popup){popup.opener=null;event.preventDefault();popup.focus();}}
+document.addEventListener('click',event=>{
+ const row=event.target.closest('[data-contract-toggle]');if(row&&!event.ctrlKey&&!event.metaKey&&!event.shiftKey&&!event.altKey){event.preventDefault();contractToggle(row);return;}
+ const link=event.target.closest('[data-contract-window]');if(link){contractWindow(link,event);return;}
+ const windowRow=event.target.closest('[data-contract-window-row]');if(windowRow&&!event.target.closest('a,button,input,select'))windowRow.querySelector('[data-contract-window]')?.click();
+});
+document.addEventListener('keydown',event=>{if(event.key!=='Enter'&&event.key!==' ')return;const row=event.target.closest('[data-contract-toggle],[data-contract-window-row]');if(!row||event.target!==row)return;event.preventDefault();if(row.dataset.contractToggle)contractToggle(row);else row.querySelector('[data-contract-window]')?.click();});
 
 // PHP calculates calendar boundaries; this only refreshes the date fields.
 document.querySelectorAll('[data-contract-period-form]').forEach(form=>{

@@ -2,6 +2,7 @@
 declare(strict_types=1);
 require_once __DIR__.'/hr.php';
 require_once __DIR__.'/contract-workflow.php';
+require_once __DIR__.'/contract-forms.php';
 
 function contract_text(mixed $value,int $max,string $label): string {
     hr_assert(is_string($value),$label.' 입력 형식을 확인해 주세요.');
@@ -157,7 +158,7 @@ function contract_find(int $id,array $user,bool $lock=false): ?array {
     $q->execute($user['role']==='admin'?[$id]:[$id,$user['id']]);$r=$q->fetch();return $r?contract_decode($r):null;
 }
 function contract_list(array $user): array {
-    $q=db()->prepare('SELECT c.*,e.employee_no,e.user_id,e.profile,e.revision AS employee_revision,a.state AS approval_state,a.reason AS approval_reason,a.updated_at AS approval_updated_at FROM hr_contracts c JOIN hr_employees e ON e.id=c.employee_id LEFT JOIN hr_contract_approvals a ON a.contract_id=c.id'.($user['role']==='admin'?'':' WHERE c.recipient_user_id=? AND c.status<>\'draft\'').' ORDER BY c.id DESC');$q->execute($user['role']==='admin'?[]:[$user['id']]);return array_map('contract_decode',$q->fetchAll());
+    $q=db()->prepare('SELECT c.*,e.employee_no,e.user_id,e.profile,e.revision AS employee_revision,a.state AS approval_state,a.reason AS approval_reason,a.updated_at AS approval_updated_at FROM hr_contracts c JOIN hr_employees e ON e.id=c.employee_id LEFT JOIN hr_contract_approvals a ON a.contract_id=c.id'.($user['role']==='admin'?'':' WHERE c.recipient_user_id=? AND c.status<>\'draft\'').' ORDER BY '.($user['role']==='admin'?'c.id DESC':'c.issued_at DESC,c.id DESC'));$q->execute($user['role']==='admin'?[]:[$user['id']]);return array_map('contract_decode',$q->fetchAll());
 }
 function contract_log(int $id,array $user,string $event,?array $snapshot=null): void {
     $q=db()->prepare('INSERT INTO hr_contract_events(contract_id,actor_id,event,snapshot) VALUES(?,?,?,?)');$q->execute([$id,$user['id'],$event,$snapshot?hr_json($snapshot):null]);

@@ -2,6 +2,7 @@
 // Synthetic, in-memory database verifies one-time fixtures and their financial records.
 declare(strict_types=1);
 require_once __DIR__.'/../lib/test-staff-fixtures.php';
+require_once __DIR__.'/../lib/test-normal-fixtures.php';
 class FixtureDB extends PDO {
  public function prepare(string $sql,array $options=[]): PDOStatement|false{return parent::prepare(str_replace(' FOR UPDATE','',$sql),$options);}
 }
@@ -35,5 +36,18 @@ foreach($result['manifest'] as $entry){
  $input=['action'=>'savePayroll','id'=>$entry['payrollId'],'revision'=>1,'calculation'=>$c];try{hr_mutate($user,$input);throw new RuntimeException('Employee payroll mutation allowed');}catch(HRForbidden $e){}
 }
 $before=$d->query('SELECT id,published_snapshot,calculation FROM hr_payroll ORDER BY id')->fetchAll();$again=seed_five_test_staff();fixture_check($again['existing']&&$before===$d->query('SELECT id,published_snapshot,calculation FROM hr_payroll ORDER BY id')->fetchAll(),'rerunning preserves all saved statements');
+$beforeReceipts=$d->query('SELECT * FROM daily_grade_receipts ORDER BY employee_id,performance_date,milestone')->fetchAll();
+$normalBatch=seed_test_normal_range();fixture_check(!$normalBatch['existing']&&count($normalBatch['manifest'])===5,'normal-range fixture only touches recognized test accounts');
+foreach($normalBatch['manifest'] as $entry){
+ foreach($entry['normalByDate'] as $count)fixture_check($count>=10&&$count<=15,'daily test normal count stays between ten and fifteen');
+ $q=$d->prepare('SELECT profile FROM hr_employees WHERE user_id=?');$q->execute([$entry['userId']]);$profile=json_decode($q->fetchColumn(),true);
+ $totals=grade_personal_totals(['userId'=>$entry['userId'],'profile'=>$profile],$entry['month']);
+ fixture_check($totals['count']===array_sum($entry['normalByDate']),'personal monthly totals use saved synthetic normal counts');
+ fixture_check($totals['total']===$totals['workPay']+$totals['daily']+$totals['weekly']+$totals['monthly']&&$totals['payday']===$totals['total']-$totals['daily'],'personal totals include all grades once and exclude daily cash at payday');
+ fixture_check($totals['workPay']===(int)round($totals['hours']*15000),'personal pay estimate uses contract inclusive rate');
+}
+fixture_check($before===$d->query('SELECT id,published_snapshot,calculation FROM hr_payroll ORDER BY id')->fetchAll()&&$beforeReceipts===$d->query('SELECT * FROM daily_grade_receipts ORDER BY employee_id,performance_date,milestone')->fetchAll(),'sales fixture cannot rewrite payroll or create cash receipts');
+fixture_check(seed_test_normal_range()['existing'],'normal-range fixture is idempotent');
 $d->prepare('DELETE FROM test_employee_data WHERE user_id=?')->execute([$result['manifest'][0]['userId']]);seed_five_test_staff();fixture_check((int)$d->query('SELECT COUNT(*) FROM test_employee_data')->fetchColumn()===4,'deleted test data never reappears on deployment');
+seed_test_normal_range();fixture_check((int)$d->query('SELECT COUNT(*) FROM test_employee_data')->fetchColumn()===4,'deleted normal-range fixtures stay deleted');
 echo "PASS: five test employees, scoped accounts/profile/payroll/contracts, no forged approvals, advance net totals and idempotent deletion-preserving fixtures.\n";

@@ -1,4 +1,7 @@
-// Printing and optional document windows are the only enhanced native-page actions.
+// Shared live notices reuse the same feed as the home page; the initial bar is PHP-rendered.
+const nativeSession=document.getElementById('native-session-data');
+if(nativeSession){window.CNCHOME_LIVE=JSON.parse(nativeSession.textContent);const bar=document.querySelector('.cnc-session-bar');window.NoticeTicker?.attach(bar);const size=()=>document.documentElement.style.setProperty('--cnc-session-height',bar.getBoundingClientRect().height+'px');if(window.ResizeObserver)new ResizeObserver(size).observe(bar);size();}
+// Printing, row expansion and optional document windows.
 document.addEventListener('click',event=>{
  const close=event.target.closest('[data-window-close]');if(close){window.close();return;}
  const windowLink=event.target.closest('[data-intake-window],[data-personnel-window],a[href*="personnel.php"][href*="new=1"]');if(windowLink&&!event.ctrlKey&&!event.metaKey&&!event.shiftKey){const popup=window.open(windowLink.href,'_blank','popup,width=850,height=950,scrollbars=yes,resizable=yes');if(popup){popup.opener=null;event.preventDefault();popup.focus();}return;}
