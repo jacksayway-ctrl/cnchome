@@ -229,7 +229,7 @@ html,body{height:100%;overflow:hidden}
 
 /* Align greeting and grade summary as one full-width header row. */
 #tm-preview header{display:grid;grid-template-columns:max-content minmax(0,1fr) max-content;align-items:stretch;gap:24px}
-#tm-preview header>div:first-child{display:flex;flex-direction:column;justify-content:center}
+#tm-preview header>div:first-child:not(.header-grades){display:flex;flex-direction:column;justify-content:center}
 #tm-preview header h1{margin:0 0 5px}
 #tm-preview .header-grades{width:100%;min-width:0;margin:0;align-self:stretch;border-radius:8px}
 #tm-preview .header-grades table{height:100%;width:100%}
@@ -579,7 +579,7 @@ body.policy-window #tm-preview{max-width:none}
 }
 
 /* Personal DB grade progress, labels and values in one row. */
-#tm-preview .header-grades{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 16px;width:100%;min-width:0;white-space:nowrap;overflow-x:auto}
+#tm-preview .header-grades{display:flex;flex-flow:row nowrap;align-items:center;justify-content:space-between;gap:16px;padding:12px 16px;width:100%;min-width:0;white-space:nowrap;overflow-x:auto}
 #tm-preview .header-grade-item{display:flex;align-items:center;gap:8px;font-size:13px;flex-shrink:0}
 #tm-preview .header-grade-item strong{font-size:15px;color:#1464ec;font-variant-numeric:tabular-nums}
 #tm-preview .header-grades[data-state=error] strong{color:#a42b2b}
