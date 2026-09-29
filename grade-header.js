@@ -20,9 +20,9 @@
  async function load(){
   if(loading)return;loading=true;
   try{const response=await global.fetch('/grade-summary-api.php',{credentials:'same-origin',cache:'no-store'});const result=await response.json();if(!response.ok)throw Error(result.error||'조회 실패');if(!result.daily||!result.weekly||!result.monthly||!result.workdays)throw Error('조회 결과를 확인해 주세요.');data=result;error='';}
-  catch(e){data=null;error=e.message;}finally{loading=false;render();}
+  catch(e){data=null;error=e.message;}finally{loading=false;render();global.dispatchEvent(new global.Event('cnc:grade-summary-updated'));}
  }
- global.GradeHeader={render,load};render();load();
+ global.GradeHeader={render,load,getState:()=>({data,error})};render();load();
  global.setInterval(()=>{if(!global.document.hidden)load();},5000);
  global.addEventListener('focus',load);global.addEventListener('cnc:sales-changed',load);
  global.document.addEventListener('visibilitychange',()=>{if(!global.document.hidden)load();});

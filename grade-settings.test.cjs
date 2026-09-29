@@ -70,8 +70,8 @@ test('monthly editor restores six rows at 100 without auto expansion or rate cha
 });
 
 test('daily horizontal table starts at six and matches unbounded cash calculation',()=>{
- const p=gradeDefaults(),html=context.api.gradeDailyCashTable(p);assert.equal((html.match(/<th>/g)||[]).length,20);assert.match(html,/<th>6건<\/th>/);assert.match(html,/<th>25건<\/th>/);assert.match(html,/5,000원/);assert.match(html,/100,000원/);assert.equal(gradeCalculate(p,'daily',26).bonus,105000);
- p.dailyCash.start=7;p.dailyCash.perCase=1000;const changed=context.api.gradeDailyCashTable(p);assert.match(changed,/<th>7건<\/th>/);assert.match(changed,/20,000원/);
+ const p=gradeDefaults(),html=context.api.gradeDailyCashTable(p);assert.equal((html.match(/<th>/g)||[]).length,20);assert.match(html,/<th>6건<\/th>/);assert.match(html,/<th>25건<\/th>/);assert.match(html,/5,000원/);assert.doesNotMatch(html,/100,000원/);assert.equal((html.match(/<strong>5,000원<\/strong>/g)||[]).length,20);assert.equal(gradeCalculate(p,'daily',26).bonus,105000);
+ p.dailyCash.start=7;p.dailyCash.perCase=1000;const changed=context.api.gradeDailyCashTable(p);assert.match(changed,/<th>7건<\/th>/);assert.doesNotMatch(changed,/20,000원/);assert.equal((changed.match(/<strong>1,000원<\/strong>/g)||[]).length,20);
 });
 test('weekly draft starts at eight with unchanged amounts and preserves later edits',()=>{
  const p=gradeDefaults(),draft=context.api.gradePrepareDraft(p);assert.equal(draft.weeklyAuto.start,8);assert.equal(draft.weekly[1].min,8);assert.equal(draft.weekly.at(-1).min,27);assert.equal(draft.weekly[1].achievement,30000);assert.equal(draft.weekly[2].achievement,35000);
@@ -167,4 +167,15 @@ test('employee history lists own department dates and opens immutable saved crit
  assert.equal(context.beforeHistory,context.afterHistory);
  const previous=context.historyPopup;vm.runInContext('gradeShowHistory(2)',context);assert.equal(context.historyPopup,previous);
  vm.runInContext('gradeEntries=[]',context);
+});
+
+test('personal daily cells show underscore only for this employee confirmed milestones',()=>{
+ const p=gradeDefaults();
+ const html=context.api.gradeDailyCashTable(p,{count:8,receipts:[{milestone:6,amount:5000}]},'2026-09-29');
+ assert.equal((html.match(/>_원<\/strong>/g)||[]).length,1);
+ assert.doesNotMatch(html,/data-daily-receive="6"/);
+ assert.match(html,/data-daily-receive="7"/);assert.match(html,/data-daily-receive="8"/);
+ assert.doesNotMatch(html,/data-daily-receive="9"/);
+ const other=context.api.gradeDailyCashTable(p,{count:5,receipts:[]},'2026-09-29');
+ assert.doesNotMatch(other,/>_원</);assert.doesNotMatch(other,/data-daily-receive/);
 });

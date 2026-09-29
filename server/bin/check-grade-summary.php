@@ -4,7 +4,7 @@ declare(strict_types=1);
 require __DIR__.'/../lib/grade-summary.php';
 function db(): PDO {static $d;return $d??=new PDO('sqlite::memory:',null,null,[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION,PDO::ATTR_DEFAULT_FETCH_MODE=>PDO::FETCH_ASSOC]);}
 function check(bool $ok,string $message): void {if(!$ok)throw new RuntimeException($message);}
-$d=db();$d->exec('CREATE TABLE hr_employees(user_id INTEGER,profile TEXT);CREATE TABLE grade_versions(id INTEGER PRIMARY KEY,department TEXT,effective_date TEXT,policy TEXT);CREATE TABLE sales_records(employee_id INTEGER,department TEXT,first_date TEXT,status TEXT,is_test INTEGER);CREATE TABLE test_employee_data(user_id INTEGER,state TEXT);');
+$d=db();$d->exec('CREATE TABLE hr_employees(user_id INTEGER,profile TEXT);CREATE TABLE grade_versions(id INTEGER PRIMARY KEY,department TEXT,effective_date TEXT,policy TEXT);CREATE TABLE sales_records(employee_id INTEGER,department TEXT,first_date TEXT,status TEXT,is_test INTEGER);CREATE TABLE test_employee_data(user_id INTEGER,state TEXT);CREATE TABLE daily_grade_receipts(employee_id INTEGER,performance_date TEXT,milestone INTEGER,amount INTEGER,department TEXT,confirmed_at TEXT DEFAULT CURRENT_TIMESTAMP,PRIMARY KEY(employee_id,performance_date,milestone));');
 $profile=['startDate'=>'2026-09-01','endDate'=>'','workDays'=>['월','화','수','목','금'],'role'=>'상담원'];
 $policy=['dailyCash'=>['start'=>6,'perCase'=>5000],'weeklyBasis'=>'average','weekly'=>[['min'=>0,'achievement'=>0,'extra'=>0],['min'=>8,'achievement'=>30000,'extra'=>0]],'monthlyReference'=>[['max'=>2],['max'=>10],['max'=>null]]];
 $q=$d->prepare('INSERT INTO hr_employees VALUES(?,?)');foreach([1,2,3] as $id)$q->execute([$id,hr_json($profile)]);
@@ -21,4 +21,16 @@ $partTime=$profile;$partTime['workDays']=['월','수','금'];check(grade_progres
 $q=$d->prepare('INSERT INTO test_employee_data VALUES(?,?)');$q->execute([3,hr_json(['sales'=>[['date'=>'2026-09-29','status'=>'정상'],['date'=>'2026-09-29','status'=>'가접수']]])]);$test=['id'=>3,'role'=>'employee','department'=>'insurance','username'=>'user1','display_name'=>'테스트 직원'];$r=grade_summary_snapshot($test,'2026-09-29');check($r['isTest']&&$r['daily']['count']===2,'test account reads own stored sample and new test records');
 $denied=false;try{grade_summary_snapshot(['id'=>1,'role'=>'admin'],'2026-09-29');}catch(HRForbidden $e){$denied=true;}check($denied,'admin cannot impersonate personal progress endpoint');
 $q=$d->prepare('INSERT INTO grade_versions VALUES(?,?,?,?)');$policy['dailyCash']['start']=7;$q->execute([3,'insurance','2026-09-01',hr_json($policy)]);check(grade_summary_snapshot($user,'2026-09-29')['daily']['target']===7,'latest same-date administrator setting is used');
+// Individual thresholds and receipts never spill into colleagues in the same department.
+$policy['dailyCash']['start']=6;
+foreach([5=>0,6=>5000,7=>10000,8=>15000] as $count=>$amount){
+    check(grade_progress($profile,['2026-09-29'=>$count],$policy,'2026-09-29')['daily']['amount']===$amount,'personal daily cash threshold');
+}
+$q=$d->prepare('INSERT INTO daily_grade_receipts(employee_id,performance_date,milestone,amount,department) VALUES(?,?,?,?,?)');
+$q->execute([1,'2026-09-29',6,5000,'insurance']);
+$q->execute([2,'2026-09-29',7,5000,'insurance']);
+$q->execute([1,'2026-09-28',7,5000,'insurance']);
+$r=grade_summary_snapshot($user,'2026-09-29');
+check(count($r['daily']['receipts'])===1&&$r['daily']['receipts'][0]['milestone']===6&&$r['daily']['paid']===5000,'receipts isolated by employee and day, retained after performance drops');
+check(grade_progress($leader,['2026-09-29'=>8],$policy,'2026-09-29')['daily']['amount']===null,'team leader does not inherit counselor award');
 echo "PASS: personal DB isolation, normal status changes, effective policies, calendar and hire-week boundaries, role and test-account separation.\n";

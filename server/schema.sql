@@ -153,3 +153,14 @@ CREATE TABLE IF NOT EXISTS sales_birth_details (
  birth_date DATE NOT NULL,
  FOREIGN KEY (sale_id) REFERENCES sales_records(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS daily_grade_receipts (
+ employee_id BIGINT UNSIGNED NOT NULL,
+ performance_date DATE NOT NULL,
+ milestone INT UNSIGNED NOT NULL,
+ amount BIGINT UNSIGNED NOT NULL,
+ department ENUM('insurance','cosmetics','health') NOT NULL,
+ confirmed_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+ PRIMARY KEY (employee_id, performance_date, milestone),
+ FOREIGN KEY (employee_id) REFERENCES app_users(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
