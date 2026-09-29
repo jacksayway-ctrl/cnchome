@@ -31,7 +31,7 @@ async function api(body){
  const data=await response.json();if(!response.ok)throw Error(data.error||'처리하지 못했습니다.');store=data;return data;
 }
 function toolbar(title,actions=''){return `<div class="row"><h2>${title}</h2><div class="hr-inline">${actions}${button('새로고침','refresh')}</div></div><p id="hr-page-error" class="hr-error" role="alert"></p>`;}
-function staffList(){return toolbar('직원 목록',button('＋ 직원 등록','new','','action'))+`<p class="sub">실제 등록 ${store.employees.length}명 · 사번은 등록 시 자동 발급됩니다. 테스트 직원은 실제 직원과 구분해 사용하세요.</p>`+table(['사번 / 이름','소속 / 직책','연락처','기본급여','로그인','관리'],store.employees.map(e=>[esc(e.employeeNo)+'<br><strong>'+esc(e.profile.name)+'</strong>',esc(teams[e.profile.team])+' / '+esc(e.profile.role),esc(e.profile.phone),esc(e.profile.payType)+' '+money(e.profile.payAmount),e.userId?'연결됨':'미연결',button('상세·수정','edit',e.id)]));}
+function staffList(){return toolbar('직원 목록',button('<span class="ui-icon ui-icon-plus" aria-hidden="true"></span> 직원 등록','new','','action'))+`<p class="sub">실제 등록 ${store.employees.length}명 · 사번은 등록 시 자동 발급됩니다. 테스트 직원은 실제 직원과 구분해 사용하세요.</p>`+table(['사번 / 이름','소속 / 직책','연락처','기본급여','로그인','관리'],store.employees.map(e=>[esc(e.employeeNo)+'<br><strong>'+esc(e.profile.name)+'</strong>',esc(teams[e.profile.team])+' / '+esc(e.profile.role),esc(e.profile.phone),esc(e.profile.payType)+' '+money(e.profile.payAmount),e.userId?'연결됨':'미연결',button('상세·수정','edit',e.id)]));}
 function staffForm(id){
  const e=employee(id),p=e?.profile||{},date=today(),days=p.workDays||['월','화','수','목','금'];
  open(e?'직원 정보 수정':'직원 등록 · 기본 양식',`<form data-hr-form="staff" data-id="${e?.id||0}" data-revision="${e?.revision||0}"><p class="hr-muted">씨앤씨 인사기록 · 필수 항목 * · 사번 ${esc(e?.employeeNo||'cnc'+date.replaceAll('-','')+' + 자동 순번')}</p><div class="hr-sheet">
@@ -45,7 +45,7 @@ function staffForm(id){
 function sortedRows(){return [...store.payroll].sort((a,b)=>(b.status==='confirmed')-(a.status==='confirmed')||(b.confirmed_at||'').localeCompare(a.confirmed_at||'')||b.month.localeCompare(a.month)||b.id-a.id);}
 function payrollList(){
  const rows=sortedRows().filter(p=>!filter||p.status===filter);
- return toolbar('급여·지급 관리',button('＋ 이번 달 급여 작성','pay-new','','action'))+`<p class="sub">기본액 자동 계산 → 관리자 게시 → 직원 확인 또는 수정요청 → 확정. 확정된 직원이 먼저 표시됩니다.</p><div class="hr-inline">${[['','전체'],...Object.entries(labels)].map(([v,l])=>button(l,'filter',v,filter===v?'action':'secondary')).join('')}</div>`+table(['귀속 월','직원','실지급액','상태','직원 확인일','관리'],rows.map(p=>[p.month,esc(employee(p.employee_id)?.profile.name),money(p.calculation.net),stateTag(p),esc(p.confirmed_at? p.confirmed_at.slice(0,19)+' UTC':'—'),button('상세','pay-detail',p.id)]));
+ return toolbar('급여·지급 관리',button('<span class="ui-icon ui-icon-plus" aria-hidden="true"></span> 이번 달 급여 작성','pay-new','','action'))+`<p class="sub">기본액 자동 계산 → 관리자 게시 → 직원 확인 또는 수정요청 → 확정. 확정된 직원이 먼저 표시됩니다.</p><div class="hr-inline">${[['','전체'],...Object.entries(labels)].map(([v,l])=>button(l,'filter',v,filter===v?'action':'secondary')).join('')}</div>`+table(['귀속 월','직원','실지급액','상태','직원 확인일','관리'],rows.map(p=>[p.month,esc(employee(p.employee_id)?.profile.name),money(p.calculation.net),stateTag(p),esc(p.confirmed_at? p.confirmed_at.slice(0,19)+' UTC':'—'),button('상세','pay-detail',p.id)]));
 }
 function bankList(){return toolbar('직원 지급 계좌')+table(['사번','직원','은행','계좌번호','예금주','관리'],store.employees.map(e=>[esc(e.employeeNo),esc(e.profile.name),esc(e.profile.bank),esc(e.profile.accountNumber),esc(e.profile.accountHolder),button('수정','edit',e.id)]));}
 function payslips(){

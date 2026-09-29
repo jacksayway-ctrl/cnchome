@@ -691,3 +691,11 @@ body.policy-window #tm-preview [data-policy-server-status],
 body.policy-window #tm-preview #tm-main>h2,
 body.policy-window #tm-preview .policy-window-button{display:none!important}
 body.policy-window #tm-preview main{padding-top:14px}
+
+/* Compact navigation with consistent line icons. */
+#tm-preview nav button{font-size:13px;line-height:1.45;gap:9px;padding:9px 11px;border-radius:7px}
+#tm-preview nav button .ui-icon{width:16px;height:16px;flex-basis:16px;opacity:.82}
+#tm-preview nav button:is(.active,:hover) .ui-icon{opacity:1}
+#tm-preview .policy-window-button{min-height:36px;padding:8px 12px;gap:6px;font-size:13px;font-weight:600;box-shadow:none}
+#tm-preview .sales-birth-picker .ui-icon{width:12px;height:12px;flex-basis:12px}
+@media(max-width:480px){#tm-preview nav button{padding:7px 9px;font-size:12px;gap:7px}#tm-preview nav button .ui-icon{width:14px;height:14px;flex-basis:14px}}

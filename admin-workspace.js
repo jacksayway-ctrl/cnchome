@@ -19,12 +19,12 @@
   };
   // One route belongs to one section; existing deep links remain valid.
   const navigation = global.CNCHOME_NAVIGATION?.admin || [
-    {label:'관리자 홈',icon:'▣',items:[['adminHome','업무 현황'],['adminNotifications','알림'],['adminChecklist','운영 점검']]},
-    {label:'영업 관리',icon:'▥',items:[['adminIntake','접수'],['adminPerformance','실적'],['adminAs','A/S']]},
-    {label:'인사·출결',icon:'♙',items:[['adminStaff','직원 목록'],['adminStaffRegister','직원 등록'],['adminAttendance','출결 승인'],['adminLeave','연차·휴가'],['adminContracts','근로계약']]},
-    {label:'그레이드',icon:'☆',items:[['adminGrade','기준표'],['adminDaily','오늘 TM 일 그레이드'],['adminDailyHistory','일 그레이드 지급 내역']]},
-    {label:'급여·정산',icon:'₩',items:[['adminPayroll','급여·지급'],['adminBank','계좌·지급 엑셀'],['adminCorrections','정정·별도 정산']]},
-    {label:'운영 관리',icon:'⚙',items:[['adminSettings','운영 설정'],['adminPermissions','계정·권한'],['adminAudit','변경 이력']]}
+    {label:'관리자 홈',icon:'dashboard',items:[['adminHome','업무 현황'],['adminNotifications','알림'],['adminChecklist','운영 점검']]},
+    {label:'영업 관리',icon:'chart',items:[['adminIntake','접수'],['adminPerformance','실적'],['adminAs','A/S']]},
+    {label:'인사·출결',icon:'users',items:[['adminStaff','직원 목록'],['adminStaffRegister','직원 등록'],['adminAttendance','출결 승인'],['adminLeave','연차·휴가'],['adminContracts','근로계약']]},
+    {label:'그레이드',icon:'star',items:[['adminGrade','기준표'],['adminDaily','오늘 TM 일 그레이드'],['adminDailyHistory','일 그레이드 지급 내역']]},
+    {label:'급여·정산',icon:'wallet',items:[['adminPayroll','급여·지급'],['adminBank','계좌·지급 엑셀'],['adminCorrections','정정·별도 정산']]},
+    {label:'운영 관리',icon:'settings',items:[['adminSettings','운영 설정'],['adminPermissions','계정·권한'],['adminAudit','변경 이력']]}
   ];
   function mountNavigation(root){
     if(global.CNCHOME_LIVE&&global.CNCHOME_LIVE.user.role!=='admin')return;
@@ -33,14 +33,14 @@
     sidebar.setAttribute('aria-label','직원·관리자 메뉴');
     sidebar.querySelectorAll('[data-page^="admin"],.aw-nav-group,.payroll-link').forEach(el=>el.remove());
     const groups=sidebar.querySelector('.aw-sections')||document.createElement('div');groups.className='aw-sections';
-    if(!groups.children.length)groups.innerHTML=navigation.map((g,i)=>`<button type="button" data-aw-section="${i}" aria-controls="aw-subpages"><span aria-hidden="true">${g.icon}</span>${g.label}</button>`).join('');sidebar.append(groups);
+    if(!groups.children.length)groups.innerHTML=navigation.map((g,i)=>`<button type="button" data-aw-section="${i}" aria-controls="aw-subpages"><span class="ui-icon ui-icon-${esc(g.icon)}" aria-hidden="true"></span>${g.label}</button>`).join('');sidebar.append(groups);
     const bar=root.querySelector('#aw-subpages')||document.createElement('section');bar.id='aw-subpages';bar.className='aw-subpages';main.before(bar);
     function sync(){
       const requested=global.location.hash.slice(1)||global.CNCHOME_LIVE?.page||new URLSearchParams(global.location.search).get('page')||'',route=global.CNCHOME_LIVE&&!navigation.some(g=>g.items.some(([p])=>p===requested))&&requested!=='grade'?'adminHome':requested,index=navigation.findIndex(g=>g.items.some(([p])=>p===route));
       groups.querySelectorAll('[data-aw-section]').forEach(b=>{const selected=Number(b.dataset.awSection)===index;b.classList.toggle('active',selected);if(selected)b.setAttribute('aria-current','true');else b.removeAttribute('aria-current');});
       bar.hidden=index<0;if(index<0){bar.replaceChildren();return;}
       const group=navigation[index],current=group.items.find(([p])=>p===route);
-      bar.innerHTML=`<div class="aw-location"><span>관리자</span><span aria-hidden="true">/</span><strong>${group.label}</strong><span aria-hidden="true">/</span><span>${current[1]}</span></div><div class="aw-subpage-links" role="navigation" aria-label="${group.label} 하위 페이지">${group.items.map(([p,label])=>`<button type="button" data-page="${p}"${p===route?' class="active" aria-current="page"':''}>${label}</button>`).join('')}${group.items[0][0]==='adminPayroll'?'<a href="./payroll.php">급여 계산 검토 ↗</a>':''}</div>`;
+      bar.innerHTML=`<div class="aw-location"><span>관리자</span><span aria-hidden="true">/</span><strong>${group.label}</strong><span aria-hidden="true">/</span><span>${current[1]}</span></div><div class="aw-subpage-links" role="navigation" aria-label="${group.label} 하위 페이지">${group.items.map(([p,label])=>`<button type="button" data-page="${p}"${p===route?' class="active" aria-current="page"':''}>${label}</button>`).join('')}${group.items[0][0]==='adminPayroll'?'<a href="./payroll.php">급여 계산 검토 <span class="ui-icon ui-icon-external" aria-hidden="true"></span></a>':''}</div>`;
     }
     groups.addEventListener('click',e=>{const b=e.target.closest('[data-aw-section]');if(b)global.location.hash=navigation[Number(b.dataset.awSection)].items[0][0];});
     // The legacy page renderer replaces main for both route and form updates.
@@ -250,7 +250,7 @@
   }
   let formSerial=0,handledForms=new Set();
   let state,bridge,currentPage,ui={query:{},status:{},selected:{},year:'2026'};
-  const btn=(label,action,id='',extra='')=>`<button type="button" class="secondary" data-aw="${esc(action)}" data-id="${esc(id)}" ${extra}>${esc(label)}</button>`;
+  const btn=(label,action,id='',extra='')=>`<button type="button" class="secondary" data-aw="${esc(action)}" data-id="${esc(id)}" ${extra}>${label.startsWith('＋ ')?'<span class="ui-icon ui-icon-plus" aria-hidden="true"></span> '+esc(label.slice(2)):esc(label)}</button>`;
   const link=(label,page)=>`<button type="button" class="secondary" data-page="${page}">${esc(label)} →</button>`;
   const badge=(text,tone='')=>`<span class="aw-badge ${tone}">${esc(text)}</span>`;
   const card=(title,body)=>`<section class="panel"><h3>${esc(title)}</h3>${title==='월 급여 검토'?btn('예시 급여대장 XLSX','payroll-export'):''}${body}</section>`;

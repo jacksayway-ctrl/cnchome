@@ -7,7 +7,7 @@
  const currentTime=()=>new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Seoul',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(new Date());
  function birthInput(name,label,length,pattern,value,values){
   const title={birthYear:'출생연도',birthMonth:'출생월',birthDay:'출생일'}[name],part={birthYear:'year',birthMonth:'month',birthDay:'day'}[name];
-  return '<label>'+label+'<span class="sales-birth-control"><input name="'+name+'" type="text" inputmode="numeric" maxlength="'+length+'" pattern="'+pattern+'" value="'+value+'" autocomplete="bday-'+part+'" required><span class="sales-birth-picker"><span aria-hidden="true">▾</span><select data-birth-picker="'+name+'" aria-label="'+title+' 목록에서 선택" title="'+title+' 목록에서 선택"><option value="">선택</option>'+values.map(v=>'<option value="'+v+'" '+(v===value?'selected':'')+'>'+Number(v)+label+'</option>').join('')+'</select></span></span></label>';
+  return '<label>'+label+'<span class="sales-birth-control"><input name="'+name+'" type="text" inputmode="numeric" maxlength="'+length+'" pattern="'+pattern+'" value="'+value+'" autocomplete="bday-'+part+'" required><span class="sales-birth-picker"><span class="ui-icon ui-icon-chevron" aria-hidden="true"></span><select data-birth-picker="'+name+'" aria-label="'+title+' 목록에서 선택" title="'+title+' 목록에서 선택"><option value="">선택</option>'+values.map(v=>'<option value="'+v+'" '+(v===value?'selected':'')+'>'+Number(v)+label+'</option>').join('')+'</select></span></span></label>';
  }
  function counts(records){return records.reduce((n,r)=>{if(Object.hasOwn(n,r.status))n[r.status]++;return n},{pending:0,normal:0,as:0})}
  function daily(records,team,date){return counts(records.filter(r=>(!team||r.team===team)&&r.date===date))}

@@ -2,7 +2,7 @@
   "admin": [
     {
       "label": "관리자 홈",
-      "icon": "▣",
+      "icon": "dashboard",
       "items": [
         [
           "adminHome",
@@ -20,7 +20,7 @@
     },
     {
       "label": "영업 관리",
-      "icon": "▥",
+      "icon": "chart",
       "items": [
         [
           "adminIntake",
@@ -38,7 +38,7 @@
     },
     {
       "label": "인사·출결",
-      "icon": "♙",
+      "icon": "users",
       "items": [
         [
           "adminStaff",
@@ -64,7 +64,7 @@
     },
     {
       "label": "그레이드",
-      "icon": "☆",
+      "icon": "star",
       "items": [
         [
           "adminGrade",
@@ -82,7 +82,7 @@
     },
     {
       "label": "급여·정산",
-      "icon": "₩",
+      "icon": "wallet",
       "items": [
         [
           "adminPayroll",
@@ -100,7 +100,7 @@
     },
     {
       "label": "운영 관리",
-      "icon": "⚙",
+      "icon": "settings",
       "items": [
         [
           "adminSettings",
@@ -121,42 +121,42 @@
     [
       "home",
       "홈",
-      "⌂"
+      "home"
     ],
     [
       "regions",
       "접수 가능지역",
-      "⌖"
+      "pin"
     ],
     [
       "sales",
       "실적",
-      "▥"
+      "chart"
     ],
     [
       "grade",
       "그레이드",
-      "☆"
+      "star"
     ],
     [
       "attendance",
       "출결",
-      "▦"
+      "calendar"
     ],
     [
       "as",
       "A/S",
-      "⚒"
+      "help"
     ],
     [
       "payslips",
       "가지급명세서",
-      "▤"
+      "document"
     ],
     [
       "myInfo",
       "내 정보",
-      "♙"
+      "user"
     ]
   ]
 }

@@ -9,7 +9,7 @@ foreach ($navigation['admin'] as $group) foreach ($group['items'] as [$route,$la
 <?php foreach ($selectedGroup['items'] as [$route,$label]): ?>
 <button type="button" data-page="<?= view_h($route) ?>"<?= $page===$route?' class="active" aria-current="page"':'' ?>><?= view_h($label) ?></button>
 <?php endforeach; ?>
-<?php if ($selectedGroup['items'][0][0]==='adminPayroll'): ?><a href="./payroll.php?role=admin">급여 계산 검토 ↗</a><?php endif; ?>
+<?php if ($selectedGroup['items'][0][0]==='adminPayroll'): ?><a href="./payroll.php?role=admin">급여 계산 검토 <span class="ui-icon ui-icon-external" aria-hidden="true"></span></a><?php endif; ?>
 </div>
 <?php endif; ?>
 </section>
