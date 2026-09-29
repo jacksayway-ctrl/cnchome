@@ -3,6 +3,7 @@
 declare(strict_types=1);
 require_once __DIR__.'/../lib/test-staff-fixtures.php';
 require_once __DIR__.'/../lib/test-normal-fixtures.php';
+require_once __DIR__.'/../lib/test-inspection-fixtures.php';
 class FixtureDB extends PDO {
  public function prepare(string $sql,array $options=[]): PDOStatement|false{return parent::prepare(str_replace(' FOR UPDATE','',$sql),$options);}
 }
@@ -50,6 +51,34 @@ foreach($normalBatch['manifest'] as $entry){
 }
 fixture_check($before===$d->query('SELECT id,published_snapshot,calculation FROM hr_payroll ORDER BY id')->fetchAll()&&$beforeReceipts===$d->query('SELECT * FROM daily_grade_receipts ORDER BY employee_id,performance_date,milestone')->fetchAll(),'sales fixture cannot rewrite payroll or create cash receipts');
 fixture_check(seed_test_normal_range()['existing'],'normal-range fixture is idempotent');
-$d->prepare('DELETE FROM test_employee_data WHERE user_id=?')->execute([$result['manifest'][0]['userId']]);seed_five_test_staff();fixture_check((int)$d->query('SELECT COUNT(*) FROM test_employee_data')->fetchColumn()===4,'deleted test data never reappears on deployment');
-seed_test_normal_range();fixture_check((int)$d->query('SELECT COUNT(*) FROM test_employee_data')->fetchColumn()===4,'deleted normal-range fixtures stay deleted');
+// Explicitly requested inspection refresh also fills user1 and updates only synthetic unconfirmed statements.
+$user1Profile=$profile;$user1Profile['name']='테스트 직원';$user1Profile['startDate']=hr_today();$user1Profile['contractStart']=hr_today();$user1Profile['workStart']='';$user1Profile['email']='';$user1Profile['contractType']='무기계약';$user1Profile['contractEnd']='';$user1Profile=hr_profile($user1Profile);
+$d->exec("INSERT INTO app_users(username,display_name,role,department) VALUES('user1','테스트 직원','employee','insurance')");$user1Id=(int)$d->lastInsertId();
+$d->prepare('INSERT INTO hr_employees(employee_no,user_id,profile) VALUES(?,?,?)')->execute(['cncTEST-user1',$user1Id,hr_json($user1Profile)]);$user1Employee=(int)$d->lastInsertId();
+$d->prepare('INSERT INTO test_employee_data(user_id,state) VALUES(?,?)')->execute([$user1Id,hr_json(['sales'=>[],'attendance'=>[]])]);
+foreach([1,2] as $sid)$d->prepare('INSERT INTO sales_records(id,employee_id,department,is_test,first_date,status) VALUES(?,?,?,?,?,?)')->execute([$sid,$user1Id,'insurance',1,hr_today(),'normal']);
+$d->exec("INSERT INTO app_users(username,display_name,role,department) VALUES('real-employee','운영 직원','employee','insurance')");$realId=(int)$d->lastInsertId();
+$d->prepare('INSERT INTO hr_employees(employee_no,user_id,profile) VALUES(?,?,?)')->execute(['cncREAL',$realId,hr_json($user1Profile)]);
+$d->prepare('UPDATE hr_payroll SET status=? WHERE id=?')->execute(['confirmed',$result['manifest'][0]['payrollId']]);
+$d->prepare('UPDATE hr_payroll SET status=? WHERE id=?')->execute(['draft',$result['manifest'][1]['payrollId']]);
+$protected=$d->query("SELECT * FROM hr_payroll WHERE status IN ('confirmed','draft') ORDER BY id")->fetchAll();
+$contractsBefore=$d->query('SELECT * FROM hr_contracts ORDER BY id')->fetchAll();$rulesBefore=$d->query('SELECT * FROM grade_versions ORDER BY id')->fetchAll();
+$refresh=seed_test_inspection_refresh();fixture_check(!$refresh['existing']&&count($refresh['manifest'])===6,'six recognized test accounts receive the explicit refresh');
+$user1Entry=array_values(array_filter($refresh['manifest'],fn($entry)=>$entry['userId']===$user1Id))[0];
+$q=$d->prepare('SELECT profile FROM hr_employees WHERE user_id=?');$q->execute([$user1Id]);$seededProfile=json_decode($q->fetchColumn(),true);
+fixture_check($seededProfile['startDate']===substr(hr_today(),0,7).'-01'&&$seededProfile['workStart']==='10:00'&&$seededProfile['payday']==='15','user1 supports a full demo month with complete personnel defaults');
+$q=$d->prepare('SELECT state FROM test_employee_data WHERE user_id=?');$q->execute([$user1Id]);$seededState=json_decode($q->fetchColumn(),true);
+foreach($user1Entry['normalByDate'] as $date=>$count){fixture_check($count>=10&&$count<=15,'user1 normal target remains ten to fifteen including new test records');$pending=count(array_filter($seededState['sales'],fn($sale)=>$sale['date']===$date&&$sale['status']==='가접수'));$as=count(array_filter($seededState['sales'],fn($sale)=>$sale['date']===$date&&$sale['status']==='A/S'));fixture_check($pending===2&&$as===1,'pending and A/S examples per working day');}
+fixture_check(count($seededState['attendance'])===count($user1Entry['normalByDate']),'attendance covers eligible weekdays');
+foreach($seededState['sales'] as $sale)fixture_check(!empty($sale['consultationTime'])&&!empty($sale['consultationPlace'])&&!empty($sale['birthDate'])&&!empty($sale['premiumBand']),'normal intake fields included in synthetic records');
+$q=$d->prepare('SELECT calculation FROM hr_payroll WHERE employee_id=?');$q->execute([$user1Employee]);$demoPay=json_decode($q->fetchColumn(),true);
+fixture_check($demoPay['dailyGradeSettlement']==='cash-auto'&&$demoPay['gradeSnapshot']['count']===array_sum($user1Entry['normalByDate'])&&$demoPay['prepaidDaily']===$user1Entry['daily'],'new user1 demo statement uses full actual fixture performance and automatic daily prepayment');
+fixture_check($protected===$d->query("SELECT * FROM hr_payroll WHERE status IN ('confirmed','draft') ORDER BY id")->fetchAll(),'confirmed and user-editable draft statements remain untouched');
+fixture_check($contractsBefore===$d->query('SELECT * FROM hr_contracts ORDER BY id')->fetchAll()&&$rulesBefore===$d->query('SELECT * FROM grade_versions ORDER BY id')->fetchAll(),'contract approvals and shared grade policy remain unchanged');
+$q=$d->prepare('SELECT profile FROM hr_employees WHERE user_id=?');$q->execute([$realId]);fixture_check(json_decode($q->fetchColumn(),true)===$user1Profile,'real employee personnel is unchanged');
+$q=$d->prepare('SELECT COUNT(*) FROM test_employee_data WHERE user_id=?');$q->execute([$realId]);fixture_check((int)$q->fetchColumn()===0,'no demo data on real account');
+$refreshedPay=$d->query('SELECT * FROM hr_payroll ORDER BY id')->fetchAll();fixture_check(seed_test_inspection_refresh()['existing']&&$refreshedPay===$d->query('SELECT * FROM hr_payroll ORDER BY id')->fetchAll(),'repeat deployment never duplicates or recalculates refreshed sample data');
+fixture_check($beforeReceipts===$d->query('SELECT * FROM daily_grade_receipts ORDER BY employee_id,performance_date,milestone')->fetchAll(),'automatic fixture refresh needs no fabricated receipt clicks');
+$d->prepare('DELETE FROM test_employee_data WHERE user_id=?')->execute([$result['manifest'][0]['userId']]);seed_five_test_staff();fixture_check((int)$d->query('SELECT COUNT(*) FROM test_employee_data')->fetchColumn()===5,'deleted test data never reappears on deployment');
+seed_test_normal_range();seed_test_inspection_refresh();fixture_check((int)$d->query('SELECT COUNT(*) FROM test_employee_data')->fetchColumn()===5,'deleted normal-range and refreshed fixtures stay deleted');
 echo "PASS: five test employees, scoped accounts/profile/payroll/contracts, no forged approvals, advance net totals and idempotent deletion-preserving fixtures.\n";

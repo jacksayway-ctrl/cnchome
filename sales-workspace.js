@@ -62,6 +62,7 @@
   try{
    const response=await global.fetch('/sales-api.php?month='+encodeURIComponent(requestedMonth),{method:body?'POST':'GET',credentials:'same-origin',cache:'no-store',headers:{'Content-Type':'application/json','X-CSRF-Token':live().csrf},...(body?{body:JSON.stringify(body)}:{})});
    const data=await response.json();if(!response.ok)throw Error(data.error||'접수 내역을 불러오지 못했습니다.');if(version!==requestVersion||month!==requestedMonth)return;
+   if(!store)showTest=!admin()&&data.isTestAccount===true;
    const changed=JSON.stringify(store?.records)!==JSON.stringify(data.records)||store?.month!==data.month||!!error;store=data;error='';lastFetch=new Date().toLocaleTimeString('ko-KR',{timeZone:'Asia/Seoul'});
    if(body){if(body.action==='create')bridge.close();bridge.toast('접수 상태를 저장했습니다.');global.dispatchEvent(new global.Event('cnc:sales-changed'));try{global.localStorage.setItem('cnchome.sales.changed',String(Date.now()))}catch(e){}}
    busy=false;if(changed||body)redraw();else {const el=bridge.root.querySelector('[data-sales-sync]');if(el)el.textContent='5초마다 자동 갱신 · 마지막 확인 '+lastFetch;}
@@ -75,7 +76,7 @@
  }
  function setMonth(value){if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(value))return;month=value;selected=value===today().slice(0,7)?today():value+'-01';if(!weekAnchor.startsWith(month))weekAnchor=selected;requestVersion++;redraw();request();}
  function init(options){
-  if(!live())return;bridge=options;showTest=live().user.username==='user1'&&!admin();
+  if(!live())return;bridge=options;showTest=false;
   try{const value=global.localStorage.getItem('tm-performance-week-start');if(value!==null&&/^[0-6]$/.test(value))weekStart=Number(value)}catch(e){}
   bridge.root.addEventListener('click',e=>{const b=e.target.closest('[data-sales-week]');if(!b)return;const d=new Date(weekAnchor+'T00:00:00Z');d.setUTCDate(d.getUTCDate()+Number(b.dataset.salesWeek)*7);weekAnchor=d.toISOString().slice(0,10);if(!weekAnchor.startsWith(month))setMonth(weekAnchor.slice(0,7));else redraw()});
   bridge.root.addEventListener('change',e=>{if(e.target.hasAttribute('data-sales-week-date')&&e.target.value){weekAnchor=e.target.value;if(!weekAnchor.startsWith(month))setMonth(weekAnchor.slice(0,7));else redraw()}if(e.target.hasAttribute('data-sales-week-start')){weekStart=Number(e.target.value);try{global.localStorage.setItem('tm-performance-week-start',String(weekStart))}catch(e){}redraw()}});

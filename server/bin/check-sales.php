@@ -32,8 +32,11 @@ $r=sales_snapshot($one,$month)['records'][0];check($r['status']==='as'&&$r['date
 sales_mutate($admin,['action'=>'status','id'=>$r['id'],'revision'=>3,'status'=>'normal']);
 $create['requestKey']='bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';sales_mutate($two,$create);
 check(count(sales_snapshot($admin,$month)['records'])===2,'both team feeds');check(sales_snapshot($two,$month)['records'][0]['team']==='cosmetics','cosmetics uses assigned team');
-$q=$d->prepare('INSERT INTO test_employee_data(user_id,state) VALUES(4,?)');$q->execute([hr_json(['sales'=>[['id'=>1,'date'=>$today,'name'=>'가상고객','carrier'=>'GA','kind'=>'실버','status'=>'가접수']]])]);
+$q=$d->prepare('INSERT INTO test_employee_data(user_id,state) VALUES(4,?)');$q->execute([hr_json(['sales'=>[['id'=>1,'date'=>$today,'name'=>'가상고객','carrier'=>'GA','kind'=>'실버','status'=>'가접수','consultationTime'=>'11:30','consultationPlace'=>'[테스트] 가상 상담실','premiumBand'=>'200000','birthDate'=>'1963-01-15']]])]);
 $all=sales_snapshot($admin,$month)['records'];check(count($all)===3&&$all[2]['isTest']===true,'test feed remains explicitly separated');
+$testUser=['id'=>4,'role'=>'employee','username'=>'user1','display_name'=>'테스트 직원'];$testFeed=sales_snapshot($testUser,$month);
+check($testFeed['isTestAccount']&&$testFeed['records'][0]['consultationTime']==='11:30'&&$testFeed['records'][0]['consultationPlace']==='[테스트] 가상 상담실'&&$testFeed['records'][0]['premiumBand']==='200000','test identity and complete sample intake fields reach employee view');
+check(!sales_snapshot($one,$month)['isTestAccount']&&!sales_snapshot($admin,$month)['isTestAccount'],'real and administrator feeds never default to test data');
 rejects(fn()=>sales_mutate($one,['action'=>'status','id'=>'test:4:1','revision'=>1,'status'=>'normal']),'test feed privacy');
 sales_mutate($admin,['action'=>'status','id'=>'test:4:1','revision'=>1,'status'=>'normal']);check(sales_snapshot($admin,$month)['records'][2]['status']==='normal','existing test status reflected');
 check((int)$d->query('SELECT count(*) FROM sales_events')->fetchColumn()===5,'persistent state history');

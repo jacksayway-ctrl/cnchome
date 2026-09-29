@@ -37,3 +37,16 @@ test('employee and admin intake forms submit and display consultation fields',as
   const html=api.render(page);assert.match(html,/14:30/);assert.match(html,/직장 &lt;상담실&gt;/);assert.match(html,/20만 원 이상/);assert.doesNotMatch(html,/<상담실>/);
  }
 });
+
+test('every recognized test account sees its saved test sales by default while real staff and admin keep real sales',async()=>{
+ const fs=require('node:fs'),vm=require('node:vm'),code=fs.readFileSync(require.resolve('./sales-workspace.js'),'utf8');
+ const date=new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+ for(const username of ['user1','user2','user3','user4','user5','user6','real-staff','admin']){
+  const role=username==='admin'?'admin':'employee',isTestAccount=/^user[1-6]$/.test(username),page=role==='admin'?'adminHome':'sales';
+  const context={URL,Date,Intl,location:{href:'https://example.test/office.php?page='+page},document:{hidden:false},CNCHOME_LIVE:{csrf:'fixture',user:{role,username,department:'insurance'}},localStorage:{getItem:()=>null},setInterval(){},addEventListener(){},fetch:async()=>({ok:true,json:async()=>({month:date.slice(0,7),isTestAccount,records:[{id:'test:1:1',date,employee:'가상 직원',team:'insurance',customer:'TEST_VISIBLE_CUSTOMER',carrier:'GA',kind:'general',status:'normal',isTest:true,revision:1}]})})};
+  context.window=context;vm.createContext(context);vm.runInContext(code,context);
+  context.SalesWorkspace.init({root:{addEventListener(){},querySelector:()=>null},render(){}});await new Promise(setImmediate);
+  const html=context.SalesWorkspace.render(page);
+  if(isTestAccount){assert.match(html,/TEST_VISIBLE_CUSTOMER/);assert.match(html,/data-sales-test checked/);}else assert.doesNotMatch(html,/TEST_VISIBLE_CUSTOMER/);
+ }
+});
