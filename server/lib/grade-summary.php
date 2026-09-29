@@ -2,6 +2,24 @@
 declare(strict_types=1);
 require_once __DIR__.'/hr.php';
 
+// Match the same single-tier rules used by the grade calculator.
+function grade_target_tiers(array $rows,float $value,bool $exclusive=false,bool $reference=false): array {
+    $current=null;$next=null;$lower=0;
+    foreach($rows as $row){
+        $min=(int)($row['min']??$lower);$max=$row['max']??null;
+        $bonus=static function(float $at)use($row,$reference):int {
+            $extra=$reference?max(0,(int)floor($at)-(int)($row['threshold']??0)):(($row['extraStart']??null)===null?0:max(0,(int)floor($at)-(int)$row['extraStart']+1));
+            return (int)($row['achievement']??0)+$extra*(int)($row['extra']??0);
+        };
+        $range=$min===0?($max===null?'전체 구간':number_format($max).'건 '.($exclusive?'미만':'이하')):number_format($min).($max===null?'건 이상':'~'.number_format($max).'건'.($exclusive?' 미만':''));
+        $tier=['min'=>$min,'range'=>$range,'hourly'=>(int)($row['hourly']??0),'amount'=>$bonus($min)];
+        if($value>=$min&&($max===null||($exclusive?$value<$max:$value<=$max))){$tier['amount']=$bonus($value);$current=$tier;}
+        if($min>$value&&$next===null&&($reference||($row['hourly']??0)>0||($row['achievement']??0)>0||($row['extra']??0)>0))$next=$tier;
+        $lower=$max===null?$lower:(int)$max+($exclusive?0:1);
+    }
+    return ['current'=>$current,'next'=>$next];
+}
+
 // Personal progress and separate daily allowance only; never team totals or other employees' records.
 function grade_progress(array $profile,array $counts,?array $policy,string $today): array {
     $date=new DateTimeImmutable($today);$month=substr($today,0,7);
@@ -11,7 +29,7 @@ function grade_progress(array $profile,array $counts,?array $policy,string $toda
     $weekdays=['','월','화','수','목','금','토','일'];
     $eligible=static fn(DateTimeImmutable $day):bool=>$hasSchedule&&$day->format('Y-m-d')>=$start&&(!$end||$day->format('Y-m-d')<=$end)&&in_array($weekdays[(int)$day->format('N')],$profile['workDays'],true);
     $total=0;$elapsed=0;$available=0;$weekly=0;$monthly=0;
-    for($day=$date->modify('first day of this month');$day->format('Y-m')===$month;$day=$day->modify('+1 day'))if($eligible($day)){$total++;if($day->format('Y-m-d')<=$today)$elapsed++;}
+    for($day=$date->modify('first day of this month');$day->format('Y-m')===$month;$day=$day->modify('+1 day'))if((int)$day->format('N')<=5){$total++;if($day->format('Y-m-d')<=$today)$elapsed++;}
     for($i=0;$i<5;$i++){$day=$monday->modify('+'.$i.' days');if($eligible($day))$available++;$key=$day->format('Y-m-d');if($key<=$today&&(!$start||$key>=$start)&&(!$end||$key<=$end))$weekly+=(int)($counts[$key]??0);}
     foreach($counts as $key=>$count)if(str_starts_with($key,$month)&&$key<=$today&&(!$start||$key>=$start)&&(!$end||$key<=$end))$monthly+=(int)$count;
     $daily=(!$start||$today>=$start)&&(!$end||$today<=$end)?(int)($counts[$today]??0):0;
@@ -22,11 +40,14 @@ function grade_progress(array $profile,array $counts,?array $policy,string $toda
     $weeklyTarget=null;foreach($policy['weekly']??[] as $row)if(($row['achievement']??0)>0||($row['extra']??0)>0){$weeklyTarget=$row['min'];break;}
     $average=($policy['weeklyBasis']??'')==='average';$range=null;$lower=0;
     foreach($policy['monthlyReference']??$policy['monthly']??[] as $row){$min=$row['min']??$lower;$max=$row['max'];if($monthly>=$min&&($max===null||$monthly<=$max)){$range=$min===0?($max===null?'전체 구간':number_format($max).'건 이하'):number_format($min).($max===null?'건 이상':'~'.number_format($max).'건');break;}$lower=($max??0)+1;}
+    $weekValue=$average?($hasSchedule&&$available>0?$weekly/$available:null):(float)$weekly;
+    $weekTiers=$weekValue===null?['current'=>null,'next'=>null]:grade_target_tiers($policy['weekly']??[],$weekValue,$average);
+    $monthTiers=grade_target_tiers($policy['monthlyReference']??$policy['monthly']??[],(float)$monthly,false,isset($policy['monthlyReference']));
     return ['date'=>$today,'month'=>$month,'scheduleRegistered'=>$hasSchedule,'policyRegistered'=>$policy!==null,'general'=>!in_array($profile['role']??'',['팀장','관리자'],true),
-        'workdays'=>['total'=>$hasSchedule?$total:null,'elapsed'=>$hasSchedule?$elapsed:null],
-        'daily'=>['count'=>$daily,'target'=>$dailyConfigured?$cash['start']:null,'perCase'=>$dailyConfigured?$cash['perCase']:null,'eligible'=>$dailyEligible,'amount'=>$dailyAmount,'paid'=>null],
-        'weekly'=>['count'=>$weekly,'value'=>$average?($hasSchedule&&$available>0?round($weekly/$available,2):null):$weekly,'target'=>$weeklyTarget,'basis'=>$average?'average':'total','availableDays'=>$hasSchedule?$available:null,'start'=>$monday->format('Y-m-d'),'end'=>$monday->modify('+4 days')->format('Y-m-d')],
-        'monthly'=>['count'=>$monthly,'range'=>$range]];
+        'workdays'=>['total'=>$total,'elapsed'=>$elapsed],
+        'daily'=>['count'=>$daily,'target'=>$dailyConfigured?$cash['start']:null,'perCase'=>$dailyConfigured?$cash['perCase']:null,'eligible'=>$dailyEligible,'amount'=>$dailyAmount,'nextTarget'=>$dailyEligible&&$dailyConfigured?max($cash['start'],$daily+1):null,'paid'=>null],
+        'weekly'=>['count'=>$weekly,'value'=>$average?($hasSchedule&&$available>0?round($weekly/$available,2):null):$weekly,'target'=>$weeklyTarget,'currentTier'=>$weekTiers['current'],'nextTier'=>$weekTiers['next'],'basis'=>$average?'average':'total','availableDays'=>$hasSchedule?$available:null,'start'=>$monday->format('Y-m-d'),'end'=>$monday->modify('+4 days')->format('Y-m-d')],
+        'monthly'=>['count'=>$monthly,'range'=>$range,'currentTier'=>$monthTiers['current'],'nextTier'=>$monthTiers['next']]];
 }
 function grade_summary_snapshot(array $user,?string $today=null): array {
     if(($user['role']??'')!=='employee')throw new HRForbidden('직원 본인 그레이드만 조회할 수 있습니다.');
