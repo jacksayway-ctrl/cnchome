@@ -35,6 +35,7 @@ function contract_payment_fields(array $values,string $prefix): void {
 <link rel="stylesheet" href="<?= view_h(asset_url('contract.css')) ?>">
 <?php if($error): ?><p class="contract-alert" role="alert"><?= view_h($error) ?></p><?php endif; ?>
 <?php if($notice): ?><p class="contract-notice" role="status"><?= view_h($notice) ?></p><?php endif; ?>
+<?php if($role==='employee'){require view_root().'/partials/employee-contract-page.php';echo '<script src="'.view_h(asset_url('contract.js')).'" defer></script>';native_end();return;} ?>
 <?php if($filterProfile): ?><p class="contract-selection-info"><strong><?= view_h($filterProfile['name']) ?></strong> · <?= view_h(department_label($filterProfile['team'])) ?> · <?= view_h($filterProfile['role']) ?> · 입사 <?= view_h($filterProfile['startDate']) ?> · 급여일 <?= view_h($filterProfile['payday']?:'15') ?>일</p><?php endif ?>
 <p class="contract-description">관리자 발급 → 직원 내용 승인 → 관리자 최종 적용 순서로 진행합니다. 승인 기록과 계약서 사본을 보관하며, 당사자 서명은 별도로 확인합니다.</p>
 <?php if($role==='admin'): ?>
@@ -52,8 +53,9 @@ function contract_payment_fields(array $values,string $prefix): void {
 <?php foreach($contracts as $row): $t=$row['issued_snapshot']['terms']??$row['terms']; ?><tr <?= $selected&&$selected['id']===$row['id']?'class="contract-selected"':'' ?>><td><?= view_h($t['employeeName']) ?></td><td>제<?= $row['version'] ?>판</td><td><?= view_h($t['wageEffective']?:'미입력') ?></td><td><?= view_h(contract_status($row)) ?></td><td><?= view_h(contract_korea_time($row['approval_updated_at']??$row['received_at'])) ?></td><td><a href="/contracts.php?role=<?= $role ?>&amp;id=<?= $row['id'] ?>">상세</a></td></tr><?php endforeach; ?>
 </tbody></table></div><?php endif; ?></section>
 <?php if($selected): $terms=$selected['issued_snapshot']['terms']??$selected['terms']; ?>
-<section class="contract-panel"><div class="contract-section-title"><h2><?= view_h($terms['employeeName']) ?> · 제<?= $selected['version'] ?>판</h2><span><?= view_h(contract_status($selected)) ?></span></div>
-<div class="contract-actions"><a class="contract-button" href="/contracts.php?role=<?= $role ?>&amp;id=<?= $selected['id'] ?>&amp;document=1" data-contract-open>계약서 팝업으로 보기</a><a href="/contracts.php?role=<?= $role ?>&amp;id=<?= $selected['id'] ?>&amp;document=1" target="_blank" rel="noopener">A4 한 장 인쇄</a><a href="/contracts.php?role=<?= $role ?>&amp;id=<?= $selected['id'] ?>&amp;download=1">사본 저장 (HTML)</a></div>
+<section class="contract-panel contract-preview-panel"><div class="contract-section-title nf-no-print"><h2><?= view_h($terms['employeeName']) ?> · 제<?= $selected['version'] ?>판</h2><span><?= view_h(contract_status($selected)) ?></span></div>
+<div class="contract-actions nf-no-print"><button type="button" data-contract-print>인쇄 / PDF 저장</button><a href="/contracts.php?role=<?= $role ?>&amp;id=<?= $selected['id'] ?>&amp;document=1" target="_blank" rel="noopener">계약서만 새 창에서 보기</a><a href="/contracts.php?role=<?= $role ?>&amp;id=<?= $selected['id'] ?>&amp;download=1">계약서 사본 저장</a></div>
+<div class="contract-inline-preview"><?php $documentOnly=false;require view_root().'/contract-document.php'; ?></div>
 <p class="contract-hint">기본시급 <?= number_format($terms['baseHourly']) ?>원 + 주휴수당·회사 지원금 시간당 환산액 <?= number_format($terms['supportHourly']) ?>원 = 합산 보장 환산액 <?= number_format($terms['baseHourly']+$terms['supportHourly']) ?>원. 법정 수당이 보장액보다 크면 차액을 추가 지급합니다.</p>
 <?php if($role==='admin'&&$selected['status']==='draft'):
 $formTerms=array_replace(['periodPreset'=>$terms['contractType']==='무기계약'?'unlimited':'custom'],$terms);$formRevision=$selected['revision'];$unsavedForm=$failedAction==='save'&&is_scalar($failedPost['id']??null)&&(string)$failedPost['id']===(string)$selected['id'];
@@ -84,9 +86,6 @@ if($unsavedForm&&is_array($failedPost['terms']??null)){$formTerms=contract_resto
 <?php else: ?><p>발행일 <?= view_h(contract_korea_time($selected['issued_at'])) ?> · 확인일 <?= view_h(contract_korea_time($selected['received_at'])) ?></p><?php endif; ?>
 <?php if($events): ?><details class="contract-audit"><summary>발행·확인 기록</summary><ul><?php foreach($events as $event): ?><li><?= view_h(contract_korea_time($event['created_at'])) ?> · <?= view_h(['created'=>'초안 생성','revisedDraft'=>'개정 초안 생성','draftSaved'=>'초안 저장','issued'=>'계약 발행','received'=>'내용·사본 확인','approve'=>'직원 승인','reject'=>'수정 요청','apply'=>'관리자 적용','withdraw'=>'발급 회수'][$event['event']]??$event['event']) ?> · <?= view_h($event['display_name']) ?><?php $audit=json_decode($event['snapshot']??'null',true);if(!empty($audit['reason']))echo ' · '.view_h($audit['reason']); ?></li><?php endforeach; ?></ul></details><?php endif; ?>
 </section>
-<?php if($role==='employee'): ?><section class="contract-panel"><h2>계약 승인</h2><?php require view_root().'/partials/contract-approval.php'; ?></section><?php endif ?>
-<dialog id="contract-dialog" class="contract-dialog" <?= $role==='employee'&&!$error?'data-auto-open':'' ?>><div class="contract-dialog-bar"><strong>근로계약서 · 제<?= $selected['version'] ?>판</strong><button type="button" data-contract-close aria-label="계약서 닫기">닫기</button></div><div class="contract-dialog-content"><?php $documentOnly=false;require view_root().'/contract-document.php'; ?></div><div class="contract-dialog-footer"><div class="contract-actions"><a href="/contracts.php?role=<?= $role ?>&amp;id=<?= $selected['id'] ?>&amp;document=1" target="_blank" rel="noopener">인쇄 / PDF 저장</a><a href="/contracts.php?role=<?= $role ?>&amp;id=<?= $selected['id'] ?>&amp;download=1">계약서 사본 저장</a></div>
-<?php if($role==='employee')require view_root().'/partials/contract-approval.php'; ?></div></dialog>
 <?php endif; ?>
 <script src="<?= view_h(asset_url('contract.js')) ?>" defer></script>
 <?php native_end(); ?>
