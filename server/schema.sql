@@ -230,6 +230,28 @@ CREATE TABLE IF NOT EXISTS hr_contract_approvals (
  FOREIGN KEY (actor_id) REFERENCES app_users(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- Administrator-selected business days and their change history.
+CREATE TABLE IF NOT EXISTS business_calendar (
+ month CHAR(7) PRIMARY KEY,
+ days JSON NOT NULL,
+ revision BIGINT UNSIGNED NOT NULL DEFAULT 1,
+ actor_id BIGINT UNSIGNED NOT NULL,
+ actor_name VARCHAR(100) NOT NULL,
+ updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+ FOREIGN KEY (actor_id) REFERENCES app_users(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS business_calendar_events (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+ month CHAR(7) NOT NULL,
+ actor_id BIGINT UNSIGNED NOT NULL,
+ before_days JSON NOT NULL,
+ after_days JSON NOT NULL,
+ created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+ INDEX calendar_history(month,id),
+ FOREIGN KEY (actor_id) REFERENCES app_users(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- One-time fixtures stay deleted when the user later removes test data.
 CREATE TABLE IF NOT EXISTS test_fixture_batches (
  batch VARCHAR(80) PRIMARY KEY,

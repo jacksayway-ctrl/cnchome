@@ -21,7 +21,7 @@ function grade_target_tiers(array $rows,float $value,bool $exclusive=false,bool 
 }
 
 // Personal progress and separate daily allowance only; never team totals or other employees' records.
-function grade_progress(array $profile,array $counts,?array $policy,string $today): array {
+function grade_progress(array $profile,array $counts,?array $policy,string $today,array $calendar=[]): array {
     $date=new DateTimeImmutable($today);$month=substr($today,0,7);
     $monday=$date->modify('-'.((int)$date->format('N')-1).' days');
     $start=$profile['startDate']??'';$end=$profile['endDate']??'';
@@ -29,9 +29,9 @@ function grade_progress(array $profile,array $counts,?array $policy,string $toda
     $weekdays=['','월','화','수','목','금','토','일'];
     $eligible=static fn(DateTimeImmutable $day):bool=>$hasSchedule&&$day->format('Y-m-d')>=$start&&(!$end||$day->format('Y-m-d')<=$end)&&in_array($weekdays[(int)$day->format('N')],$profile['workDays'],true);
     $total=0;$elapsed=0;$available=0;$weekly=0;$monthly=0;$weekDates=[];
-    for($day=$date->modify('first day of this month');$day->format('Y-m')===$month;$day=$day->modify('+1 day'))if((int)$day->format('N')<=5){$total++;if($day->format('Y-m-d')<=$today)$elapsed++;}
+    for($day=$date->modify('first day of this month');$day->format('Y-m')===$month;$day=$day->modify('+1 day'))if(business_calendar_is_workday($day->format('Y-m-d'),$calendar)){$total++;if($day->format('Y-m-d')<=$today)$elapsed++;}
     for($i=0;$i<5;$i++){
-        $day=$monday->modify('+'.$i.' days');$key=$day->format('Y-m-d');$scheduled=$eligible($day);$completed=$key<=$today;
+        $day=$monday->modify('+'.$i.' days');$key=$day->format('Y-m-d');$scheduled=$eligible($day)&&business_calendar_is_workday($key,$calendar);$completed=$key<=$today;
         if($scheduled){$available++;if($completed)$weekly+=(int)($counts[$key]??0);}
         $weekDates[]=['date'=>$key,'count'=>$scheduled&&$completed?(int)($counts[$key]??0):null,'scheduled'=>$scheduled,'completed'=>$completed];
     }
@@ -65,11 +65,11 @@ function grade_summary_snapshot(array $user,?string $today=null): array {
         $q=$d->prepare("SELECT first_date,COUNT(*) AS amount FROM sales_records WHERE employee_id=? AND department=? AND status='normal' AND is_test=? AND first_date>=? AND first_date<=? GROUP BY first_date");$q->execute([$user['id'],$user['department'],$test?1:0,$from,$today]);$counts=[];
         foreach($q->fetchAll() as $row)$counts[$row['first_date']]=(int)$row['amount'];
         if($test){$q=$d->prepare('SELECT state FROM test_employee_data WHERE user_id=?');$q->execute([$user['id']]);$raw=$q->fetchColumn();if($raw){$state=json_decode($raw,true,512,JSON_THROW_ON_ERROR);foreach($state['sales']??[] as $sale)if($sale['status']==='정상'&&$sale['date']>=$from&&$sale['date']<=$today)$counts[$sale['date']]=($counts[$sale['date']]??0)+1;}}
-        $result=grade_progress($profile,$counts,$policy,$today)+['isTest'=>$test,'policyDate'=>$entry['date']??null,'fetchedAt'=>gmdate('c')];
+        $calendar=business_calendar_rules(substr($today,0,7));$result=grade_progress($profile,$counts,$policy,$today,$calendar)+['isTest'=>$test,'policyDate'=>$entry['date']??null,'fetchedAt'=>gmdate('c')];
         // Use the same effective-date and five-day proration as payroll, with all own normal records.
         $records=[];foreach($result['weekly']['dates'] as $day)if($day['scheduled']&&$day['completed'])$records[]=['date'=>$day['date'],'count'=>$day['count'],'hours'=>0];
         $weekProfile=$profile;if(!$result['scheduleRegistered'])$weekProfile['workDays']=[];
-        $ledger=grade_ledger(substr($result['weekly']['end'],0,7),$records,$entries,$weekProfile);
+        $ledger=grade_ledger(substr($result['weekly']['end'],0,7),$records,$entries,$weekProfile,$calendar);
         foreach($ledger['weeks'] as $item)if($item['start']===$result['weekly']['start']){
             $result['weekly']['amount']=$item['bonus'];$result['weekly']['parts']=$item['parts'];$result['weekly']['complete']=!$item['missing']&&$item['days']>0;$result['weekly']['payrollMonth']=$item['payrollMonth'];break;
         }

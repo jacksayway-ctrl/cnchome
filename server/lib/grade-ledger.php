@@ -2,11 +2,9 @@
 declare(strict_types=1);
 require_once __DIR__.'/hr.php';
 require_once __DIR__.'/policy.php';
+require_once __DIR__.'/business-calendar.php';
 
-function grade_dates(string $month): array {
-    hr_assert((bool)preg_match('/^20\d{2}-(0[1-9]|1[0-2])$/D',$month),'귀속 월을 확인해 주세요.');$out=[];
-    for($d=new DateTimeImmutable($month.'-01');$d->format('Y-m')===$month;$d=$d->modify('+1 day'))if((int)$d->format('N')<=5)$out[]=$d->format('Y-m-d');return $out;
-}
+function grade_dates(string $month,array $calendar=[]): array {return business_calendar_workdays($month,$calendar);}
 function grade_week(string $date): array {$d=new DateTimeImmutable($date);$d=$d->modify('-'.((int)$d->format('N')-1).' days');return array_map(fn($i)=>$d->modify('+'.$i.' days')->format('Y-m-d'),range(0,4));}
 function grade_zero_policy(int $rate=15000): array {return grade_empty_policy($rate);}
 function grade_evaluate(array $p,string $period,float $count,int $days=5): array {
@@ -18,19 +16,21 @@ function grade_evaluate(array $p,string $period,float $count,int $days=5): array
 }
 function grade_round_parts(array &$parts): int {$raw=0;$previous=0;foreach($parts as &$part){$raw+=$part['bonus'];$rounded=(int)round($raw);$part['bonus']=$rounded-$previous;$previous=$rounded;}unset($part);return $previous;}
 /** One tier per whole period, weighted by effective scheduled days; daily cash appears once. */
-function grade_ledger(string $month,array $records,array $entries,array $profile=[]): array {
-    $dates=grade_dates($month);$start=$profile['startDate']??'';$end=$profile['endDate']??'';$workDays=$profile['workDays']??['월','화','수','목','금'];$names=['월','화','수','목','금'];
-    $eligible=fn($date)=>(!$start||$date>=$start)&&(!$end||$date<=$end)&&in_array($names[(int)(new DateTimeImmutable($date))->format('N')-1]??'',$workDays,true);
+function grade_ledger(string $month,array $records,array $entries,array $profile=[],array $calendar=[]): array {
+    $dates=grade_dates($month,$calendar);$start=$profile['startDate']??'';$end=$profile['endDate']??'';$workDays=$profile['workDays']??['월','화','수','목','금'];$names=['월','화','수','목','금','토','일'];
+    $eligible=fn($date)=>(!$start||$date>=$start)&&(!$end||$date<=$end)&&(in_array($names[(int)(new DateTimeImmutable($date))->format('N')-1]??'',$workDays,true)||(!isset($profile['workDays'])&&($calendar[$date]??false)));
+    $scheduled=fn($date)=>$eligible($date)&&business_calendar_is_workday($date,$calendar);
     $general=!in_array($profile['role']??'상담원',['팀장','관리자','관리직'],true);$default=grade_zero_policy((int)($profile['payAmount']??15000));
     usort($entries,fn($a,$b)=>strcmp($a['date'],$b['date'])?:strcmp($a['savedAt']??'',$b['savedAt']??'')?:($a['id']??0)<=>($b['id']??0));
     $at=function($date)use($entries,$default){$p=$default;$since='미등록';foreach($entries as $entry){if($entry['date']>$date)break;$p=$entry['policy'];$since=$entry['date'];}return [$p,$since];};
     $ledger=[];foreach($records as $r){hr_assert(hr_day($r['date'])&&!isset($ledger[$r['date']]),'날짜별 실적 중복 또는 형식을 확인해 주세요.');hr_assert(is_numeric($r['count'])&&$r['count']>=0&&$r['count']<=1000000&&is_numeric($r['hours'])&&$r['hours']>=0&&$r['hours']<=24,'실적·시간 범위를 확인해 주세요.');if($eligible($r['date']))$ledger[$r['date']]=$r;}
     $monthlyRows=array_filter($ledger,fn($r)=>str_starts_with($r['date'],$month));$count=array_sum(array_column($monthlyRows,'count'));$hours=array_sum(array_column($monthlyRows,'hours'));$base=0;$monthRaw=0;$daily=0;$parts=[];
-    foreach($dates as $date){if(!$eligible($date))continue;[$p,$since]=$at($date);$result=grade_evaluate($p,'monthly',$count);$key=$since.':'.hash('sha256',hr_json($p['monthlyReference']??$p['monthly']));
+    $partDates=array_values(array_unique(array_merge($dates,array_keys($monthlyRows))));sort($partDates);
+    foreach($partDates as $date){if(!$eligible($date))continue;[$p,$since]=$at($date);$result=grade_evaluate($p,'monthly',$count);$key=$since.':'.hash('sha256',hr_json($p['monthlyReference']??$p['monthly']));
         if(!isset($parts[$key]))$parts[$key]=['start'=>$date,'end'=>$date,'effective'=>$since,'days'=>0,'hours'=>0,'hourly'=>$result['hourly'],'fullBonus'=>$general?$result['bonus']:0,'bonus'=>0];
-        $parts[$key]['end']=$date;$parts[$key]['days']++;$parts[$key]['hours']+=(float)($ledger[$date]['hours']??0);
+        $parts[$key]['end']=$date;$parts[$key]['days']+=business_calendar_is_workday($date,$calendar)?1:0;$parts[$key]['hours']+=(float)($ledger[$date]['hours']??0);
     }
-    foreach($parts as &$part){$part['ratio']=$part['days']/count($dates);$part['bonus']=$part['fullBonus']*$part['ratio'];$monthRaw+=$part['bonus'];$base+=$part['hours']*$part['hourly'];}unset($part);
+    foreach($parts as &$part){$part['ratio']=$part['days']/max(1,count($dates));$part['bonus']=$part['fullBonus']*$part['ratio'];$monthRaw+=$part['bonus'];$base+=$part['hours']*$part['hourly'];}unset($part);
     $dailyDetails=[];
     foreach($monthlyRows as $r)if($general){
         [$p,$since]=$at($r['date']);$amount=grade_evaluate($p,'daily',(float)$r['count'])['bonus'];$daily+=$amount;
@@ -38,7 +38,7 @@ function grade_ledger(string $month,array $records,array $entries,array $profile
     }
     usort($dailyDetails,fn($a,$b)=>strcmp($a['date'],$b['date']));
     $weeks=[];$weekly=0;$seen=[];
-    foreach($dates as $date){$week=grade_week($date);if(isset($seen[$week[0]]))continue;$seen[$week[0]]=true;$days=array_values(array_filter($week,$eligible));$wc=0;$missing=[];$groups=[];
+    foreach(grade_dates($month) as $date){$week=grade_week($date);if(isset($seen[$week[0]]))continue;$seen[$week[0]]=true;$days=array_values(array_filter($week,$scheduled));$wc=0;$missing=[];$groups=[];
         foreach($days as $day){$wc+=(float)($ledger[$day]['count']??0);if(!isset($ledger[$day]))$missing[]=$day;}
         foreach($days as $day){[$p,$since]=$at($day);$key=$since.':'.hash('sha256',hr_json([$p['weeklyBasis'],$p['weekly']]));$g=grade_evaluate($p,'weekly',$wc,count($days));if(!isset($groups[$key]))$groups[$key]=['start'=>$day,'end'=>$day,'effective'=>$since,'days'=>0,'fullBonus'=>$general?$g['bonus']:0];$groups[$key]['end']=$day;$groups[$key]['days']++;}
         $bonus=0;foreach($groups as &$g){$g['ratio']=$g['days']/5;$g['bonus']=$g['fullBonus']*$g['ratio'];$bonus+=$g['bonus'];}unset($g);
@@ -48,19 +48,19 @@ function grade_ledger(string $month,array $records,array $entries,array $profile
     $base=(int)floor($base);$monthly=grade_round_parts($parts);$daily=(int)round($daily);return ['month'=>$month,'count'=>$count,'hours'=>$hours,'days'=>count($dates),'base'=>$base,'daily'=>$daily,'weekly'=>$weekly,'monthly'=>$monthly,'salary'=>$base+$monthly+$weekly,'total'=>$base+$monthly+$weekly+$daily,'parts'=>array_values($parts),'weeks'=>$weeks,'dailyDetails'=>$dailyDetails,'general'=>$general];
 }
 function grade_history(string $department): array {$q=db()->prepare('SELECT id,effective_date AS date,saved_at AS savedAt,policy FROM grade_versions WHERE department=? ORDER BY effective_date,id');$q->execute([$department]);return grade_resolve_entries(array_map(function($r){$r['policy']=json_decode($r['policy'],true,512,JSON_THROW_ON_ERROR);return $r;},$q->fetchAll()));}
-function grade_forecast_records(string $month,int $count): array {
-    $days=grade_dates($month);$size=count($days);$rows=[];foreach($days as $i=>$day)$rows[$day]=['date'=>$day,'count'=>intdiv($count,$size)+($i<$count%$size?1:0),'hours'=>6];
+function grade_forecast_records(string $month,int $count,array $calendar=[]): array {
+    $days=grade_dates($month,$calendar);$size=count($days);if(!$size){hr_assert($count===0,'선택한 월에 영업일이 없습니다. 영업일 달력을 먼저 확인해 주세요.');return [];}$rows=[];foreach($days as $i=>$day)$rows[$day]=['date'=>$day,'count'=>intdiv($count,$size)+($i<$count%$size?1:0),'hours'=>6];
     // Adjacent month days are estimates at the same daily average, needed for complete boundary weeks.
-    foreach(array_merge(grade_week($days[0]),grade_week(end($days))) as $day)if(!isset($rows[$day]))$rows[$day]=['date'=>$day,'count'=>$count/$size,'hours'=>6];return array_values($rows);
+    foreach(array_merge(grade_week($days[0]),grade_week(end($days))) as $day)if(!isset($rows[$day])&&business_calendar_is_workday($day,$calendar))$rows[$day]=['date'=>$day,'count'=>$count/$size,'hours'=>6];return array_values($rows);
 }
-function grade_daily_sample_records(string $month,int $dailyCount): array {
-    hr_assert($dailyCount>=0&&$dailyCount<=1000000,'하루 정상 접수 건수를 확인해 주세요.');$dates=grade_dates($month);
+function grade_daily_sample_records(string $month,int $dailyCount,array $calendar=[]): array {
+    hr_assert($dailyCount>=0&&$dailyCount<=1000000,'하루 정상 접수 건수를 확인해 주세요.');$dates=grade_dates($month,$calendar);if(!$dates)return [];
     $dates=array_values(array_unique(array_merge($dates,grade_week($dates[0]),grade_week(end($dates)))));sort($dates);
-    return array_map(fn($date)=>['date'=>$date,'count'=>$dailyCount,'hours'=>6],$dates);
+    return array_values(array_map(fn($date)=>['date'=>$date,'count'=>$dailyCount,'hours'=>6],array_filter($dates,fn($date)=>business_calendar_is_workday($date,$calendar))));
 }
-function grade_sample_estimates(string $month,array $entries): array {
-    $samples=[];foreach(range(10,15) as $count){$g=grade_ledger($month,grade_daily_sample_records($month,$count),$entries);$samples[]=['perDay'=>$count,'count'=>$g['count'],'daily'=>$g['daily'],'weekly'=>$g['weekly'],'monthly'=>$g['monthly'],'gradeTotal'=>$g['daily']+$g['weekly']+$g['monthly'],'paydayGrade'=>$g['weekly']+$g['monthly']];}
-    return ['month'=>$month,'days'=>count(grade_dates($month)),'samples'=>$samples];
+function grade_sample_estimates(string $month,array $entries,array $calendar=[]): array {
+    $samples=[];foreach(range(10,15) as $count){$g=grade_ledger($month,grade_daily_sample_records($month,$count,$calendar),$entries,[],$calendar);$samples[]=['perDay'=>$count,'count'=>$g['count'],'daily'=>$g['daily'],'weekly'=>$g['weekly'],'monthly'=>$g['monthly'],'gradeTotal'=>$g['daily']+$g['weekly']+$g['monthly'],'paydayGrade'=>$g['weekly']+$g['monthly']];}
+    return ['month'=>$month,'days'=>count(grade_dates($month,$calendar)),'samples'=>$samples];
 }
 function grade_employee_context(array $employee,string $month): array {
     $uid=(int)($employee['userId']??0);$p=$employee['profile'];$counts=[];$hours=[];$days=grade_dates($month);$from=grade_week($days[0])[0];$through=min(hr_today(),grade_week(end($days))[4]);$d=db();
@@ -68,7 +68,7 @@ function grade_employee_context(array $employee,string $month): array {
     $q=$d->prepare("SELECT first_date,COUNT(*) AS amount FROM sales_records WHERE employee_id=? AND department=? AND is_test=? AND status='normal' AND first_date>=? AND first_date<=? GROUP BY first_date");$q->execute([$uid,$p['team'],$test?1:0,$from,$through]);foreach($q->fetchAll() as $r)$counts[$r['first_date']]=(int)$r['amount'];
     $q=$d->prepare('SELECT state FROM test_employee_data WHERE user_id=?');$q->execute([$uid]);$raw=$q->fetchColumn();if($raw&&$test){$state=json_decode($raw,true,512,JSON_THROW_ON_ERROR);foreach($state['sales']??[] as $s)if($s['status']==='정상'&&$s['date']>=$from&&$s['date']<=$through)$counts[$s['date']]=($counts[$s['date']]??0)+1;foreach($state['attendance']??[] as $a)if($a['out']&&$a['date']>=$from&&$a['date']<=$through){$start=strtotime($a['date'].' '.$a['in']);$end=strtotime($a['date'].' '.$a['out']);$hours[$a['date']]=max(0,($end-$start)/3600-1);}}
     $rows=[];for($date=$from;$date<=$through;$date=(new DateTimeImmutable($date))->modify('+1 day')->format('Y-m-d'))if((int)(new DateTimeImmutable($date))->format('N')<=5)$rows[]=['date'=>$date,'count'=>$counts[$date]??0,'hours'=>$hours[$date]??0];
-    $result=grade_ledger($month,$rows,grade_history($p['team']),$p);$q=$d->prepare('SELECT COALESCE(SUM(amount),0) FROM daily_grade_receipts WHERE employee_id=? AND performance_date>=? AND performance_date<=?');$q->execute([$uid,$month.'-01',(new DateTimeImmutable($month.'-01'))->format('Y-m-t')]);
+    $result=grade_ledger($month,$rows,grade_history($p['team']),$p,business_calendar_rules($month));$q=$d->prepare('SELECT COALESCE(SUM(amount),0) FROM daily_grade_receipts WHERE employee_id=? AND performance_date>=? AND performance_date<=?');$q->execute([$uid,$month.'-01',(new DateTimeImmutable($month.'-01'))->format('Y-m-t')]);
     $result['dailyConfirmedReceipts']=(int)$q->fetchColumn();
     $result['dailySettlement']='automatic';$result['dailyReceived']=$result['daily'];$result['dailyOutstanding']=0;$result['asOf']=hr_today();return $result;
 }

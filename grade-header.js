@@ -10,7 +10,7 @@
   root.dataset.state='ready';
   const prefix=data.isTest?'테스트 계정의 가상 DB 실적 · ':'';
   root.setAttribute('aria-label',(data.isTest?'테스트 실적 · ':'본인 실적 · ')+data.date+' 영업일 및 그레이드 현황');
-  set('workdays',data.workdays.total+'일 / '+data.workdays.elapsed+'일','이번 달 전체 최대 영업일 / 오늘까지 진행된 영업일 · 월~금 기준 · 입사일과 무관 · 별도 휴무일 제외 전');
+  set('workdays',data.workdays.total+'일 / '+data.workdays.elapsed+'일','이번 달 전체 최대 영업일 / 오늘까지 진행된 영업일 · 관리자 영업일 달력 기준 · 입사일과 무관');
   const day=data.daily,week=data.weekly,month=data.monthly;
   const won=n=>Number(n||0).toLocaleString('ko-KR')+'원';
   const tierMoney=t=>t?(t.hourly?'시급 '+won(t.hourly)+(t.amount?' · 수당 '+won(t.amount):''):won(t.amount)):'기준 미등록';

@@ -3,7 +3,7 @@ declare(strict_types=1);
 require_once __DIR__.'/views.php';
 
 function native_routes(): array {
-    return ['adminIntakeAlerts'=>'intake-alerts.php','adminIntake'=>'intake.php','adminIntakeRegister'=>'intake.php','adminContracts'=>'contracts.php','contracts'=>'contracts.php','adminStaff'=>'personnel.php','adminStaffRegister'=>'personnel.php','myInfo'=>'personnel.php','adminPayroll'=>'pay-statements.php','payslips'=>'pay-statements.php'];
+    return ['adminBusinessCalendar'=>'business-calendar.php','adminIntakeAlerts'=>'intake-alerts.php','adminIntake'=>'intake.php','adminIntakeRegister'=>'intake.php','adminContracts'=>'contracts.php','contracts'=>'contracts.php','adminStaff'=>'personnel.php','adminStaffRegister'=>'personnel.php','myInfo'=>'personnel.php','adminPayroll'=>'pay-statements.php','payslips'=>'pay-statements.php'];
 }
 function native_url(string $page,string $role): string {
     $route=native_routes()[$page]??null;

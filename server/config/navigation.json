@@ -71,6 +71,10 @@
           "출결 승인"
         ],
         [
+          "adminBusinessCalendar",
+          "영업일 달력"
+        ],
+        [
           "adminLeave",
           "연차·휴가"
         ],

@@ -52,6 +52,10 @@ The live grade editor saves daily, weekly and monthly criteria separately throug
 
 `php server/bin/check-grade-settings.php` uses an isolated SQLite database to check partial saves, effective dates, revision conflicts and forecast amounts. `node scripts/check-grade-server-dom.cjs` checks separate save controls and the intake button in the policy window.
 
+The monthly criteria editor accepts an expected monthly normal-case count per row and recalculates daily/weekly sums, total pay and payday pay through PHP. Expected counts are saved with monthly criteria; pending or invalid edits clear stale amounts, and older responses cannot replace newer results. The payday amount subtracts the full daily advance once.
+
+`/business-calendar.php?role=admin` is the PHP business-day calendar under 인사·출결. HTML checkboxes toggle dates before an explicit POST save; defaults are Monday–Friday open and weekends closed. `business_calendar` stores each month with a revision and `business_calendar_events` keeps changes. Forecasts and employee business-day counts use the saved calendar. Weekly grades still use Monday–Friday and a five-day payment ratio; actual recorded work time/daily earnings and published payroll snapshots are retained. Run `php server/bin/check-business-calendar.php` before the DOM checks to generate the calendar fixture; its isolated SQLite checks cover saving, revision conflicts, holiday calculations and earned pay preservation. The DOM checks also use PHP (set `PHP_BINARY` if needed).
+
 ## Automatic Cafe24 deployment
 
 Run `bash /opt/cnchome/server/enable-auto-deploy.sh` once as root after pulling this version. A systemd timer checks GitHub main every minute and deploys changed commits. It uses the existing public repository and does not require sharing root credentials or adding a GitHub password. Repository write access now authorizes server deployments; the deployment script executes with server administration privileges.

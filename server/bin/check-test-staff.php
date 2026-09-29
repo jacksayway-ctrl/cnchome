@@ -14,7 +14,7 @@ CREATE TABLE app_users(id INTEGER PRIMARY KEY AUTOINCREMENT,username TEXT UNIQUE
 CREATE TABLE hr_employees(id INTEGER PRIMARY KEY AUTOINCREMENT,employee_no TEXT UNIQUE,user_id INTEGER REFERENCES app_users(id),profile TEXT,revision INTEGER DEFAULT 1);
 CREATE TABLE test_employee_data(user_id INTEGER PRIMARY KEY REFERENCES app_users(id),state TEXT,revision INTEGER DEFAULT 1);
 CREATE TABLE test_fixture_batches(batch TEXT PRIMARY KEY,manifest TEXT);
-CREATE TABLE grade_versions(id INTEGER PRIMARY KEY AUTOINCREMENT,department TEXT,effective_date TEXT,saved_at TEXT DEFAULT CURRENT_TIMESTAMP,policy TEXT);
+CREATE TABLE business_calendar(month TEXT PRIMARY KEY,days TEXT);CREATE TABLE grade_versions(id INTEGER PRIMARY KEY AUTOINCREMENT,department TEXT,effective_date TEXT,saved_at TEXT DEFAULT CURRENT_TIMESTAMP,policy TEXT);
 CREATE TABLE daily_grade_receipts(employee_id INTEGER REFERENCES app_users(id),performance_date TEXT,milestone INTEGER,amount INTEGER,department TEXT,confirmed_at TEXT DEFAULT CURRENT_TIMESTAMP,PRIMARY KEY(employee_id,performance_date,milestone));
 CREATE TABLE sales_records(id INTEGER PRIMARY KEY,employee_id INTEGER,department TEXT,is_test INTEGER,first_date TEXT,status TEXT);
 CREATE TABLE hr_payroll(id INTEGER PRIMARY KEY AUTOINCREMENT,employee_id INTEGER REFERENCES hr_employees(id),month TEXT,status TEXT DEFAULT 'draft',calculation TEXT,published_snapshot TEXT,published_at TEXT,confirmed_at TEXT,revision INTEGER DEFAULT 1,UNIQUE(employee_id,month));
