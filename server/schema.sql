@@ -219,3 +219,13 @@ CREATE TABLE IF NOT EXISTS intake_management_events (
  INDEX record_history(record_key,id),
  FOREIGN KEY (actor_id) REFERENCES app_users(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS hr_contract_approvals (
+ contract_id BIGINT UNSIGNED PRIMARY KEY,
+ state VARCHAR(20) NOT NULL,
+ actor_id BIGINT UNSIGNED NOT NULL,
+ reason VARCHAR(500) NOT NULL DEFAULT '',
+ updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+ FOREIGN KEY (contract_id) REFERENCES hr_contracts(id),
+ FOREIGN KEY (actor_id) REFERENCES app_users(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

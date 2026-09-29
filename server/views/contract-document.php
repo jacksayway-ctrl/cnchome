@@ -40,6 +40,6 @@ if($documentOnly): ?>
 </section>
 <section><h2>5. 기타 약정 및 계약서 교부</h2><p><?= $terms['extraTerms']?nl2br(view_h($terms['extraTerms'])).' ':'' ?>이 계약에서 정하지 않은 사항은 근로기준법 등 관계 법령에 따른다. 사용자는 체결 시 근로자의 요구와 관계없이 서명한 계약서 사본을 종이 또는 저장·출력 가능한 전자문서로 근로자에게 교부한다.</p></section>
 <div class="contract-signatures"><p><b>작성일</b> <?= view_h($terms['signedDate']?:'　　　년　　월　　일') ?></p><div><span>사용자(대표자) <?= view_h($terms['representative']) ?> <b>(서명 또는 인)</b></span><span>근로자 <?= view_h($terms['employeeName']) ?> <b>(서명 또는 인)</b></span></div></div>
-<footer class="contract-sheet-footer">문서 <?= $selected['id'] ?> · 제<?= $selected['version'] ?>판 · <?= $selected['status']==='draft'?'미발행 · 서명 전 확인용':'발행 '.contract_korea_time($selected['issued_at']) ?><?= $selected['content_hash']?' · 검증값 '.view_h(substr($selected['content_hash'],0,20)):'' ?><br>웹의 ‘내용·사본 확인’은 열람 기록이며, 위 서명이나 임금 변경 합의를 대신하지 않습니다.</footer>
+<footer class="contract-sheet-footer">문서 <?= $selected['id'] ?> · 제<?= $selected['version'] ?>판 · <?= $selected['status']==='draft'?'미발행 · 서명 전 확인용':'발행 '.contract_korea_time($selected['issued_at']) ?><?= $selected['content_hash']?' · 검증값 '.view_h(substr($selected['content_hash'],0,20)):'' ?><br>웹 승인·관리자 적용은 업무 처리 기록입니다. 당사자가 서명한 계약서 사본을 함께 보관합니다.</footer>
 </article>
 <?php if($documentOnly): ?><?php if(!$download): ?><script src="<?= view_h(asset_url('contract.js')) ?>" defer></script><?php endif; ?></body></html><?php endif; ?>

@@ -2,7 +2,7 @@
 declare(strict_types=1);
 /** Native personnel cards use hr_employees as the single source of staff data. */
 function personnel_default_profile(): array {
-    return ['name'=>'','phone'=>'','team'=>'insurance','role'=>'상담원','startDate'=>hr_today(),'employment'=>'재직','payType'=>'시급제','payAmount'=>15000,'workDays'=>['월','화','수','목','금'],'weeklyHoliday'=>'일','contractStart'=>hr_today(),'contractType'=>'무기계약','contractTerm'=>''];
+    return ['name'=>'','phone'=>'','team'=>'insurance','role'=>'상담원','startDate'=>hr_today(),'employment'=>'재직','payType'=>'시급제','payAmount'=>15000,'workDays'=>['월','화','수','목','금'],'weeklyHoliday'=>'일','contractStart'=>hr_today(),'contractType'=>'무기계약','contractTerm'=>'','payday'=>'15','workStart'=>'10:00','workEnd'=>'17:00','breakStart'=>'12:00','breakEnd'=>'13:00','workplace'=>'씨앤씨','duties'=>'전화상담'];
 }
 function personnel_records(array $user): array {
     $admin=$user['role']==='admin';
@@ -61,4 +61,9 @@ function personnel_cells(string $label1,mixed $value1,string $label2,mixed $valu
 
 function personnel_hourly_rate(int|float $amount): string {
     return rtrim(rtrim(number_format($amount,2,'.',','),'0'),'.').'원';
+}
+
+function personnel_next_number(): string {
+    $day=str_replace('-','',hr_today());$q=db()->prepare('SELECT serial FROM hr_employee_sequences WHERE day=?');$q->execute([$day]);
+    return 'cnc'.$day.str_pad((string)((int)$q->fetchColumn()+1),3,'0',STR_PAD_LEFT);
 }

@@ -49,24 +49,24 @@ function intake_history(array $user,string $id): array {
     usort($rows,fn($a,$b)=>strcmp($b['created_at'],$a['created_at']));return array_slice($rows,0,100);
 }
 function intake_update(array $user,array $in): void {
-    intake_admin($user);$id=intake_text($in['id']??'',60);$revision=intake_number($in['revision']??0);$action=intake_text($in['action']??'',15);hr_assert(in_array($action,['status','edit'],true),'지원하지 않는 작업입니다.');
-    $reason=intake_text($in['reason']??'',500);$status=intake_text($in['status']??'',10);hr_assert(in_array($status,['pending','normal','as'],true),'상태를 확인해 주세요.');
+    intake_admin($user);$id=intake_text($in['id']??'',60);$revision=intake_number($in['revision']??0);$action=intake_text($in['action']??'',15);hr_assert(in_array($action,['status','edit','hold'],true),'지원하지 않는 작업입니다.');
+    $reason=intake_text($in['reason']??'',500);if($action==='hold'&&$reason==='')$reason='내용 확인 후 가접수 유지';$status=intake_text($in['status']??'',10);hr_assert(in_array($status,['pending','normal','as'],true),'상태를 확인해 주세요.');
     $d=db();$d->beginTransaction();
     try{
         if(preg_match('/^test:(\d+):(\d+)$/D',$id,$m)){
-            hr_assert($action==='status','이전 테스트 자료는 상태만 변경할 수 있습니다.');
+            hr_assert(in_array($action,['status','hold'],true),'이전 테스트 자료는 상태만 변경할 수 있습니다.');
             $q=$d->prepare('SELECT state,revision FROM test_employee_data WHERE user_id=? FOR UPDATE');$q->execute([(int)$m[1]]);$row=$q->fetch();hr_assert($row&&(int)$row['revision']===$revision,'자료가 변경됐습니다. 새로고침 후 확인해 주세요.');
             $state=json_decode($row['state'],true,512,JSON_THROW_ON_ERROR);$found=false;
             foreach($state['sales'] as &$sale)if((int)$sale['id']===(int)$m[2]){$before=['status'=>['가접수'=>'pending','정상'=>'normal','A/S'=>'as'][$sale['status']]];$sale['status']=['pending'=>'가접수','normal'=>'정상','as'=>'A/S'][$status];$found=true;}unset($sale);
-            hr_assert($found,'접수를 찾을 수 없습니다.');hr_assert($before['status']!==$status,'현재 상태와 같습니다.');
+            hr_assert($found,'접수를 찾을 수 없습니다.');hr_assert($action==='hold'?($before['status']==='pending'&&$status==='pending'):$before['status']!==$status,'현재 상태를 다시 확인해 주세요.');
             $q=$d->prepare('UPDATE test_employee_data SET state=?,revision=revision+1 WHERE user_id=?');$q->execute([hr_json($state),(int)$m[1]]);
-            intake_audit($id,$user,'status',$before,['status'=>$status],$reason);
+            intake_audit($id,$user,$action,$before,['status'=>$status],$reason);
         }else{
             hr_assert(ctype_digit($id),'접수 번호를 확인해 주세요.');$q=$d->prepare('SELECT * FROM sales_records WHERE id=? FOR UPDATE');$q->execute([(int)$id]);$row=$q->fetch();hr_assert((bool)$row,'접수를 찾을 수 없습니다.');hr_assert((int)$row['revision']===$revision,'다른 화면에서 변경했습니다. 새로고침 후 다시 확인해 주세요.');
-            if($action==='status'){
-                hr_assert($row['status']!==$status,'현재 상태와 같습니다.');
+            if(in_array($action,['status','hold'],true)){
+                hr_assert($action==='hold'?($row['status']==='pending'&&$status==='pending'):$row['status']!==$status,'현재 상태를 다시 확인해 주세요.');
                 $q=$d->prepare('UPDATE sales_records SET status=?,revision=revision+1,updated_at=UTC_TIMESTAMP(6) WHERE id=?');$q->execute([$status,(int)$id]);
-                intake_audit($id,$user,'status',['status'=>$row['status']],['status'=>$status],$reason);
+                intake_audit($id,$user,$action,['status'=>$row['status']],['status'=>$status],$reason);
             }else{
                 $fields=['customer_name'=>['customer',100],'phone'=>['phone',20],'carrier'=>['carrier',100],'note'=>['note',1000]];$next=[];
                 foreach($fields as $column=>[$key,$max])$next[$column]=intake_text($in[$key]??'',$max);

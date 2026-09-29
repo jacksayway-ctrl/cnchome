@@ -9,6 +9,10 @@
           "업무 현황"
         ],
         [
+          "adminIntakeAlerts",
+          "가접수 알림"
+        ],
+        [
           "adminNotifications",
           "알림"
         ],
@@ -33,7 +37,7 @@
       ]
     },
     {
-      "label": "영업 관리",
+      "label": "영업관리(정책)",
       "icon": "chart",
       "items": [
         [

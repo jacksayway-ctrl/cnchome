@@ -88,11 +88,11 @@ function hr_snapshot(array $u): array {
 }
 
 class HRForbidden extends RuntimeException {}
-function hr_mutate(array $user,array $in): void {
+function hr_mutate(array $user,array $in): ?int {
     $action=$in['action']??'';$admin=$user['role']==='admin';
     if(!in_array($action,$admin?['saveStaff','savePayroll','publish']:['confirm','request'],true))throw new HRForbidden('처리 권한이 없습니다.');
     try {
-    $d=db();$d->beginTransaction();
+    $d=db();$d->beginTransaction();$staffSavedId=null;
     if($action==='saveStaff'){
         $id=hr_int($in['id']??0);$existing=null;
         if($id){$q=$d->prepare('SELECT * FROM hr_employees WHERE id=? FOR UPDATE');$q->execute([$id]);$existing=$q->fetch();hr_assert((bool)$existing,'직원을 찾을 수 없습니다.');hr_assert((int)$existing['revision']===($in['revision']??null),'다른 창에서 변경했습니다. 새로고침해 주세요.');}
@@ -115,7 +115,8 @@ function hr_mutate(array $user,array $in): void {
         }
         if($uid){$q=$d->prepare("UPDATE app_users SET display_name=?,department=? WHERE id=? AND role='employee'");$q->execute([$p['name'],$p['team'],$uid]);}
         if($existing){$q=$d->prepare('UPDATE hr_employees SET user_id=?,profile=?,revision=revision+1 WHERE id=?');$q->execute([$uid,hr_json($p),$id]);}
-        else {$q=$d->prepare('INSERT INTO hr_employees(employee_no,user_id,profile) VALUES(?,?,?)');$q->execute([$no,$uid,hr_json($p)]);}
+        else {$q=$d->prepare('INSERT INTO hr_employees(employee_no,user_id,profile) VALUES(?,?,?)');$q->execute([$no,$uid,hr_json($p)]);$id=(int)$d->lastInsertId();}
+        $staffSavedId=$id;
     }else{
         $id=hr_int($in['id']??0);$row=null;
         if($id){$q=$d->prepare('SELECT p.*,e.user_id,e.profile,e.employee_no FROM hr_payroll p JOIN hr_employees e ON e.id=p.employee_id WHERE p.id=? FOR UPDATE');$q->execute([$id]);$row=$q->fetch();hr_assert((bool)$row,'급여 내역을 찾을 수 없습니다.');
@@ -145,6 +146,6 @@ function hr_mutate(array $user,array $in): void {
         }
         $q=$d->prepare('INSERT INTO hr_payroll_events(payroll_id,actor_id,event,note,snapshot) VALUES(?,?,?,?,?)');$q->execute([$id,$user['id'],$action,$note,$eventSnapshot?hr_json($eventSnapshot):null]);
     }
-    $d->commit();
+    $d->commit();return $staffSavedId;
     }catch(Throwable $e){if(isset($d)&&$d->inTransaction())$d->rollBack();throw $e;}
 }

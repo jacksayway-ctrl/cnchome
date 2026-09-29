@@ -1,4 +1,4 @@
-<?php declare(strict_types=1); ?>
+<?php declare(strict_types=1);$popup=$popup??false;$employeeNumber=$employeeNumber??($record['employee_no']??''); ?>
 <style>
 .personnel-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px 14px}.personnel-wide{grid-column:span 2}.personnel-full{grid-column:1/-1}.personnel-card{max-width:1080px;margin-inline:auto}.personnel-card h2{margin:0 0 8px;font-size:17px}.personnel-card h3{font-size:14px;margin:16px 0 7px}.personnel-meta{display:flex;justify-content:space-between;gap:12px;font-size:12px;color:#64748b}.personnel-table{table-layout:fixed;width:100%;border-collapse:collapse}.personnel-table th,.personnel-table td{padding:8px 10px;border:1px solid #dce2e9;text-align:left;vertical-align:top;font-size:13px;word-break:break-word}.personnel-table th{width:17%;background:#f4f6f8;font-weight:600}.personnel-table td{width:33%;white-space:normal}.personnel-pay{display:flex;flex-wrap:wrap;gap:8px 22px;margin:10px 0;font-size:13px}.personnel-pay strong{margin-left:6px}.personnel-note{font-size:12px;color:#64748b;line-height:1.5}.personnel-days{display:flex;gap:14px;align-items:center;min-height:34px}.personnel-days label{display:flex;gap:5px;align-items:center}.personnel-grid fieldset{border:0;padding:0;margin:0}.personnel-grid input[type=checkbox]{width:auto}.personnel-section{margin:0 0 14px}.personnel-form legend{font-size:14px;font-weight:700;margin-bottom:9px}.personnel-form textarea{min-height:64px;resize:vertical}.personnel-list td{vertical-align:middle}.personnel-empty{padding:24px;text-align:center;color:#64748b}
 @media(max-width:800px){.personnel-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.personnel-meta{flex-wrap:wrap}.personnel-table th,.personnel-table td{font-size:12px;padding:6px}.personnel-table th{width:20%}.personnel-table td{width:30%}.personnel-pay{gap:8px 12px}}
@@ -9,17 +9,17 @@
 <div class="nf-actions personnel-no-print">
 <?php if($admin): ?>
 <a href="/personnel.php?role=admin">직원 목록</a>
-<a class="nf-button" href="/personnel.php?role=admin&amp;new=1">직원 등록</a>
-<?php if($record&&!$editing): ?><a class="nf-button" href="/personnel.php?role=admin&amp;id=<?= $record['id'] ?>&amp;edit=1">인사정보 수정</a><?php endif; ?>
+<a class="nf-button" href="/personnel.php?role=admin&amp;new=1&amp;popup=1" target="_blank" rel="noopener" data-personnel-window>직원 등록</a>
+<?php if($record&&!$editing): ?><a class="nf-button" href="/personnel.php?role=admin&amp;id=<?= $record['id'] ?>&amp;edit=1<?= $popup?'&amp;popup=1':'' ?>">인사정보 수정</a><?php endif; ?>
 <?php endif; ?>
 <?php if(!$editing): ?><a class="<?= $admin?'':'nf-contract-open' ?>" href="/contracts.php?role=<?= h($role) ?>">근로계약서</a><?php endif; ?>
 <?php if($record&&!$editing): ?><button type="button" data-print>인사기록카드 인쇄</button><?php endif; ?>
 </div>
 <?php if($editing): ?>
-<form class="personnel-form" method="post" action="/personnel.php?role=admin<?= $isNew?'&amp;new=1':'&amp;id='.$id.'&amp;edit=1' ?>">
+<form class="personnel-form" method="post" action="/personnel.php?role=admin<?= $isNew?'&amp;new=1':'&amp;id='.$id.'&amp;edit=1' ?><?= $popup?'&amp;popup=1':'' ?>">
 <?= native_csrf() ?><input type="hidden" name="id" value="<?= $isNew?0:$id ?>"><input type="hidden" name="revision" value="<?= $formRevision ?>">
 <section class="nf-card personnel-section"><h2><?= $isNew?'직원 등록':'인사기록 수정' ?></h2><p class="personnel-note">* 필수 입력 · 작성 내용을 실제 근로조건 및 계약서와 일치하도록 관리해 주세요.</p>
-<fieldset><legend>기본 인적사항</legend><div class="personnel-grid">
+<p class="personnel-number">사번 <input aria-label="자동 사번" value="<?= h($employeeNumber) ?>" readonly><small><?= $isNew?'저장 시 자동 확정':'자동 발급 번호' ?></small></p><fieldset><legend>기본 인적사항</legend><div class="personnel-grid">
 <?php
 personnel_field($profile,'name','성명','text',60,true);
 personnel_select($profile,'gender','성별',[''=>'미입력','남'=>'남','여'=>'여','기타'=>'기타']);
@@ -66,7 +66,7 @@ personnel_field($profile,'contractStart','계약 개시일','date',10);
 personnel_field($profile,'contractEnd','계약 종료일 (기간제)','date',10);
 personnel_field($profile,'wageEffective','임금 적용일','date',10);
 ?>
-<p class="personnel-note personnel-full">요일별 시간이 다르거나 근로조건을 변경하는 경우 근로계약 관리에서 요일별 시간과 적용일을 별도로 작성하고 직원에게 교부해 주세요. 인사정보 저장만으로 이미 발행된 계약서가 변경되지는 않습니다.</p>
+<p class="personnel-note personnel-full">계약기간 자동 계산·승인·적용은 인사·출결 → 근로계약에서 관리합니다.</p>
 </div></fieldset></section>
 <section class="nf-card personnel-section"><fieldset><legend>급여 기준·지급 계좌</legend><div class="personnel-grid">
 <?php
@@ -76,7 +76,7 @@ personnel_field($profile,'bank','은행','text',50);
 personnel_field($profile,'accountHolder','예금주','text',60);
 personnel_field($profile,'accountNumber','급여 계좌번호','text',40,false,'personnel-wide');
 ?>
-<p class="personnel-note personnel-full">시급제 합산 기준 15,000원은 기본시급 12,500원 + 주휴수당·회사 지원금의 시간당 환산액 2,500원으로 나누어 표시합니다. 월급제는 월 기본급을 입력합니다. 실제 지급액은 해당 기간의 인정시간과 계약서에 정한 지급 기준으로 확인해 주세요.</p>
+<p class="personnel-note personnel-full">시급제 15,000원 = 기본 12,500원 + 주휴·회사 지원금 환산 2,500원. 월급제는 월 기본급을 입력합니다.</p>
 </div></fieldset></section>
 <section class="nf-card personnel-section"><fieldset><legend>계정 연결·관리 메모</legend><div class="personnel-grid">
 <?php if(!empty($record['user_id'])): ?><p class="personnel-note personnel-full">직원 로그인 계정이 연결되어 있습니다. 직책 변경으로 로그인 권한이 바뀌지는 않습니다.</p>
@@ -86,7 +86,7 @@ personnel_field($profile,'accountNumber','급여 계좌번호','text',40,false,'
 <?php endif; ?>
 <?php personnel_textarea($profile,'memo','관리자 메모 (직원 화면에는 표시하지 않음)',1000); ?>
 </div></fieldset></section>
-<div class="nf-actions"><button class="nf-button" type="submit">인사정보 저장</button><a href="/personnel.php?role=admin<?= $record?'&amp;id='.$record['id']:'' ?>">취소</a></div>
+<div class="nf-actions"><button class="nf-button" type="submit">인사정보 저장</button><button type="button" data-print>등록 양식 인쇄</button><a href="/personnel.php?role=admin<?= $record?'&amp;id='.$record['id']:'' ?>">취소</a></div>
 </form>
 <?php elseif($record): $p=$record['profile']; ?>
 <?php if($admin): $missing=[];foreach(['gender'=>'성별','birthDate'=>'생년월일','address'=>'주소','career'=>'이력','jobType'=>'직종','startDate'=>'고용일','duties'=>'종사 업무'] as $key=>$label)if(trim((string)($p[$key]??''))==='')$missing[]=$label; ?>

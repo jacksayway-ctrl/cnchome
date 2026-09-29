@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__.'/hr.php';
+require_once __DIR__.'/contract-workflow.php';
 
 function contract_text(mixed $value,int $max,string $label): string {
     hr_assert(is_string($value),$label.' 입력 형식을 확인해 주세요.');
@@ -14,12 +15,12 @@ function contract_number(mixed $value,int $max,string $label): int {
     $n=(int)$value;hr_assert($n>=0&&$n<=$max,$label.' 범위를 확인해 주세요.');return $n;
 }
 function contract_company_defaults(): array {
-    return ['employerName'=>'','representative'=>'','businessNumber'=>'','employerAddress'=>'','employerPhone'=>'','paymentDay'=>'25','paymentPeriod'=>'매월 1일부터 말일까지','paymentTiming'=>'다음 달','paymentMethod'=>'근로자 명의 계좌로 입금','bonusTerms'=>'','otherAllowanceTerms'=>'','extraTerms'=>''];
+    return ['employerName'=>'씨앤씨','representative'=>'하정희','businessNumber'=>'','employerAddress'=>'인천 부평구 부평대로 301, 남광센트렉스 921호','employerPhone'=>'','paymentDay'=>'15','paymentPeriod'=>'매월 1일부터 말일까지','paymentTiming'=>'다음 달','paymentMethod'=>'근로자 명의 계좌로 입금','bonusTerms'=>'','otherAllowanceTerms'=>'','extraTerms'=>''];
 }
 function contract_company(array $input): array {
     $out=[];
     foreach(['employerName'=>50,'representative'=>30,'businessNumber'=>20,'employerAddress'=>100,'employerPhone'=>20,'paymentPeriod'=>50,'paymentTiming'=>10,'paymentMethod'=>50,'bonusTerms'=>100,'otherAllowanceTerms'=>100,'extraTerms'=>300] as $key=>$max)$out[$key]=contract_text($input[$key]??'',$max,$key);
-    $out['paymentDay']=contract_number($input['paymentDay']??25,31,'급여 지급일');
+    $out['paymentDay']=contract_number($input['paymentDay']??15,31,'급여 지급일');
     hr_assert($out['paymentDay']>0,'급여 지급일을 입력해 주세요.');
     hr_assert(in_array($out['paymentTiming'],['당월','다음 달'],true),'지급월을 선택해 주세요.');
     return $out;
@@ -34,10 +35,10 @@ function contract_default_terms(array $employee,array $company): array {
     foreach(['월','화','수','목','금','토','일'] as $day)$schedule[]=['day'=>$day,'working'=>in_array($day,$p['workDays']??[],true),'start'=>$p['workStart']??'','end'=>$p['workEnd']??'','breakStart'=>$p['breakStart']??'','breakEnd'=>$p['breakEnd']??''];
     $terms=array_replace(contract_company_defaults(),$company,[
         'employeeName'=>$p['name']??'','employeeBirth'=>$p['birthDate']??'','employeeAddress'=>trim(($p['address']??'').' '.($p['addressDetail']??'')),'employeePhone'=>$p['phone']??'',
-        'contractType'=>$p['contractType']??'무기계약','contractStart'=>($p['contractStart']??'')?:($p['startDate']??''),'contractEnd'=>$p['contractEnd']??'',
+        'periodPreset'=>($p['contractType']??'무기계약')==='무기계약'?'unlimited':'custom','contractType'=>$p['contractType']??'무기계약','contractStart'=>($p['contractStart']??'')?:($p['startDate']??''),'contractEnd'=>$p['contractEnd']??'',
         'signedDate'=>hr_today(),'wageEffective'=>hr_today(),'workplace'=>$p['workplace']??'','duties'=>$p['duties']??'',
         'baseHourly'=>$p['payType']==='시급제'?$base:12500,'supportHourly'=>$p['payType']==='시급제'?$rate-$base:2500,
-        'weeklyHoliday'=>$p['weeklyHoliday']??'일','holidayDetail'=>'','leaveDetail'=>'','schedule'=>$schedule,'existingWageAgreement'=>false,'insurancePension'=>'확인 필요','insuranceHealth'=>'확인 필요','insuranceEmployment'=>'확인 필요','insuranceAccident'=>'적용','insuranceException'=>'',
+        'paymentDay'=>($p['payday']??'')?:($company['paymentDay']??15),'weeklyHoliday'=>$p['weeklyHoliday']??'일','holidayDetail'=>'','leaveDetail'=>'','schedule'=>$schedule,'existingWageAgreement'=>false,'insurancePension'=>'확인 필요','insuranceHealth'=>'확인 필요','insuranceEmployment'=>'확인 필요','insuranceAccident'=>'적용','insuranceException'=>'',
     ]);
     foreach($terms as $key=>$value)if(is_string($value))$terms[$key]=preg_replace('/\s+/u',' ',trim($value));
     return $terms;
@@ -51,7 +52,6 @@ function contract_terms(array $in): array {
     foreach(['employeeName'=>50,'employeeBirth'=>10,'employeeAddress'=>120,'employeePhone'=>20,'contractType'=>10,'contractStart'=>10,'contractEnd'=>10,'signedDate'=>10,'wageEffective'=>10,'workplace'=>100,'duties'=>100,'weeklyHoliday'=>1,'holidayDetail'=>100,'leaveDetail'=>100,'insurancePension'=>10,'insuranceHealth'=>10,'insuranceEmployment'=>10,'insuranceAccident'=>10,'insuranceException'=>100] as $key=>$max)$t[$key]=contract_text($in[$key]??'',$max,$key);
     foreach(['employeeBirth','contractStart','contractEnd','signedDate','wageEffective'] as $k)hr_assert($t[$k]===''||hr_day($t[$k]),'날짜 형식을 확인해 주세요: '.$k);
     hr_assert(in_array($t['contractType'],['기간제','무기계약'],true),'계약 구분을 선택해 주세요.');
-    if($t['contractType']==='무기계약')$t['contractEnd']='';
     hr_assert(in_array($t['weeklyHoliday'],['월','화','수','목','금','토','일'],true),'주휴일을 선택해 주세요.');
     $t['baseHourly']=contract_number($in['baseHourly']??0,1000000,'기본시급');
     $t['supportHourly']=contract_number($in['supportHourly']??0,1000000,'주휴수당 환산액');
@@ -65,6 +65,8 @@ function contract_terms(array $in): array {
         if(!$row['working'])foreach(['start','end','breakStart','breakEnd'] as $key)$row[$key]='';
         $t['schedule'][]=$row;
     }
+    $preset=contract_text($in['periodPreset']??($t['contractType']==='무기계약'?'unlimited':'custom'),15,'기간 선택');
+    $t=array_replace($t,contract_period($t['contractStart'],$preset,$t['contractEnd'],array_column(array_filter($t['schedule'],fn($d)=>$d['working']),'day')));
     return $t;
 }
 function contract_schedule_totals(array $terms): array {
@@ -88,6 +90,7 @@ function contract_issue_errors(array $t,array $employee): array {
     foreach(['employerName'=>'사업장명','representative'=>'대표자','employerAddress'=>'사업장 주소','employerPhone'=>'사업장 연락처','employeeName'=>'근로자 성명','employeeBirth'=>'생년월일','employeeAddress'=>'근로자 주소','employeePhone'=>'근로자 연락처','contractStart'=>'계약 시작일','signedDate'=>'작성일','wageEffective'=>'임금 적용일','workplace'=>'근무 장소','duties'=>'업무 내용','paymentPeriod'=>'임금 산정기간','paymentMethod'=>'지급 방법','bonusTerms'=>'상여금 약정 (없으면 없음)','otherAllowanceTerms'=>'기타 수당 약정 (없으면 없음)'] as $key=>$label)if($t[$key]==='')$errors[]=$label.'을 입력해 주세요.';
     if(!$employee['user_id'])$errors[]='직원 로그인 계정을 먼저 연결해 주세요.';
     if($t['contractType']==='기간제'&&($t['contractEnd']===''||$t['contractEnd']<$t['contractStart']))$errors[]='기간제 계약 종료일을 확인해 주세요.';
+    if($t['contractType']==='기간제'&&$t['wageEffective']!==''&&$t['contractEnd']!==''&&$t['wageEffective']>$t['contractEnd'])$errors[]='임금 적용일은 계약기간 안에 있어야 합니다.';
     if($t['employeeBirth']!==''&&$t['employeeBirth']>hr_today())$errors[]='생년월일을 확인해 주세요.';
     if($t['wageEffective']!==''&&$t['contractStart']!==''&&$t['wageEffective']<$t['contractStart'])$errors[]='임금 적용일은 계약 시작일 이후여야 합니다.';
     if($t['wageEffective']!==''&&$t['wageEffective']<hr_today())$errors[]='새 임금 구분은 소급 적용할 수 없습니다. 적용일을 오늘 이후로 입력해 주세요.';
@@ -118,18 +121,18 @@ function contract_decode(array $r): array {
     return $r;
 }
 function contract_find(int $id,array $user,bool $lock=false): ?array {
-    $q=db()->prepare('SELECT c.*,e.employee_no,e.user_id,e.profile FROM hr_contracts c JOIN hr_employees e ON e.id=c.employee_id WHERE c.id=?'.($user['role']==='admin'?'':' AND c.recipient_user_id=? AND c.status<>\'draft\'').($lock?' FOR UPDATE':''));
+    $q=db()->prepare('SELECT c.*,e.employee_no,e.user_id,e.profile,e.revision AS employee_revision,a.state AS approval_state,a.reason AS approval_reason,a.updated_at AS approval_updated_at FROM hr_contracts c JOIN hr_employees e ON e.id=c.employee_id LEFT JOIN hr_contract_approvals a ON a.contract_id=c.id WHERE c.id=?'.($user['role']==='admin'?'':' AND c.recipient_user_id=? AND c.status<>\'draft\'').($lock?' FOR UPDATE':''));
     $q->execute($user['role']==='admin'?[$id]:[$id,$user['id']]);$r=$q->fetch();return $r?contract_decode($r):null;
 }
 function contract_list(array $user): array {
-    $q=db()->prepare('SELECT c.*,e.employee_no,e.user_id,e.profile FROM hr_contracts c JOIN hr_employees e ON e.id=c.employee_id'.($user['role']==='admin'?'':' WHERE c.recipient_user_id=? AND c.status<>\'draft\'').' ORDER BY c.id DESC');$q->execute($user['role']==='admin'?[]:[$user['id']]);return array_map('contract_decode',$q->fetchAll());
+    $q=db()->prepare('SELECT c.*,e.employee_no,e.user_id,e.profile,e.revision AS employee_revision,a.state AS approval_state,a.reason AS approval_reason,a.updated_at AS approval_updated_at FROM hr_contracts c JOIN hr_employees e ON e.id=c.employee_id LEFT JOIN hr_contract_approvals a ON a.contract_id=c.id'.($user['role']==='admin'?'':' WHERE c.recipient_user_id=? AND c.status<>\'draft\'').' ORDER BY c.id DESC');$q->execute($user['role']==='admin'?[]:[$user['id']]);return array_map('contract_decode',$q->fetchAll());
 }
 function contract_log(int $id,array $user,string $event,?array $snapshot=null): void {
     $q=db()->prepare('INSERT INTO hr_contract_events(contract_id,actor_id,event,snapshot) VALUES(?,?,?,?)');$q->execute([$id,$user['id'],$event,$snapshot?hr_json($snapshot):null]);
 }
 function contract_mutate(array $user,array $in): int {
     $action=contract_text($in['action']??'',30,'처리');$admin=$user['role']==='admin';
-    hr_assert(in_array($action,$admin?['saveCompany','create','revise','save','issue']:['acknowledge'],true),'처리 권한이 없습니다.');
+    hr_assert(in_array($action,$admin?['saveCompany','create','revise','save','issue','apply','withdraw']:['acknowledge','approve','reject'],true),'처리 권한이 없습니다.');
     $d=db();$d->beginTransaction();
     try{
         if($action==='saveCompany'){
@@ -152,11 +155,15 @@ function contract_mutate(array $user,array $in): int {
             $q=$d->prepare('SELECT COALESCE(MAX(version),0)+1 FROM hr_contracts WHERE employee_id=?');$q->execute([$employeeId]);$version=(int)$q->fetchColumn();
             $terms=$source?$source['issued_snapshot']['terms']:contract_default_terms($employee,contract_company_row()['settings']);
             if($source){$terms['signedDate']=hr_today();$terms['wageEffective']=hr_today();$terms['existingWageAgreement']=false;}
+            if($action==='create'&&isset($in['periodPreset']))$terms=array_replace($terms,contract_period(contract_text($in['contractStart']??'',10,'계약 시작일'),contract_text($in['periodPreset'],15,'기간 선택'),contract_text($in['contractEnd']??'',10,'종료일'),array_column(array_filter($terms['schedule'],fn($day)=>$day['working']),'day')));
+            if($action==='create'&&$terms['contractStart']>hr_today())$terms['wageEffective']=$terms['contractStart'];
             $q=$d->prepare('INSERT INTO hr_contracts(employee_id,version,terms,created_by) VALUES(?,?,?,?)');$q->execute([$employeeId,$version,hr_json($terms),$user['id']]);$id=(int)$d->lastInsertId();contract_log($id,$user,$source?'revisedDraft':'created');
         }else{
             $id=contract_number($in['id']??0,PHP_INT_MAX,'계약 번호');$row=contract_find($id,$user,true);hr_assert((bool)$row,'계약을 찾을 수 없거나 열람 권한이 없습니다.');
             hr_assert($row['revision']===contract_number($in['revision']??0,100000000,'수정 번호'),'계약 내용이 변경됐습니다. 새로고침 후 다시 확인해 주세요.');
-            if($action==='acknowledge'){
+            if(in_array($action,['approve','reject','apply','withdraw'],true)){contract_workflow_mutate($user,$in,$row);}
+            elseif($action==='acknowledge'){
+                hr_assert(contract_workflow_state($row)==='pending','이미 승인 처리된 계약입니다.');
                 hr_assert($row['status']==='issued','이미 확인했거나 확인할 수 없는 계약입니다.');hr_assert(($in['reviewed']??'')==='1','계약 내용 및 사본 열람 확인 항목을 선택해 주세요.');
                 $q=$d->prepare("UPDATE hr_contracts SET status='received',received_at=UTC_TIMESTAMP(6),received_by=?,revision=revision+1 WHERE id=?");$q->execute([$user['id'],$id]);contract_log($id,$user,'received',['sha256'=>$row['content_hash'],'notice'=>'내용 및 사본 열람 확인. 근로계약 서명이나 임금 변경 동의의 대체가 아님.']);
             }elseif($action==='save'){
@@ -174,7 +181,7 @@ function contract_mutate(array $user,array $in): int {
 function contract_korea_time(?string $value): string {
     return $value?(new DateTimeImmutable($value,new DateTimeZone('UTC')))->setTimezone(new DateTimeZone('Asia/Seoul'))->format('Y-m-d H:i'):'—';
 }
-function contract_status(string $value): string {return ['draft'=>'작성 중','issued'=>'발행 · 확인 대기','received'=>'사본 확인 완료'][$value]??$value;}
+function contract_status(array|string $value): string {if(is_array($value))return ['draft'=>'작성 중','pending'=>'직원 승인 대기','approved'=>'직원 승인 · 관리자 적용 대기','rejected'=>'수정 요청','applied'=>'관리자 적용 완료','withdrawn'=>'발급 회수'][contract_workflow_state($value)]??'확인 필요';return ['draft'=>'작성 중','issued'=>'직원 승인 대기','received'=>'사본 확인 완료'][$value]??$value;}
 
 // Re-display a rejected form without trusting unexpected array shapes or replacing its old revision.
 function contract_restore_form(array $stored,array $input): array {

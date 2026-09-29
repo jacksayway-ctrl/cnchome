@@ -12,3 +12,8 @@
 #tm-preview aside .native-menu-link{display:flex;align-items:center;gap:9px;padding:9px 11px;color:#c6d7ec;text-decoration:none;font-size:13px;line-height:1.45;border-radius:7px}#tm-preview aside .native-menu-link:hover{color:#fff}
 
 #tm-preview aside .native-menu-link .ui-icon{opacity:.82}@media(max-width:480px){#tm-preview aside .native-menu-link{padding:7px 9px;font-size:12px;gap:7px}#tm-preview aside .native-menu-link .ui-icon{width:14px;height:14px;flex-basis:14px}}
+
+#tm-preview nav button,#tm-preview .aw-sections button,#tm-preview aside .native-menu-link,#tm-preview .aw-subpage-links button,#tm-preview .aw-subpage-links a{font-size:14px}@media(max-width:480px){#tm-preview nav button,#tm-preview .aw-sections button,#tm-preview aside .native-menu-link,#tm-preview .aw-subpage-links button,#tm-preview .aw-subpage-links a{font-size:13px}}
+html[data-cnc-role="admin"] #tm-preview .top-notice{display:none!important}
+
+@media(max-width:700px){#tm-preview .aw-subpage-links button,#tm-preview .aw-subpage-links a{font-size:13px}}

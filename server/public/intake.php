@@ -3,7 +3,7 @@ declare(strict_types=1);
 require __DIR__.'/_runtime.php';require_once CNC_RUNTIME_DIR.'/native.php';require_once CNC_RUNTIME_DIR.'/intake-management.php';
 try{
     session_boot();$user=current_user();if(!$user){header('Location: /login.php?role=admin');exit;}intake_admin($user);
-    $filters=intake_filters($_GET);$mode=($_GET['new']??'')==='1'?'new':'list';$error='';$posted=[];
+    $popup=($_GET['popup']??'')==='1';$filters=intake_filters($_GET);if($popup)$filters['popup']='1';$mode=($_GET['new']??'')==='1'?'new':'list';$error='';$posted=[];
     if($_SERVER['REQUEST_METHOD']==='POST'){
         if(!is_string($_POST['csrf']??null)||!csrf_ok($_POST['csrf']))throw new HRForbidden('인증 시간이 만료됐습니다. 새로고침해 주세요.');
         try{
@@ -24,7 +24,7 @@ try{
     $testCount=count(array_filter($snapshot['records'],fn($r)=>$r['isTest']&&str_starts_with($r['date'],$filters['month'])));
     $notice=$_SESSION['intake_notice']??'';unset($_SESSION['intake_notice']);
     $requestKey=$posted['requestKey']??sprintf('%s-%s-%s-%s-%s',bin2hex(random_bytes(4)),bin2hex(random_bytes(2)),bin2hex(random_bytes(2)),bin2hex(random_bytes(2)),bin2hex(random_bytes(6)));
-    native_start('접수관리',$user,$mode==='new'?'adminIntakeRegister':'adminIntake',['intake-management.css']);require view_root().'/intake.php';native_end();
+    native_start('접수관리',$user,$mode==='new'?'adminIntakeRegister':'adminIntake',['intake-management.css'],$popup);require view_root().'/intake.php';native_end();
 }catch(HRForbidden $e){http_response_code(403);render_view('error',['title'=>'관리자 전용 메뉴입니다.','message'=>$e->getMessage(),'role'=>'admin']);}
 catch(InvalidArgumentException $e){http_response_code(422);render_view('error',['title'=>'조회 조건을 확인해 주세요.','message'=>$e->getMessage(),'role'=>'admin']);}
 catch(Throwable $e){error_log('cnchome intake management: '.$e->getMessage());http_response_code(503);render_view('error',['title'=>'접수관리를 불러오지 못했습니다.','message'=>'잠시 후 다시 시도해 주세요.','role'=>'admin']);}

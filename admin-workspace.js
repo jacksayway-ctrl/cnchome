@@ -19,9 +19,9 @@
   };
   // One route belongs to one section; existing deep links remain valid.
   const navigation = global.CNCHOME_NAVIGATION?.admin || [
-    {label:'관리자 홈',icon:'dashboard',items:[['adminHome','업무 현황'],['adminNotifications','알림'],['adminChecklist','운영 점검']]},
+    {label:'관리자 홈',icon:'dashboard',items:[['adminHome','업무 현황'],['adminIntakeAlerts','가접수 알림'],['adminNotifications','알림'],['adminChecklist','운영 점검']]},
     {label:'접수관리',icon:'document',items:[['adminIntake','접수 목록'],['adminIntakeRegister','접수 등록']]},
-    {label:'영업 관리',icon:'chart',items:[['adminPerformance','실적'],['adminAs','A/S']]},
+    {label:'영업관리(정책)',icon:'chart',items:[['adminPerformance','실적'],['adminAs','A/S']]},
     {label:'인사·출결',icon:'users',items:[['adminStaff','직원 목록'],['adminStaffRegister','직원 등록'],['adminAttendance','출결 승인'],['adminLeave','연차·휴가'],['adminContracts','근로계약']]},
     {label:'그레이드',icon:'star',items:[['adminGrade','기준표'],['adminDaily','오늘 TM 일 그레이드'],['adminDailyHistory','일 그레이드 지급 내역']]},
     {label:'급여·정산',icon:'wallet',items:[['adminPayroll','급여·지급'],['adminBank','계좌·지급 엑셀'],['adminCorrections','정정·별도 정산']]},

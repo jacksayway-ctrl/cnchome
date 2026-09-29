@@ -44,3 +44,20 @@ check(!str_contains($html,'<script>alert(1)</script>')&&str_contains($html,'&lt;
 check(str_contains($html,'value="300000" selected'),'stored premium band remains selected when editing');
 check(str_contains($html,'fixture-token')&&str_contains($html,'name="revision"'),'mutations carry CSRF and revision');
 echo "PASS: intake admin authorization, shared status, edits, atomic audit, stale writes, test isolation, filters, CSV safety, registration retry and rendered escaping.\n";
+
+require __DIR__.'/../lib/intake-alerts.php';
+$pending=$d->query('SELECT * FROM sales_records WHERE id='.(int)$created['id'])->fetch();
+intake_update($admin,['action'=>'hold','id'=>(string)$pending['id'],'revision'=>(int)$pending['revision'],'status'=>'pending','reason'=>'고객 연락 대기']);
+check($d->query('SELECT status FROM sales_records WHERE id='.(int)$pending['id'])->fetchColumn()==='pending','hold preserves pending status');
+rejects(fn()=>intake_update($admin,['action'=>'hold','id'=>(string)$pending['id'],'revision'=>(int)$pending['revision'],'status'=>'pending']),'stale hold rejected');
+$queue=intake_alert_snapshot($admin,intake_alert_filters(['scope'=>'real','review'=>'held']));
+check(in_array((string)$pending['id'],array_column($queue['rows'],'id'),true),'held intake appears in classified queue');
+$unheld=intake_alert_snapshot($admin,intake_alert_filters(['scope'=>'real','review'=>'new']));check(!in_array((string)$pending['id'],array_column($unheld['rows'],'id'),true),'held item excluded from unreviewed queue');
+$lastMonth=(new DateTimeImmutable($month.'-01'))->modify('-1 day')->format('Y-m-d');$d->prepare('UPDATE sales_records SET first_date=? WHERE id=?')->execute([$lastMonth,$pending['id']]);
+$queue=intake_alert_snapshot($admin,intake_alert_filters(['scope'=>'real']));check(in_array((string)$pending['id'],array_column($queue['rows'],'id'),true),'previous month pending stays in live queue');
+$newest=intake_alert_snapshot($admin,intake_alert_filters(['scope'=>'all','order'=>'newest']));$oldest=intake_alert_snapshot($admin,intake_alert_filters(['scope'=>'all','order'=>'oldest']));
+check(array_column($newest['rows'],'id')===array_reverse(array_column($oldest['rows'],'id')),'queue sorting is reversible');
+try{intake_alert_snapshot($one,intake_alert_filters([]));throw new RuntimeException('employee queue allowed');}catch(HRForbidden $e){}
+$f=intake_alert_filters(['scope'=>'all']);$data=$newest;ob_start();require __DIR__.'/../views/partials/intake-alert-list.php';$queueHtml=ob_get_clean();
+check(str_contains($queueHtml,'data-intake-window')&&str_contains($queueHtml,'popup=1'),'queue opens detailed intake in separate window');
+echo "PASS: realtime queue role isolation, all-month coverage, both sort orders and audited pending holds.\n";

@@ -23,10 +23,10 @@ function personnel_rejects(callable $operation,string $message): void {
     try{$operation();}catch(InvalidArgumentException|HRForbidden $e){return;}
     throw new RuntimeException('Unexpected acceptance: '.$message);
 }
-function personnel_fixture(array $user,array $record,bool $editing=false): string {
+function personnel_fixture(array $user,array $record,bool $editing=false,bool $new=false): string {
     $admin=$user['role']==='admin';$role=$user['role'];$records=[$record];$profile=$record['profile'];
-    $isNew=false;$id=$record['id'];$formRevision=$record['revision'];$error='';$saved=false;$accounts=[];
-    ob_start();native_start('인사기록카드',$user,$admin?'adminStaff':'myInfo');
+    $isNew=$new;$employeeNumber=$record['employee_no'];$id=$record['id'];$formRevision=$record['revision'];$error='';$saved=false;$accounts=[];
+    ob_start();native_start('인사기록카드',$user,$admin?'adminStaff':'myInfo',['personnel.css'],$new);
     require __DIR__.'/../views/personnel.php';native_end();return ob_get_clean();
 }
 $database=db();$database->exec("PRAGMA foreign_keys=ON;
@@ -62,4 +62,9 @@ personnel_check(str_contains($editHtml,'name="csrf" value="fixture-csrf-token"')
 personnel_check(str_contains($employeeHtml,'data-print')&&str_contains($employeeHtml,'nf-contract-open'),'print and contract actions available');
 $build=dirname(__DIR__,2).'/.build';if(!is_dir($build))mkdir($build,0700,true);
 file_put_contents($build.'/personnel-employee.html',$employeeHtml);file_put_contents($build.'/personnel-admin.html',$adminHtml);file_put_contents($build.'/personnel-edit.html',$editHtml);
+
+$newProfile=personnel_default_profile();personnel_check($newProfile['payday']==='15','new personnel payday defaults to 15');
+$newRecord=['id'=>0,'revision'=>0,'profile'=>$newProfile,'user_id'=>null,'employee_no'=>personnel_next_number()];
+file_put_contents($build.'/personnel-new.html',personnel_fixture($admin,$newRecord,true,true));
+personnel_check(str_starts_with($newRecord['employee_no'],'cnc'.str_replace('-','',hr_today())),'auto number includes registration date');
 echo "PASS: personnel ownership, legacy field preservation, stale writes, date validation, escaped cards, admin memo privacy and 12,500 + 2,500 = 15,000 wage display.\n";

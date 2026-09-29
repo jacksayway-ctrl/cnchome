@@ -26,14 +26,15 @@ function saved_terms(int $id,array $terms,array $admin): array {
 }
 $d=db();$d->exec("PRAGMA foreign_keys=ON;
 CREATE TABLE app_users(id INTEGER PRIMARY KEY,display_name TEXT,role TEXT);
-CREATE TABLE hr_employees(id INTEGER PRIMARY KEY,employee_no TEXT,user_id INTEGER REFERENCES app_users(id),profile TEXT);
+CREATE TABLE hr_employees(id INTEGER PRIMARY KEY,employee_no TEXT,user_id INTEGER REFERENCES app_users(id),profile TEXT,revision INTEGER DEFAULT 1);
 CREATE TABLE hr_contract_settings(id INTEGER PRIMARY KEY,settings TEXT,revision INTEGER DEFAULT 1,updated_by INTEGER REFERENCES app_users(id),updated_at TEXT DEFAULT CURRENT_TIMESTAMP);
 CREATE TABLE hr_contracts(id INTEGER PRIMARY KEY AUTOINCREMENT,employee_id INTEGER REFERENCES hr_employees(id),recipient_user_id INTEGER REFERENCES app_users(id),version INTEGER,revision INTEGER DEFAULT 1,status TEXT DEFAULT 'draft',terms TEXT,issued_snapshot TEXT,content_hash TEXT,created_by INTEGER REFERENCES app_users(id),received_by INTEGER REFERENCES app_users(id),created_at TEXT DEFAULT CURRENT_TIMESTAMP,issued_at TEXT,received_at TEXT,UNIQUE(employee_id,version));
 CREATE TABLE hr_contract_events(id INTEGER PRIMARY KEY AUTOINCREMENT,contract_id INTEGER REFERENCES hr_contracts(id),actor_id INTEGER REFERENCES app_users(id),event TEXT,snapshot TEXT,created_at TEXT DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE hr_contract_approvals(contract_id INTEGER PRIMARY KEY REFERENCES hr_contracts(id),state TEXT,actor_id INTEGER REFERENCES app_users(id),reason TEXT,updated_at TEXT DEFAULT CURRENT_TIMESTAMP);
 INSERT INTO app_users VALUES(1,'관리자','admin'),(2,'직원 갑','employee'),(3,'직원 을','employee');");
 $admin=['id'=>1,'role'=>'admin'];$one=['id'=>2,'role'=>'employee'];$two=['id'=>3,'role'=>'employee'];
 $profile=['name'=>'직원 갑','birthDate'=>'1990-01-01','phone'=>'010-0000-0000','address'=>'서울특별시 테스트로 1','addressDetail'=>'101호','payType'=>'시급제','payAmount'=>15000,'startDate'=>hr_today(),'contractStart'=>hr_today(),'contractType'=>'무기계약','contractEnd'=>'','workDays'=>['월','화','수','목','금'],'weeklyHoliday'=>'일','workplace'=>'서울 사무실','duties'=>'상담 업무'];
-$q=$d->prepare('INSERT INTO hr_employees VALUES(?,?,?,?)');$q->execute([1,'cnc0001',2,hr_json($profile)]);$q->execute([2,'cnc0002',3,hr_json(array_replace($profile,['name'=>'직원 을']))]);$q->execute([3,'cnc0003',null,hr_json($profile)]);
+$q=$d->prepare('INSERT INTO hr_employees(id,employee_no,user_id,profile) VALUES(?,?,?,?)');$q->execute([1,'cnc0001',2,hr_json($profile)]);$q->execute([2,'cnc0002',3,hr_json(array_replace($profile,['name'=>'직원 을']))]);$q->execute([3,'cnc0003',null,hr_json($profile)]);
 $company=array_replace(contract_company_defaults(),['employerName'=>'테스트 사업장','representative'=>'대표자','employerAddress'=>'서울특별시 테스트로 2','employerPhone'=>'02-000-0000']);
 check(contract_company_row()['revision']===0,'company starts at revision zero');
 rejects(fn()=>contract_mutate($one,['action'=>'saveCompany','revision'=>0,'company'=>$company]),'employee cannot change employer settings');
@@ -106,10 +107,39 @@ $revised=saved_terms($newId,$newTerms,$admin);contract_mutate($admin,['action'=>
 check(count(contract_list($one))===2,'version history retained after later issue');
 check(contract_find($id,$one)['issued_snapshot']===$issued['issued_snapshot'],'future-dated revision does not replace prior issued version');
 check(contract_find($newId,$one)['status']==='issued','new version requires separate employee receipt');
+// Approval is bound to the immutable issued version and final application is admin-only.
+check(contract_period('2026-09-25','fiveDays','',['월','화','수','목','금'])['contractEnd']==='2026-10-01','five scheduled days across weekend');
+check(contract_period('2026-01-31','month','',['월'])['contractEnd']==='2026-02-28','month end boundary');
+check(contract_period('2026-11-30','quarter','',['월'])['contractEnd']==='2027-02-28','quarter across year boundary');
+check(contract_period('2026-09-29','custom','2026-10-12',['월'])['contractEnd']==='2026-10-12','direct date entry');
+rejects(fn()=>contract_period('2026-09-29','fiveDays','',[]),'five-day schedule needs weekdays');
+$received=contract_find($id,$admin);
+rejects(fn()=>contract_mutate($admin,['action'=>'apply','id'=>$id,'revision'=>$received['revision'],'signedConfirmed'=>'1','employeeRevision'=>1]),'receipt alone cannot apply');
+rejects(fn()=>contract_mutate($two,['action'=>'approve','id'=>$id,'revision'=>$received['revision'],'reviewed'=>'1','approvalName'=>'직원 갑']),'wrong employee cannot approve');
+rejects(fn()=>contract_mutate($one,['action'=>'approve','id'=>$id,'revision'=>$received['revision'],'reviewed'=>'1','approvalName'=>'다른 이름']),'approval requires own name');
+contract_mutate($one,['action'=>'approve','id'=>$id,'revision'=>$received['revision'],'reviewed'=>'1','approvalName'=>'직원 갑']);$approved=contract_find($id,$admin);
+check(contract_workflow_state($approved)==='approved'&&$approved['content_hash']===$issued['content_hash'],'approval binds issued content');
+rejects(fn()=>contract_mutate($one,['action'=>'apply','id'=>$id,'revision'=>$approved['revision']]),'employee cannot apply');
+rejects(fn()=>contract_mutate($admin,['action'=>'apply','id'=>$id,'revision'=>$approved['revision'],'signedConfirmed'=>'1','employeeRevision'=>0]),'stale personnel cannot be overwritten');
+try{contract_mutate(['id'=>999,'role'=>'admin'],['action'=>'apply','id'=>$id,'revision'=>$approved['revision'],'signedConfirmed'=>'1','employeeRevision'=>1]);throw new RuntimeException('Audit failure expected');}catch(PDOException $e){}
+check((int)$d->query('SELECT revision FROM hr_employees WHERE id=1')->fetchColumn()===1&&contract_workflow_state(contract_find($id,$admin))==='approved','audit failure rolls back personnel and approval together');
+contract_mutate($admin,['action'=>'apply','id'=>$id,'revision'=>$approved['revision'],'signedConfirmed'=>'1','employeeRevision'=>1]);$applied=contract_find($id,$admin);
+check(contract_workflow_state($applied)==='applied','admin final application recorded');
+$appliedProfile=json_decode($applied['profile'],true);
+check($appliedProfile['payday']===(string)$terms['paymentDay']&&$appliedProfile['payAmount']===99999,'application updates payday without rewriting wage history');
+rejects(fn()=>contract_mutate($admin,['action'=>'apply','id'=>$id,'revision'=>$applied['revision'],'signedConfirmed'=>'1','employeeRevision'=>2]),'duplicate application rejected');
+$next=contract_find($newId,$one);contract_mutate($one,['action'=>'reject','id'=>$newId,'revision'=>$next['revision'],'reason'=>'기간 수정 요청']);
+check(contract_workflow_state(contract_find($newId,$admin))==='rejected','employee can request correction');
+$next=contract_find($newId,$admin);contract_mutate($admin,['action'=>'withdraw','id'=>$newId,'revision'=>$next['revision'],'reason'=>'수정 후 재발급']);
+check(contract_workflow_state(contract_find($newId,$one))==='withdrawn','withdrawal remains visible in history');
 $d->prepare('UPDATE hr_employees SET user_id=? WHERE id=1')->execute([3]);
 check(contract_find($id,$one)!==null&&contract_find($id,$two)===null,'account reassignment does not redirect issued contract recipient');
+$fiveId=contract_mutate($admin,['action'=>'create','employeeId'=>3,'contractStart'=>'2027-01-29','periodPreset'=>'fiveDays','contractEnd'=>'']);
+$five=contract_find($fiveId,$admin);check($five['terms']['contractEnd']==='2027-02-04'&&$five['terms']['wageEffective']==='2027-01-29','new contract period and future wage date generated together');
+$customTerms=$five['terms'];$customTerms['periodPreset']='custom';$customTerms['contractType']='무기계약';$customTerms['contractEnd']='2027-02-10';
+$five=saved_terms($fiveId,$customTerms,$admin);check($five['terms']['contractType']==='기간제'&&$five['terms']['contractEnd']==='2027-02-10','custom period overrides prior indefinite selector');
 check(!$d->inTransaction(),'rejected mutations always roll back');
-echo "PASS: contract permissions, required fields, schedules, immutable issue snapshots, stale writes, receipt without signature, recipient isolation and version history.\n";
+echo "PASS: contract permissions, required fields, schedules, immutable issue snapshots, stale writes, receipt without signature, recipient isolation, automatic periods and atomic approval/application history.\n";
 
 // Optional local render fixtures, outside the checkout by default.
 $fixtureDir=getenv('CNC_CONTRACT_FIXTURE_DIR');
