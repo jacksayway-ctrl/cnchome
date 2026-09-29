@@ -1,5 +1,6 @@
 <?php
 declare(strict_types=1);
+require_once __DIR__.'/holiday-pay.php';
 function hr_today(): string { return (new DateTimeImmutable('now',new DateTimeZone('Asia/Seoul')))->format('Y-m-d'); }
 function hr_json(mixed $v): string { return json_encode($v,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR); }
 function hr_day(string $s): bool { $d=DateTimeImmutable::createFromFormat('!Y-m-d',$s); return $d && $d->format('Y-m-d')===$s; }
@@ -45,10 +46,13 @@ function hr_calculate(array $profile,array $input): array {
     $minutes=hr_int($input['minutes']??null,44640);
     $allowance=hr_int($input['allowance']??null);$deductions=hr_int($input['deductions']??null);
     $rate=hr_int($profile['payAmount']);
-    $base=$profile['payType']==='월급제'?$rate:(int)round($rate*$minutes/60);
-    hr_assert($deductions<=$base+$allowance,'공제액은 지급 총액을 초과할 수 없습니다.');
+    $inclusive=$profile['payType']==='시급제'&&($input['holidayInclusive']??false)===true;
+    $split=$inclusive?hr_holiday_split($rate,$minutes,$input['weeklyMinutes']??[],$input['month']??''):null;
+    $holiday=$split['holiday']??0;
+    $base=$split['base']??($profile['payType']==='월급제'?$rate:(int)round($rate*$minutes/60));
+    hr_assert($deductions<=$base+$holiday+$allowance,'공제액은 지급 총액을 초과할 수 없습니다.');
     $note=trim((string)($input['note']??''));hr_assert(mb_strlen($note)<=1000,'산정 메모는 1,000자까지 입력할 수 있습니다.');
-    return ['payType'=>$profile['payType'],'rate'=>$rate,'minutes'=>$minutes,'base'=>$base,'allowance'=>$allowance,'deductions'=>$deductions,'gross'=>$base+$allowance,'net'=>$base+$allowance-$deductions,'note'=>$note];
+    return ['payType'=>$profile['payType'],'rate'=>$rate,'minutes'=>$minutes,'base'=>$base,'allowance'=>$allowance,'deductions'=>$deductions,'gross'=>$base+$holiday+$allowance,'net'=>$base+$holiday+$allowance-$deductions,'note'=>$note,'holidayInclusive'=>$inclusive,'holiday'=>$holiday,'baseRate'=>$split['baseRate']??$rate,'holidayRate'=>$split['holidayRate']??0,'weeklyBreakdown'=>$split['weeklyBreakdown']??[]];
 }
 function hr_can_change(array $row,string $action,bool $admin,string $today): bool {
     if($row['month']!==substr($today,0,7)||$row['status']==='confirmed')return false;
@@ -114,7 +118,7 @@ function hr_mutate(array $user,array $in): void {
                 $employee=hr_int($in['employeeId']??null);$month=$in['month']??'';hr_assert($month===substr(hr_today(),0,7),'이번 달 급여만 작성할 수 있습니다.');
                 $q=$d->prepare('SELECT profile,user_id FROM hr_employees WHERE id=? FOR UPDATE');$q->execute([$employee]);$emp=$q->fetch();hr_assert((bool)$emp,'직원을 선택해 주세요.');$profile=json_decode($emp['profile'],true,512,JSON_THROW_ON_ERROR);
             }else{$employee=(int)$row['employee_id'];$month=$row['month'];$profile=json_decode($row['profile'],true,512,JSON_THROW_ON_ERROR);}
-            $calc=hr_calculate($profile,$in['calculation']??[]);$eventSnapshot=['calculation'=>$calc];
+            $calc=hr_calculate($profile,array_replace($in['calculation']??[],['month'=>$month]));$eventSnapshot=['calculation'=>$calc];
             if(!$row){$q=$d->prepare('INSERT INTO hr_payroll(employee_id,month,calculation) VALUES(?,?,?)');$q->execute([$employee,$month,hr_json($calc)]);$id=(int)$d->lastInsertId();}
             else {$q=$d->prepare("UPDATE hr_payroll SET calculation=?,status='draft',revision=revision+1 WHERE id=?");$q->execute([hr_json($calc),$id]);}
         }elseif($action==='publish'){

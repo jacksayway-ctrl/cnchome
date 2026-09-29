@@ -42,3 +42,11 @@ check(count(array_filter(hr_snapshot($one)['payroll'][0]['events'],fn($e)=>$e['e
 check(!hr_can_change(['month'=>'2000-01','status'=>'draft'],'savePayroll',true,hr_today()),'past month locked');
 rejects(fn()=>hr_calculate($p,['minutes'=>1,'allowance'=>0,'deductions'=>999999]),'negative net');
 echo "PASS: HR permissions, sequential IDs, date boundaries, automatic pay calculation, publication, employee privacy, corrections, confirmation, immutable history and stale writes.\n";
+
+$c=hr_calculate(['payType'=>'시급제','payAmount'=>15000],['minutes'=>360,'allowance'=>0,'deductions'=>0,'month'=>'2026-09','holidayInclusive'=>true,'weeklyMinutes'=>[['weekStart'=>'2026-09-28','minutes'=>360]]]);
+check($c['base']===75000&&$c['holiday']===15000&&$c['gross']===90000,'one-day inclusive hourly split');
+$c=hr_calculate(['payType'=>'시급제','payAmount'=>15000],['minutes'=>1800,'allowance'=>30000,'deductions'=>10000,'month'=>'2026-09','holidayInclusive'=>true,'weeklyMinutes'=>[['weekStart'=>'2026-09-28','minutes'=>1800]]]);
+check($c['base']===375000&&$c['holiday']===75000&&$c['gross']===480000&&$c['net']===470000,'weekly support distinct from performance allowance');
+rejects(fn()=>hr_holiday_split(15000,360,[['weekStart'=>'2026-09-28','minutes'=>180]],'2026-09'),'weekly sum mismatch');
+rejects(fn()=>hr_holiday_split(15000,360,[['weekStart'=>'2026-09-29','minutes'=>360]],'2026-09'),'week must start Monday');
+rejects(fn()=>hr_holiday_split(15000,360,[['weekStart'=>'2026-09-28','minutes'=>180],['weekStart'=>'2026-09-28','minutes'=>180]],'2026-09'),'duplicate week');
