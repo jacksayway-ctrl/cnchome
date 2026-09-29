@@ -65,10 +65,11 @@ function pay_statement_enrich(array $profile,array $input,array $calculation): a
     if($c['holidayInclusive'])$c['holiday']=$c['statutoryHoliday']+$c['companySupport'];
     $c['gross']=$c['base']+$c['holiday']+$c['allowance'];hr_assert($c['deductions']<=$c['gross'],'공제액은 지급 총액을 초과할 수 없습니다.');$c['prepaidDaily']=hr_int($input['prepaidDaily']??0);
     if(isset($input['gradeSnapshot']))$c['gradeSnapshot']=$input['gradeSnapshot'];
-    if(($input['dailyGradeSettlement']??'')==='cash'){
+    if(in_array($input['dailyGradeSettlement']??'',['cash','cash-auto'],true)){
         $dailyTotal=array_sum(array_column(array_filter($c['allowanceItems'],fn($item)=>$item['kind']==='gradeDaily'),'amount'));
-        hr_assert($dailyTotal===$c['prepaidDaily'],'일그레이드 현금 지급액과 선지급액이 다릅니다. 수령 기록을 확인해 주세요.');
-        $c['dailyGradeSettlement']='cash';
+        hr_assert($dailyTotal===$c['prepaidDaily'],'일그레이드 지급 항목과 선지급액이 다릅니다. 다시 계산해 주세요.');
+        if($input['dailyGradeSettlement']==='cash-auto')hr_assert($dailyTotal===($c['gradeSnapshot']['daily']??null),'일그레이드 누적 달성액과 자동 선지급액이 다릅니다. 다시 계산해 주세요.');
+        $c['dailyGradeSettlement']=$input['dailyGradeSettlement'];
     }
     hr_assert($c['deductions']+$c['prepaidDaily']<=$c['gross'],'공제와 일그레이드 선지급 합계가 지급 총액을 초과합니다. 수령 기록을 확인해 주세요.');
     $c['net']=$c['gross']-$c['deductions']-$c['prepaidDaily'];return $c;

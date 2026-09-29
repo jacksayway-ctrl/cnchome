@@ -8,6 +8,7 @@ const listeners={};
 const context = vm.createContext({GradeNumbers:require('./grade-numbers.js'),GradeCalendar:require('./grade-calendar.js'),GradeCalendarPreview:require('./grade-calendar-preview.js'),fmt:n=>n.toLocaleString("ko-KR"),Intl,Date,structuredClone,queueMicrotask,root:{querySelectorAll(){return []},addEventListener(type,fn){(listeners[type]??=[]).push(fn)}},window:{addEventListener(){}},localStorage:{getItem(){return null}}});
 vm.runInContext(code+'\nglobalThis.api={gradeDefaults,gradeValidate,gradeCalculate,gradeValidDate,gradePolicyAt,gradeReadStore,gradeSyncWeeklyBounds,gradeGenerateWeekly,gradePrepareDraft,gradeDailyCashTable,gradeOriginalMonthlyTable,gradeAggregateCalculate,gradeReferenceMonthly,gradePreviewHtml,gradeUpdatePreview};',context);
 const {gradeDefaults,gradeValidate,gradeCalculate,gradeValidDate,gradePolicyAt,gradeReadStore}=context.api;
+vm.runInContext(html.slice(html.indexOf('function personalDailyContent()'),html.indexOf('function monthly()'))+'\nglobalThis.api.personalDailyContent=personalDailyContent;globalThis.api.personalWeeklyContent=personalWeeklyContent;',context);
 test('monthly screenshot boundaries use only the current tier and include its first count',()=>{
  const p=gradeDefaults();assert.equal(gradeValidate(p),'');
  for(const [count,hourly,bonus] of [[0,14000,0],[60,14000,0],[61,14000,5000],[70,14000,50000],[71,15000,55000],[80,15000,100000],[81,15000,105000],[88,15000,140000],[90,15000,150000],[91,15000,210000],[100,15000,300000],[101,16000,310000]]){
@@ -15,7 +16,7 @@ test('monthly screenshot boundaries use only the current tier and include its fi
  }
 });
 test('daily count and weekly averages select the correct threshold',()=>{
- const p=gradeDefaults();for(const [count,amount] of [[0,0],[5,0],[6,5000],[7,10000],[8,15000],[100,475000]])assert.equal(gradeCalculate(p,'daily',count).bonus,amount);assert.equal(gradeCalculate(p,'daily',8,6).base,0);
+ const p=gradeDefaults();for(const [count,amount] of [[0,0],[5,0],[6,5000],[7,10000],[8,15000],[10,25000],[15,50000],[30,125000],[100,475000]])assert.equal(gradeCalculate(p,'daily',count).bonus,amount);assert.equal(gradeCalculate(p,'daily',8,6).base,0);
  for(const [count,bonus] of [[39,0],[40,30000],[44,30000],[45,35000],[49,35000],[50,40000]])assert.equal(gradeCalculate(p,'weekly',count,0,5).bonus,bonus);
 });
 test('reject gaps, overlaps, negative amounts, missing limits and invalid additional thresholds',()=>{
@@ -176,13 +177,26 @@ test('employee history lists own department dates and opens immutable saved crit
  vm.runInContext('gradeEntries=[]',context);
 });
 
-test('personal daily cells show underscore only for this employee confirmed milestones',()=>{
+test('all achieved daily cells automatically show received with display-only buttons, independent of clicks',()=>{
  const p=gradeDefaults();
  const html=context.api.gradeDailyCashTable(p,{count:8,receipts:[{milestone:6,amount:5000}]},'2026-09-29');
- assert.equal((html.match(/>_원<\/strong>/g)||[]).length,1);
- assert.doesNotMatch(html,/data-daily-receive="6"/);
- assert.match(html,/data-daily-receive="7"/);assert.match(html,/data-daily-receive="8"/);
- assert.doesNotMatch(html,/data-daily-receive="9"/);
+ assert.equal((html.match(/>_원<\/strong>/g)||[]).length,3);
+ assert.equal((html.match(/disabled title="[^"]*">수령 완료<\/button>/g)||[]).length,3);
+ assert.doesNotMatch(html,/data-daily-receive/);
+ assert.equal(html,context.api.gradeDailyCashTable(p,{count:8,receipts:[]},'2026-09-29'));
  const other=context.api.gradeDailyCashTable(p,{count:5,receipts:[]},'2026-09-29');
  assert.doesNotMatch(other,/>_원</);assert.doesNotMatch(other,/data-daily-receive/);
+});
+test('employee panels use the complete PHP weekly result and cumulative daily amount, never fixture-only counts',()=>{
+ const daily={count:10,target:6,perCase:5000,paidCount:5,amount:25000,paid:25000,pending:0,eligible:true,receiptMode:'automatic',receipts:[]};
+ const dates=['2026-09-21','2026-09-22','2026-09-23','2026-09-24','2026-09-25'].map(date=>({date,count:12,scheduled:true,completed:true}));
+ const weekly={count:60,value:12,availableDays:5,basis:'average',start:dates[0].date,end:dates[4].date,dates,amount:56000,complete:true,payrollMonth:'2026-09',rules:gradeDefaults().weekly,parts:[{start:'2026-09-21',end:'2026-09-22',effective:'2026-09-01',fullBonus:50000,days:2,bonus:20000},{start:'2026-09-23',end:'2026-09-25',effective:'2026-09-23',fullBonus:60000,days:3,bonus:36000}]};
+ context.stats=rows=>rows.flat().join('|');context.table=(head,rows)=>head.concat(rows.flat()).join('|');context.panel=(title,body)=>title+body;
+ context.window.CNCHOME_LIVE={user:{role:'employee',display_name:'테스트 직원'}};
+ context.window.CNCEmployeeTestState={sales:[]};
+ context.window.GradeHeader={getState:()=>({data:{date:'2026-09-25',daily,weekly,general:true,scheduleRegistered:true,policyRegistered:true}})};
+ const day=context.api.personalDailyContent(),week=context.api.personalWeeklyContent();
+ assert.match(day,/25,000원/);assert.match(day,/6건째부터 5건 × 5,000원/);assert.match(day,/자동 수령·선지급액/);assert.doesNotMatch(day,/data-daily-receive/);
+ assert.match(week,/60건 ÷ 월~금 근무가능일 5일/);assert.match(week,/56,000원/);assert.match(week,/50,000원 × 2\/5/);assert.match(week,/60,000원 × 3\/5/);
+ delete context.window.CNCHOME_LIVE;delete context.window.CNCEmployeeTestState;delete context.window.GradeHeader;
 });

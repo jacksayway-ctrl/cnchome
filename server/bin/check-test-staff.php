@@ -29,7 +29,7 @@ foreach($result['manifest'] as $entry){
  $q=$d->prepare('SELECT * FROM app_users WHERE id=?');$q->execute([$entry['userId']]);$user=$q->fetch();fixture_check(cnc_test_user($user)&&password_verify('1234',$user['password_hash']),'test login identity');
  $state=hr_snapshot($user);fixture_check(count($state['employees'])===1&&count($state['payroll'])===1,'employee payroll and profile scope');$c=$state['payroll'][0]['calculation'];
  fixture_check(isset($c['gradeSnapshot'])&&$c['net']===$c['gross']-$c['deductions']-$c['prepaidDaily'],'payroll includes grades less advances');
- $summary=pay_statement_summary($c);fixture_check($c['dailyGradeSettlement']==='cash'&&$summary['daily']===$summary['dailyPaid'],'fixture payroll cash advances match real fixture receipt records');
+ $summary=pay_statement_summary($c);fixture_check($c['dailyGradeSettlement']==='cash-auto'&&$summary['daily']===$summary['dailyPaid']&&$summary['daily']===$c['gradeSnapshot']['daily'],'fixture payroll automatically prepays the complete earned daily amount');
  fixture_check($c['net']===$summary['workPay']+$summary['workAdjustment']+$summary['weekly']+$summary['monthly']+$summary['other']-$c['deductions'],'fixture payday net includes hourly pay and weekly/monthly grades, no daily grade');
  $contracts=contract_list($user);fixture_check(count($contracts)===1&&$contracts[0]['id']===$entry['contractId']&&$contracts[0]['issued_snapshot']['formatVersion']===2,'own issued contract only');
  fixture_check(contract_workflow_state($contracts[0])==='pending'&&!$contracts[0]['received_by'],'no fabricated employee approval');
@@ -45,6 +45,8 @@ foreach($normalBatch['manifest'] as $entry){
  fixture_check($totals['count']===array_sum($entry['normalByDate']),'personal monthly totals use saved synthetic normal counts');
  fixture_check($totals['total']===$totals['workPay']+$totals['daily']+$totals['weekly']+$totals['monthly']&&$totals['payday']===$totals['total']-$totals['daily'],'personal totals include all grades once and exclude daily cash at payday');
  fixture_check($totals['workPay']===(int)round($totals['hours']*15000),'personal pay estimate uses contract inclusive rate');
+ fixture_check($totals['dailyPaid']===$totals['daily']&&$totals['dailyPending']===0,'normal range top-up automatically updates prepaid amount without new receipt rows');
+ fixture_check(array_sum(array_column($totals['dailyDetails'],'amount'))===$totals['daily'],'daily breakdown sums to personal total');
 }
 fixture_check($before===$d->query('SELECT id,published_snapshot,calculation FROM hr_payroll ORDER BY id')->fetchAll()&&$beforeReceipts===$d->query('SELECT * FROM daily_grade_receipts ORDER BY employee_id,performance_date,milestone')->fetchAll(),'sales fixture cannot rewrite payroll or create cash receipts');
 fixture_check(seed_test_normal_range()['existing'],'normal-range fixture is idempotent');

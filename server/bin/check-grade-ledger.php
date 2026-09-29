@@ -34,5 +34,15 @@ $tampered=$once;$tampered['prepaidDaily']++;try{hr_calculate(['payAmount'=>15000
 $manual=$input;$manual['deductionItems'][0]['label']='일그레이드 선지급';try{grade_payroll_input($manual,$r);throw new RuntimeException('Manual duplicate advance accepted');}catch(InvalidArgumentException $e){}
 $old=$once;unset($old['dailyGradeSettlement']);foreach($old['allowanceItems'] as &$item)if($item['kind']==='gradeDaily')$item['amount']=$r['daily'];unset($item);$old['allowance']=array_sum(array_column($old['allowanceItems'],'amount'));
 $legacy=hr_calculate(['payAmount'=>15000,'payType'=>'시급제'],$old);gl_check($legacy['net']===231000&&!isset($legacy['dailyGradeSettlement']),'historical inputs retain their original calculation mode');
+// The current automatic mode prepays every achieved daily grade, regardless of old click records.
+foreach([0,10000,350000] as $confirmed){
+    $automatic=array_replace($r,['dailySettlement'=>'automatic','dailyReceived'=>$confirmed,'dailyConfirmedReceipts'=>$confirmed]);
+    $autoInput=grade_payroll_input($input,$automatic);$auto=hr_calculate(['payAmount'=>15000,'payType'=>'시급제'],$autoInput);
+    gl_check($auto['dailyGradeSettlement']==='cash-auto'&&$auto['prepaidDaily']===330000&&$auto['gradeSnapshot']['dailyReceived']===330000&&$auto['gradeSnapshot']['dailyOutstanding']===0,'automatic daily advance equals full earned amount without receipt dependency');
+    gl_check($auto['net']===201000&&$auto['gross']===532000,'automatic daily amount appears once in gross and once as advance, never in payday net');
+    gl_check($autoInput===grade_payroll_input($autoInput,$automatic),'repeated automatic calculation is idempotent');
+}
+$autoInput['gradeSnapshot']['daily']++;try{hr_calculate(['payAmount'=>15000,'payType'=>'시급제'],$autoInput);throw new RuntimeException('Automatic amount mismatch accepted');}catch(InvalidArgumentException $e){}
+foreach([10=>25000,15=>50000,30=>125000] as $count=>$amount){$day=grade_ledger('2026-09',[['date'=>'2026-09-21','count'=>$count,'hours'=>6]],[['date'=>'2020-01-01','policy'=>$p]]);gl_check($day['daily']===$amount&&$day['dailyDetails'][0]['amount']===$amount,'daily cumulative amount has no ten-case or display-column cap');}
 try{grade_ledger('2026-09',[$records[0],$records[0]],$entries);throw new RuntimeException('Duplicate record accepted');}catch(InvalidArgumentException $e){}
-echo "PASS: effective-date proration, weekly/monthly stacking, separate daily cash settlement, receipt-only advances, pending cash, repeated saves, saved summaries and historical preservation.\n";
+echo "PASS: cumulative daily grades, automatic full prepayment without duplicate payday amount, five-day policy proration, weekly/monthly stacking, historical receipt mode and repeated saves.\n";
