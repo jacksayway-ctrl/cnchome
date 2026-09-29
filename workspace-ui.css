@@ -1,0 +1,273 @@
+/* Shared screen layout for the office workspace and server-rendered PHP pages.
+   Document typography and A4 print rules deliberately remain in their own files. */
+@media screen {
+  :root {
+    font-size:14px;
+    --cnc-ink:#24364b;
+    --cnc-muted:#62748a;
+    --cnc-line:#dce4ee;
+    --cnc-bg:#f4f6f9;
+    --cnc-blue:#245faf;
+    --cnc-soft:#edf3fb;
+    --cnc-radius:8px;
+    --cnc-font:"Malgun Gothic","Apple SD Gothic Neo","Noto Sans KR",Arial,sans-serif;
+  }
+  body {background:var(--cnc-bg)}
+  #tm-preview,.nf-body,.cnc-session-bar {font-family:var(--cnc-font);font-size:14px;line-height:1.55;color:var(--cnc-ink)}
+  #tm-preview {--tm-bg:var(--cnc-bg);--tm-line:var(--cnc-line);--tm-blue:var(--cnc-blue);--tm-muted:var(--cnc-muted);--tm-ink:var(--cnc-ink)}
+  #tm-preview .aw {--aw-border:var(--cnc-line);--aw-blue:var(--cnc-blue);color:var(--cnc-ink)}
+  #tm-preview,.nf-shell {width:100%;max-width:1600px}
+  #tm-preview .shell>aside {height:100%;max-height:none;align-self:stretch}
+  #tm-preview .work,.nf-main,#tm-preview #tm-main {min-width:0}
+  #tm-preview #tm-main,.nf-main {padding:18px 20px 28px;scroll-padding:16px}
+  #tm-preview #tm-main>*,.nf-main>* {min-width:0}
+  #tm-preview :is(.panel,.stat,.aw-metrics>div,.aw-task,.aw-case,.aw-hub),
+  .nf-body :is(.nf-card,.contract-panel,.panel,.metric) {
+    min-width:0;border:1px solid var(--cnc-line);border-radius:var(--cnc-radius);background:#fff;
+    box-shadow:0 1px 2px #203b5b04;
+  }
+  #tm-preview .panel,#tm-preview .aw .panel,.nf-body .nf-card,.nf-body .contract-panel,.nf-body .panel {padding:14px 16px;margin:0 0 14px}
+  #tm-preview .panel .panel {margin-top:12px}
+  #tm-preview .panel:last-child,.nf-card:last-child {margin-bottom:0}
+  #tm-preview .detail-grid {margin-bottom:14px;align-items:stretch}
+  #tm-preview .detail-grid>.panel,#tm-preview .team-calendar-stack>.panel {margin:0}
+  #tm-preview h1,#tm-preview .aw h2,.nf-page-heading h1 {font-size:20px;line-height:1.45;letter-spacing:-.4px}
+  #tm-preview #tm-main>h2,#tm-preview .region-page-heading h2 {font-size:20px;margin-bottom:14px}
+  #tm-preview :is(.panel h3,.aw h3),.nf-body :is(.nf-card h2,.contract-panel h2,.panel h3) {font-size:15px;line-height:1.5;margin:0 0 12px}
+  #tm-preview :is(.row,.aw-heading,.region-page-heading),.nf-page-heading {gap:10px 16px;align-items:center}
+  #tm-preview .row>h2,#tm-preview .row>h3,#tm-preview .aw-heading h2 {margin:0}
+  #tm-preview .aw-heading,.nf-page-heading {margin:0 0 14px}
+  #tm-preview .aw-heading>.row {justify-content:flex-end}
+  #tm-preview .aw-eyebrow {margin-bottom:4px;letter-spacing:.6px}
+  #tm-preview :is(.sub,.hr-muted),.nf-muted,.contract-hint,.personnel-note {color:var(--cnc-muted);line-height:1.65}
+  #tm-preview :is(.aw-notice,.aw-feedback,.notice),.nf-alert,.nf-notice {padding:10px 12px;margin:10px 0 14px;line-height:1.65;border-radius:6px}
+  #tm-preview .notice,#tm-preview .aw-notice {background:var(--cnc-soft);border-left:3px solid #809fc8}
+  #tm-preview :is(.aw-empty,.page-loading),.personnel-empty {padding:26px 16px}
+
+  /* Navigation keeps the original structure and navy appearance. */
+  #tm-preview .aw-subpages,.nf-subpages {padding:12px 20px 0;background:#fff;border-bottom:1px solid var(--cnc-line)}
+  .nf-subpages {margin:-18px -20px 18px}
+  #tm-preview .aw-location,.nf-location {gap:7px;margin-bottom:9px;font-size:12px}
+  #tm-preview .aw-subpage-links,.nf-subpage-links {gap:6px;padding-bottom:10px;scrollbar-width:thin;align-items:center}
+  #tm-preview .aw-subpage-links :is(button,a),.nf-subpage-links a {
+    display:inline-flex;align-items:center;justify-content:center;min-height:35px;padding:7px 12px;
+    font-size:14px;line-height:1.4;border-radius:6px;border-color:var(--cnc-line);background:#fff;
+  }
+  #tm-preview .aw-subpage-links :is(button,a).active,.nf-subpage-links a.active {color:#1f5498;background:var(--cnc-soft);border-color:#b9cce5}
+  #tm-preview nav button,#tm-preview aside .native-menu-link,.nf-nav nav a {padding:9px 11px;border-radius:7px;font-size:14px;line-height:1.5}
+  .nf-nav {font-family:var(--cnc-font)}
+
+  /* Shared toolbar controls: equal height, compact padding, no stretched date fields. */
+  #tm-preview :is(button.action,button.secondary,.aw .action,.aw .secondary),
+  .nf-body :is(button,.nf-button,.contract-button) {
+    min-height:34px;padding:6px 12px;border-radius:6px;font-size:13px;line-height:1.5;
+    font-weight:500;white-space:normal;max-width:100%;vertical-align:middle;
+  }
+  #tm-preview button.action,.nf-body :is(button.primary,.nf-button.primary,.contract-button),
+  .nf-body :is(.contract-panel,.contract-dialog,.contract-print-tools) button {
+    background:var(--cnc-blue);border-color:var(--cnc-blue);color:#fff;
+  }
+  #tm-preview button.secondary {border-color:#cbd7e5;background:#fff;color:#304c6e}
+  #tm-preview :is(button.action,button.secondary):hover:not(:disabled),.nf-body :is(button,.nf-button):hover:not(:disabled) {filter:brightness(.97)}
+  #tm-preview :is(input,select,textarea):not([type=checkbox]):not([type=radio]):not([type=hidden]),
+  .nf-body :is(input,select,textarea):not([type=checkbox]):not([type=radio]):not([type=hidden]) {
+    box-sizing:border-box;min-width:0;max-width:100%;min-height:34px;padding:6px 9px;
+    font-family:inherit;font-size:13px;line-height:1.5;border:1px solid #cbd7e5;border-radius:5px;
+  }
+  #tm-preview :is(input,select,textarea):focus-visible,.nf-body :is(input,select,textarea,button,a):focus-visible {outline:2px solid #5687c8;outline-offset:2px}
+  #tm-preview input[type=checkbox],#tm-preview input[type=radio],.nf-body input[type=checkbox],.nf-body input[type=radio] {accent-color:var(--cnc-blue)}
+  #tm-preview :is(.fields,.detail-grid,.aw-compare,.hr-sheet) {grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+  #tm-preview :is(.fields,.hr-fields,.aw-toolbar)>*,.nf-grid>*,.contract-form-grid>* {min-width:0}
+  #tm-preview :is(.toolbar,.aw-toolbar),.nf-actions {gap:8px;align-items:flex-end;margin:12px 0}
+  #tm-preview .aw-toolbar>label {gap:4px}
+  #tm-preview .aw-toolbar :is(input,select) {height:34px}
+  .nf-actions :is(button,a),#tm-preview .toolbar button {flex-shrink:0}
+  .nf-page-heading {flex-wrap:wrap}
+  .nf-page-heading>span {white-space:nowrap;margin-left:auto}
+
+  /* Table boundaries and numeric columns stay inside their own scroll area. */
+  #tm-preview :is(.scroll,.aw-scroll,.hr-table,.team-performance-scroll,.grade-week-track),
+  .nf-body :is(.nf-table-wrap,.contract-table-scroll,.table-scroll) {min-width:0;max-width:100%;scrollbar-width:thin;overscroll-behavior-x:contain}
+  #tm-preview :is(th,td),#tm-preview .aw :is(th,td) {padding:9px 10px;line-height:1.55}
+  #tm-preview th,.nf-table th,.contract-list th {background:#f3f6fa;color:#53687f;font-size:12px;font-weight:600}
+  #tm-preview table,.nf-table,.contract-list {font-size:13px;font-variant-numeric:tabular-nums}
+  .nf-table :is(th,td) {padding:8px 10px;vertical-align:middle}
+  #tm-preview .aw tbody tr:hover,.nf-table tbody tr:not(.nf-pay-detail):hover>td {background:#f8fafd}
+  #tm-preview .grade-edit-table :is(input,select) {min-height:32px;padding:5px 7px}
+  #tm-preview [data-grade-monthly-reference] {width:105px;min-width:80px;font-variant-numeric:tabular-nums}
+  #tm-preview .grade-save-bar {padding:12px;gap:8px 12px;margin:12px 0 14px;border-color:var(--cnc-line);background:var(--cnc-soft);border-radius:8px}
+  #tm-preview .grade-save-bar label {flex-wrap:wrap}
+  #tm-preview .grade-save-bar [role=status] {min-width:120px;font-size:12px}
+  #tm-preview .grade-department-tabs {gap:7px;margin:14px 0 10px}
+  #tm-preview .grade-department-tabs button {min-width:76px;padding:7px 16px}
+  #tm-preview .grade-auto-controls {gap:12px;margin:12px 0}
+  #tm-preview .grade-auto-controls label {max-width:210px;gap:4px}
+  #tm-preview .grade-week-track {padding-bottom:3px;border-color:var(--cnc-line);border-radius:7px}
+  #tm-preview .grade-week-track :is(th,td) {min-width:98px;padding:10px 8px}
+  #tm-preview .grade-week-track td {font-size:15px;background:#f8fafd}
+  #tm-preview .grade-preview-fields {margin:12px 0;gap:12px}
+  #tm-preview .policy-sheet :is(th,td) {padding:0}
+  #tm-preview .policy-sheet .sheet-heading {padding:5px 4px}
+  #tm-preview .policy-sheet td input {min-height:30px;border-radius:0}
+  /* Replace the old inline fit-content track, which collapses GA at narrow widths. */
+  #tm-preview .policy-carrier-columns {grid-template-columns:none!important;grid-auto-flow:column;grid-auto-columns:minmax(300px,1fr);gap:14px!important}
+  #tm-preview .policy-carrier-column {min-width:0}
+  #tm-preview .policy-carrier-column .policy-table-heading h3 {margin:0;font-size:14px}
+  #tm-preview .policy-carrier-column>.policy-table-heading:first-child {display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-start;gap:7px;margin:0;min-height:100px}
+  #tm-preview .policy-carrier-column[data-policy-carrier=ga]>.policy-table-heading:first-child {min-height:28px}
+  #tm-preview .policy-carrier-column[data-policy-carrier=ga]>div:nth-child(2),#tm-preview .policy-carrier-column[data-policy-carrier=ga]>div:nth-child(3) {min-height:36px}
+  #tm-preview .row:has(#tm-policy-publication-client) {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));align-items:end;gap:12px}
+  #tm-preview .row:has(#tm-policy-publication-client) label,#tm-preview .row:has(#tm-policy-publication-client) select {width:100%;min-width:0}
+
+  /* Summary rows retain a single line; small screens scroll the row, not the page. */
+  #tm-preview :is(.stats,.aw-metrics,.hr-summary) {gap:12px;margin:0 0 14px}
+  #tm-preview :is(.stat,.aw-metrics>div,.hr-summary>div) {padding:13px 15px}
+  #tm-preview .stat .value,#tm-preview .aw-metrics strong {font-size:23px;line-height:1.4;margin:4px 0}
+  #tm-preview .aw-task-grid {gap:10px}
+  #tm-preview button.aw-task {padding:13px;gap:5px}
+  #tm-preview button.aw-task strong {font-size:24px}
+  #tm-preview .aw-hub {padding:16px;background:#f9fbfe}
+  #tm-preview .work.employee-compact-header>header {padding:10px 20px;gap:0}
+  #tm-preview .work.employee-compact-header>header .header-grades {padding:9px 12px;min-height:40px;gap:20px;border-radius:6px;background:#f8fafd;scrollbar-width:thin}
+  #tm-preview .header-grade-item {gap:6px;font-size:12px}
+  #tm-preview .header-grade-item strong {font-size:13px;color:#24588f}
+  .nf-totals,.hr-pay-totals {scrollbar-width:thin}
+  .nf-totals>div {flex:1 0 auto;border-color:var(--cnc-line);border-radius:6px;background:#f3f6fa;padding:10px 12px}
+  .nf-totals>div:last-child {background:var(--cnc-soft);border-color:#bed0e8}
+
+  .cnc-session-bar,.nf-topbar {min-height:48px;padding:7px 20px;gap:12px;border-color:var(--cnc-line);font-family:var(--cnc-font)}
+  .cnc-session-bar .cnc-session-account {font-size:12px;gap:10px}
+  .cnc-session-bar .cnc-session-account :is(a,button),.nf-topbar button {padding:5px 10px;min-height:30px;font-size:12px;border-radius:6px}
+  .cnc-notice-area {gap:10px}
+  .cnc-notice-channel {gap:8px;padding:3px 9px;border-radius:6px;background:#f3f7fc;border-color:#e0e8f2}
+  .cnc-notice-channel:last-child {background:#fcf8f1;border-color:#eee4d4}
+  .cnc-notice-label {font-size:11px}
+  .cnc-notice-text {font-size:12px}
+  .cnc-notice-dialog {font-family:var(--cnc-font);border-radius:10px}
+
+  /* Calendars and search tools share a compact baseline. */
+  #tm-preview .team-calendar-stack {gap:14px}
+  #tm-preview .sales-page-toolbar {padding:10px 12px;margin-bottom:12px;border:1px solid var(--cnc-line);border-radius:8px;background:#f8fafd}
+  #tm-preview .sales-page-toolbar button,#tm-preview .sales-page-toolbar [data-sales-month-input] {height:36px;font-size:13px}
+  #tm-preview .sales-month-controls {grid-template-columns:max-content minmax(130px,1fr) max-content;gap:8px}
+  #tm-preview .team-performance-calendar .day,#tm-preview .sales-live-day {min-height:100px}
+  #tm-preview .attendance-heading {flex-wrap:wrap;gap:8px 16px}
+  #tm-preview .attendance-date,#tm-preview .attendance-empty {min-height:90px;padding:8px}
+  .bc-panel {max-width:1080px}
+  .bc-scroll {max-width:100%;overflow-x:auto;scrollbar-width:thin;overscroll-behavior-x:contain}
+  .bc-grid {min-width:350px}
+  .bc-toolbar {padding-bottom:10px;border-bottom:1px solid var(--cnc-line)}
+  .bc-toolbar form {flex-wrap:wrap;margin:0;min-width:0}
+  .bc-toolbar label {display:flex;align-items:center;gap:8px;font-size:13px}
+  .bc-toolbar input[type=month] {width:160px}
+  .bc-footer {border-top:1px solid var(--cnc-line);padding-top:12px;font-size:13px}
+  .bc-day-box {min-height:76px;border-radius:6px}
+  .intake-toolbar {gap:10px}
+  .intake-toolbar label {min-width:110px}
+  .intake-summary {gap:8px;margin:12px 0}
+  .intake-summary a {padding:8px 12px;background:#f9fbfe}
+  .intake-detail-grid {gap:10px 16px}
+  .intake-pagination {flex-wrap:wrap}
+
+  /* Popups have an independent scrolling body and a consistent paper-width form. */
+  #tm-preview dialog {max-width:calc(100vw - 24px);max-height:calc(100dvh - 24px);padding:18px;border-radius:10px;overflow:auto}
+  #tm-preview dialog>.row {margin-bottom:12px}
+  #tm-preview dialog:has([data-sales-form]) {width:min(820px,calc(100vw - 24px));padding:18px}
+  #tm-preview dialog.hr-dialog {width:min(860px,calc(100vw - 24px));padding:0}
+  #tm-preview .hr-dialog-top {padding:12px 16px}
+  #tm-preview .hr-paper {padding:14px 16px}
+  #tm-preview .hr-sheet fieldset {padding:10px}
+  #tm-preview .hr-actions {gap:8px;padding-top:10px;margin-top:12px}
+  .nf-popup-shell>.nf-main {width:100%;max-width:900px;padding:16px 20px 24px}
+  .nf-popup-shell .nf-page-heading {padding-bottom:12px;border-bottom:1px solid var(--cnc-line)}
+  .contract-selector {gap:8px 12px}
+  .contract-selector label {min-width:0}
+  .contract-selector select {width:auto;max-width:270px}
+  .contract-form-grid {gap:10px 14px}
+  .contract-field {gap:4px;margin:0}
+  .contract-create label {min-width:140px;flex:1 1 150px}
+  .contract-create>label:first-of-type {flex-basis:230px}
+  .contract-inline-preview {padding:16px;background:#edf0f4;border:1px solid var(--cnc-line)}
+  .contract-inline-preview .contract-sheet {width:100%;max-width:210mm;min-width:0}
+  .contract-panel fieldset {margin:12px 0;padding:10px 12px}
+  .contract-table-scroll .contract-list {min-width:550px}
+  .contract-schedule-editor {min-width:620px}
+  .contract-schedule-editor th:first-child {width:80px}
+  .contract-schedule-editor th label {display:inline-flex;align-items:center;gap:7px;white-space:nowrap}
+  .nf-body .contract-schedule-editor input[type=checkbox] {width:14px;height:14px;min-width:14px;margin:0;padding:0;flex:none}
+  .contract-detail-row .contract-inline-preview {overflow:auto}
+  .contract-detail-row .contract-sheet {min-width:520px}
+
+  /* Payroll review is also hosted inside the same PHP shell. */
+  .nf-body[data-page=adminPayroll] .nf-main>header {margin-bottom:12px}
+  .nf-body[data-page=adminPayroll] .nf-main>header h1 {font-size:20px;margin:3px 0}
+  .nf-body[data-page=adminPayroll] .nf-main .section-title {flex-wrap:wrap;gap:10px}
+  .nf-body[data-page=adminPayroll] .nf-main .fields {gap:12px}
+  .nf-body[data-page=adminPayroll] .nf-main .panel.fields {grid-template-columns:repeat(4,minmax(0,1fr))}
+  .nf-body[data-page=adminPayroll] .nf-main .metrics {gap:12px}
+  .nf-body[data-page=adminPayroll] .nf-main .metric {padding:14px}
+}
+
+@media screen and (max-width:1100px) {
+  #tm-preview #tm-main,.nf-main {padding:16px}
+  #tm-preview .aw-subpages,.nf-subpages {padding:10px 16px 0}
+  .nf-subpages {margin:-16px -16px 16px}
+  #tm-preview .aw-task-grid {grid-template-columns:repeat(2,minmax(0,1fr))}
+  .nf-body[data-page=adminPayroll] .nf-main .panel.fields {grid-template-columns:repeat(2,minmax(0,1fr))}
+  .nf-page-heading:has(.contract-selector) {align-items:flex-start}
+  .contract-selector {order:2;flex-basis:100%;margin:0}
+  .contract-form-grid {grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media screen and (max-width:760px) {
+  #tm-preview #tm-main,.nf-main {padding:12px}
+  #tm-preview .aw-subpages,.nf-subpages {padding:10px 12px 0}
+  .nf-subpages {margin:-12px -12px 12px}
+  #tm-preview .panel,#tm-preview .aw .panel,.nf-body .nf-card,.nf-body .contract-panel,.nf-body .panel {padding:12px;margin-bottom:12px}
+  #tm-preview :is(.fields,.detail-grid,.aw-compare,.hr-sheet) {grid-template-columns:minmax(0,1fr)}
+  #tm-preview :is(.aw-heading,.row) {align-items:flex-start}
+  #tm-preview .aw-heading>.row {justify-content:flex-start}
+  #tm-preview .work.employee-compact-header>header {padding:8px 12px}
+  #tm-preview .work.employee-compact-header>header .header-grades {min-height:38px;padding:8px 10px}
+  #tm-preview .sales-month-controls {min-width:0;grid-template-columns:max-content minmax(0,1fr) max-content}
+  #tm-preview .attendance-calendar {grid-template-columns:repeat(7,minmax(76px,1fr));overflow-x:auto;scrollbar-width:thin}
+  #tm-preview .attendance-date strong small {display:block;margin-left:0}
+  .nf-popup-shell>.nf-main {padding:12px}
+  .contract-selector label {flex:1 1 170px}
+  .contract-selector select {width:100%;max-width:none;min-width:0}
+  .contract-form-grid {grid-template-columns:minmax(0,1fr)}
+  #tm-preview .row:has(#tm-policy-publication-client) {grid-template-columns:minmax(0,1fr)}
+  .contract-inline-preview {padding:8px}
+  .bc-toolbar {gap:8px}
+  .bc-toolbar form {order:2;flex-basis:100%;justify-content:center}
+  .bc-grid {gap:4px}
+  .bc-day-box {min-height:64px;padding:6px 4px;font-size:12px}
+  .bc-weekday {padding:4px 0;font-size:12px}
+  .bc-footer {gap:8px}
+  .nf-totals {gap:6px}
+  .nf-totals>div {padding:8px;gap:7px}
+  .nf-totals strong {font-size:15px}
+}
+@media screen and (max-width:480px) {
+  #tm-preview nav button,#tm-preview aside .native-menu-link,.nf-nav nav a {font-size:13px;padding:8px 7px;gap:6px}
+  #tm-preview #tm-main,.nf-main {padding:10px}
+  .nf-subpages {margin:-10px -10px 12px}
+  #tm-preview .aw-subpage-links :is(button,a),.nf-subpage-links a {font-size:13px;padding:7px 10px}
+  #tm-preview .aw-task-grid {grid-template-columns:minmax(0,1fr)}
+  #tm-preview .grade-department-tabs {flex-wrap:wrap}
+  #tm-preview .grade-department-tabs button {min-width:0;flex:1;padding:7px 8px}
+  #tm-preview .grade-save-bar label {width:100%}
+  #tm-preview .grade-save-bar [role=status] {flex-basis:100%}
+  #tm-preview .grade-auto-controls label {min-width:0;max-width:none;flex-basis:100%}
+  #tm-preview .grade-preview-fields label {max-width:none;width:100%}
+  #tm-preview .sales-page-toolbar {padding:8px;gap:7px}
+  #tm-preview .sales-page-toolbar h2 {padding:0}
+  #tm-preview .sales-page-toolbar button {padding:5px 7px;font-size:12px}
+  #tm-preview .sales-page-toolbar [data-sales-month-input] {padding:5px 3px;font-size:12px}
+  .cnc-session-bar {padding:7px 10px;gap:7px}
+  .cnc-notice-area {gap:6px}
+  .cnc-notice-channel {gap:4px;padding:4px 6px}
+  .nf-body[data-page=adminPayroll] .nf-main .panel.fields {grid-template-columns:minmax(0,1fr)}
+  .intake-toolbar label,.intake-toolbar .intake-search {min-width:0;flex-basis:100%}
+  .intake-detail-grid {grid-template-columns:minmax(0,1fr)}
+  .bc-day-box {min-height:64px;font-size:12px;word-break:keep-all}
+}

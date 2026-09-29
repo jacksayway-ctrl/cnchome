@@ -1,9 +1,4 @@
 <?php declare(strict_types=1);$popup=$popup??false;$employeeNumber=$employeeNumber??($record['employee_no']??''); ?>
-<style>
-.personnel-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px 14px}.personnel-wide{grid-column:span 2}.personnel-full{grid-column:1/-1}.personnel-card{max-width:1080px;margin-inline:auto}.personnel-card h2{margin:0 0 8px;font-size:17px}.personnel-card h3{font-size:14px;margin:16px 0 7px}.personnel-meta{display:flex;justify-content:space-between;gap:12px;font-size:12px;color:#64748b}.personnel-table{table-layout:fixed;width:100%;border-collapse:collapse}.personnel-table th,.personnel-table td{padding:8px 10px;border:1px solid #dce2e9;text-align:left;vertical-align:top;font-size:13px;word-break:break-word}.personnel-table th{width:17%;background:#f4f6f8;font-weight:600}.personnel-table td{width:33%;white-space:normal}.personnel-pay{display:flex;flex-wrap:wrap;gap:8px 22px;margin:10px 0;font-size:13px}.personnel-pay strong{margin-left:6px}.personnel-note{font-size:12px;color:#64748b;line-height:1.5}.personnel-days{display:flex;gap:14px;align-items:center;min-height:34px}.personnel-days label{display:flex;gap:5px;align-items:center}.personnel-grid fieldset{border:0;padding:0;margin:0}.personnel-grid input[type=checkbox]{width:auto}.personnel-section{margin:0 0 14px}.personnel-form legend{font-size:14px;font-weight:700;margin-bottom:9px}.personnel-form textarea{min-height:64px;resize:vertical}.personnel-list td{vertical-align:middle}.personnel-empty{padding:24px;text-align:center;color:#64748b}
-@media(max-width:800px){.personnel-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.personnel-meta{flex-wrap:wrap}.personnel-table th,.personnel-table td{font-size:12px;padding:6px}.personnel-table th{width:20%}.personnel-table td{width:30%}.personnel-pay{gap:8px 12px}}
-@media print{.personnel-no-print{display:none!important}.personnel-card{max-width:none;margin:0;padding:0;border:0;box-shadow:none}.personnel-card h2{font-size:17pt;text-align:center}.personnel-card h3{font-size:10pt;margin:12px 0 5px}.personnel-table th,.personnel-table td{font-size:9pt;padding:6px 7px}.personnel-table th{background:#f4f6f8!important;print-color-adjust:exact}.personnel-meta,.personnel-note{font-size:8pt}.personnel-pay{font-size:9pt}.personnel-table tr{break-inside:avoid}}
-</style>
 <?php if($saved): ?><p class="nf-alert" role="status">인사정보를 저장했습니다.</p><?php endif; ?>
 <?php if($error): ?><p class="nf-alert nf-error" role="alert"><?= h($error) ?></p><?php endif; ?>
 <div class="nf-actions personnel-no-print">
@@ -135,8 +130,8 @@ personnel_cells('임금 적용일',$p['wageEffective']??'','급여일',($p['payd
 </article>
 <?php elseif($admin): ?>
 <section class="nf-card"><h2>직원 인사기록</h2><p class="personnel-note">인사기록과 근로계약은 별도로 관리합니다. 개인정보는 인사·급여 업무 목적으로 확인해 주세요.</p>
-<table class="nf-table personnel-list"><thead><tr><th>사번</th><th>성명</th><th>소속·직책</th><th>입사일</th><th>상태</th><th>인사기록</th></tr></thead><tbody>
+<div class="nf-table-wrap"><table class="nf-table personnel-list"><thead><tr><th>사번</th><th>성명</th><th>소속·직책</th><th>입사일</th><th>상태</th><th>인사기록</th></tr></thead><tbody>
 <?php foreach($records as $item): $p=$item['profile']; ?><tr><td><?= h($item['employee_no']) ?></td><td><?= h($p['name']??'') ?></td><td><?= h(department_label($p['team']??'').' · '.($p['role']??'')) ?></td><td><?= h($p['startDate']??'') ?></td><td><?= h($p['employment']??'') ?></td><td><a href="/personnel.php?role=admin&amp;id=<?= $item['id'] ?>">보기</a> · <a href="/personnel.php?role=admin&amp;id=<?= $item['id'] ?>&amp;edit=1">수정</a></td></tr><?php endforeach; ?>
 <?php if(!$records): ?><tr><td colspan="6" class="personnel-empty">등록된 직원이 없습니다. 직원 등록에서 인사기록을 작성해 주세요.</td></tr><?php endif; ?>
-</tbody></table></section>
+</tbody></table></div></section>
 <?php else: ?><section class="nf-card personnel-empty">아직 연결된 인사기록이 없습니다. 관리자에게 직원 계정 연결을 요청해 주세요.</section><?php endif; ?>

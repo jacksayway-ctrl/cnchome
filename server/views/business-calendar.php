@@ -6,11 +6,11 @@
  <p>날짜를 누르면 <strong>영업일 ↔ 휴일</strong>로 바뀝니다. 선택을 마친 뒤 저장해 주세요.</p>
  <form method="post" action="?role=admin&amp;month=<?=view_h($month)?>">
   <?=native_csrf()?><input type="hidden" name="month" value="<?=view_h($month)?>"><input type="hidden" name="revision" value="<?=$data['revision']?>">
-  <div class="bc-grid" role="group" aria-label="<?=view_h($month)?> 영업일 선택">
+  <div class="bc-scroll"><div class="bc-grid" role="group" aria-label="<?=view_h($month)?> 영업일 선택">
    <?php foreach(['월','화','수','목','금','토','일'] as $name): ?><strong class="bc-weekday"><?=$name?></strong><?php endforeach; ?>
    <?php for($i=1;$i<(int)$date->format('N');$i++): ?><span aria-hidden="true"></span><?php endfor; ?>
    <?php foreach($dates as $day): ?><label class="bc-day"><input type="checkbox" name="days[]" value="<?=$day?>" <?=in_array($day,$data['days'],true)?'checked':''?> aria-label="<?=$day?> 영업일"><span class="bc-day-box"><strong><?=(int)substr($day,8)?></strong><span class="bc-business">영업일</span><span class="bc-holiday">휴일</span></span></label><?php endforeach; ?>
-  </div>
+  </div></div>
   <div class="bc-footer"><span>불러온 기준: 영업일 <?=$savedCount?>일 · 휴일 <?=count($dates)-$savedCount?>일</span><button class="primary" type="submit">영업일 저장</button></div>
  </form>
  <p class="bc-help">기본값은 월~금 영업일, 토·일 휴일입니다. 주그레이드는 월~금 중 영업일과 직원 근무요일을 반영하며, 기준 지급일수는 5일입니다. 실제 근무기록과 이미 확정된 명세서는 그대로 유지됩니다.</p>

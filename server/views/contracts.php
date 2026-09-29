@@ -7,9 +7,8 @@ $filterTeam=$filterTeam??'';$filterEmployee=$filterEmployee??0;$filterProfile=$f
 if($role==='admin'&&!$editWindow){
     ob_start(); ?><form method="get" action="/contracts.php" class="contract-selector nf-no-print" data-contract-filter><input type="hidden" name="role" value="admin"><label>부서 <select name="team"><option value="">전체 부서</option><?php foreach(['insurance'=>'보험','cosmetics'=>'화장품','health'=>'건강식품'] as $key=>$label): ?><option value="<?= $key ?>" <?= $filterTeam===$key?'selected':'' ?>><?= $label ?></option><?php endforeach ?></select></label><label>직원 <select name="employeeId"><option value="0">전체 직원</option><?php foreach($employees as $e): $p=json_decode($e['profile'],true); ?><option value="<?= (int)$e['id'] ?>" <?= $filterEmployee===(int)$e['id']?'selected':'' ?>><?= view_h($p['name'].' · '.$e['employee_no']) ?></option><?php endforeach ?></select></label><button>불러오기</button></form><?php $selector=ob_get_clean();
 }
-native_start('근로계약서',$user,$role==='admin'?'adminContracts':'contracts',[],$editWindow,$selector);
+native_start('근로계약서',$user,$role==='admin'?'adminContracts':'contracts',['contract.css'],$editWindow,$selector);
 ?>
-<link rel="stylesheet" href="<?= view_h(asset_url('contract.css')) ?>">
 <?php if($error): ?><p class="contract-alert" role="alert"><?= view_h($error) ?></p><?php endif; ?>
 <?php if($notice): ?><p class="contract-notice" role="status"><?= view_h($notice) ?></p><?php endif; ?>
 <?php if($role==='employee'){require view_root().'/partials/employee-contract-page.php';echo '<script src="'.view_h(asset_url('contract.js')).'" defer></script>';native_end();return;} ?>
