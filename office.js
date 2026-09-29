@@ -2159,14 +2159,14 @@ function gradeEditMonthlyRange(rows,index,key,value){
 function gradeReferenceMonthly(count,hours,policy=null){const row=(policy?.monthlyReference||gradeMonthlyReferenceRows()).find(r=>r.max===null||count<=r.max),extra=Math.max(0,count-row.threshold)*row.extra,base=Math.floor(hours*row.hourly);return {row,hourly:row.hourly,base,achievement:row.achievement,extra,bonus:row.achievement+extra,total:base+row.achievement+extra};}
 function gradeOriginalMonthlyTable(policy=null,editable=false,context={}){
  queueMicrotask(gradeRefreshEstimates);
- const estimateContext={policy:policy||gradePolicy,editable,basis:editable?'full-month':'effective',...context};
+ const estimateContext={policy:policy||gradePolicy,editable,basis:editable||window.CNCHOME_LIVE?.user.role==='employee'?'full-month':'effective',...context};
  const rows=policy?.monthlyReference||gradeMonthlyReferenceRows();
  const input=(r,i,key)=>`<input type="text" inputmode="numeric" data-grade-number min="${key==='hourly'?15000:0}" max="100000000" step="1" required data-grade-monthly-reference="${key}" data-grade-reference-index="${i}" aria-label="${gradeEscape(r.label)} ${{hourly:'시급',achievement:'목표달성수당',extra:'초과 건당 수당',max:'실적 구간 종료 건수',min:'실적 구간 시작 건수',example:'월 예상 정상 접수 건수'}[key]}" value="${gradeNumber(key==='min'?rows[i-1].max+1:r[key])}">`;
  const cells=rows.map((r,i)=>{
   const fields=[editable?(i===0?input(r,i,'max')+'건 이하':input(r,i,'min')+(r.max===null?'건 이상':'~'+input(r,i,'max')+'건')):gradeEscape(r.label),editable?input(r,i,'hourly'):gradeMoney(r.hourly),'기본 '+gradeMoney(r.hourly),editable?input(r,i,'achievement'):r.achievement?gradeMoney(r.achievement):'-',editable?(gradeNumber(r.threshold)+'건 초과분 '+input(r,i,'extra')):r.extra?gradeNumber(r.threshold)+'건 초과분 '+gradeMoney(r.extra):'-',(editable?input(r,i,'example'):gradeNumber(r.example))+'건<br><small class="sub" data-estimate-average></small>'];
   return '<tr>'+fields.map(value=>'<td>'+value+'</td>').join('')+['daily','weekly','monthly','total','salary'].map(key=>`<td><span data-estimate-column="${key}">—</span>${key==='total'?'<small data-estimate-breakdown="base"></small>':key==='salary'?'<small data-estimate-breakdown="advance"></small>':''}</td>`).join('')+'</tr>';
  }).join('');
- return `<div class="grade-estimate-block"><div class="scroll"><table class="grade-table" data-original-monthly data-grade-estimate="${gradeEscape(JSON.stringify(estimateContext))}"><caption data-grade-caption>월 전체 예상액 계산 중</caption><thead><tr><th>실적 구간</th><th>시급</th><th>위촉수수료</th><th>목표달성수당</th><th>실적수당</th><th>예상실적<br>(월 정상 접수)</th><th>일그레이드<br>월 합계</th><th>주그레이드<br>월 합계</th><th>월그레이드<br>합계</th><th>예상 총액</th><th>급여일 예상액</th></tr></thead><tbody>${cells}</tbody></table></div><p class="sub">월 정상 접수를 저장된 영업일에 정수 건수로 고르게 나누고, 각 날짜의 일그레이드와 각 주의 단일 구간 수당을 누적합니다. 주그레이드는 월~금만 계산하며 금요일이 속한 달에 한 번 합산합니다. 월 경계의 다른 달 실적은 같은 일평균으로 추정합니다.</p><p class="sub">예상 총액 = 시간근무금액 + 일 + 주 + 월그레이드. 급여일 예상액 = 예상 총액 − 일그레이드 선지급액 (기타 공제 전).</p><details class="grade-calculation-details"><summary>실적별 일·주 계산 내역과 합산식 확인</summary><div data-grade-calculation>계산 중입니다.</div></details><p class="sub">${editable?'이 기준표는 수정 중인 일·주·월 기준을 한 달 전체에 적용한 비교 예시입니다. 예상실적·시급·수당 변경 시 합계를 다시 계산합니다. 예상실적은 월그레이드 저장 시 함께 저장됩니다. 실제 급여는 저장한 적용일을 기준으로 이전·새 기준을 나누어 계산합니다. 실적 구간 변경 시 다음 구간은 10건 단위로 연결됩니다.':'표의 구간별 예상액은 예시 시급을 사용하며, 실제 근무기록·계약시급 기준 금액은 위 내 합계에서 확인합니다.'} ${gradeNumber(rows[rows.length-2].max+1)}건 이상은 마지막 구간을 계속 적용합니다.</p></div>`;
+ return `<div class="grade-estimate-block"><div class="scroll"><table class="grade-table" data-original-monthly data-grade-estimate="${gradeEscape(JSON.stringify(estimateContext))}"><caption data-grade-caption>월 전체 예상액 계산 중</caption><thead><tr><th>실적 구간</th><th>시급</th><th>위촉수수료</th><th>목표달성수당</th><th>실적수당</th><th>예상실적<br>(월 정상 접수)</th><th>일그레이드<br>월 합계</th><th>주그레이드<br>월 합계</th><th>월그레이드<br>합계</th><th>예상 총액</th><th>급여일 예상액</th></tr></thead><tbody>${cells}</tbody></table></div><p class="sub">월 정상 접수를 저장된 영업일에 정수 건수로 고르게 나누고, 각 날짜의 일그레이드와 각 주의 단일 구간 수당을 누적합니다. 주그레이드는 월~금만 계산하며 금요일이 속한 달에 한 번 합산합니다. 월 경계의 다른 달 실적은 같은 일평균으로 추정합니다.</p><p class="sub">예상 총액 = 시간근무금액 + 일 + 주 + 월그레이드. 급여일 예상액 = 예상 총액 − 일그레이드 선지급액 (기타 공제 전).</p><details class="grade-calculation-details"><summary>실적별 일·주 계산 내역과 합산식 확인</summary><div data-grade-calculation>계산 중입니다.</div></details><p class="sub">${editable?'이 기준표는 수정 중인 일·주·월 기준을 한 달 전체에 적용한 비교 예시입니다. 예상실적·시급·수당 변경 시 합계를 다시 계산합니다. 예상실적은 월그레이드 저장 시 함께 저장됩니다. 실제 급여는 저장한 적용일을 기준으로 이전·새 기준을 나누어 계산합니다. 실적 구간 변경 시 다음 구간은 10건 단위로 연결됩니다.':context.fixed?'선택한 이전 지급 기준을 한 달 전체에 적용한 비교 예시입니다.':'관리자가 저장한 현재 지급 기준을 한 달 전체에 적용한 예상표입니다. 실제 근무기록·계약시급과 적용일을 반영한 금액은 위 내 합계에서 확인합니다.'} ${gradeNumber(rows[rows.length-2].max+1)}건 이상은 마지막 구간을 계속 적용합니다.</p></div>`;
 }
 function gradeEstimateDetails(data){
  return data.rows.map(result=>{
@@ -2190,7 +2190,7 @@ function gradePersonalTotalsContent(){
  (dailyRows.length?`<details><summary>일그레이드 날짜별 계산 · 합계 ${gradeMoney(d.daily)}</summary>${table(['날짜','정상 접수','누적 계산','달성액','기준 적용일'],dailyRows)}</details>`:'')+
  (weeklyRows.length?`<details><summary>주그레이드 월~금 5일 계산 · 마감 주 합계 ${gradeMoney(d.weekly)}</summary>${table(['월~금 기간','정상 합계 ÷ 근무가능일','해당 구간 지급대상액','이번 달 반영'],weeklyRows)}<p class="sub">주별 단일 구간 금액을 적용일수/5로 계산합니다. 주그레이드 합계에는 집계가 끝난 주만 포함하며, 월말을 넘긴 주는 금요일이 속한 달에 한 번 합산합니다.</p></details>`:'');
 }
-function gradePersonalTotalsPanel(){queueMicrotask(gradeLoadPersonalTotals);return '<section class="panel"><h3>이번 달 내 그레이드 합계</h3><div data-personal-grade-totals>'+gradePersonalTotalsContent()+'</div></section>';}
+function gradePersonalTotalsPanel(){queueMicrotask(gradeLoadPersonalTotals);return '<section class="panel"><h3>이번 달 내 그레이드 합계 · 실제 기록</h3><div data-personal-grade-totals>'+gradePersonalTotalsContent()+'</div></section>';}
 async function gradeLoadPersonalTotals(){
  if(gradePersonalBusy||Date.now()-gradePersonalReadAt<4000||!root.querySelector('[data-personal-grade-totals]'))return;
  gradePersonalBusy=true;gradePersonalReadAt=Date.now();
@@ -2212,7 +2212,7 @@ async function gradeRefreshEstimates(){
  for(const table of root.querySelectorAll('[data-grade-estimate]')){
   const context=JSON.parse(table.dataset.gradeEstimate),policy=context.editable?gradeDraft:context.policy;
   const date=context.editable?gradeEffectiveDate:(context.date||gradeToday()),month=context.month||date.slice(0,7),department=context.department||(context.editable?gradeDepartment:gradeEmployeeDepartment());
-  const counts=(policy.monthlyReference||gradeMonthlyReferenceRows()).map(r=>r.example),body={policy,counts,month,department,date,basis:context.basis||'effective',preview:!!context.preview,fixed:!!context.fixed};
+  const counts=(policy.monthlyReference||gradeMonthlyReferenceRows()).map(r=>r.example),body={policy,counts,month,department,date,basis:context.basis||'effective',preview:!!context.preview,fixed:!!context.fixed,historyId:context.historyId===undefined?undefined:Number(context.historyId)};
   const key=JSON.stringify(body);if(table.dataset.estimateKey===key)continue;table.dataset.estimateKey=key;
   const caption=table.querySelector('[data-grade-caption]');caption.textContent='예상액 계산 중';table.setAttribute('aria-busy','true');
   table.querySelectorAll('[data-estimate-column],[data-estimate-breakdown]').forEach(el=>{el.textContent='—';el.title='';});
@@ -2223,6 +2223,9 @@ async function gradeRefreshEstimates(){
    let data;if(window.CNCHOME_LIVE){const response=await fetch('/grade-estimates.php?role='+encodeURIComponent(window.CNCHOME_LIVE.user.role),{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-CSRF-Token':window.CNCHOME_LIVE.csrf},body:key});data=await response.json();if(!response.ok)throw Error(data.error||'계산할 수 없습니다.');}
    else{const days=GradeCalendar.workdays(month).length;data={month,days,hours:days*6,rows:counts.map(count=>gradeAggregateCalculate(policy,department,count,days,6,{month,entries:[]}))};}
    if(!table.isConnected||table.dataset.estimateKey!==key)continue;
+   if(data.policy&&window.CNCHOME_LIVE?.user.role==='employee'&&JSON.stringify(policy)!==JSON.stringify(data.policy)){
+    table.closest('.grade-estimate-block').outerHTML=gradeOriginalMonthlyTable(data.policy,false,{...context,policy:data.policy});continue;
+   }
    table.querySelectorAll('tbody tr').forEach((row,i)=>{
     const result=data.rows[i];row.querySelectorAll('[data-estimate-column]').forEach(cell=>{const value=result[cell.dataset.estimateColumn];cell.textContent=gradeMoney(typeof value==='number'?value:value?.bonus||0);});
     const average=row.querySelector('[data-estimate-average]');if(average)average.textContent='일평균 '+gradeNumber(data.days?Number((counts[i]/data.days).toFixed(2)):0)+'건';
@@ -2232,7 +2235,7 @@ async function gradeRefreshEstimates(){
     row.querySelector('[data-estimate-breakdown="base"]').textContent='시간근무 '+gradeMoney(result.base);
     row.querySelector('[data-estimate-breakdown="advance"]').textContent='일 선지급 −'+gradeMoney(result.daily);
    });
-   caption.textContent=`${data.month} · 영업일 ${data.days}일 × 하루 6시간 = ${data.hours}시간 · ${body.fixed?'선택한 이전 기준 · 월 전체 비교':body.basis==='full-month'?'수정 중 기준 · 월 전체 비교 (실제 급여는 적용일별 계산)':body.preview?date+' 적용일별 미리보기':'저장된 적용일별 기준'}`;
+   caption.textContent=`${data.month} · 영업일 ${data.days}일 × 하루 6시간 = ${data.hours}시간 · ${body.fixed?'선택한 이전 기준 · 월 전체 비교':body.basis==='full-month'?(context.editable?'수정 중 기준 · 월 전체 비교 (실제 급여는 적용일별 계산)':(data.effectiveDate?data.effectiveDate+' 적용 기준':'현재 적용 기준')+' · 월 전체 비교 (실제 급여는 위 내 합계 확인)'):body.preview?date+' 적용일별 미리보기':'저장된 적용일별 기준'}`;
    calculation.innerHTML=gradeEstimateDetails(data);
    table.setAttribute('aria-busy','false');
   }catch(error){if(table.dataset.estimateKey===key){caption.textContent=error.message;calculation.textContent=error.message;table.setAttribute('aria-busy','false');delete table.dataset.estimateKey;}}
@@ -2314,7 +2317,7 @@ function gradeShowHistory(index){
  const entry=gradeEntries[index],department=page==='grade'?gradeEmployeeDepartment():gradeDepartment;
  if(!entry||(entry.department||'insurance')!==department)return;
  const policy=entry.savedPolicy||entry.policy;
- open('이전 적용 그레이드 기준',`<p><strong>${gradeEscape(gradeDepartments[department])}</strong></p><p>변경일시: ${gradeEscape(new Date(entry.savedAt).toLocaleString('ko-KR',{timeZone:'Asia/Seoul'}))}<br>적용 시작일: ${gradeEscape(entry.date)}${entry.savedBy?'<br>변경자: '+gradeEscape(entry.savedBy):''}</p>${Object.keys(gradePeriods).map(period=>panel(gradePeriods[period],period==='monthly'&&department==='insurance'?gradeOriginalMonthlyTable(policy,false,{fixed:true,department,month:entry.date.slice(0,7)}):period==='daily'?gradeDailyCashTable(policy):period==='weekly'?gradeWeeklyTable(policy):table(['실적 구간','시급','달성 수당','추가수당'],policy[period].map(r=>[gradeRange(r,period,policy),gradeMoney(r.hourly),gradeMoney(r.achievement),r.extra?gradeNumber(r.extraStart)+'건부터 '+gradeMoney(r.extra)+'/건':'없음'])))).join('')}`);
+ open('이전 적용 그레이드 기준',`<p><strong>${gradeEscape(gradeDepartments[department])}</strong></p><p>변경일시: ${gradeEscape(new Date(entry.savedAt).toLocaleString('ko-KR',{timeZone:'Asia/Seoul'}))}<br>적용 시작일: ${gradeEscape(entry.date)}${entry.savedBy?'<br>변경자: '+gradeEscape(entry.savedBy):''}</p>${Object.keys(gradePeriods).map(period=>panel(gradePeriods[period],period==='monthly'&&department==='insurance'?gradeOriginalMonthlyTable(policy,false,{fixed:true,historyId:entry.id,department,month:entry.date.slice(0,7)}):period==='daily'?gradeDailyCashTable(policy):period==='weekly'?gradeWeeklyTable(policy):table(['실적 구간','시급','달성 수당','추가수당'],policy[period].map(r=>[gradeRange(r,period,policy),gradeMoney(r.hourly),gradeMoney(r.achievement),r.extra?gradeNumber(r.extraStart)+'건부터 '+gradeMoney(r.extra)+'/건':'없음'])))).join('')}`);
 }
 function gradeHistoryHtml(department=gradeDepartment,employee=false){
  const ordered=gradeEntries.map((entry,index)=>({entry,index})).filter(({entry})=>(entry.department||'insurance')===department).sort((a,b)=>b.entry.savedAt.localeCompare(a.entry.savedAt)||b.index-a.index);

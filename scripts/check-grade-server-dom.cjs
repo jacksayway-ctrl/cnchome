@@ -77,7 +77,16 @@ function boot(role='admin',entries=[],saveHandler,region=false){
   const before=calls;q('[data-grade-save-period="monthly"]').click();await tick();assert.equal(calls,before);assert.ok(q('#tm-grade-error').textContent);
   edit(monthly,'333000');fail=true;q('[data-grade-save-period="monthly"]').click();await tick();assert.match(q('#tm-grade-error').textContent,/충돌/);assert.equal(q(monthly).value,'333,000');assert.equal(q('[data-grade-save-period="monthly"]').disabled,false);
   assert.equal(a.w.localStorage.getItem('tm-office-grade-policy-v1'),null);
-  const employee=boot('employee',entries);try{await tick();assert.equal(employee.d.querySelector('#tm-grade-form'),null);assert.match(employee.d.querySelector('#tm-main').textContent,/개인별 주그레이드/);assert.deepEqual(employee.errors,[]);}finally{employee.dom.window.close();}
+  const today=new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+  const employee=boot('employee',[{id:701,department:'insurance',date:today,savedAt:today+'T00:00:00Z',policy:structuredClone(entries[0].policy)}]);try{
+   await tick();assert.equal(employee.d.querySelector('#tm-grade-form'),null);assert.match(employee.d.querySelector('#tm-main').textContent,/개인별 주그레이드/);
+   const table=employee.d.querySelector('[data-original-monthly]');assert.equal(JSON.parse(table.dataset.gradeEstimate).basis,'full-month');assert.equal(table.querySelectorAll('input').length,0);
+   const last=table.querySelector('tbody tr:last-child'),number=key=>Number(last.querySelector('[data-estimate-column="'+key+'"]').textContent.replace(/[^0-9]/g,''));
+   assert.equal(number('total')-number('salary'),number('daily'));assert.ok(number('daily')>100000);assert.ok(number('weekly')>0);assert.ok(number('monthly')>0);
+   assert.match(table.querySelector('[data-grade-caption]').textContent,/적용 기준.*월 전체 비교/);assert.match(employee.d.querySelector('[data-grade-calculation]').textContent,/급여일 예상액/);
+   employee.d.querySelector('[data-grade-history-view]').click();await tick();
+   const past=employee.d.querySelector('#tm-dialog[open] [data-original-monthly]');assert.equal(JSON.parse(past.dataset.gradeEstimate).historyId,701);assert.match(past.querySelector('[data-grade-caption]').textContent,/선택한 이전 기준.*월 전체 비교/);assert.match(past.querySelector('[data-estimate-column="total"]').textContent,/원/);assert.deepEqual(employee.errors,[]);
+  }finally{employee.dom.window.close();}
   const region=boot('employee',entries,undefined,true);try{
    await tick();const button=region.d.querySelector('.policy-registration-heading .policy-intake-button');assert.ok(button);assert.equal(button.previousElementSibling.textContent,'접수 정책표');assert.equal(region.w.getComputedStyle(button).display,'inline-flex');button.click();assert.ok(region.d.querySelector('#tm-dialog[open] [data-sales-form]'));assert.deepEqual(region.errors,[]);
   }finally{region.dom.window.close();}

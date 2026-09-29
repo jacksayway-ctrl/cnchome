@@ -74,4 +74,10 @@ foreach([0,105,175,210,315] as $count){$g=grade_estimates(array_replace($request
 foreach([['basis'=>'full-month'],['fixed'=>true],['preview'=>true],['dailySamples'=>true]] as $adminMode){try{grade_estimates(array_replace($request,['basis'=>'effective'],$adminMode),[],$calendar,false);throw new RuntimeException('Employee accepted admin estimate mode');}catch(InvalidArgumentException $e){}}
 $readOnly=grade_estimates(array_replace($request,['basis'=>'effective']),[['date'=>'2000-01-01','policy'=>grade_zero_policy()]],$calendar,false)['rows'][0];
 gl_check($readOnly['daily']===0&&$readOnly['weekly']===0&&$readOnly['monthly']===0,'employee forecast uses persisted history instead of a supplied policy');
-echo "PASS: full-month criteria and exact 175/21-day totals, whole-case forecasts, daily advance deduction, effective-date preservation, five-day weekly/monthly stacking, estimate permissions and repeated saves.\n";
+$ownHistory=[['id'=>18,'date'=>'2099-01-01','policy'=>grade_zero_policy()],['id'=>17,'date'=>hr_today(),'policy'=>$criteria],['id'=>16,'date'=>'2000-01-01','policy'=>$seven['policy']]];
+$employee=grade_estimates(array_replace($request,['policy'=>null,'date'=>'2099-01-01']),$ownHistory,$calendar,false);
+gl_check($employee['rows'][0]===$full&&$employee['effectiveDate']===hr_today(),'employee full-month totals equal admin totals using the current saved policy, regardless of client policy/date or future entries');
+$previous=grade_estimates($request+['fixed'=>true,'historyId'=>16],$ownHistory,$calendar,false);
+gl_check($previous['rows'][0]['daily']===245000&&$previous['effectiveDate']==='2000-01-01','employee can read the selected immutable policy from their department history');
+try{grade_estimates($request+['fixed'=>true,'historyId'=>999],$ownHistory,$calendar,false);throw new RuntimeException('Unknown or other-department history accepted');}catch(InvalidArgumentException $e){}
+echo "PASS: matching admin/employee full-month totals, trusted employee policy/history selection, exact 175/21-day totals, daily advance deduction, effective-date preservation, five-day weekly/monthly stacking and repeated saves.\n";
