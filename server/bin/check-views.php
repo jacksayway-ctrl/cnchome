@@ -32,7 +32,7 @@ foreach(['admin','employee'] as $role){
  }
 }
 file_put_contents($directory.'/office-preview.html',html_view('office',['preview'=>true]));
-file_put_contents($directory.'/payroll-preview.html',html_view('payroll',['role'=>'admin']));
+file_put_contents($directory.'/payroll-preview.html',html_view('payroll',['role'=>'admin','user'=>['role'=>'admin','display_name'=>'관리자 미리보기','department'=>'insurance']]));
 check(in_array('payroll-requirements.json',document_files(),true),'all operating rules present');
 check(!in_array('../bootstrap.php',document_files(),true),'documents traversal rejected');
 echo 'PASS: role-checked PHP routes, escaped output, original-menu exclusion, document allowlist and rendered fixtures.'.PHP_EOL;

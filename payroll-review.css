@@ -1,0 +1,2 @@
+/* Payroll review stays inside the shared administrator navigation. */
+.nf-main{margin-left:0;max-width:none}.nf-main>.nf-page-heading{display:none}.payroll-review-tabs{display:flex;flex-wrap:wrap;gap:7px;margin:0 0 12px}.payroll-review-tabs a{padding:6px 11px;border:1px solid #dce5f1;border-radius:6px;background:#fff;font-size:13px;text-decoration:none}@media print{.payroll-review-tabs{display:none}}

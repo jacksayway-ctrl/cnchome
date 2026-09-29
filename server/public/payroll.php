@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 require __DIR__.'/_runtime.php';
-require_once CNC_RUNTIME_DIR.'/views.php';
+require_once CNC_RUNTIME_DIR.'/native.php';
 try {
     if (!isset($_GET['role'])) $_GET['role']='admin';
     session_boot();$user=current_user();

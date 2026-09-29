@@ -1,24 +1,9 @@
-<!doctype html>
-<html lang="ko" data-cnc-role="<?= view_h($role) ?>">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="robots" content="noindex,nofollow,noarchive,nosnippet,noimageindex">
-  <meta name="referrer" content="no-referrer">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
-  <title>급여 계산 검토 · 씨앤씨</title>
-  <link rel="stylesheet" href="<?= view_h(asset_url('ui-icons.css')) ?>">
-  <link rel="icon" href="./cnc-mark.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="<?= view_h(asset_url('payroll.css')) ?>">
-  <script src="<?= view_h(asset_url('payroll-engine.js')) ?>" defer></script>
-  <script src="<?= view_h(asset_url('payroll-preview.js')) ?>" defer></script>
-<link rel="stylesheet" href="<?= view_h(asset_url('session-navigation.css')) ?>">
-<script src="<?= view_h(asset_url('session-navigation.js')) ?>" defer></script>
-<?php require __DIR__.'/partials/boot.php'; ?>
-</head>
-<body>
-  <aside class="sidebar"><a class="brand" style="display:flex;align-items:center;gap:7px;white-space:nowrap;font-size:20px" href="./office.php?role=admin"><img src="./cnc-mark.svg" alt="C&amp;C" width="12" height="8" style="display:block;flex:0 0 12px;object-fit:contain">씨앤씨</a><p>급여 관리</p><nav aria-label="급여 메뉴"><a href="./office.php?role=admin#adminPayroll">급여·지급 관리로</a><a href="#calculator">계산 검토</a><a href="#management">관리직·팀장</a><a href="#rules">운영 기준</a><a href="./office.php?role=admin#adminGrade">일반직원 날짜별 그레이드 <span class="ui-icon ui-icon-external" aria-hidden="true"></span></a><a href="./office.php?role=admin">직원 화면으로</a></nav><div class="sidebar-note">개발 미리보기<br>실제 급여에는 반영되지 않습니다.</div></aside>
-  <main>
+<?php
+require_once (defined('CNC_RUNTIME_DIR')?CNC_RUNTIME_DIR:dirname(__DIR__).'/lib').'/native.php';
+native_start('급여 계산 검토',$user,'adminPayroll',['payroll.css','payroll-review.css']);
+?>
+
+<nav class="payroll-review-tabs nf-no-print" aria-label="급여 검토 항목"><a href="#calculator">계산 검토</a><a href="#management">관리직·팀장</a><a href="#rules">운영 기준</a><a href="/office.php?role=admin&amp;page=adminGrade">날짜별 그레이드</a></nav>
     <header><div><p class="eyebrow">씨앤씨 / PAYROLL</p><h1>급여 계산 검토</h1></div><span class="badge">예시 데이터</span></header>
     <p class="notice">지금까지 정한 운영 기준으로 계산을 검토합니다. 금액·시간·실적은 변경 가능한 예시이며 새로고침하면 초기화됩니다. 일 그레이드는 별도 지급 항목으로 이 계산에 포함하지 않습니다. 직원 계좌·개인정보는 입력하지 마세요.</p>
     <section id="calculator" aria-labelledby="calc-title">
@@ -37,6 +22,6 @@
     <section id="management"><h2>관리직·팀장 계산 예시</h2><div class="two-columns"><form id="management-form" class="panel"><h3>월급제 관리직</h3><div class="fields"><label>월 기본급<input id="management-salary" type="number" min="0" max="100000000" step="1" required value="3000000"></label><label>월 달력 일수<input id="calendar-days" type="number" min="28" max="31" step="1" required value="30"></label><label>재직 달력 일수<input id="employed-days" type="number" min="0" max="31" step="1" required value="18"></label><label>월중 급여 방식 변경<select id="switched"><option value="yes">있음</option><option value="no">없음</option></select></label><label>재직기간 예정 근무일수<input id="employed-scheduled" type="number" min="1" max="31" step="1" required value="12"></label><label>월급제 예정 근무일수<input id="monthly-scheduled" type="number" min="0" max="31" step="1" required value="5"></label></div><p class="hint">월급에는 주휴수당이 포함됩니다. 이 예시는 무급 차감 전 월급제 기간만 보여주며 시급제 기간은 별도로 계산합니다.</p><output id="management-result"></output></form><form id="team-form" class="panel"><h3>팀장 · 별도 서식</h3><p class="hint">일반직원 주·월 그레이드는 적용하지 않습니다. 아래는 기존 팀장 계산 예시이며, 새 팀장 서식은 별도 기준을 받은 뒤 작성합니다.</p><p class="hint">팀마다 담당 비율을 0~100%로 적용합니다. 두 팀의 합계가 100%를 넘어도 허용됩니다.</p><div class="fields"><label>A팀 정상 실적<input id="team-a-count" type="number" min="0" max="1000000" step="1" required value="120"></label><label>A팀 담당 비율(%)<input id="team-a-share" type="number" min="0" max="100" step="0.1" required value="100"></label><label>B팀 정상 실적<input id="team-b-count" type="number" min="0" max="1000000" step="1" required value="150"></label><label>B팀 담당 비율(%)<input id="team-b-share" type="number" min="0" max="100" step="0.1" required value="50"></label></div><p>예시 표: 50건 10만 원 / 100건 20만 원<br>별도 초과 기준: 120건 초과 · 건당 1,000원</p><output id="team-result"></output></form></div></section>
     <section id="rules"><div class="section-title"><h2>운영 기준</h2><a href="./documents.php?role=admin&amp;file=payroll-requirements.md">전체 문서</a></div><div class="panel"><label>기준 검색<input id="rule-search" type="search" placeholder="예: 실적 이전, 기본시급, 계약" maxlength="100"></label><p id="rule-status" role="status">운영 기준을 불러오는 중입니다.</p><div id="rule-list"></div></div></section>
     <footer>기준일 2026.09.24 · 기능 구현 범위: <a href="./documents.php?role=admin&amp;file=PAYROLL_IMPLEMENTATION.md">구현 현황</a></footer>
-  </main>
-</body>
-</html>
+<script src="<?= view_h(asset_url('payroll-engine.js')) ?>" defer></script>
+<script src="<?= view_h(asset_url('payroll-preview.js')) ?>" defer></script>
+<?php native_end(); ?>
