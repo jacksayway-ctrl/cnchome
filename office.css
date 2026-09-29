@@ -666,3 +666,14 @@ body.policy-window #tm-preview{max-width:none}
  #tm-preview .sales-page-toolbar [data-sales-month-input]{height:42px;font-size:14px;padding:0 6px}
  #tm-preview .sales-page-toolbar .sales-test-toggle{flex-direction:row;gap:6px;margin-left:4px}
 }
+
+/* Sales page: grade progress and registration without the greeting row. */
+#tm-preview .work.sales-compact-header>header{grid-template-columns:minmax(0,1fr) max-content;align-items:center;gap:24px;padding:12px 24px}
+#tm-preview .work.sales-compact-header>header>div:first-child{display:none}
+#tm-preview .work.sales-compact-header>header .header-grades{grid-column:1;grid-row:1;padding:14px 16px;min-height:50px}
+#tm-preview .work.sales-compact-header>header>.action{grid-column:2;grid-row:1;height:46px;padding:0 18px}
+@media(max-width:760px){
+ #tm-preview .work.sales-compact-header>header{gap:10px;padding:10px 14px}
+ #tm-preview .work.sales-compact-header>header .header-grades{padding:10px;gap:14px}
+ #tm-preview .work.sales-compact-header>header>.action{padding:0 12px;font-size:13px}
+}
