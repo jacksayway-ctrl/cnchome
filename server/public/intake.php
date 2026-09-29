@@ -1,0 +1,30 @@
+<?php
+declare(strict_types=1);
+require __DIR__.'/_runtime.php';require_once CNC_RUNTIME_DIR.'/native.php';require_once CNC_RUNTIME_DIR.'/intake-management.php';
+try{
+    session_boot();$user=current_user();if(!$user){header('Location: /login.php?role=admin');exit;}intake_admin($user);
+    $filters=intake_filters($_GET);$mode=($_GET['new']??'')==='1'?'new':'list';$error='';$posted=[];
+    if($_SERVER['REQUEST_METHOD']==='POST'){
+        if(!is_string($_POST['csrf']??null)||!csrf_ok($_POST['csrf']))throw new HRForbidden('인증 시간이 만료됐습니다. 새로고침해 주세요.');
+        try{
+            if(($_POST['action']??'')==='create'){$row=intake_create($user,$_POST);$target=intake_url(['month'=>substr($_POST['date'],0,7),'scope'=>$row['is_test']?'test':'real'],['id'=>$row['id']]);}
+            else{intake_update($user,$_POST);$target=intake_url($filters,['id'=>$_POST['id']]);}
+            $_SESSION['intake_notice']='접수 내용을 저장했습니다.';header('Location: '.$target,true,303);exit;
+        }catch(InvalidArgumentException $e){http_response_code(422);$error=$e->getMessage();$posted=array_filter($_POST,'is_string');}
+    }elseif($_SERVER['REQUEST_METHOD']!=='GET'){http_response_code(405);header('Allow: GET, POST');exit;}
+    $snapshot=sales_snapshot($user,$filters['month']);$rows=intake_filtered($snapshot['records'],$filters);$total=count($rows);$pages=max(1,(int)ceil($total/30));$filters['p']=min($filters['p'],$pages);$list=array_slice($rows,($filters['p']-1)*30,30);
+    $id=intake_text($_GET['id']??'',60);$selected=null;foreach($snapshot['records'] as $row)if($row['id']===$id)$selected=$row;
+    if($id&&!$selected){http_response_code(404);$error='선택한 월에서 접수 내역을 찾을 수 없습니다.';}
+    if(($_GET['export']??'')==='csv'){
+        header('Content-Type: text/csv; charset=UTF-8');header('Content-Disposition: attachment; filename="intake-'.$filters['month'].'.csv"');$out=fopen('php://output','w');fwrite($out,"\xEF\xBB\xBF");
+        fputcsv($out,['접수번호','접수일','담당자','부서','고객명','전화번호','생년월일/출생연도','접수 코드','상담 시간','상담 장소','상태','자료 구분'],',','"','');
+        foreach($rows as $r)fputcsv($out,array_map('intake_csv_cell',[$r['id'],$r['date'],$r['employee'],department_label($r['team']),$r['customer'],$r['phone']??'',($r['birthDate']??'')?:($r['birthYear']??''),$r['carrier']??'',$r['consultationTime']??'',$r['consultationPlace']??'',intake_status($r['status']),$r['isTest']?'테스트':'운영']),',','"','');fclose($out);exit;
+    }
+    $history=$selected?intake_history($user,$id):[];$counts=['pending'=>0,'normal'=>0,'as'=>0];$summaryRows=intake_filtered($snapshot['records'],array_replace($filters,['status'=>'']));foreach($summaryRows as $r)$counts[$r['status']]++;
+    $testCount=count(array_filter($snapshot['records'],fn($r)=>$r['isTest']&&str_starts_with($r['date'],$filters['month'])));
+    $notice=$_SESSION['intake_notice']??'';unset($_SESSION['intake_notice']);
+    $requestKey=$posted['requestKey']??sprintf('%s-%s-%s-%s-%s',bin2hex(random_bytes(4)),bin2hex(random_bytes(2)),bin2hex(random_bytes(2)),bin2hex(random_bytes(2)),bin2hex(random_bytes(6)));
+    native_start('접수관리',$user,$mode==='new'?'adminIntakeRegister':'adminIntake',['intake-management.css']);require view_root().'/intake.php';native_end();
+}catch(HRForbidden $e){http_response_code(403);render_view('error',['title'=>'관리자 전용 메뉴입니다.','message'=>$e->getMessage(),'role'=>'admin']);}
+catch(InvalidArgumentException $e){http_response_code(422);render_view('error',['title'=>'조회 조건을 확인해 주세요.','message'=>$e->getMessage(),'role'=>'admin']);}
+catch(Throwable $e){error_log('cnchome intake management: '.$e->getMessage());http_response_code(503);render_view('error',['title'=>'접수관리를 불러오지 못했습니다.','message'=>'잠시 후 다시 시도해 주세요.','role'=>'admin']);}

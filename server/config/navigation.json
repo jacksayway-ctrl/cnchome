@@ -19,13 +19,23 @@
       ]
     },
     {
-      "label": "영업 관리",
-      "icon": "chart",
+      "label": "접수관리",
+      "icon": "document",
       "items": [
         [
           "adminIntake",
-          "접수"
+          "접수 목록"
         ],
+        [
+          "adminIntakeRegister",
+          "접수 등록"
+        ]
+      ]
+    },
+    {
+      "label": "영업 관리",
+      "icon": "chart",
+      "items": [
         [
           "adminPerformance",
           "실적"

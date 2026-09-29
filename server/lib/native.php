@@ -3,11 +3,11 @@ declare(strict_types=1);
 require_once __DIR__.'/views.php';
 
 function native_routes(): array {
-    return ['adminContracts'=>'contracts.php','contracts'=>'contracts.php','adminStaff'=>'personnel.php','adminStaffRegister'=>'personnel.php','myInfo'=>'personnel.php','adminPayroll'=>'pay-statements.php','payslips'=>'pay-statements.php'];
+    return ['adminIntake'=>'intake.php','adminIntakeRegister'=>'intake.php','adminContracts'=>'contracts.php','contracts'=>'contracts.php','adminStaff'=>'personnel.php','adminStaffRegister'=>'personnel.php','myInfo'=>'personnel.php','adminPayroll'=>'pay-statements.php','payslips'=>'pay-statements.php'];
 }
 function native_url(string $page,string $role): string {
     $route=native_routes()[$page]??null;
-    return '/'.($route??'office.php').'?role='.($role==='admin'?'admin':'employee').($route?($page==='adminStaffRegister'?'&new=1':''):'&page='.rawurlencode($page));
+    return '/'.($route??'office.php').'?role='.($role==='admin'?'admin':'employee').($route?(in_array($page,['adminStaffRegister','adminIntakeRegister'],true)?'&new=1':''):'&page='.rawurlencode($page));
 }
 function native_csrf(): string {return '<input type="hidden" name="csrf" value="'.view_h((string)($_SESSION['csrf']??'')).'">';}
 function native_money(int|float $amount): string {return number_format($amount).'원';}

@@ -206,3 +206,16 @@ CREATE TABLE IF NOT EXISTS hr_contract_events (
  FOREIGN KEY (contract_id) REFERENCES hr_contracts(id),
  FOREIGN KEY (actor_id) REFERENCES app_users(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS intake_management_events (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+ record_key VARCHAR(60) NOT NULL,
+ actor_id BIGINT UNSIGNED NOT NULL,
+ action VARCHAR(15) NOT NULL,
+ before_data JSON NOT NULL,
+ after_data JSON NOT NULL,
+ reason VARCHAR(500) NOT NULL DEFAULT '',
+ created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+ INDEX record_history(record_key,id),
+ FOREIGN KEY (actor_id) REFERENCES app_users(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
