@@ -28,6 +28,8 @@ foreach($result['manifest'] as $entry){
  $q=$d->prepare('SELECT * FROM app_users WHERE id=?');$q->execute([$entry['userId']]);$user=$q->fetch();fixture_check(cnc_test_user($user)&&password_verify('1234',$user['password_hash']),'test login identity');
  $state=hr_snapshot($user);fixture_check(count($state['employees'])===1&&count($state['payroll'])===1,'employee payroll and profile scope');$c=$state['payroll'][0]['calculation'];
  fixture_check(isset($c['gradeSnapshot'])&&$c['net']===$c['gross']-$c['deductions']-$c['prepaidDaily'],'payroll includes grades less advances');
+ $summary=pay_statement_summary($c);fixture_check($c['dailyGradeSettlement']==='cash'&&$summary['daily']===$summary['dailyPaid'],'fixture payroll cash advances match real fixture receipt records');
+ fixture_check($c['net']===$summary['workPay']+$summary['workAdjustment']+$summary['weekly']+$summary['monthly']+$summary['other']-$c['deductions'],'fixture payday net includes hourly pay and weekly/monthly grades, no daily grade');
  $contracts=contract_list($user);fixture_check(count($contracts)===1&&$contracts[0]['id']===$entry['contractId']&&$contracts[0]['issued_snapshot']['formatVersion']===2,'own issued contract only');
  fixture_check(contract_workflow_state($contracts[0])==='pending'&&!$contracts[0]['received_by'],'no fabricated employee approval');
  $input=['action'=>'savePayroll','id'=>$entry['payrollId'],'revision'=>1,'calculation'=>$c];try{hr_mutate($user,$input);throw new RuntimeException('Employee payroll mutation allowed');}catch(HRForbidden $e){}

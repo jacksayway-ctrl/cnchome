@@ -20,8 +20,19 @@ $missing=grade_ledger('2026-10',array_values(array_filter($boundary,fn($row)=>$r
 $odd=$p;$odd['monthly'][0]['achievement']=10001;$part=grade_ledger('2026-09',$records,[['date'=>'2020-01-01','policy'=>$odd],['date'=>'2026-09-08','policy'=>$odd],['date'=>'2026-09-16','policy'=>$odd]]);gl_check($part['monthly']===10001&&array_sum(array_column($part['parts'],'bonus'))===10001,'round combined period once and assign residual');
 $r['dailyReceived']=300000;$r['asOf']='2026-09-29';
 $input=['month'=>'2026-09','minutes'=>360,'weeklyMinutes'=>[['weekStart'=>'2026-09-07','minutes'=>360]],'weeklyStatutory'=>[['weekStart'=>'2026-09-07','amount'=>0,'method'=>'가상 계산']],'holidayInclusive'=>true,'statementVersion'=>1,'payday'=>'2026-10-15','periodStart'=>'2026-09-01','periodEnd'=>'2026-09-30','allowanceItems'=>[['label'=>'이전 그레이드','kind'=>'grade','amount'=>999999,'method'=>'old'],['label'=>'식대','kind'=>'other','amount'=>10000,'method'=>'약정']],'deductionItems'=>[['label'=>'공제 예시','kind'=>'other','amount'=>1000,'method'=>'가상']],'allowance'=>0,'deductions'=>1000];
-$once=grade_payroll_input($input,$r);$twice=grade_payroll_input($once,$r);gl_check($once===$twice&&$once['allowance']===$r['daily']+$r['weekly']+$r['monthly']+10000,'repeated saves replace old grade entries without duplication');
+$once=grade_payroll_input($input,$r);$twice=grade_payroll_input($once,$r);gl_check($once===$twice&&$once['allowance']===$r['dailyReceived']+$r['weekly']+$r['monthly']+10000,'repeated saves replace old grade entries without duplication');
 $c=hr_calculate(['payAmount'=>15000,'payType'=>'시급제'],$once);gl_check($c['prepaidDaily']===300000&&$c['net']===$c['gross']-1000-300000,'only confirmed daily advances reduce net payment');
-gl_check($c['gross']===90000+330000+72000+30000+10000,'weekly plus monthly paid together');
+gl_check($c['gross']===90000+300000+72000+30000+10000&&$c['net']===201000,'weekly plus monthly paid together, daily cash excluded from payday net');
+gl_check($c['dailyGradeSettlement']==='cash'&&$c['gradeSnapshot']['dailyOutstanding']===30000,'unreceived daily grade remains a separate cash liability');
+$summary=pay_statement_summary($c);gl_check($summary['workPay']===90000&&$summary['daily']===300000&&$summary['dailyPaid']===300000&&$summary['weekly']===72000&&$summary['monthly']===30000&&$summary['other']===10000,'saved summary displays each actual payroll component');
+foreach([0,330000,350000] as $paid){
+    $g=array_replace($r,['dailyReceived'=>$paid]);$next=hr_calculate(['payAmount'=>15000,'payType'=>'시급제'],grade_payroll_input($once,$g));
+    gl_check($next['net']===201000&&$next['prepaidDaily']===$paid,'no, full or higher past cash receipts never alter payday amount');
+    gl_check($next['gradeSnapshot']['dailyOutstanding']===max(0,330000-$paid),'pending cash never becomes a monthly payment or negative liability');
+}
+$tampered=$once;$tampered['prepaidDaily']++;try{hr_calculate(['payAmount'=>15000,'payType'=>'시급제'],$tampered);throw new RuntimeException('Mismatched daily advance accepted');}catch(InvalidArgumentException $e){}
+$manual=$input;$manual['deductionItems'][0]['label']='일그레이드 선지급';try{grade_payroll_input($manual,$r);throw new RuntimeException('Manual duplicate advance accepted');}catch(InvalidArgumentException $e){}
+$old=$once;unset($old['dailyGradeSettlement']);foreach($old['allowanceItems'] as &$item)if($item['kind']==='gradeDaily')$item['amount']=$r['daily'];unset($item);$old['allowance']=array_sum(array_column($old['allowanceItems'],'amount'));
+$legacy=hr_calculate(['payAmount'=>15000,'payType'=>'시급제'],$old);gl_check($legacy['net']===231000&&!isset($legacy['dailyGradeSettlement']),'historical inputs retain their original calculation mode');
 try{grade_ledger('2026-09',[$records[0],$records[0]],$entries);throw new RuntimeException('Duplicate record accepted');}catch(InvalidArgumentException $e){}
-echo "PASS: effective-date proration, weekly/monthly stacking, daily cash once, advance subtraction, repeated saves, monthly boundaries and immutable calculation inputs.\n";
+echo "PASS: effective-date proration, weekly/monthly stacking, separate daily cash settlement, receipt-only advances, pending cash, repeated saves, saved summaries and historical preservation.\n";

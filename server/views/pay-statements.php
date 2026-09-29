@@ -25,9 +25,10 @@ $url='/pay-statements.php?role='.$role;
 <?php if(!$hourly): ?><label class="nf-field">인정 근로시간 (분)<input type="number" min="0" max="44640" name="minutes" required value="<?= $field('minutes',0) ?>"></label><?php endif ?>
 </div>
 <?php if($hourly): ?>
-<p>기본시급 <strong><?= native_money($p['payAmount']/1.2) ?></strong> + 주휴·회사 약정수당 환산액 <strong><?= native_money($p['payAmount']-$p['payAmount']/1.2) ?></strong> = 시간당 약정 합산 기준 <strong><?= native_money($p['payAmount']) ?></strong></p>
+<p><strong>시간근무금액 = 실제 근무시간 × <?= native_money($p['payAmount']) ?></strong></p>
+<p>기본시급 <strong><?= native_money($p['payAmount']/1.2) ?></strong> + 주휴수당 포함분 <strong><?= native_money($p['payAmount']-$p['payAmount']/1.2) ?></strong> (시간당 환산) = <strong><?= native_money($p['payAmount']) ?>/시간</strong>. 주휴 포함분을 합산 시급에 다시 더하지 않습니다.</p>
 <p class="nf-muted">법정 주휴수당은 소정근로시간·개근·주 경계와 적용 요건을 확인해 실제 금액을 입력하세요. 비대상 주는 0원과 사유를 입력합니다. 회사는 법정 주휴수당이 약정 기준에 못 미치는 금액을 별도 지원하며 15시간 미만에도 지원합니다. 법정 금액이 약정 기준을 넘으면 차액을 추가합니다.</p>
-<div class="nf-table-wrap"><table class="nf-table"><thead><tr><th>주 시작일 (월)</th><th>이달 인정시간 (분)</th><th>법정 주휴수당 (원)</th><th>산정식·해당 주 요건 또는 비대상 사유</th></tr></thead><tbody>
+<div class="nf-table-wrap"><table class="nf-table"><thead><tr><th>주 시작일 (월)</th><th>이달 실제 근무시간 (분)</th><th>법정 주휴수당 (원)</th><th>산정식·해당 주 요건 또는 비대상 사유</th></tr></thead><tbody>
 <?php foreach(pay_statement_weeks($month,$c) as $w): $key=$w['weekStart']; ?><tr><th><?= $eh($key) ?></th><td><input aria-label="<?= $eh($key) ?> 인정시간" type="number" min="0" max="10080" required name="weekMinutes[<?= $eh($key) ?>]" value="<?= $eh($posted['weekMinutes'][$key]??$w['minutes']) ?>"></td><td><input aria-label="<?= $eh($key) ?> 법정 주휴수당" type="number" min="0" max="1000000000" name="statutoryHoliday[<?= $eh($key) ?>]" value="<?= $eh($posted['statutoryHoliday'][$key]??$w['statutoryHoliday']??'') ?>" placeholder="미확인"></td><td><input aria-label="<?= $eh($key) ?> 산정 근거" maxlength="240" name="statutoryMethod[<?= $eh($key) ?>]" value="<?= $eh($posted['statutoryMethod'][$key]??$w['statutoryMethod']??'') ?>" placeholder="예: 주 소정 30시간 ÷ 5일 × 기본시급 / 비대상 사유"></td></tr><?php endforeach ?>
 </tbody></table></div>
 <label><input type="checkbox" name="agreementConfirmed" value="1" <?= isset($posted['agreementConfirmed'])||(!$posted&&!empty($c['agreementConfirmed']))?'checked':'' ?>> 근로계약의 기본시급·수당 구분, 근로자 사전 약정 및 적용일을 확인했습니다.</label>

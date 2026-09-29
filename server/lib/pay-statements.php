@@ -65,6 +65,11 @@ function pay_statement_enrich(array $profile,array $input,array $calculation): a
     if($c['holidayInclusive'])$c['holiday']=$c['statutoryHoliday']+$c['companySupport'];
     $c['gross']=$c['base']+$c['holiday']+$c['allowance'];hr_assert($c['deductions']<=$c['gross'],'공제액은 지급 총액을 초과할 수 없습니다.');$c['prepaidDaily']=hr_int($input['prepaidDaily']??0);
     if(isset($input['gradeSnapshot']))$c['gradeSnapshot']=$input['gradeSnapshot'];
+    if(($input['dailyGradeSettlement']??'')==='cash'){
+        $dailyTotal=array_sum(array_column(array_filter($c['allowanceItems'],fn($item)=>$item['kind']==='gradeDaily'),'amount'));
+        hr_assert($dailyTotal===$c['prepaidDaily'],'일그레이드 현금 지급액과 선지급액이 다릅니다. 수령 기록을 확인해 주세요.');
+        $c['dailyGradeSettlement']='cash';
+    }
     hr_assert($c['deductions']+$c['prepaidDaily']<=$c['gross'],'공제와 일그레이드 선지급 합계가 지급 총액을 초과합니다. 수령 기록을 확인해 주세요.');
     $c['net']=$c['gross']-$c['deductions']-$c['prepaidDaily'];return $c;
 }
@@ -85,4 +90,17 @@ function pay_statement_status(string $status): string { return ['draft'=>'작성
 function pay_statement_items(array $c,string $key): array {
     if(isset($c[$key]))return $c[$key];$amount=$c[$key==='allowanceItems'?'allowance':'deductions']??0;
     return $amount?[['label'=>$key==='allowanceItems'?'기존 수당 합계':'기존 공제 합계','amount'=>$amount,'method'=>'기존 기록에 항목별 세부 내역 없음','kind'=>'other']]:[];
+}
+/** Summarize saved amounts only; never substitute live grades into an issued statement. */
+function pay_statement_summary(array $c): array {
+    $s=['daily'=>0,'weekly'=>0,'monthly'=>0,'other'=>0];
+    foreach(pay_statement_items($c,'allowanceItems') as $item){
+        $key=['gradeDaily'=>'daily','gradeWeekly'=>'weekly','gradeMonthly'=>'monthly'][$item['kind']??'']??'other';
+        if($key==='other'&&preg_match('/(일|주|월)\s*그레이드/u',$item['label']??'',$match))$key=['일'=>'daily','주'=>'weekly','월'=>'monthly'][$match[1]];
+        $s[$key]+=$item['amount'];
+    }
+    $s['workPay']=($c['payType']??'')==='시급제'?(int)round($c['rate']*$c['minutes']/60):$c['base'];
+    $s['workAdjustment']=$c['base']+($c['holiday']??0)-$s['workPay'];
+    $s['dailyPaid']=$c['prepaidDaily']??0;
+    return $s;
 }

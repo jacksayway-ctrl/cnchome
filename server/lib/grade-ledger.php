@@ -63,10 +63,13 @@ function grade_payroll_input(array $input,array $grade): array {
         if(in_array($item['kind']??'', ['grade','gradeDaily','gradeWeekly','gradeMonthly'],true)||preg_match('/(?:일|주|월)\s*그레이드/u',$item['label']??''))continue;
         $items[]=$item;
     }
-    foreach(['daily'=>['일그레이드','gradeDaily'],'weekly'=>['주그레이드','gradeWeekly'],'monthly'=>['월그레이드','gradeMonthly']] as $key=>[$label,$kind]){
-        if($grade[$key]>0)$items[]=['label'=>$label,'amount'=>$grade[$key],'kind'=>$kind,'method'=>$key==='daily'?'날짜별 본인 정상 실적 × 해당일 지급 기준. 수령액은 선지급에서 차감.':'본인 기간 전체 실적으로 단일 구간을 정하고 적용일부터 근무가능일 비율로 계산. 주·월 함께 지급.'];
+    $dailyPaid=hr_int($grade['dailyReceived']??0);
+    foreach(['daily'=>['일그레이드 현금 지급 총액','gradeDaily'],'weekly'=>['주그레이드','gradeWeekly'],'monthly'=>['월그레이드','gradeMonthly']] as $key=>[$label,$kind]){
+        $amount=$key==='daily'?$dailyPaid:$grade[$key];
+        if($amount>0)$items[]=['label'=>$label,'amount'=>$amount,'kind'=>$kind,'method'=>$key==='daily'?'당일 현금 수령 확인 기록 합계. 같은 금액을 선지급으로 차감하며 급여일에 다시 지급하지 않음. 미수령액은 별도 현금 정산.':'본인 기간 전체 실적으로 단일 구간을 정하고 적용일부터 근무가능일 비율로 계산. 주·월 함께 지급.'];
     }
     foreach($input['deductionItems']??[] as $item)hr_assert(!preg_match('/일\s*그레이드|그레이드\s*선지급/u',$item['label']??''),'일그레이드 선지급은 수령 기록으로 자동 차감합니다. 수동 공제에서 제외해 주세요.');
     $input['allowanceItems']=$items;$input['allowance']=array_sum(array_column($items,'amount'));
-    $input['gradeSnapshot']=$grade;$input['prepaidDaily']=$grade['dailyReceived']??0;return $input;
+    $grade['dailyOutstanding']=max(0,$grade['daily']-$dailyPaid);
+    $input['gradeSnapshot']=$grade;$input['prepaidDaily']=$dailyPaid;$input['dailyGradeSettlement']='cash';return $input;
 }
