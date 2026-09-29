@@ -1,7 +1,7 @@
 <?php
 // Financial regression checks use only synthetic records and no production DB.
 declare(strict_types=1);
-require_once __DIR__.'/../lib/grade-ledger.php';
+require_once __DIR__.'/../lib/grade-estimates.php';
 function gl_check(bool $condition,string $message): void {if(!$condition)throw new RuntimeException($message);}
 $p=grade_zero_policy();$p['dailyCash']=['start'=>6,'perCase'=>5000];$p['weekly'][0]['achievement']=10000;$p['monthly'][0]['achievement']=20000;
 $new=$p;$new['weekly'][0]['achievement']=30000;$new['monthly'][0]['achievement']=40000;
@@ -45,4 +45,33 @@ foreach([0,10000,350000] as $confirmed){
 $autoInput['gradeSnapshot']['daily']++;try{hr_calculate(['payAmount'=>15000,'payType'=>'시급제'],$autoInput);throw new RuntimeException('Automatic amount mismatch accepted');}catch(InvalidArgumentException $e){}
 foreach([10=>25000,15=>50000,30=>125000] as $count=>$amount){$day=grade_ledger('2026-09',[['date'=>'2026-09-21','count'=>$count,'hours'=>6]],[['date'=>'2020-01-01','policy'=>$p]]);gl_check($day['daily']===$amount&&$day['dailyDetails'][0]['amount']===$amount,'daily cumulative amount has no ten-case or display-column cap');}
 try{grade_ledger('2026-09',[$records[0],$records[0]],$entries);throw new RuntimeException('Duplicate record accepted');}catch(InvalidArgumentException $e){}
-echo "PASS: cumulative daily grades, automatic full prepayment without duplicate payday amount, five-day policy proration, weekly/monthly stacking, historical receipt mode and repeated saves.\n";
+// Exercise the exact request calculator used by the PHP endpoint, including its preview basis.
+$criteria=grade_zero_policy();$criteria['dailyCash']=['start'=>6,'perCase'=>5000];
+$criteria['weekly']=[['min'=>0,'max'=>8,'hourly'=>0,'achievement'=>0,'extraStart'=>null,'extra'=>0]];
+for($i=0;$i<20;$i++)$criteria['weekly'][]=['min'=>8+$i,'max'=>$i===19?null:9+$i,'hourly'=>0,'achievement'=>30000+5000*$i,'extraStart'=>null,'extra'=>0];
+foreach([[100,15000,0,100,0,0],[110,15000,0,100,5000,105],[120,16000,50000,110,5000,115],[130,16000,100000,120,5000,125],[140,16000,200000,130,10000,135],[150,17000,300000,140,10000,145],[160,17000,400000,150,10000,155],[170,17000,500000,160,10000,165],[null,18000,600000,170,10000,175]] as $row){
+    $criteria['monthlyReference'][]=array_combine(['max','hourly','achievement','threshold','extra','example'],$row);
+}
+$calendar=['2026-09-23'=>false]; // 21 working days; one four-day week.
+$request=['month'=>'2026-09','date'=>'2026-09-29','policy'=>$criteria,'counts'=>[175],'basis'=>'full-month'];
+$forecast=grade_estimates($request,[],$calendar,true);$full=$forecast['rows'][0];
+gl_check($forecast['days']===21&&$forecast['hours']===126&&$forecast['basis']==='full-month','criteria examples cover the entire saved business calendar');
+gl_check(array_count_values(array_column($full['dailyDetails'],'count'))===[9=>7,8=>14]&&$full['count']===175,'175 real cases distribute as seven nine-case days plus fourteen eight-case days');
+gl_check($full['daily']===350000&&$full['weekly']===114000&&$full['monthly']===650000,'daily 7×20k+14×15k, weekly 3×30k+24k, monthly 600k+5×10k');
+gl_check($full['base']===2268000&&$full['total']===3382000&&$full['salary']===3032000,'126 hours at 18k plus all grades; payday subtracts exactly 350k daily advance');
+foreach(grade_forecast_records('2026-09',175,$calendar) as $row)gl_check(is_int($row['count']),'normal receipt estimates remain whole cases, including adjacent-month days');
+$effective=grade_estimates(array_replace($request,['basis'=>'effective','preview'=>true]),[],$calendar,true)['rows'][0];
+gl_check($effective['daily']===30000&&$effective['weekly']===0&&$effective['monthly']===61905,'actual effective-date preview still uses two new-policy business days, not a retroactive full month');
+$sameMonth=grade_estimates(array_replace($request,['date'=>'2026-09-01']),[],$calendar,true)['rows'][0];
+gl_check($full===$sameMonth,'criteria comparison does not shrink when the effective date moves to month-end');
+$seven=$request;$seven['policy']['dailyCash']['start']=7;
+gl_check(grade_estimates($seven,[],$calendar,true)['rows'][0]['daily']===245000,'configured seven-case threshold is honored: 7×15k+14×10k');
+$samples=grade_estimates($request+['dailySamples'=>true],[],$calendar,true)['samples'];
+gl_check($samples[0]['count']===210&&$samples[0]['daily']===525000&&$samples[0]['weekly']===152000,'ten cases/day means 21 daily awards and three full plus one four-fifths weekly award');
+gl_check($samples[5]['count']===315&&$samples[5]['daily']===1050000&&$samples[5]['weekly']===247000,'fifteen cases/day accumulates each daily award and the correct 65k weekly tier');
+foreach($samples as $sample)gl_check($sample['gradeTotal']-$sample['daily']===$sample['paydayGrade']&&$sample['paydayGrade']===$sample['weekly']+$sample['monthly'],'sample totals stack weekly and monthly and deduct daily cash once');
+foreach([0,105,175,210,315] as $count){$g=grade_estimates(array_replace($request,['counts'=>[$count]]),[],$calendar,true)['rows'][0];gl_check($g['count']===$count&&$g['total']===$g['base']+$g['daily']+$g['weekly']+$g['monthly']&&$g['salary']===$g['total']-$g['daily'],'every displayed performance row balances exactly');}
+foreach([['basis'=>'full-month'],['fixed'=>true],['preview'=>true],['dailySamples'=>true]] as $adminMode){try{grade_estimates(array_replace($request,['basis'=>'effective'],$adminMode),[],$calendar,false);throw new RuntimeException('Employee accepted admin estimate mode');}catch(InvalidArgumentException $e){}}
+$readOnly=grade_estimates(array_replace($request,['basis'=>'effective']),[['date'=>'2000-01-01','policy'=>grade_zero_policy()]],$calendar,false)['rows'][0];
+gl_check($readOnly['daily']===0&&$readOnly['weekly']===0&&$readOnly['monthly']===0,'employee forecast uses persisted history instead of a supplied policy');
+echo "PASS: full-month criteria and exact 175/21-day totals, whole-case forecasts, daily advance deduction, effective-date preservation, five-day weekly/monthly stacking, estimate permissions and repeated saves.\n";

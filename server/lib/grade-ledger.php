@@ -50,8 +50,13 @@ function grade_ledger(string $month,array $records,array $entries,array $profile
 function grade_history(string $department): array {$q=db()->prepare('SELECT id,effective_date AS date,saved_at AS savedAt,policy FROM grade_versions WHERE department=? ORDER BY effective_date,id');$q->execute([$department]);return grade_resolve_entries(array_map(function($r){$r['policy']=json_decode($r['policy'],true,512,JSON_THROW_ON_ERROR);return $r;},$q->fetchAll()));}
 function grade_forecast_records(string $month,int $count,array $calendar=[]): array {
     $days=grade_dates($month,$calendar);$size=count($days);if(!$size){hr_assert($count===0,'선택한 월에 영업일이 없습니다. 영업일 달력을 먼저 확인해 주세요.');return [];}$rows=[];foreach($days as $i=>$day)$rows[$day]=['date'=>$day,'count'=>intdiv($count,$size)+($i<$count%$size?1:0),'hours'=>6];
-    // Adjacent month days are estimates at the same daily average, needed for complete boundary weeks.
-    foreach(array_merge(grade_week($days[0]),grade_week(end($days))) as $day)if(!isset($rows[$day])&&business_calendar_is_workday($day,$calendar))$rows[$day]=['date'=>$day,'count'=>$count/$size,'hours'=>6];return array_values($rows);
+    // Complete boundary weeks with whole-case estimates at the same daily average.
+    foreach([grade_week($days[0]),grade_week(end($days))] as $week){
+        $adjacent=array_values(array_filter($week,fn($day)=>!isset($rows[$day])&&business_calendar_is_workday($day,$calendar)));
+        $length=count($adjacent);if(!$length)continue;$estimated=(int)round($count/$size*$length);
+        foreach($adjacent as $i=>$day)$rows[$day]=['date'=>$day,'count'=>intdiv($estimated,$length)+($i<$estimated%$length?1:0),'hours'=>6];
+    }
+    return array_values($rows);
 }
 function grade_daily_sample_records(string $month,int $dailyCount,array $calendar=[]): array {
     hr_assert($dailyCount>=0&&$dailyCount<=1000000,'하루 정상 접수 건수를 확인해 주세요.');$dates=grade_dates($month,$calendar);if(!$dates)return [];

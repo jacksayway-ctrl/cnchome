@@ -81,10 +81,11 @@ test('weekly draft starts at eight with unchanged amounts and preserves later ed
 
 test('monthly table requests server estimates and separates all-grade total from payday amount',()=>{
  const html=context.api.gradeOriginalMonthlyTable();
- for(const label of ['100건 이하','101~110건','171건 이상','18,000원','600,000원','일그레이드 합계','주그레이드 합계','예상 총액','급여일 예상액'])assert.ok(html.includes(label),label);
- assert.equal((html.match(/<th>/g)||[]).length,10);
+ for(const label of ['100건 이하','101~110건','171건 이상','18,000원','600,000원','일그레이드 월 합계','주그레이드 월 합계','월그레이드 합계','예상 총액','급여일 예상액'])assert.ok(html.replaceAll('<br>',' ').includes(label),label);
+ assert.equal((html.match(/<th>/g)||[]).length,11);
  assert.equal((html.match(/data-estimate-column="daily"/g)||[]).length,9);
  assert.equal((html.match(/data-estimate-column="weekly"/g)||[]).length,9);
+ assert.equal((html.match(/data-estimate-column="monthly"/g)||[]).length,9);
  assert.equal((html.match(/data-estimate-column="total"/g)||[]).length,9);
  assert.equal((html.match(/data-estimate-column="salary"/g)||[]).length,9);
  assert.ok(!html.includes('<td>7</td>'));

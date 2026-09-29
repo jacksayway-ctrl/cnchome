@@ -2,10 +2,10 @@ const {JSDOM,VirtualConsole}=require('jsdom');
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
 const directory=path.resolve(__dirname,'..');
 const tick=()=>new Promise(r=>setTimeout(r,15));
-function estimateResponse(options){
+function estimateResponse(options,entries,role){
  const body=JSON.parse(options?.body||'{}');
- const code="require $argv[1];$in=json_decode(stream_get_contents(STDIN),true);$p=normalize_policy($in['policy']);$e=[['date'=>'2000-01-01','policy'=>$p]];if($in['dailySamples']??false){echo hr_json(grade_sample_estimates($in['month'],$e));}else{$d=grade_dates($in['month']);echo hr_json(['month'=>$in['month'],'days'=>count($d),'hours'=>count($d)*6,'rows'=>array_map(fn($n)=>grade_ledger($in['month'],grade_forecast_records($in['month'],$n),$e),$in['counts'])]);}";
- let data;try{data=JSON.parse(require('node:child_process').execFileSync(process.env.PHP_BINARY||'php',['-r',code,path.join(directory,'server/lib/grade-ledger.php')],{input:JSON.stringify(body),encoding:'utf8'}));}catch{return {ok:false,json:async()=>({error:'invalid forecast fixture'})};}
+ const code="require $argv[1];$fixture=json_decode(stream_get_contents(STDIN),true);echo hr_json(grade_estimates($fixture['input'],$fixture['history'],[],$fixture['admin']));";
+ let data;try{data=JSON.parse(require('node:child_process').execFileSync(process.env.PHP_BINARY||'php',['-r',code,path.join(directory,'server/lib/grade-estimates.php')],{input:JSON.stringify({input:body,history:entries,admin:role==='admin'}),encoding:'utf8'}));}catch{return {ok:false,json:async()=>({error:'invalid forecast fixture'})};}
  const response={ok:true,json:async()=>data};
  if(holdForecast&&body.counts?.[8]===220)return new Promise(resolve=>{releaseForecast=()=>resolve(response);});
  return response;
@@ -17,7 +17,7 @@ function boot(role='admin',entries=[],saveHandler,region=false){
   w.structuredClone=structuredClone;w.TextEncoder=TextEncoder;w.TextDecoder=TextDecoder;w.ResizeObserver=class{observe(){}unobserve(){}disconnect(){}};
   w.HTMLDialogElement.prototype.showModal=function(){this.setAttribute('open','');};w.HTMLDialogElement.prototype.close=function(){this.removeAttribute('open');};
   w.CNCHOME_LIVE={entries,revision:0,csrf:'token',user:{id:1,role,department:'insurance',display_name:'테스트'}};
-  w.fetch=async(url,options)=>String(url).includes('grade-api.php')?saveHandler(url,options):String(url).includes('grade-estimates.php')?estimateResponse(options):String(url).includes('intake-policy-api.php')?{ok:true,json:async()=>({revision:1,version:1,clients:[{id:'legacy',label:'가상 거래처'}],codes:[{id:'hanwha',label:'한화',aliases:[]}],policies:{'hanwha:general':{client:'legacy',carrier:'hanwha',kind:'general',rows:[['지역','수량'],['경기도 전체','4']],reviewed:true,savedAt:'2026-09-29T00:00:00Z'}}})}:String(url).includes('grade-personal-totals.php')?{ok:false,json:async()=>({error:'personal totals fixture omitted'})}:{ok:true,json:async()=>({revision:0,entries:[],records:[],staff:[],employees:[],payroll:[]})};
+  w.fetch=async(url,options)=>String(url).includes('grade-api.php')?saveHandler(url,options):String(url).includes('grade-estimates.php')?estimateResponse(options,entries,role):String(url).includes('intake-policy-api.php')?{ok:true,json:async()=>({revision:1,version:1,clients:[{id:'legacy',label:'가상 거래처'}],codes:[{id:'hanwha',label:'한화',aliases:[]}],policies:{'hanwha:general':{client:'legacy',carrier:'hanwha',kind:'general',rows:[['지역','수량'],['경기도 전체','4']],reviewed:true,savedAt:'2026-09-29T00:00:00Z'}}})}:String(url).includes('grade-personal-totals.php')?{ok:false,json:async()=>({error:'personal totals fixture omitted'})}:{ok:true,json:async()=>({revision:0,entries:[],records:[],staff:[],employees:[],payroll:[]})};
  }});
  const w=dom.window,d=w.document;
  if(region){d.body.classList.add('policy-window');const style=d.createElement('style');style.textContent=fs.readFileSync(path.join(directory,'office.css'),'utf8');d.head.append(style);}
@@ -46,6 +46,12 @@ function boot(role='admin',entries=[],saveHandler,region=false){
   assert.equal(a.w.CNCHOME_LIVE.revision,1);assert.match(q('#tm-grade-history').textContent,/2026/);
   const performance='[data-grade-monthly-reference="example"][data-grade-reference-index="8"]';
   const amount=key=>q('[data-original-monthly] tbody tr:nth-child(9) [data-estimate-column="'+key+'"]');
+  edit('#tm-grade-effective-date','2026-09-29','change');await new Promise(r=>setTimeout(r,370));
+  assert.equal(amount('daily').textContent,'325,000원');assert.equal(amount('weekly').textContent,'120,000원');assert.equal(amount('monthly').textContent,'650,000원');
+  assert.equal(amount('total').textContent,'3,471,000원');assert.equal(amount('salary').textContent,'3,146,000원');assert.match(q('[data-grade-caption]').textContent,/월 전체 비교/);
+  assert.match(q('[data-grade-calculation]').textContent,/월 175건/);assert.match(q('[data-estimate-breakdown="advance"]').textContent,/일 선지급/);
+  const smallWidth=Number(q(performance).style.getPropertyValue('--grade-number-ch'));
+  edit(performance,'123456');assert.equal(q(performance).value,'123,456');assert.ok(Number(q(performance).style.getPropertyValue('--grade-number-ch'))>smallWidth);
   edit('#tm-grade-effective-date','2026-09-01','change');
   edit(performance,'220');assert.equal(amount('daily').textContent,'—');await new Promise(r=>setTimeout(r,370));
   assert.equal(amount('daily').textContent,'550,000원');assert.equal(amount('weekly').textContent,'160,000원');assert.equal(amount('total').textContent,'4,186,000원');assert.equal(amount('salary').textContent,'3,636,000원');

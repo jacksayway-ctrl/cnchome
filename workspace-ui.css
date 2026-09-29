@@ -94,14 +94,22 @@
   .nf-table :is(th,td) {padding:8px 10px;vertical-align:middle}
   #tm-preview .aw tbody tr:hover,.nf-table tbody tr:not(.nf-pay-detail):hover>td {background:#f8fafd}
   #tm-preview .grade-edit-table :is(input,select) {min-height:32px;padding:5px 7px}
-  #tm-preview [data-grade-monthly-reference] {width:105px;min-width:80px;font-variant-numeric:tabular-nums}
+  #tm-preview input[data-grade-number] {width:calc(var(--grade-number-ch,6)*1ch + 20px);min-width:calc(2ch + 20px);max-width:calc(16ch + 20px);padding:5px 7px;text-align:right;font-variant-numeric:tabular-nums;flex:none}
+  #tm-preview [data-original-monthly] :is(th,td) {padding:8px;white-space:nowrap}
+  #tm-preview [data-original-monthly] td {text-align:right}
+  #tm-preview [data-original-monthly] td:first-child {text-align:left}
+  #tm-preview [data-original-monthly] [data-estimate-column="total"],#tm-preview [data-original-monthly] [data-estimate-column="salary"] {font-weight:700;color:var(--cnc-blue)}
+  #tm-preview [data-estimate-breakdown] {display:block;margin-top:3px;font-size:11px;color:var(--cnc-muted);white-space:normal;min-width:110px}
+  #tm-preview .grade-calculation-details {margin:10px 0;font-size:12px}
+  #tm-preview .grade-calculation-details summary {cursor:pointer;color:var(--cnc-blue)}
+  #tm-preview .grade-calculation-details [data-grade-calculation] {margin-top:10px}
   #tm-preview .grade-save-bar {padding:12px;gap:8px 12px;margin:12px 0 14px;border-color:var(--cnc-line);background:var(--cnc-soft);border-radius:8px}
   #tm-preview .grade-save-bar label {flex-wrap:wrap}
   #tm-preview .grade-save-bar [role=status] {min-width:120px;font-size:12px}
   #tm-preview .grade-department-tabs {gap:7px;margin:14px 0 10px}
   #tm-preview .grade-department-tabs button {min-width:76px;padding:7px 16px}
   #tm-preview .grade-auto-controls {gap:12px;margin:12px 0}
-  #tm-preview .grade-auto-controls label {max-width:210px;gap:4px}
+  #tm-preview .grade-auto-controls label {min-width:0;max-width:none;gap:4px;align-items:flex-start;flex:none}
   #tm-preview .grade-week-track {padding-bottom:3px;border-color:var(--cnc-line);border-radius:7px}
   #tm-preview .grade-week-track :is(th,td) {min-width:98px;padding:10px 8px}
   #tm-preview .grade-week-track td {font-size:15px;background:#f8fafd}
