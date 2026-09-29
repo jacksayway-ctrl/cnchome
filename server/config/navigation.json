@@ -41,6 +41,10 @@
       "icon": "chart",
       "items": [
         [
+          "adminPolicy",
+          "정책 등록"
+        ],
+        [
           "adminPerformance",
           "실적"
         ],

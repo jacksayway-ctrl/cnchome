@@ -1,5 +1,5 @@
 const fs=require('fs'),path=require('path');const assert=require('node:assert/strict');const {JSDOM}=require('jsdom');
-const root=path.resolve(__dirname,'..');const dom=new JSDOM(fs.readFileSync(root+'/.build/admin-adminIntake.html','utf8'),{url:'https://test.invalid/office.php?role=admin&page=adminIntake',runScripts:'outside-only',pretendToBeVisual:true});
+const root=path.resolve(__dirname,'..');const dom=new JSDOM(fs.readFileSync(root+'/.build/admin-adminPolicy.html','utf8'),{url:'https://test.invalid/office.php?role=admin&page=adminPolicy',runScripts:'outside-only',pretendToBeVisual:true});
 const w=dom.window;w.structuredClone=structuredClone;w.TextEncoder=TextEncoder;w.TextDecoder=TextDecoder;w.AbortController=AbortController;w.Headers=Headers;w.Request=Request;w.Response=Response;
 w.HTMLDialogElement.prototype.showModal=function(){this.open=true};w.HTMLDialogElement.prototype.close=function(){this.open=false};
 let state={revision:0,version:1,clients:[{id:'legacy',label:'메타버스'}],codes:[{id:'hanwha',label:'한화',aliases:[]},{id:'shinhan',label:'신한',aliases:[]},{id:'ga',label:'G/A',aliases:['GA']}],policies:{}};
