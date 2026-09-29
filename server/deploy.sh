@@ -14,6 +14,7 @@ if [[ -d /opt/cnchome-runtime ]]; then cp -a /opt/cnchome-runtime "$backup/runti
 php server/bin/migrate.php
 php server/bin/provision-test-user.php
 php server/bin/seed-test-data.php
+php server/bin/seed-inspection-data.php
 install -d -m 755 /opt/cnchome-runtime /opt/cnchome-runtime/views/partials /opt/cnchome-runtime/config /opt/cnchome-runtime/docs
 install -m 644 server/lib/*.php /opt/cnchome-runtime/
 install -m 644 server/views/*.php /opt/cnchome-runtime/views/
