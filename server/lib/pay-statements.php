@@ -24,7 +24,7 @@ function pay_statement_post(array $post,array $profile,string $month): array {
     }
     $allowances=[];$deductions=[];
     foreach(['allowanceItems','deductionItems'] as $key){
-        $list=$post[$key]??[];hr_assert(is_array($list)&&count($list)<=12,'항목 수를 확인해 주세요.');
+        $list=$post[$key]??[];hr_assert(is_array($list)&&count($list)<=15,'항목 수를 확인해 주세요.');
         foreach($list as $item){hr_assert(is_array($item),'항목 형식을 확인해 주세요.');$amount=pay_statement_number($item['amount']??'0');
             if($amount===0)continue;
             $entry=['label'=>pay_statement_text($item['label']??'',60),'amount'=>$amount,'method'=>pay_statement_text($item['method']??'',400),'kind'=>pay_statement_text($item['kind']??'other',30)];
@@ -41,7 +41,7 @@ function pay_statement_enrich(array $profile,array $input,array $calculation): a
     foreach(['payday','periodStart','periodEnd'] as $key){$c[$key]=pay_statement_text($input[$key]??'',10);hr_assert(hr_day($c[$key]),'지급일과 산정 기간을 입력해 주세요.');}
     hr_assert($c['periodStart']<=$c['periodEnd']&&substr($c['periodStart'],0,7)===($input['month']??'')&&substr($c['periodEnd'],0,7)===($input['month']??''),'산정 기간은 귀속 월 안에서 선택해 주세요.');
     foreach(['allowanceItems'=>'allowance','deductionItems'=>'deductions'] as $key=>$total){
-        $list=$input[$key]??[];hr_assert(is_array($list)&&array_is_list($list)&&count($list)<=12,'지급·공제 항목을 확인해 주세요.');$items=[];
+        $list=$input[$key]??[];hr_assert(is_array($list)&&array_is_list($list)&&count($list)<=15,'지급·공제 항목을 확인해 주세요.');$items=[];
         foreach($list as $item){hr_assert(is_array($item),'항목 형식을 확인해 주세요.');$amount=hr_int($item['amount']??null);
             if($amount===0)continue;$label=pay_statement_text($item['label']??'',60);$method=pay_statement_text($item['method']??'',400);$kind=pay_statement_text($item['kind']??'other',30);
             hr_assert($label!=='','지급·공제 항목명을 입력해 주세요.');$items[]=['label'=>$label,'amount'=>$amount,'method'=>$method,'kind'=>$kind];
@@ -63,7 +63,10 @@ function pay_statement_enrich(array $profile,array $input,array $calculation): a
         $c['statutoryHoliday']+=$statutory??0;$c['companySupport']+=$support;
     }unset($week);
     if($c['holidayInclusive'])$c['holiday']=$c['statutoryHoliday']+$c['companySupport'];
-    $c['gross']=$c['base']+$c['holiday']+$c['allowance'];hr_assert($c['deductions']<=$c['gross'],'공제액은 지급 총액을 초과할 수 없습니다.');$c['net']=$c['gross']-$c['deductions'];return $c;
+    $c['gross']=$c['base']+$c['holiday']+$c['allowance'];hr_assert($c['deductions']<=$c['gross'],'공제액은 지급 총액을 초과할 수 없습니다.');$c['prepaidDaily']=hr_int($input['prepaidDaily']??0);
+    if(isset($input['gradeSnapshot']))$c['gradeSnapshot']=$input['gradeSnapshot'];
+    hr_assert($c['deductions']+$c['prepaidDaily']<=$c['gross'],'공제와 일그레이드 선지급 합계가 지급 총액을 초과합니다. 수령 기록을 확인해 주세요.');
+    $c['net']=$c['gross']-$c['deductions']-$c['prepaidDaily'];return $c;
 }
 function pay_statement_publish_check(array $c): void {
     if(!isset($c['statementVersion']))return;

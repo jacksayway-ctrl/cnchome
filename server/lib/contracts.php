@@ -171,7 +171,7 @@ function contract_mutate(array $user,array $in): int {
                 $terms=contract_terms($in['terms']??[]);$q=$d->prepare('UPDATE hr_contracts SET terms=?,revision=revision+1 WHERE id=?');$q->execute([hr_json($terms),$id]);contract_log($id,$user,'draftSaved');
             }elseif($action==='issue'){
                 hr_assert($row['status']==='draft','이미 발행한 계약입니다.');$errors=contract_issue_errors($row['terms'],$row);hr_assert(!$errors,implode(' ',$errors));
-                $snapshot=['formatVersion'=>1,'employeeNo'=>$row['employee_no'],'version'=>$row['version'],'terms'=>$row['terms']];$json=hr_json($snapshot);$hash=hash('sha256',$json);
+                $snapshot=['formatVersion'=>2,'employeeNo'=>$row['employee_no'],'version'=>$row['version'],'terms'=>$row['terms']];$json=hr_json($snapshot);$hash=hash('sha256',$json);
                 $q=$d->prepare("UPDATE hr_contracts SET status='issued',issued_snapshot=?,content_hash=?,recipient_user_id=?,issued_at=UTC_TIMESTAMP(6),revision=revision+1 WHERE id=?");$q->execute([$json,$hash,$row['user_id'],$id]);contract_log($id,$user,'issued',['sha256'=>$hash,'version'=>$row['version']]);
             }
         }

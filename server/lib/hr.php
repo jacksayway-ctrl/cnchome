@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__.'/holiday-pay.php';
+require_once __DIR__.'/test-identities.php';
 require_once __DIR__.'/pay-statements.php';
 function hr_today(): string { return (new DateTimeImmutable('now',new DateTimeZone('Asia/Seoul')))->format('Y-m-d'); }
 function hr_json(mixed $v): string { return json_encode($v,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR); }
@@ -130,12 +131,24 @@ function hr_mutate(array $user,array $in): ?int {
                 $employee=hr_int($in['employeeId']??null);$month=$in['month']??'';hr_assert($month===substr(hr_today(),0,7),'이번 달 급여만 작성할 수 있습니다.');
                 $q=$d->prepare('SELECT profile,user_id FROM hr_employees WHERE id=? FOR UPDATE');$q->execute([$employee]);$emp=$q->fetch();hr_assert((bool)$emp,'직원을 선택해 주세요.');$profile=json_decode($emp['profile'],true,512,JSON_THROW_ON_ERROR);
             }else{$employee=(int)$row['employee_id'];$month=$row['month'];$profile=json_decode($row['profile'],true,512,JSON_THROW_ON_ERROR);}
-            $calc=hr_calculate($profile,array_replace($in['calculation']??[],['month'=>$month]));$eventSnapshot=['calculation'=>$calc];
+            $input=array_replace($in['calculation']??[],['month'=>$month]);
+            if(isset($input['statementVersion'])){
+                require_once __DIR__.'/grade-ledger.php';$uid=(int)($row['user_id']??$emp['user_id']??0);
+                if($uid){$q=$d->prepare('SELECT id FROM app_users WHERE id=? FOR UPDATE');$q->execute([$uid]);}
+                $grade=grade_employee_context(['userId'=>$uid,'profile'=>$profile],$month);
+                $input=grade_payroll_input($input,$grade);
+            }
+            $calc=hr_calculate($profile,$input);$eventSnapshot=['calculation'=>$calc];
             if(!$row){$q=$d->prepare('INSERT INTO hr_payroll(employee_id,month,calculation) VALUES(?,?,?)');$q->execute([$employee,$month,hr_json($calc)]);$id=(int)$d->lastInsertId();}
             else {$q=$d->prepare("UPDATE hr_payroll SET calculation=?,status='draft',revision=revision+1 WHERE id=?");$q->execute([hr_json($calc),$id]);}
         }elseif($action==='publish'){
             hr_assert(!empty($row['user_id']),'먼저 직원 정보에 로그인 계정을 연결해 주세요.');$p=json_decode($row['profile'],true,512,JSON_THROW_ON_ERROR);
             $eventSnapshot=['name'=>$p['name'],'employeeNo'=>$row['employee_no'],'month'=>$row['month'],'calculation'=>json_decode($row['calculation'],true,512,JSON_THROW_ON_ERROR),'bank'=>$p['bank'],'accountNumber'=>$p['accountNumber'],'accountHolder'=>$p['accountHolder']];
+            if(isset($eventSnapshot['calculation']['gradeSnapshot'])){
+                require_once __DIR__.'/grade-ledger.php';$q=$d->prepare('SELECT id FROM app_users WHERE id=? FOR UPDATE');$q->execute([$row['user_id']]);
+                $latest=grade_employee_context(['userId'=>(int)$row['user_id'],'profile'=>$p],$row['month']);$saved=$eventSnapshot['calculation']['gradeSnapshot'];
+                foreach(['daily','weekly','monthly','dailyReceived'] as $key)hr_assert($latest[$key]===$saved[$key],'그레이드 실적·수령 내역이 변경됐습니다. 명세서를 다시 계산하여 저장한 뒤 게시해 주세요.');
+            }
             pay_statement_publish_check($eventSnapshot['calculation']);
             $q=$d->prepare("UPDATE hr_payroll SET status='published',published_snapshot=?,published_at=UTC_TIMESTAMP(6),revision=revision+1 WHERE id=?");$q->execute([hr_json($eventSnapshot),$id]);
         }elseif($action==='request'){

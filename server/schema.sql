@@ -229,3 +229,10 @@ CREATE TABLE IF NOT EXISTS hr_contract_approvals (
  FOREIGN KEY (contract_id) REFERENCES hr_contracts(id),
  FOREIGN KEY (actor_id) REFERENCES app_users(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- One-time fixtures stay deleted when the user later removes test data.
+CREATE TABLE IF NOT EXISTS test_fixture_batches (
+ batch VARCHAR(80) PRIMARY KEY,
+ manifest JSON NOT NULL,
+ created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

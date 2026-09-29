@@ -1,6 +1,6 @@
 (function(){
 'use strict';
-const live=window.CNCHOME_LIVE;if(live?.user.username!=='user1'||live.user.role!=='employee'||!window.HRWorkspace)return;
+const live=window.CNCHOME_LIVE;if(!/^user[1-6]$/.test(live?.user.username||'')||live.user.role!=='employee'||!window.HRWorkspace)return;
 const workspace=window.HRWorkspace,oldHandles=workspace.handles,oldRender=workspace.render,oldChrome=workspace.chrome;
 const pages=['home','sales','attendance','as'];let data=null,busy=false,error='';
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));

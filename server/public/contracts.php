@@ -35,10 +35,20 @@ try {
     $company=contract_company_row();$contracts=contract_list($user);
     if(!$selected&&$role==='employee'&&$contracts)$selected=$contracts[0];
     $employees=$role==='admin'?db()->query('SELECT id,employee_no,profile FROM hr_employees ORDER BY id')->fetchAll():[];
+    $filterTeam='';$filterEmployee=0;$filterProfile=null;
+    if($role==='admin'){
+        $filterTeam=is_string($_GET['team']??null)?$_GET['team']:'';hr_assert(in_array($filterTeam,['','insurance','cosmetics','health'],true),'부서를 확인해 주세요.');
+        $filterEmployee=isset($_GET['employeeId'])?contract_number($_GET['employeeId'],PHP_INT_MAX,'직원'):(int)($selected['employee_id']??0);
+        if($filterTeam)$employees=array_values(array_filter($employees,fn($e)=>json_decode($e['profile'],true,512,JSON_THROW_ON_ERROR)['team']===$filterTeam));
+        $match=null;foreach($employees as $e)if((int)$e['id']===$filterEmployee)$match=$e;
+        if(!$match)$filterEmployee=0;else $filterProfile=json_decode($match['profile'],true,512,JSON_THROW_ON_ERROR);
+        if($filterTeam||$filterEmployee){$ids=array_map(fn($e)=>(int)$e['id'],$employees);$contracts=array_values(array_filter($contracts,fn($c)=>in_array((int)$c['employee_id'],$ids,true)&&(!$filterEmployee||(int)$c['employee_id']===$filterEmployee)));}
+        if(!$id&&$filterEmployee)$selected=$contracts[0]??null;
+    }
     $events=[];
     if($selected){$q=db()->prepare('SELECT ce.event,ce.created_at,ce.snapshot,u.display_name FROM hr_contract_events ce JOIN app_users u ON u.id=ce.actor_id WHERE ce.contract_id=? ORDER BY ce.id DESC LIMIT 30');$q->execute([$selected['id']]);$events=$q->fetchAll();}
     $notice=$_SESSION['contract_notice']??'';unset($_SESSION['contract_notice']);
-    render_view('contracts',compact('user','role','selected','company','contracts','employees','events','error','notice','failedPost'));
+    render_view('contracts',compact('user','role','selected','company','contracts','employees','events','error','notice','failedPost','filterTeam','filterEmployee','filterProfile'));
 } catch(HRForbidden $e){http_response_code(403);render_view('error',['title'=>'처리 권한 없음','message'=>$e->getMessage(),'role'=>session_role()]);}
 catch(Throwable $e){
     error_log('cnchome contracts: '.$e->getMessage());http_response_code(503);

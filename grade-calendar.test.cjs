@@ -28,14 +28,14 @@ test('a midweek change uses the new policy on the effective date and combines it
   const changed={...defaults,weekly:{threshold:10,amount:30000}};
   const entries=[{date:'2026-09-30',policy:changed}];
   const result=calculate({month:'2026-10',records:spanning,entries}),w=result.weeks[0];
-  assert.deepEqual(w.segments.map(s=>[s.start,s.end,s.count,s.bonus]),[['2026-09-28','2026-09-29',7,10000],['2026-09-30','2026-10-02',18,30000]]);
-  assert.equal(result.weekly,40000);assert.equal(w.bonus,40000);assert.equal(w.payrollMonth,'2026-10');
+  assert.deepEqual(w.segments.map(s=>[s.start,s.end,s.count,s.bonus]),[['2026-09-28','2026-09-29',7,4000],['2026-09-30','2026-10-02',18,18000]]);
+  assert.equal(result.weekly,22000);assert.equal(w.bonus,22000);assert.equal(w.payrollMonth,'2026-10');
 });
-test('monthly changes evaluate only each effective period and sum basic pay and allowances',()=>{
+test('monthly changes qualify on the whole month then prorate each effective period',()=>{
   const changed={...defaults,monthly:{threshold:10,amount:40000,hourly:20000}};
   const result=calculate({month:'2026-09',records:[record('2026-09-15',12),record('2026-09-16',8)],entries:[{date:'2026-09-16',policy:changed}]});
-  assert.deepEqual(result.monthly.segments.map(s=>[s.count,s.hourly,s.bonus]),[[12,15000,20000],[8,20000,0]]);
-  assert.equal(result.base,210000);assert.equal(result.monthly.bonus,20000);assert.equal(result.salary,230000);
+  assert.deepEqual(result.monthly.segments.map(s=>[s.count,s.hourly,s.bonus]),[[12,15000,10000],[8,20000,20000]]);
+  assert.equal(result.base,210000);assert.equal(result.monthly.bonus,30000);assert.equal(result.salary,240000);
   assert.equal(result.total,result.salary+result.daily);
 });
 test('changing only a weekly table cannot reset or duplicate monthly performance',()=>{

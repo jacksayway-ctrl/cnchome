@@ -36,25 +36,30 @@
     const ledger=new Map();for(const record of records){validateRecord(record);if(hireDate&&record.date<hireDate)continue;if(ledger.has(record.date))throw Error('같은 날짜의 실적을 중복 입력할 수 없습니다.');ledger.set(record.date,record);}
     const history=entries.filter(e=>(e.department||'insurance')===department).map((e,index)=>{if(!validDate(e.date)||!e.policy)throw Error('기준 적용 시작일을 확인해 주세요.');return {...e,index};}).sort((a,b)=>a.date.localeCompare(b.date)||String(a.savedAt||'').localeCompare(String(b.savedAt||''))||a.index-b.index);
     const at=date=>history.filter(e=>e.date<=date).at(-1)?.policy||defaults;
-    function segments(dates,period){
-      const groups=[];
+    function segments(dates,period,denominator){
+      const periodRows=dates.map(date=>ledger.get(date)).filter(Boolean),periodCount=periodRows.reduce((n,r)=>n+r.count,0);
+      const allHours=periodRows.reduce((n,r)=>n+r.hours,0),generalHours=periodRows.filter(r=>isGeneral(r.role)).reduce((n,r)=>n+r.hours,0);
+      const roleShare=allHours?generalHours/allHours:periodRows.some(r=>isGeneral(r.role)&&r.count>0)?1:0;
+      const eligibleDays=dates.filter(date=>weekday(date)>0&&weekday(date)<6).length,groups=[];
       for(const date of dates){const policy=at(date),key=signature(policy,period),last=groups.at(-1);if(last?.key===key){last.end=date;last.dates.push(date);}else groups.push({start:date,end:date,dates:[date],policy,key});}
+      let runningAchievement=0,runningExtra=0,previousAchievement=0,previousExtra=0;
       return groups.map(group=>{
-        const rows=group.dates.map(date=>ledger.get(date)).filter(Boolean),count=rows.reduce((sum,r)=>sum+r.count,0),hours=rows.filter(r=>isGeneral(r.role)).reduce((sum,r)=>sum+r.hours,0),allHours=rows.reduce((sum,r)=>sum+r.hours,0);
-        const roleShare=allHours?hours/allHours:rows.some(r=>isGeneral(r.role)&&r.count>0)?1:0;
-        const days=group.dates.filter(date=>weekday(date)>0&&weekday(date)<6).length;
-        const calculated=evaluate(group.policy,period,count,hours,Math.max(1,days));
-        const achievement=Math.round((calculated.achievement||0)*roleShare),extra=Math.round((calculated.extra||0)*roleShare);
-        return {start:group.start,end:group.end,count,hours,days,roleShare,hourly:calculated.hourly||0,base:calculated.base||0,achievement,extra,bonus:achievement+extra};
+        const rows=group.dates.map(date=>ledger.get(date)).filter(Boolean),count=rows.reduce((sum,r)=>sum+r.count,0),hours=rows.filter(r=>isGeneral(r.role)).reduce((sum,r)=>sum+r.hours,0);
+        const days=group.dates.filter(date=>weekday(date)>0&&weekday(date)<6).length,ratio=days/denominator;
+        const calculated=evaluate(group.policy,period,periodCount,hours,Math.max(1,eligibleDays));
+        runningAchievement+=(calculated.achievement||0)*roleShare*ratio;runningExtra+=((calculated.achievement||0)+(calculated.extra||0))*roleShare*ratio;
+        const achievement=Math.round(runningAchievement)-previousAchievement,extra=Math.round(runningExtra)-previousExtra-achievement;
+        previousAchievement+=achievement;previousExtra+=achievement+extra;
+        return {start:group.start,end:group.end,count,periodCount,hours,days,ratio,roleShare,hourly:calculated.hourly||0,base:calculated.base||0,achievement,extra,bonus:achievement+extra};
       });
     }
-    const monthlyRows=[...ledger.values()].filter(r=>r.date.startsWith(month)),monthlySegments=segments(monthDates(month),'monthly');
+    const monthlyRows=[...ledger.values()].filter(r=>r.date.startsWith(month)),monthlySegments=segments(monthDates(month).filter(date=>!hireDate||date>=hireDate),'monthly',workdays(month).length);
     // Floor the combined basic pay only once; a table change does not round each segment.
     const base=Math.floor(monthlySegments.reduce((sum,s)=>sum+s.hours*s.hourly,0));
     const monthly={segments:monthlySegments,base,achievement:monthlySegments.reduce((sum,s)=>sum+s.achievement,0),extra:monthlySegments.reduce((sum,s)=>sum+s.extra,0)};
     monthly.bonus=monthly.achievement+monthly.extra;
     const weeks=[...new Set(workdays(month).map(date=>week(date).start))].map(start=>{
-      const info=week(start),eligibleDates=info.dates.filter(date=>!hireDate||date>=hireDate),availableDays=eligibleDates.length,employmentShare=availableDays/5,parts=segments(eligibleDates,'weekly').map(part=>{const achievement=Math.round(part.achievement*employmentShare),extra=Math.round(part.extra*employmentShare);return {...part,achievement,extra,bonus:achievement+extra};}),missing=eligibleDates.filter(date=>!ledger.has(date));
+      const info=week(start),eligibleDates=info.dates.filter(date=>!hireDate||date>=hireDate),availableDays=eligibleDates.length,employmentShare=availableDays/5,parts=segments(eligibleDates,'weekly',5),missing=eligibleDates.filter(date=>!ledger.has(date));
       const count=parts.reduce((sum,s)=>sum+s.count,0),bonus=parts.reduce((sum,s)=>sum+s.bonus,0),included=availableDays>0&&info.payrollMonth===month&&!missing.length;
       return {...info,segments:parts,count,average:availableDays?count/availableDays:0,availableDays,employmentShare,bonus,missing,included,carryover:info.payrollMonth>month,fromPreviousMonth:start.slice(0,7)<month};
     });

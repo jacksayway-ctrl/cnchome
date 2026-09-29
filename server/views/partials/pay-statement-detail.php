@@ -1,0 +1,31 @@
+<?php
+$c=$calculation;$name=$snapshot['name']??$employee['profile']['name']??'';$employeeNo=$snapshot['employeeNo']??$employee['employeeNo']??'';
+?>
+<section class="nf-card nf-pay-statement"><h2>씨앤씨 · <?= $eh($selected['month']) ?> 가지급명세서</h2>
+<p><strong><?= $eh($name) ?></strong> · 사번 <?= $eh($employeeNo) ?> · <?= $eh(pay_statement_status($selected['status'])) ?></p>
+<p>산정 기간 <?= $eh($c['periodStart']??$selected['month'].'-01') ?> ~ <?= $eh($c['periodEnd']??(new DateTimeImmutable($selected['month'].'-01'))->format('Y-m-t')) ?> · 지급일 <?= $eh($c['payday']??'기존 기록 미등록') ?></p>
+<div class="nf-totals" aria-label="지급 합계"><div><span>지급 합계</span><strong><?= native_money($c['gross']) ?></strong></div><div><span>공제 합계</span><strong><?= native_money($c['deductions']) ?></strong></div><div><span>일그레이드 선지급</span><strong><?= native_money($c['prepaidDaily']??0) ?></strong></div><div><span>실지급액</span><strong><?= native_money($c['net']) ?></strong></div></div>
+<table class="nf-table"><thead><tr><th>지급 항목</th><th>금액</th><th>계산 방법</th></tr></thead><tbody>
+<tr><th>기본급</th><td><?= native_money($c['base']) ?></td><td><?= $c['payType']==='월급제'?'계약 월급':native_money($c['baseRate']??$c['rate']).' × '.$eh($c['minutes']).'분 ÷ 60 (원 단위 반올림)' ?></td></tr>
+<?php if(isset($c['statementVersion'])&&$c['holidayInclusive']): ?>
+<tr><th>법정 주휴수당</th><td><?= native_money($c['statutoryHoliday']) ?></td><td>주별 산정 내역 합계<?= !$c['holidayAssessmentComplete']?' · 산정 확인 전':'' ?></td></tr>
+<tr><th>회사 약정수당</th><td><?= native_money($c['companySupport']) ?></td><td>각 주의 약정 주휴·지원 기준액에서 법정 주휴수당을 뺀 부족분 (최소 0원)</td></tr>
+<?php elseif(!empty($c['holidayInclusive'])): ?><tr><th>주휴·회사 지원 합계 (기존 기록)</th><td><?= native_money($c['holiday']) ?></td><td><?= native_money($c['holidayRate']) ?> × 인정시간. 기존 기록에 법정·지원 구분 없음</td></tr><?php endif ?>
+<?php foreach(pay_statement_items($c,'allowanceItems') as $item): ?><tr><th><?= $eh($item['label']) ?></th><td><?= native_money($item['amount']) ?></td><td><?= $eh($item['method']) ?></td></tr><?php endforeach ?>
+</tbody></table>
+<?php if($c['holidayInclusive']??false): ?><p>기본시급 <strong><?= native_money($c['baseRate']) ?></strong> + 주휴·회사 약정수당 환산 <strong><?= native_money($c['holidayRate']) ?></strong> = 약정 합산 <strong><?= native_money($c['rate']) ?>/시간</strong>. 법정수당이 이를 초과하면 초과액을 별도로 지급합니다.</p><?php endif ?>
+<?php if(isset($c['statementVersion'])): ?><p>연장근로 <?= $eh($c['overtimeMinutes']) ?>분 · 야간근로 <?= $eh($c['nightMinutes']) ?>분 · 휴일근로 <?= $eh($c['holidayWorkMinutes']) ?>분 (중복 시간은 각 항목에 표시)</p><?php endif ?>
+<table class="nf-table"><thead><tr><th>공제 항목</th><th>금액</th><th>계산 방법·근거</th></tr></thead><tbody><?php foreach(pay_statement_items($c,'deductionItems') as $item): ?><tr><th><?= $eh($item['label']) ?></th><td><?= native_money($item['amount']) ?></td><td><?= $eh($item['method']) ?></td></tr><?php endforeach ?><?php if(!$c['deductions']): ?><tr><th>공제 없음</th><td>0원</td><td>—</td></tr><?php endif ?></tbody></table>
+<?php if($c['weeklyBreakdown']??[]): ?><h3>주별 기본급·주휴·지원 내역</h3><div class="nf-table-wrap"><table class="nf-table"><thead><tr><th>주 시작일</th><th>시간 (분)</th><th>기본급</th><th>법정 주휴</th><th>회사 약정</th><th>주 합계</th><th>주휴 산정 근거</th></tr></thead><tbody><?php foreach($c['weeklyBreakdown'] as $w): ?><tr><th><?= $eh($w['weekStart']) ?></th><td><?= $eh($w['minutes']) ?></td><td><?= native_money($w['base']) ?></td><td><?= array_key_exists('statutoryHoliday',$w)?($w['statutoryHoliday']===null?'미확인':native_money($w['statutoryHoliday'])):'미구분' ?></td><td><?= isset($w['companySupport'])?native_money($w['companySupport']):'미구분' ?></td><td><?= native_money($w['gross']) ?></td><td><?= $eh($w['statutoryMethod']??'기존 주휴·지원 합계 '.native_money($w['holiday'])) ?></td></tr><?php endforeach ?></tbody></table></div><?php endif ?>
+<?php require view_root().'/partials/pay-grade-detail.php'; ?>
+<?php if($c['note']): ?><p>산정 메모: <?= nl2br($eh($c['note'])) ?></p><?php endif ?>
+<?php $payee=$snapshot??$employee['profile'];$bankLine=implode(' / ',array_filter([$payee['bank']??'',$payee['accountNumber']??'',$payee['accountHolder']??'']));if($bankLine): ?><p>지급 계좌: <?= $eh($bankLine) ?></p><?php endif ?>
+<p class="nf-muted">확인은 명세서 수령·내용 확인 상태입니다. 실제 이체 완료, 임금청구권 포기 또는 계산 내용에 대한 법적 적합성 확인을 뜻하지 않습니다.</p>
+<div class="nf-actions nf-no-print"><button type="button" data-print>인쇄·PDF 저장</button>
+<?php if($admin&&hr_can_change($selected,'savePayroll',true,hr_today())): ?><a href="<?= $eh($url.'&id='.$selected['id'].'&edit=1') ?>">수정</a><?php endif ?>
+<?php if($admin&&hr_can_change($selected,'publish',true,hr_today())): ?><form method="post" action="<?= $eh($url.'&id='.$selected['id']) ?>"><?= native_csrf() ?><input type="hidden" name="action" value="publish"><input type="hidden" name="id" value="<?= $selected['id'] ?>"><input type="hidden" name="revision" value="<?= $selected['revision'] ?>"><button>직원에게 게시</button></form><?php endif ?></div>
+<?php if(!$admin&&hr_can_change($selected,'confirm',false,hr_today())): ?>
+<form method="post" class="nf-card nf-no-print" action="<?= $eh($url.'&id='.$selected['id']) ?>"><?= native_csrf() ?><input type="hidden" name="id" value="<?= $selected['id'] ?>"><input type="hidden" name="revision" value="<?= $selected['revision'] ?>"><label><input type="checkbox" name="reviewed" value="1"> 명세서를 수령하고 내용을 확인했습니다.</label><div class="nf-actions"><button name="action" value="confirm">내용 확인</button></div><label class="nf-field">수정 요청 사유<textarea name="note" maxlength="1000" rows="2"></textarea></label><button name="action" value="request">수정 요청</button></form>
+<?php endif ?>
+<?php if($selected['events']??[]): ?><details class="nf-no-print"><summary>처리·이전 게시 기록</summary><table class="nf-table"><thead><tr><th>처리 시각 (한국)</th><th>처리</th><th>메모</th><th>당시 게시·산정액</th></tr></thead><tbody><?php foreach($selected['events'] as $event): $when=(new DateTimeImmutable($event['created_at'],new DateTimeZone('UTC')))->setTimezone(new DateTimeZone('Asia/Seoul'))->format('Y-m-d H:i'); ?><tr><td><?= $eh($when) ?></td><td><?= $eh(['savePayroll'=>'산정 저장','publish'=>'게시','request'=>'수정 요청','confirm'=>'직원 확인'][$event['event']]??$event['event']) ?></td><td><?= $eh($event['note']) ?></td><td><?= isset($event['snapshot']['calculation']['net'])?native_money($event['snapshot']['calculation']['net']):'—' ?></td></tr><?php endforeach ?></tbody></table></details><?php endif ?>
+</section>

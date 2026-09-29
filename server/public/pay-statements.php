@@ -3,6 +3,7 @@ declare(strict_types=1);
 require __DIR__.'/_runtime.php';
 require_once CNC_RUNTIME_DIR.'/hr.php';
 require_once CNC_RUNTIME_DIR.'/pay-statements.php';
+require_once CNC_RUNTIME_DIR.'/grade-ledger.php';
 require_once CNC_RUNTIME_DIR.'/native.php';
 session_boot();$user=current_user();
 if(!$user){header('Location: /login.php?role='.session_role());exit;}

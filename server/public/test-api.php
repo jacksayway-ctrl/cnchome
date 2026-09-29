@@ -6,7 +6,7 @@ function test_reply(int $status,array $body): never {http_response_code($status)
 try{
  session_boot();$u=current_user();
  if(!$u)test_reply(401,['error'=>'다시 로그인해 주세요.']);
- if($u['username']!=='user1'||$u['role']!=='employee'||$u['display_name']!=='테스트 직원')test_reply(403,['error'=>'테스트 직원 전용입니다.']);
+ if(!cnc_test_user($u))test_reply(403,['error'=>'테스트 직원 전용입니다.']);
  $d=db();$d->beginTransaction();$q=$d->prepare('SELECT state,revision FROM test_employee_data WHERE user_id=? FOR UPDATE');$q->execute([$u['id']]);$r=$q->fetch();
  if(!$r){$d->rollBack();test_reply(404,['error'=>'테스트 자료 준비 중입니다.']);}
  $state=json_decode($r['state'],true,512,JSON_THROW_ON_ERROR);

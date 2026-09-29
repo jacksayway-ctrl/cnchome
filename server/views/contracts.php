@@ -3,7 +3,11 @@
 $failedPost=$failedPost??[];$failedAction=is_string($failedPost['action']??null)?$failedPost['action']:'';
 $companyValues=$company['settings'];$companyRevision=$company['revision'];
 if($failedAction==='saveCompany'&&is_array($failedPost['company']??null)){$companyValues=contract_restore_form(array_replace(contract_company_defaults(),$companyValues),$failedPost['company']);$companyRevision=is_scalar($failedPost['revision']??null)?(string)$failedPost['revision']:'0';}
-native_start('근로계약서',$user,$role==='admin'?'adminContracts':'contracts');
+$filterTeam=$filterTeam??'';$filterEmployee=$filterEmployee??0;$filterProfile=$filterProfile??null;$selector='';
+if($role==='admin'){
+    ob_start(); ?><form method="get" action="/contracts.php" class="contract-selector nf-no-print" data-contract-filter><input type="hidden" name="role" value="admin"><label>부서 <select name="team"><option value="">전체 부서</option><?php foreach(['insurance'=>'보험','cosmetics'=>'화장품','health'=>'건강식품'] as $key=>$label): ?><option value="<?= $key ?>" <?= $filterTeam===$key?'selected':'' ?>><?= $label ?></option><?php endforeach ?></select></label><label>직원 <select name="employeeId"><option value="0">전체 직원</option><?php foreach($employees as $e): $p=json_decode($e['profile'],true); ?><option value="<?= (int)$e['id'] ?>" <?= $filterEmployee===(int)$e['id']?'selected':'' ?>><?= view_h($p['name'].' · '.$e['employee_no']) ?></option><?php endforeach ?></select></label><button>불러오기</button></form><?php $selector=ob_get_clean();
+}
+native_start('근로계약서',$user,$role==='admin'?'adminContracts':'contracts',[],false,$selector);
 function contract_form_field(array $values,string $prefix,string $key,string $label,int $max,string $type='text'): void {
     echo '<label class="contract-field"><span>'.view_h($label).'</span><input type="'.view_h($type).'" name="'.view_h($prefix.'['.$key.']').'" value="'.view_h((string)($values[$key]??'')).'" maxlength="'.$max.'"'.($type==='number'?' min="0" max="1000000" step="1"':'').'></label>';
 }
@@ -31,6 +35,7 @@ function contract_payment_fields(array $values,string $prefix): void {
 <link rel="stylesheet" href="<?= view_h(asset_url('contract.css')) ?>">
 <?php if($error): ?><p class="contract-alert" role="alert"><?= view_h($error) ?></p><?php endif; ?>
 <?php if($notice): ?><p class="contract-notice" role="status"><?= view_h($notice) ?></p><?php endif; ?>
+<?php if($filterProfile): ?><p class="contract-selection-info"><strong><?= view_h($filterProfile['name']) ?></strong> · <?= view_h(department_label($filterProfile['team'])) ?> · <?= view_h($filterProfile['role']) ?> · 입사 <?= view_h($filterProfile['startDate']) ?> · 급여일 <?= view_h($filterProfile['payday']?:'15') ?>일</p><?php endif ?>
 <p class="contract-description">관리자 발급 → 직원 내용 승인 → 관리자 최종 적용 순서로 진행합니다. 승인 기록과 계약서 사본을 보관하며, 당사자 서명은 별도로 확인합니다.</p>
 <?php if($role==='admin'): ?>
 <details class="contract-panel" <?= !$company['revision']||$failedAction==='saveCompany'?'open':'' ?>><summary>회사 정보 · 계약 기본 서식</summary>
@@ -39,7 +44,7 @@ function contract_payment_fields(array $values,string $prefix): void {
 <div class="contract-form-grid"><?php contract_company_fields($companyValues,'company');contract_payment_fields($companyValues,'company'); ?></div>
 <label class="contract-field"><span>추가 약정 기본 내용 (300자 이내)</span><textarea name="company[extraTerms]" maxlength="300" rows="3"><?= view_h($companyValues['extraTerms']) ?></textarea></label>
 <button type="submit">회사 기본 서식 저장</button></form></details>
-<section class="contract-panel"><h2>직원별 계약 작성</h2><form method="post" action="/contracts.php?role=admin" class="contract-create" data-contract-period-form><?= native_csrf() ?><input type="hidden" name="action" value="create"><label>직원 선택 <select name="employeeId" required><option value="">직원 선택</option><?php foreach($employees as $employee): $p=json_decode($employee['profile'],true,512,JSON_THROW_ON_ERROR); ?><option value="<?= (int)$employee['id'] ?>"><?= view_h($p['name'].' · '.$employee['employee_no'].' · '.$p['payType']) ?></option><?php endforeach; ?></select></label><?php contract_period_fields([], ''); ?><button type="submit">새 계약 초안 만들기</button></form><p class="contract-hint">시급제 계약 서식입니다. 회사·직원 정보, 근무시간, 보험 적용 여부를 확인한 후 발행하세요. 발행 후에는 개정 초안으로만 변경합니다.</p></section>
+<section class="contract-panel"><h2>직원별 계약 작성</h2><form method="post" action="/contracts.php?role=admin" class="contract-create" data-contract-period-form><?= native_csrf() ?><input type="hidden" name="action" value="create"><label>직원 선택 <select name="employeeId" required><option value="">직원 선택</option><?php foreach($employees as $employee): $p=json_decode($employee['profile'],true,512,JSON_THROW_ON_ERROR); ?><option value="<?= (int)$employee['id'] ?>" <?= $filterEmployee===(int)$employee['id']?'selected':'' ?>><?= view_h($p['name'].' · '.$employee['employee_no'].' · '.$p['payType']) ?></option><?php endforeach; ?></select></label><?php contract_period_fields([], ''); ?><button type="submit">새 계약 초안 만들기</button></form><p class="contract-hint">시급제 계약 서식입니다. 회사·직원 정보, 근무시간, 보험 적용 여부를 확인한 후 발행하세요. 발행 후에는 개정 초안으로만 변경합니다.</p></section>
 <?php endif; ?>
 <section class="contract-panel"><h2><?= $role==='admin'?'계약 관리 목록':'내 근로계약서' ?></h2>
 <?php if(!$contracts): ?><p>아직 <?= $role==='admin'?'작성한':'발행된' ?> 계약서가 없습니다.</p><?php else: ?>

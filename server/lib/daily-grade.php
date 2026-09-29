@@ -13,6 +13,8 @@ function daily_grade_confirm(array $user,array $in): void {
         $q=$d->prepare('SELECT id FROM app_users WHERE id=? FOR UPDATE');$q->execute([$user['id']]);
         $q=$d->prepare('SELECT amount FROM daily_grade_receipts WHERE employee_id=? AND performance_date=? AND milestone=?');$q->execute([$user['id'],$date,$milestone]);
         if($q->fetchColumn()!==false){$d->commit();return;}
+        $q=$d->prepare("SELECT p.published_snapshot FROM hr_payroll p JOIN hr_employees e ON e.id=p.employee_id WHERE e.user_id=? AND p.month=? AND p.status IN ('published','confirmed') FOR UPDATE");$q->execute([$user['id'],substr($date,0,7)]);
+        if($raw=$q->fetchColumn()){$published=json_decode($raw,true,512,JSON_THROW_ON_ERROR);$grade=$published['calculation']['gradeSnapshot']??null;hr_assert(!$grade||$date>($grade['asOf']??''),'이 날짜의 일그레이드는 게시된 급여에 반영되어 있습니다. 별도 지급하려면 먼저 명세서 수정을 요청해 주세요.');}
         $summary=grade_summary_snapshot($user,$date);$daily=$summary['daily'];
         hr_assert($daily['eligible']&&$daily['target']!==null,'일 그레이드 지급 대상을 확인해 주세요.');
         hr_assert($milestone>=$daily['target']&&$milestone<=$daily['count'],'본인이 달성한 건수만 수령 확인할 수 있습니다.');

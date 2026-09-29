@@ -8,7 +8,7 @@ function sales_kind(int $birthYear, string $date): string {
     return $age<=60?'general':'silver';
 }
 function sales_month(string $month): bool {return (bool)preg_match('/^\d{4}-(0[1-9]|1[0-2])$/D',$month);}
-function sales_test_user(array $user): bool {return ($user['username']??'')==='user1'&&($user['display_name']??'')==='테스트 직원';}
+function sales_test_user(array $user): bool {return cnc_test_user($user);}
 function sales_snapshot(array $user,string $month): array {
     hr_assert(sales_month($month),'조회할 월을 확인해 주세요.');
     $admin=$user['role']==='admin';$d=db();

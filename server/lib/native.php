@@ -11,7 +11,7 @@ function native_url(string $page,string $role): string {
 }
 function native_csrf(): string {return '<input type="hidden" name="csrf" value="'.view_h((string)($_SESSION['csrf']??'')).'">';}
 function native_money(int|float $amount): string {return number_format($amount).'원';}
-function native_start(string $title,array $user,string $active,array $extraStyles=[],bool $popup=false): void {
+function native_start(string $title,array $user,string $active,array $extraStyles=[],bool $popup=false,string $headingExtra=''): void {
     $role=$user['role']==='admin'?'admin':'employee';$nav=app_navigation();
     header("Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'");
     header('Content-Type: text/html; charset=utf-8');
@@ -38,6 +38,6 @@ function native_start(string $title,array $user,string $active,array $extraStyle
         if($selectedGroup['items'][0][0]==='adminPayroll')echo '<a href="/payroll.php?role=admin">급여 계산 검토 <span class="ui-icon ui-icon-external" aria-hidden="true"></span></a>';
         echo '</nav></section>';
     }
-    echo '<div class="nf-page-heading"><h1>'.view_h($title).'</h1><span>'.(new DateTimeImmutable('now',new DateTimeZone('Asia/Seoul')))->format('Y.m.d').'</span></div>';
+    echo '<div class="nf-page-heading"><h1>'.view_h($title).'</h1>'.$headingExtra.'<span>'.(new DateTimeImmutable('now',new DateTimeZone('Asia/Seoul')))->format('Y.m.d').'</span></div>';
 }
 function native_end(): void {echo '</main></div><script src="'.view_h(asset_url('native-ui.js')).'" defer></script></body></html>';}

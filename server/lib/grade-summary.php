@@ -57,7 +57,7 @@ function grade_summary_snapshot(array $user,?string $today=null): array {
         $q=$d->prepare('SELECT profile FROM hr_employees WHERE user_id=?');$q->execute([$user['id']]);$raw=$q->fetchColumn();$profile=$raw?json_decode($raw,true,512,JSON_THROW_ON_ERROR):[];
         $q=$d->prepare('SELECT policy,effective_date FROM grade_versions WHERE department=? AND effective_date<=? ORDER BY effective_date DESC,id DESC LIMIT 1');$q->execute([$user['department'],$today]);$entry=$q->fetch();$policy=$entry?json_decode($entry['policy'],true,512,JSON_THROW_ON_ERROR):null;
         $date=new DateTimeImmutable($today);$week=$date->modify('-'.((int)$date->format('N')-1).' days')->format('Y-m-d');$from=min(substr($today,0,7).'-01',$week);
-        $test=($user['username']??'')==='user1'&&($user['display_name']??'')==='테스트 직원';
+        $test=cnc_test_user($user);
         $q=$d->prepare("SELECT first_date,COUNT(*) AS amount FROM sales_records WHERE employee_id=? AND department=? AND status='normal' AND is_test=? AND first_date>=? AND first_date<=? GROUP BY first_date");$q->execute([$user['id'],$user['department'],$test?1:0,$from,$today]);$counts=[];
         foreach($q->fetchAll() as $row)$counts[$row['first_date']]=(int)$row['amount'];
         if($test){$q=$d->prepare('SELECT state FROM test_employee_data WHERE user_id=?');$q->execute([$user['id']]);$raw=$q->fetchColumn();if($raw){$state=json_decode($raw,true,512,JSON_THROW_ON_ERROR);foreach($state['sales']??[] as $sale)if($sale['status']==='정상'&&$sale['date']>=$from&&$sale['date']<=$today)$counts[$sale['date']]=($counts[$sale['date']]??0)+1;}}

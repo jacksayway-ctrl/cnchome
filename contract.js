@@ -24,3 +24,4 @@ document.querySelectorAll('[data-contract-period-form]').forEach(form=>{
  }
  form.addEventListener('change',event=>{if(event.target===preset||event.target===start||event.target.name==='employeeId'||event.target.name.endsWith('[working]'))update();});end.readOnly=preset.value!=='custom';
 });
+document.querySelector('[data-contract-filter]')?.addEventListener('change',event=>{const form=event.currentTarget;if(event.target.name==='team')form.elements.employeeId.value='0';form.requestSubmit();});

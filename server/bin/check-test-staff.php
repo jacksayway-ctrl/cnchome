@@ -1,0 +1,37 @@
+<?php
+// Synthetic, in-memory database verifies one-time fixtures and their financial records.
+declare(strict_types=1);
+require_once __DIR__.'/../lib/test-staff-fixtures.php';
+class FixtureDB extends PDO {
+ public function prepare(string $sql,array $options=[]): PDOStatement|false{return parent::prepare(str_replace(' FOR UPDATE','',$sql),$options);}
+}
+function db(): PDO {static $d;if(!$d){$d=new FixtureDB('sqlite::memory:',null,null,[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION,PDO::ATTR_DEFAULT_FETCH_MODE=>PDO::FETCH_ASSOC]);$d->sqliteCreateFunction('UTC_TIMESTAMP',fn($p=0)=>gmdate('Y-m-d H:i:s'));}return $d;}
+function fixture_check(bool $ok,string $message): void {if(!$ok)throw new RuntimeException($message);}
+$d=db();$d->exec("PRAGMA foreign_keys=ON;
+CREATE TABLE app_users(id INTEGER PRIMARY KEY AUTOINCREMENT,username TEXT UNIQUE,display_name TEXT,password_hash TEXT,role TEXT,department TEXT,active INTEGER DEFAULT 1);
+CREATE TABLE hr_employees(id INTEGER PRIMARY KEY AUTOINCREMENT,employee_no TEXT UNIQUE,user_id INTEGER REFERENCES app_users(id),profile TEXT,revision INTEGER DEFAULT 1);
+CREATE TABLE test_employee_data(user_id INTEGER PRIMARY KEY REFERENCES app_users(id),state TEXT,revision INTEGER DEFAULT 1);
+CREATE TABLE test_fixture_batches(batch TEXT PRIMARY KEY,manifest TEXT);
+CREATE TABLE grade_versions(id INTEGER PRIMARY KEY AUTOINCREMENT,department TEXT,effective_date TEXT,saved_at TEXT DEFAULT CURRENT_TIMESTAMP,policy TEXT);
+CREATE TABLE daily_grade_receipts(employee_id INTEGER REFERENCES app_users(id),performance_date TEXT,milestone INTEGER,amount INTEGER,department TEXT,confirmed_at TEXT DEFAULT CURRENT_TIMESTAMP,PRIMARY KEY(employee_id,performance_date,milestone));
+CREATE TABLE sales_records(id INTEGER PRIMARY KEY,employee_id INTEGER,department TEXT,is_test INTEGER,first_date TEXT,status TEXT);
+CREATE TABLE hr_payroll(id INTEGER PRIMARY KEY AUTOINCREMENT,employee_id INTEGER REFERENCES hr_employees(id),month TEXT,status TEXT DEFAULT 'draft',calculation TEXT,published_snapshot TEXT,published_at TEXT,confirmed_at TEXT,revision INTEGER DEFAULT 1,UNIQUE(employee_id,month));
+CREATE TABLE hr_payroll_events(id INTEGER PRIMARY KEY AUTOINCREMENT,payroll_id INTEGER REFERENCES hr_payroll(id),actor_id INTEGER REFERENCES app_users(id),event TEXT,note TEXT,snapshot TEXT,created_at TEXT DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE hr_contracts(id INTEGER PRIMARY KEY AUTOINCREMENT,employee_id INTEGER REFERENCES hr_employees(id),recipient_user_id INTEGER REFERENCES app_users(id),version INTEGER,revision INTEGER DEFAULT 1,status TEXT DEFAULT 'draft',terms TEXT,issued_snapshot TEXT,content_hash TEXT,created_by INTEGER REFERENCES app_users(id),received_by INTEGER,created_at TEXT DEFAULT CURRENT_TIMESTAMP,issued_at TEXT,received_at TEXT,UNIQUE(employee_id,version));
+CREATE TABLE hr_contract_events(id INTEGER PRIMARY KEY AUTOINCREMENT,contract_id INTEGER REFERENCES hr_contracts(id),actor_id INTEGER REFERENCES app_users(id),event TEXT,snapshot TEXT,created_at TEXT DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE hr_contract_approvals(contract_id INTEGER PRIMARY KEY,state TEXT,actor_id INTEGER,reason TEXT,updated_at TEXT);
+INSERT INTO app_users(username,display_name,role,department) VALUES('admin','테스트 관리자','admin','insurance');");
+$policy=grade_zero_policy();$policy['dailyCash']=['start'=>6,'perCase'=>5000];$policy['weekly'][0]['achievement']=30000;$policy['monthly'][0]['achievement']=40000;
+$d->prepare('INSERT INTO grade_versions(department,effective_date,policy) VALUES(?,?,?)')->execute(['insurance','2000-01-01',hr_json($policy)]);
+$result=seed_five_test_staff();fixture_check(!$result['existing']&&count($result['manifest'])===5,'exactly five new employees');
+foreach($result['manifest'] as $entry){
+ $q=$d->prepare('SELECT * FROM app_users WHERE id=?');$q->execute([$entry['userId']]);$user=$q->fetch();fixture_check(cnc_test_user($user)&&password_verify('1234',$user['password_hash']),'test login identity');
+ $state=hr_snapshot($user);fixture_check(count($state['employees'])===1&&count($state['payroll'])===1,'employee payroll and profile scope');$c=$state['payroll'][0]['calculation'];
+ fixture_check(isset($c['gradeSnapshot'])&&$c['net']===$c['gross']-$c['deductions']-$c['prepaidDaily'],'payroll includes grades less advances');
+ $contracts=contract_list($user);fixture_check(count($contracts)===1&&$contracts[0]['id']===$entry['contractId']&&$contracts[0]['issued_snapshot']['formatVersion']===2,'own issued contract only');
+ fixture_check(contract_workflow_state($contracts[0])==='pending'&&!$contracts[0]['received_by'],'no fabricated employee approval');
+ $input=['action'=>'savePayroll','id'=>$entry['payrollId'],'revision'=>1,'calculation'=>$c];try{hr_mutate($user,$input);throw new RuntimeException('Employee payroll mutation allowed');}catch(HRForbidden $e){}
+}
+$before=$d->query('SELECT id,published_snapshot,calculation FROM hr_payroll ORDER BY id')->fetchAll();$again=seed_five_test_staff();fixture_check($again['existing']&&$before===$d->query('SELECT id,published_snapshot,calculation FROM hr_payroll ORDER BY id')->fetchAll(),'rerunning preserves all saved statements');
+$d->prepare('DELETE FROM test_employee_data WHERE user_id=?')->execute([$result['manifest'][0]['userId']]);seed_five_test_staff();fixture_check((int)$d->query('SELECT COUNT(*) FROM test_employee_data')->fetchColumn()===4,'deleted test data never reappears on deployment');
+echo "PASS: five test employees, scoped accounts/profile/payroll/contracts, no forged approvals, advance net totals and idempotent deletion-preserving fixtures.\n";
