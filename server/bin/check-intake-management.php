@@ -109,3 +109,37 @@ $d->prepare('UPDATE sales_events SET created_at=? WHERE sale_id=? AND old_status
 check(intake_recall_queue($admin,$recallFilters)===[]&&!isset(intake_outstanding_recalls([$recallId])[$recallId]),'original sales status handling closes recall after status is reopened');
 rejects(fn()=>intake_update($admin,['id'=>$recallId,'revision'=>$externalRevision+2,'action'=>'status','status'=>'normal','recallEventId'=>$externalRequest]),'old recall cannot be approved after original sales screen handling');
 echo "PASS: all-month recall queue, scoped access, append-only memos, latest-request guards, approval/hold behavior, original-date preservation, escaped rendering and shared employee waiting state.\n";
+
+// Both regions screens share this feed, but employee reads must never broaden to another owner.
+require __DIR__.'/../lib/pending-intakes.php';
+$oldPendingDate=(new DateTimeImmutable($month.'-01'))->modify('-14 months')->format('Y-m-d');
+$d->prepare('UPDATE sales_records SET first_date=?,note=? WHERE id=?')->execute([$oldPendingDate,'기존 상담 메모',$legacyId]);
+intake_audit((string)$legacyId,$one,'memo',[],[],'이어 쓴 상담 메모');
+intake_audit((string)$legacyId,$one,'recall',['status'=>'pending'],['status'=>'pending','carrier'=>'GA','date'=>$oldPendingDate],'재콜 확인 요청');
+$testState=json_decode($d->query('SELECT state FROM test_employee_data WHERE user_id=4')->fetchColumn(),true,512,JSON_THROW_ON_ERROR);
+$testState['sales'][]=['id'=>42,'date'=>$oldPendingDate,'name'=>'이전 월 테스트 가접수','status'=>'가접수','carrier'=>'한화','kind'=>'일반','birthDate'=>'1990-03-23','consultationTime'=>'15:20','consultationPlace'=>'경기도 이천시','premiumBand'=>'200000','note'=>'테스트 기존 메모'];
+$testState['sales'][]=['id'=>43,'date'=>$today,'name'=>'정상 테스트 제외','status'=>'정상','carrier'=>'GA','kind'=>'일반'];
+$d->prepare('UPDATE test_employee_data SET state=? WHERE user_id=4')->execute([hr_json($testState)]);
+intake_audit('test:4:42',$testUser,'memo',[],[],'테스트 추가 메모');
+sales_mutate($testUser,array_replace($create,['requestKey'=>'90909090-aaaa-bbbb-cccc-000000000001','customer'=>'실제 테이블 테스트 가접수']));
+$onePending=pending_intake_snapshot($one)['records'];$twoPending=pending_intake_snapshot($two)['records'];$testPending=pending_intake_snapshot($testUser)['records'];$allPending=pending_intake_snapshot($admin)['records'];
+check($onePending!==[]&&array_values(array_unique(array_column($onePending,'employeeId'))) === [2],'employee regions feed includes only own real pending records');
+check($twoPending!==[]&&array_values(array_unique(array_column($twoPending,'employeeId'))) === [3],'second employee cannot read first employee or test pending records');
+check($testPending!==[]&&array_values(array_unique(array_column($testPending,'employeeId'))) === [4]&&count(array_filter($testPending,fn($r)=>$r['isTest']))===count($testPending),'test employee reads own legacy and real-table test records only');
+$oneById=array_column($onePending,null,'id');$allById=array_column($allPending,null,'id');$testById=array_column($testPending,null,'id');
+check(isset($oneById[$legacyId])&&$oneById[$legacyId]['date']===$oldPendingDate&&$oneById[$legacyId]['note']==='기존 상담 메모','old pending records remain visible across year and month boundaries without changing notes');
+check(array_column($oneById[$legacyId]['memoHistory'],'memo')===['이어 쓴 상담 메모','재콜 확인 요청']&&$oneById[$legacyId]['recallPending']===true,'employee pending feed preserves append-only history and outstanding recall status');
+check(isset($testById['test:4:42'])&&!isset($testById['test:4:43'])&&$testById['test:4:42']['birthDate']==='1990-03-23'&&$testById['test:4:42']['consultationPlace']==='경기도 이천시','legacy test pending includes full consultation details and excludes completed statuses');
+check(array_column($testById['test:4:42']['memoHistory'],'memo')===['테스트 추가 메모']&&!isset($oneById['test:4:42']),'test memo history cannot leak into another employee feed');
+$owners=array_values(array_unique(array_column($allPending,'employeeId')));sort($owners);
+check($owners===[2,3,4]&&count($allPending)===count($onePending)+count($twoPending)+count($testPending),'administrator regions feed contains every employee pending record once');
+check($allById[$legacyId]===$oneById[$legacyId]&&$allById['test:4:42']===$testById['test:4:42'],'administrator and employee pending rows use identical details, memo history and recall state');
+check($allById['test:4:42']['employee']==='테스트 직원'&&$allById['test:4:42']['team']==='insurance'&&$allById['test:4:42']['isTest']===true,'administrator receives owner, department and explicit test classification for filters');
+check(!isset($allById['1'])&&count(array_filter($allPending,fn($r)=>$r['status']!=='pending'))===0,'administrator pending feed excludes A/S and normal records');
+$d->exec("INSERT INTO app_users VALUES(5,'empty','접수 없는 직원','employee','insurance',1)");
+check(pending_intake_snapshot(['id'=>5,'role'=>'employee'])===['records'=>[]],'employee with no pending records receives an empty feed');
+$forbidden=function(callable $fn,string $message):void{try{$fn();}catch(HRForbidden $e){return;}throw new RuntimeException($message);};
+$forbidden(fn()=>pending_intake_snapshot(['id'=>2,'role'=>'manager']),'unknown role must receive forbidden pending access');
+$forbidden(fn()=>pending_intake_authorize($admin,true),'administrator must not use employee memo or recall write endpoint');
+pending_intake_authorize($one,true);pending_intake_authorize($admin);
+echo "PASS: administrator all-month pending feed, employee ownership isolation, complete test/real row metadata, scoped memo history, recall parity, empty results and employee-only write authorization.\n";

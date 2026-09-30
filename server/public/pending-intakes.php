@@ -1,10 +1,11 @@
 <?php
 declare(strict_types=1);
-require __DIR__.'/_runtime.php';require_once CNC_RUNTIME_DIR.'/intake-management.php';
+require __DIR__.'/_runtime.php';require_once CNC_RUNTIME_DIR.'/pending-intakes.php';
 header('Content-Type: application/json; charset=utf-8');
 try{
-session_boot();$user=current_user();if(!$user){http_response_code(401);echo '{}';exit;}hr_assert($user['role']==='employee','직원 본인 가접수 전용입니다.');$d=db();
+session_boot();$user=current_user();if(!$user){http_response_code(401);echo '{}';exit;}pending_intake_authorize($user);$d=db();
 if($_SERVER['REQUEST_METHOD']==='POST'){
+ pending_intake_authorize($user,true);
  if(!csrf_ok($_SERVER['HTTP_X_CSRF_TOKEN']??''))throw new HRForbidden('새로고침 후 다시 요청해 주세요.');
  $in=json_decode(file_get_contents('php://input',false,null,0,4096),true,16,JSON_THROW_ON_ERROR);$id=intake_text($in['id']??'',60);$memo=intake_text($in['memo']??'',500);$carrier=intake_text($in['carrier']??'',100);$action=intake_text($in['action']??'recall',10);hr_assert(in_array($action,['memo','recall'],true),'지원하지 않는 작업입니다.');hr_assert($memo!==''&&($action==='memo'||$carrier!==''),'메모와 접수 가능한 코드를 확인해 주세요.');$revision=intake_number($in['revision']??0);
  $d->beginTransaction();
@@ -17,10 +18,5 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
  }
  intake_audit($id,$user,$action,['status'=>'pending'],['status'=>'pending','carrier'=>$carrier,'date'=>$date],$memo);$d->commit();
 }elseif($_SERVER['REQUEST_METHOD']!=='GET'){http_response_code(405);exit;}
-$q=$d->prepare("SELECT DISTINCT DATE_FORMAT(first_date,'%Y-%m') FROM sales_records WHERE employee_id=? AND status='pending'");$q->execute([$user['id']]);$months=$q->fetchAll(PDO::FETCH_COLUMN);$q=$d->prepare('SELECT state FROM test_employee_data WHERE user_id=?');$q->execute([$user['id']]);$state=json_decode($q->fetchColumn()?:'{}',true);foreach($state['sales']??[] as $s)if($s['status']==='가접수')$months[]=substr($s['date'],0,7);
-$rows=[];foreach(array_unique($months) as $month)foreach(sales_snapshot($user,$month)['records'] as $r)if($r['status']==='pending')$rows[$r['id']]=$r;
-$q=$d->prepare("SELECT e.record_key,e.action,e.reason,e.created_at,u.display_name AS actor FROM intake_management_events e JOIN app_users u ON u.id=e.actor_id WHERE e.action IN ('memo','recall','status','hold') AND (e.actor_id=? OR e.record_key IN (SELECT CONCAT(id,'') FROM sales_records WHERE employee_id=?) OR e.record_key LIKE ?) ORDER BY e.id ASC");$q->execute([$user['id'],$user['id'],'test:'.$user['id'].':%']);
-foreach($q->fetchAll() as $event){$key=$event['record_key'];if(!isset($rows[$key]))continue;if(in_array($event['action'],['memo','recall'],true))$rows[$key]['memoHistory'][]=['action'=>$event['action'],'memo'=>$event['reason'],'at'=>intake_time($event['created_at']),'actor'=>$event['actor']];}
-$outstanding=intake_outstanding_recalls(array_keys($rows));foreach($rows as $key=>&$row)$row['recallPending']=isset($outstanding[$key]);unset($row);
-echo hr_json(['records'=>array_values($rows)]);
+echo hr_json(pending_intake_snapshot($user));
 }catch(Throwable $e){if(isset($d)&&$d->inTransaction())$d->rollBack();http_response_code($e instanceof HRForbidden?403:422);echo json_encode(['error'=>$e instanceof InvalidArgumentException||$e instanceof HRForbidden?$e->getMessage():'가접수 처리에 실패했습니다.'],JSON_UNESCAPED_UNICODE);}
