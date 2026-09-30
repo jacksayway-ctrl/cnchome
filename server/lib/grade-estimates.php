@@ -7,13 +7,28 @@ function grade_estimate_minimum_weekly(array $policy): array {
     return ['count'=>8,'amount'=>(int)grade_evaluate($policy,'weekly',$policy['weeklyBasis']==='average'?40:8,5)['bonus']];
 }
 
-/** Display-only floor for a whole zero daily/weekly component in monthly criteria examples. */
+/** Display-only exceptions and floors for monthly criteria examples, never actual payroll. */
 function grade_estimate_minimums(array $grade,array $policy): array {
     $dailyRate=grade_evaluate($policy,'daily',7)['bonus'];$weekly=grade_estimate_minimum_weekly($policy);
     $minimum=[
         'daily'=>['applied'=>false,'originalAmount'=>$grade['daily'],'unitAmount'=>$dailyRate,'minimumCount'=>7,'days'=>count($grade['dailyDetails'])],
         'weekly'=>['applied'=>false,'originalAmount'=>$grade['weekly'],'unitAmount'=>$weekly['amount'],'minimumCount'=>$weekly['count'],'weeklyBasis'=>$policy['weeklyBasis'],'includedDays'=>array_sum(array_column(array_filter($grade['weeks'],fn($week)=>$week['included']),'days'))]
     ];
+    // Follow the editable monthly ranges rather than hard-coding today's 90/100 boundaries.
+    $referenceIndex=null;
+    foreach($policy['monthlyReference']??[] as $index=>$row){if($row['max']===null||$grade['count']<=$row['max']){$referenceIndex=$index;break;}}
+    if($referenceIndex!==null)$grade['monthlyReferenceIndex']=$referenceIndex;
+    if($referenceIndex!==null&&$referenceIndex<2){
+        $grade['zeroGradeComparison']=true;
+        foreach($grade['dailyDetails'] as &$day){$day['zeroGradeComparison']=true;$day['originalAmount']=$day['amount'];$day['amount']=0;}unset($day);
+        foreach($grade['weeks'] as &$week){
+            $week['zeroGradeComparison']=true;$week['originalBonus']=$week['bonus'];$week['bonus']=0;
+            foreach($week['parts'] as &$part){$part['zeroGradeComparison']=true;$part['originalFullBonus']=$part['fullBonus'];$part['originalBonus']=$part['bonus'];$part['fullBonus']=0;$part['bonus']=0;}unset($part);
+        }unset($week);
+        foreach($grade['parts'] as &$part){$part['zeroGradeComparison']=true;$part['originalFullBonus']=$part['fullBonus'];$part['originalBonus']=$part['bonus'];$part['fullBonus']=0;$part['bonus']=0;}unset($part);
+        $grade['daily']=0;$grade['weekly']=0;$grade['monthly']=0;$grade['salary']=$grade['base'];$grade['total']=$grade['base'];$grade['minimumGrade']=$minimum;
+        return $grade;
+    }
     if($grade['general']&&$grade['daily']===0&&$dailyRate>0&&$grade['dailyDetails']){
         foreach($grade['dailyDetails'] as &$day){
             // Preserve actual sample counts: this amount is a comparison floor, not an earned award.
