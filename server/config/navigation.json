@@ -85,6 +85,10 @@
         [
           "adminContracts",
           "근로계약"
+        ],
+        [
+          "adminMemberships",
+          "회원가입 승인"
         ]
       ]
     },

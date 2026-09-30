@@ -35,7 +35,16 @@ function current_user(): ?array {
     $q=db()->prepare('SELECT id, username, display_name, role, department FROM app_users WHERE id=? AND active=1');
     $q->execute([$_SESSION['user_id']]);
     $user=$q->fetch();
-    return $user && $user['role'] === session_role() ? $user : null;
+    if(!$user||$user['role']!==session_role())return null;
+    if($user['role']==='employee'){
+        $q=db()->prepare('SELECT status,profile_completed FROM employee_memberships WHERE user_id=?');$q->execute([$user['id']]);$membership=$q->fetch();
+        if($membership&&$membership['status']!=='approved')return null;
+        $allowed=['/profile-entry.php','/login.php','/logout.php','/session-api.php'];
+        if($membership&&!$membership['profile_completed']&&!in_array(parse_url($_SERVER['REQUEST_URI']??'',PHP_URL_PATH),$allowed,true)){
+            header('Location: /profile-entry.php?role=employee');exit;
+        }
+    }
+    return $user;
 }
 function csrf_ok(string $value): bool { return hash_equals($_SESSION['csrf'], $value); }
 function h(string $s): string { return htmlspecialchars($s, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'); }

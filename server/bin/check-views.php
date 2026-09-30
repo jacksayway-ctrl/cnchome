@@ -35,4 +35,13 @@ file_put_contents($directory.'/office-preview.html',html_view('office',['preview
 file_put_contents($directory.'/payroll-preview.html',html_view('payroll',['role'=>'admin','user'=>['role'=>'admin','display_name'=>'관리자 미리보기','department'=>'insurance']]));
 check(in_array('payroll-requirements.json',document_files(),true),'all operating rules present');
 check(!in_array('../bootstrap.php',document_files(),true),'documents traversal rejected');
+foreach(['admin','employee'] as $role){
+ $user=['id'=>1,'role'=>$role,'display_name'=>'헤더 <직원>','department'=>'insurance'];$_SESSION=['csrf'=>'HEADER'];
+ ob_start();native_start('공통 헤더',$user,$role==='admin'?'adminMemberships':'myInfo');native_end();$html=ob_get_clean();
+ check(str_contains($html,'회사 공지')&&str_contains($html,'정책 수량 감소'),'both notice channels appear on native pages for either role');
+ check(str_contains($html,'/logout.php?role='.$role),'native notices retain role-specific logout');
+ check(str_contains($html,'notice-ticker.js'),'native shared notice feed refreshes');
+ check(str_contains($html,'헤더 &lt;직원&gt;'),'shared header escapes display names');
+ if($role==='admin')check(str_contains($html,'membership-notification.js')&&str_contains($html,'회원가입 승인'),'admin approval notification and submenu present');
+}
 echo 'PASS: role-checked PHP routes, escaped output, original-menu exclusion, document allowlist and rendered fixtures.'.PHP_EOL;

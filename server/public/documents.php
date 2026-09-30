@@ -11,5 +11,5 @@ try {
     if ($file!==''&&($_GET['raw']??'')==='1') {
         header('Content-Type: '.(str_ends_with($file,'.json')?'application/json':'text/plain').'; charset=utf-8');echo $content;exit;
     }
-    render_view('documents',compact('files','file','content','role'));
+    render_view('documents',compact('files','file','content','role','user'));
 } catch (Throwable $e) {http_response_code(503);render_view('error',['title'=>'문서를 불러오지 못했습니다.','message'=>'잠시 후 다시 시도해 주세요.']);}

@@ -270,3 +270,28 @@ CREATE TABLE IF NOT EXISTS test_fixture_batches (
 
 CREATE TABLE IF NOT EXISTS app_session_settings (id TINYINT PRIMARY KEY, timeout_minutes INT NOT NULL DEFAULT 60);
 INSERT IGNORE INTO app_session_settings(id,timeout_minutes) VALUES(1,60);
+
+CREATE TABLE IF NOT EXISTS employee_memberships (
+ user_id BIGINT UNSIGNED PRIMARY KEY,
+ status ENUM('pending','approved','rejected') NOT NULL DEFAULT 'pending',
+ phone VARCHAR(20) NOT NULL,
+ revision BIGINT UNSIGNED NOT NULL DEFAULT 0,
+ approved_by BIGINT UNSIGNED NULL,
+ approved_at DATETIME(6) NULL,
+ profile_completed BOOLEAN NOT NULL DEFAULT 0,
+ profile_completed_at DATETIME(6) NULL,
+ created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+ INDEX membership_status (status,created_at),
+ FOREIGN KEY (user_id) REFERENCES app_users(id),
+ FOREIGN KEY (approved_by) REFERENCES app_users(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS employee_membership_events (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+ user_id BIGINT UNSIGNED NOT NULL,
+ actor_id BIGINT UNSIGNED NOT NULL,
+ event VARCHAR(20) NOT NULL,
+ payload JSON NOT NULL,
+ created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+ FOREIGN KEY (user_id) REFERENCES app_users(id),
+ FOREIGN KEY (actor_id) REFERENCES app_users(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

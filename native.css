@@ -28,3 +28,7 @@
 .nf-pay-statement>.nf-table:not(.nf-pay-components) td:nth-child(2),.nf-pay-statement>.nf-table-wrap td:nth-child(n+3):nth-child(-n+6){white-space:nowrap;font-variant-numeric:tabular-nums}
 .nf-body>.cnc-session-bar .cnc-session-account form{margin:0}.nf-body>.cnc-session-bar .cnc-notice-dialog{line-height:1.5}
 @media print{.nf-pay-summary{display:none!important}.nf-pay-detail[hidden]{display:none!important}.nf-pay-detail>td{padding:0;background:white}.nf-pay-list,.nf-pay-list>.nf-table-wrap,.nf-pay-list-table,.nf-pay-list-table>tbody,.nf-pay-detail,.nf-pay-detail>td{display:block;border:0;padding:0;overflow:visible}.nf-print-statement .nf-pay-detail:not(.nf-print-target){display:none!important}.nf-pay-statement{break-after:page}.nf-grade-detail{break-inside:avoid}}
+
+.nf-body>.cnc-session-bar{flex:none}
+
+@media screen{.nf-body>.nf-popup-shell{flex:1;min-height:0;height:auto}}

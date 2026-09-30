@@ -8,6 +8,7 @@
 <?php if($record&&!$editing): ?><a class="nf-button" href="/personnel.php?role=admin&amp;id=<?= $record['id'] ?>&amp;edit=1<?= $popup?'&amp;popup=1':'' ?>">인사정보 수정</a><?php endif; ?>
 <?php endif; ?>
 <?php if(!$editing): ?><a class="<?= $admin?'':'nf-contract-open' ?>" href="/contracts.php?role=<?= h($role) ?><?= $admin?'':'&amp;document=1' ?>"<?= $admin?'':' target="_blank" rel="noopener"' ?>>근로계약서</a><?php endif; ?>
+<?php if(!empty($canSelfEdit)): ?><a class="nf-button" href="/profile-entry.php?role=employee">본인 정보 수정</a><?php endif; ?>
 <?php if($record&&!$editing): ?><button type="button" data-print>인사기록카드 인쇄</button><?php endif; ?>
 </div>
 <?php if($admin&&!$editing&&!$popup): ?><details class="nf-card"><summary>로그인 세션 유지시간 설정</summary><form method="post"><?= native_csrf() ?><input type="hidden" name="action" value="sessionSettings"><label>페이지를 닫은 뒤 유지시간 (분) <input type="number" name="timeoutMinutes" min="5" max="1440" required value="<?= session_timeout_minutes() ?>"></label><button>설정 저장</button><p>페이지가 열려 있는 동안 1분마다 세션을 갱신합니다. 브라우저 종료·절전이나 통신 중단 시에는 설정한 시간이 적용됩니다.</p><?php if(isset($_GET['sessionSaved'])): ?><p role="status">저장했습니다.</p><?php endif ?></form></details><?php endif ?>

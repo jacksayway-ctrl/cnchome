@@ -15,6 +15,7 @@ while IFS= read -r -d '' file; do php -l "$file" >/dev/null; done < <(find serve
 php server/bin/check-views.php
 php server/bin/check-intake-management.php
 php server/bin/check-attendance.php
+php server/bin/check-membership.php
 php server/bin/check-pay-statements.php
 php server/bin/check-grade-ledger.php
 nginx -t

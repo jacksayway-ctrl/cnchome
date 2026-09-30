@@ -21,3 +21,5 @@ main>.sub:last-child{margin-top:18px;padding-top:14px;border-top:1px solid #e5ea
 .login-role label:has(input:checked){background:#edf3fb;border-color:#9ebadd;color:#24588f;font-weight:600}
 .login-role input{width:14px;height:14px;margin:0;padding:0;accent-color:#245faf}
 @media(max-width:480px){body{padding:16px}main{padding:24px 22px;border-radius:10px}}
+
+.login-secondary{display:block;text-align:center;padding:10px 12px;margin-top:12px;border:1px solid #b8cce4;border-radius:6px;background:#f4f8ff;color:#24588f;font-weight:600;text-decoration:none}.login-secondary:hover{background:#e9f1ff;border-color:#5687c8}.signup-success{color:#256446;background:#eef8f2;padding:13px;border:1px solid #c6e2d2;border-radius:8px}

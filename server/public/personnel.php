@@ -7,6 +7,7 @@ require_once CNC_RUNTIME_DIR.'/personnel.php';
 try {
     session_boot();$user=current_user();
     if(!$user){header('Location: /login.php?role='.session_role());exit;}
+    $canSelfEdit=!($user['role']==='admin')&&db()->query('SELECT COUNT(*) FROM employee_memberships WHERE user_id='.(int)$user['id']." AND status='approved'")->fetchColumn()>0;
     $popup=($_GET['popup']??'')==='1';$admin=$user['role']==='admin';$role=$user['role'];$error='';$saved=false;
     $records=personnel_records($user);$record=null;
     $id=$admin?personnel_natural($_GET['id']??0):(int)($records[0]['id']??0);
