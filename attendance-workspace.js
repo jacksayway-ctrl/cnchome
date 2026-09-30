@@ -1,14 +1,15 @@
 (()=>{'use strict';
 const live=window.CNCHOME_LIVE;if(!live||!['employee','admin'].includes(live.user.role))return;
 const admin=live.user.role==='admin',teams={insurance:'보험팀',cosmetics:'화장품팀',health:'건강보조식품팀'};
-let data=null,loading=false,error='',notice='',selectedDate='',requestedDate='';
+let data=null,loading=false,error='',selectedDate='',requestedDate='';
 const painted=new WeakMap();
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const route=()=>location.hash.slice(1)||new URL(location.href).searchParams.get('page')||live.page||'home';
 const day=()=>new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Seoul'}).format(new Date());
 function employeeMarkup(){
  const done=data?.checkedIn===true;
- return `<div class="checkin-heading"><div><h3>오늘 출근</h3><p>${esc(data?.today||day())}</p></div><span class="checkin-state ${done?'is-done':''}" role="status">${done?'출근 완료':data?'출근 전':'조회 중'}</span></div><button type="button" class="action checkin-button" data-checkin ${loading||!data||done?'disabled':''}>${done?'출근 완료':loading?'확인 중…':'출근'}</button>${notice?`<p class="checkin-notice" role="status">${esc(notice)}</p>`:''}${error?`<p class="checkin-error" role="alert">${esc(error)}</p><button type="button" class="secondary" data-checkin-refresh ${loading?'disabled':''}>다시 확인</button>`:''}`;
+ const today=esc(data?.today||day());
+ return `<div class="checkin-heading"><h3>오늘 출근</h3><time datetime="${today}">${today}</time></div><button type="button" class="action checkin-button ${done?'is-done':''}" data-checkin ${loading||!data||done?'disabled':''}>${done?'출근 완료':loading?'확인 중…':'출근'}</button>${error?`<p class="checkin-error" role="alert">${esc(error)}</p><button type="button" class="secondary" data-checkin-refresh ${loading?'disabled':''}>다시 확인</button>`:''}`;
 }
 function adminMarkup(){
  const ready=data?.date===selectedDate,records=ready?data.records:[],count=records.filter(r=>r.checkedIn).length;
@@ -28,12 +29,12 @@ async function load(body){
   const response=await fetch('/attendance-api.php?role='+live.user.role+(admin?'&date='+encodeURIComponent(requestedDate):''),{method:body?'POST':'GET',credentials:'same-origin',cache:'no-store',signal:controller.signal,headers:{'Content-Type':'application/json','X-CSRF-Token':live.csrf},...(body?{body:JSON.stringify(body)}:{})});
   const result=await response.json();if(!response.ok)throw Error(result.error||'출근 기록을 확인하지 못했습니다.');
   if(!Array.isArray(result.records)||typeof result.today!=='string')throw Error('출근 기록을 다시 확인해 주세요.');
-  const changed=JSON.stringify(data)!==JSON.stringify(result);data=result;if(body)notice='출근이 기록되었습니다.';
+  const changed=JSON.stringify(data)!==JSON.stringify(result);data=result;
   if(changed&&!admin)window.dispatchEvent(new Event('cnc:attendance-changed'));
  }catch(e){error=e.name==='AbortError'?'응답이 지연되었습니다. 다시 확인을 눌러 출근 기록 여부를 확인해 주세요.':e.message;}
  finally{clearTimeout(timer);loading=false;paint();if(admin&&selectedDate!==requestedDate)load();}
 }
-window.AttendanceWorkspace={homePanel:()=>'<section class="panel checkin-panel" data-checkin-panel>'+employeeMarkup()+'</section>',records:()=>data?.records||[]};
+window.AttendanceWorkspace={homePanel:()=>'<section class="checkin-panel" aria-label="오늘 출근" data-checkin-panel>'+employeeMarkup()+'</section>',records:()=>data?.records||[]};
 function mount(){
  const main=document.getElementById('tm-main');if(!main)return;
  if(admin&&route()==='adminAttendance'&&!main.querySelector('[data-admin-checkins]')){const section=document.createElement('section');section.className='panel checkin-admin';section.dataset.adminCheckins='';main.prepend(section);selectedDate=selectedDate||day();load();}

@@ -1,18 +1,28 @@
-#tm-preview .checkin-panel{display:flex;flex-direction:column;gap:14px;border:1px solid #d2e0ef;background:#f8fbff}
+#tm-preview .checkin-panel{display:flex;align-items:center;flex-wrap:wrap;gap:8px;min-width:0;margin-left:auto}
 #tm-preview .checkin-heading{display:flex;justify-content:space-between;align-items:center;gap:15px;flex-wrap:wrap}
 #tm-preview .checkin-heading h3{margin:0 0 5px;color:#294f7b;font-size:16px}
 #tm-preview .checkin-heading p{margin:0;font-size:12px;color:#6b8097}
 #tm-preview .checkin-state{padding:5px 11px;border-radius:20px;background:#eaf0f7;color:#60768f;font-size:12px;font-weight:700}
 #tm-preview .checkin-state.is-done{background:#e4f3ed;color:#246a50}
-#tm-preview button.checkin-button{align-self:flex-start;min-width:150px;min-height:44px;border-radius:9px;background:#2b6099;color:#fff;font-size:15px;font-weight:700}
+#tm-preview button.checkin-button{min-width:84px;min-height:36px;padding:7px 12px;border-radius:8px;background:#2b6099;color:#fff;font-size:13px;font-weight:700;white-space:nowrap}
 #tm-preview button.checkin-button:disabled{background:#e1e9f3;color:#607990;cursor:default;opacity:1}
+#tm-preview button.checkin-button.is-done{background:#e4f3ed;color:#246a50}
 #tm-preview .checkin-controls{display:flex;align-items:center;flex-wrap:wrap;gap:8px}
 #tm-preview .checkin-controls label{display:flex;align-items:center;gap:8px;font-size:12px;color:#526b84}
 #tm-preview .checkin-controls input{padding:7px 9px;border:1px solid #cbd8e7;border-radius:7px;background:#fff;font:inherit}
 #tm-preview .checkin-summary{display:flex;gap:20px;padding:11px 0;color:#395c7f;font-size:13px}
 #tm-preview .checkin-rule{margin:13px 0 0;font-size:12px;color:#677c94;line-height:1.7}
-#tm-preview .checkin-notice{margin:0;font-size:12px;color:#246a50}
 #tm-preview .checkin-error{margin:0;font-size:12px;color:#aa3f36;line-height:1.6}
 #tm-preview .checkin-test{padding:2px 5px;background:#fff2d9;color:#805d25;border-radius:4px;font-size:10px;white-space:nowrap}
-#tm-preview .checkin-admin .scroll{max-height:520px;overflow:auto}
-@media(max-width:700px){#tm-preview .checkin-controls{width:100%}#tm-preview button.checkin-button{width:100%}}
+#tm-preview .checkin-admin .scroll{max-height:none;overflow-x:auto}
+#tm-preview .home-overview{display:flex;align-items:center;flex-wrap:wrap;gap:10px 14px;min-width:0;padding:10px 14px}
+#tm-preview .home-overview>h2{margin:0;color:#253f5e;font-size:16px;line-height:1.4;white-space:nowrap}
+#tm-preview .home-overview .home-status-controls{gap:6px;min-width:0}
+#tm-preview .home-overview .home-status-button{padding:7px 10px;border-radius:7px;font-size:12px;white-space:nowrap}
+#tm-preview .home-overview .home-last-check{margin:0;font-size:11px;line-height:1.5;color:#6b8097}
+#tm-preview .home-overview .checkin-heading{gap:7px}
+#tm-preview .home-overview .checkin-heading h3,#tm-preview .home-overview .home-checkin-preview h3{margin:0;font-size:13px;line-height:1.4;white-space:nowrap}
+#tm-preview .home-overview .checkin-heading time{font-size:11px;color:#6b8097;white-space:nowrap}
+#tm-preview .home-overview .checkin-error{flex-basis:100%;overflow-wrap:anywhere}
+#tm-preview .home-checkin-preview{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-left:auto;font-size:12px}
+@media(max-width:700px){#tm-preview .checkin-controls{width:100%}#tm-preview .home-overview{gap:8px 12px}#tm-preview .home-overview .checkin-panel,#tm-preview .home-checkin-preview{margin-left:0}#tm-preview button.checkin-button{min-height:40px}}
