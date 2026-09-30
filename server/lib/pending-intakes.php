@@ -87,6 +87,7 @@ function pending_intake_snapshot(array $user): array {
         foreach($state['sales']??[] as $sale){
             if(($sale['status']??'')!=='가접수')continue;$id='test:'.$r['id'].':'.$sale['id'];
             $rows[$id]=['id'=>$id,'date'=>$sale['date'],'employeeId'=>(int)$r['id'],'employee'=>$r['display_name'],'team'=>$r['department'],'customer'=>$sale['name'],'carrier'=>$sale['carrier']??'','kind'=>($sale['kind']??'')==='실버'?'silver':'general','status'=>'pending','revision'=>(int)$r['revision'],'isTest'=>true,'phone'=>$sale['phone']??'','address'=>$sale['address']??'','birthDate'=>$sale['birthDate']??'','birthYear'=>(int)($sale['birthYear']??substr($sale['birthDate']??'',0,4)),'note'=>$sale['note']??'','consultationTime'=>$sale['consultationTime']??'','consultationPlace'=>$sale['consultationPlace']??'','premiumBand'=>$sale['premiumBand']??'','memoHistory'=>[],'recallPending'=>false];
+            if(($sale['fixture']??'')==='pending-cards-demo-20261001-v1'&&isset($sale['demoPolicy']))$rows[$id]['demoPolicy']=$sale['demoPolicy'];
         }
     }
     foreach($rows as &$row){$row['originalMemoAt']='';$row['lastEditAt']='';}unset($row);
