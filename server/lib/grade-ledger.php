@@ -1,5 +1,6 @@
 <?php
 declare(strict_types=1);
+require_once __DIR__.'/grade-departments.php';
 require_once __DIR__.'/hr.php';
 require_once __DIR__.'/policy.php';
 require_once __DIR__.'/business-calendar.php';
@@ -47,7 +48,12 @@ function grade_ledger(string $month,array $records,array $entries,array $profile
     }
     $base=(int)floor($base);$monthly=grade_round_parts($parts);$daily=(int)round($daily);return ['month'=>$month,'count'=>$count,'hours'=>$hours,'days'=>count($dates),'base'=>$base,'daily'=>$daily,'weekly'=>$weekly,'monthly'=>$monthly,'salary'=>$base+$monthly+$weekly,'total'=>$base+$monthly+$weekly+$daily,'parts'=>array_values($parts),'weeks'=>$weeks,'dailyDetails'=>$dailyDetails,'general'=>$general];
 }
-function grade_history(string $department): array {$q=db()->prepare('SELECT id,effective_date AS date,saved_at AS savedAt,policy FROM grade_versions WHERE department=? ORDER BY effective_date,id');$q->execute([$department]);return grade_resolve_entries(array_map(function($r){$r['policy']=json_decode($r['policy'],true,512,JSON_THROW_ON_ERROR);return $r;},$q->fetchAll()));}
+function grade_history(string $department): array {
+    $q=db()->prepare('SELECT id,effective_date AS date,saved_at AS savedAt,policy FROM grade_versions WHERE department=? ORDER BY effective_date,id');$q->execute([$department]);$entries=[];
+    foreach($q->fetchAll() as $row){$row['policy']=json_decode($row['policy'],true,512,JSON_THROW_ON_ERROR);if(grade_department_owns($department,$row['policy']))$entries[]=$row;}
+    return grade_resolve_entries($entries,$department==='insurance'?null:grade_department_empty($department));
+}
+
 function grade_forecast_records(string $month,int $count,array $calendar=[]): array {
     $days=grade_dates($month,$calendar);$size=count($days);if(!$size){hr_assert($count===0,'선택한 월에 영업일이 없습니다. 영업일 달력을 먼저 확인해 주세요.');return [];}$rows=[];foreach($days as $i=>$day)$rows[$day]=['date'=>$day,'count'=>intdiv($count,$size)+($i<$count%$size?1:0),'hours'=>6];
     // Complete boundary weeks with whole-case estimates at the same daily average.

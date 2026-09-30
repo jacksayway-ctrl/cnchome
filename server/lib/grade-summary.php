@@ -65,7 +65,7 @@ function grade_summary_snapshot(array $user,?string $today=null): array {
         $q=$d->prepare("SELECT first_date,COUNT(*) AS amount FROM sales_records WHERE employee_id=? AND department=? AND status='normal' AND is_test=? AND first_date>=? AND first_date<=? GROUP BY first_date");$q->execute([$user['id'],$user['department'],$test?1:0,$from,$today]);$counts=[];
         foreach($q->fetchAll() as $row)$counts[$row['first_date']]=(int)$row['amount'];
         if($test){$q=$d->prepare('SELECT state FROM test_employee_data WHERE user_id=?');$q->execute([$user['id']]);$raw=$q->fetchColumn();if($raw){$state=json_decode($raw,true,512,JSON_THROW_ON_ERROR);foreach($state['sales']??[] as $sale)if($sale['status']==='정상'&&$sale['date']>=$from&&$sale['date']<=$today)$counts[$sale['date']]=($counts[$sale['date']]??0)+1;}}
-        $calendar=business_calendar_rules(substr($today,0,7));$result=grade_progress($profile,$counts,$policy,$today,$calendar)+['isTest'=>$test,'policyDate'=>$entry['date']??null,'fetchedAt'=>gmdate('c')];
+        $calendar=business_calendar_rules(substr($today,0,7));$result=grade_progress($profile,$counts,$policy,$today,$calendar)+['gradeAvailable'=>$user['department']==='insurance'||$entry!==null,'department'=>$user['department'],'isTest'=>$test,'policyDate'=>$entry['date']??null,'fetchedAt'=>gmdate('c')];
         // Use the same effective-date and five-day proration as payroll, with all own normal records.
         $records=[];foreach($result['weekly']['dates'] as $day)if($day['scheduled']&&$day['completed'])$records[]=['date'=>$day['date'],'count'=>$day['count'],'hours'=>0];
         $weekProfile=$profile;if(!$result['scheduleRegistered'])$weekProfile['workDays']=[];

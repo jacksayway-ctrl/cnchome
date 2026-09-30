@@ -19,6 +19,7 @@ php server/bin/check-membership.php
 php server/bin/check-business-calendar.php
 php server/bin/check-pay-statements.php
 php server/bin/check-grade-ledger.php
+php server/bin/check-grade-departments.php
 nginx -t
 backup="/var/backups/cnchome/$(date +%Y%m%d-%H%M%S)"
 install -d -m 700 "$backup"

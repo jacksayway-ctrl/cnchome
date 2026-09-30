@@ -8,7 +8,9 @@ try {
     if (!$user) {header('Location: /login.php?role='.session_role());exit;}
     $role=$user['role'];$page=office_page($role,$_GET['page']??null);
     if(isset(native_routes()[$page])){header('Location: '.native_url($page,$role));exit;}
-    $boot=snapshot($user)+['user'=>$user,'page'=>$page,'csrf'=>$_SESSION['csrf'],'hr'=>hr_snapshot($user)];
+    $gradeSnapshot=snapshot($user);$gradeAvailable=grade_employee_available($user,$gradeSnapshot['entries'],hr_today());
+    if($role==='employee'&&!$gradeAvailable&&$page==='grade')$page='home';
+    $boot=$gradeSnapshot+['gradeAvailable'=>$gradeAvailable]+['user'=>$user,'page'=>$page,'csrf'=>$_SESSION['csrf'],'hr'=>hr_snapshot($user)];
     $showLoginNotice=!empty($_SESSION['login_notice_pending']);
     render_view('office',compact('boot','user','role','page','showLoginNotice'));
     if($showLoginNotice)unset($_SESSION['login_notice_pending']);

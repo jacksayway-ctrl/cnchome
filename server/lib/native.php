@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__.'/views.php';
+require_once __DIR__.'/grade-departments.php';
 
 function native_routes(): array {
     return ['adminMemberships'=>'memberships.php','adminBusinessCalendar'=>'business-calendar.php','adminIntakeAlerts'=>'intake-alerts.php','adminIntake'=>'intake.php','adminIntakeRegister'=>'intake.php','adminContracts'=>'contracts.php','contracts'=>'contracts.php','adminStaff'=>'personnel.php','adminStaffRegister'=>'personnel.php','myInfo'=>'personnel.php','adminPayroll'=>'pay-statements.php','payslips'=>'pay-statements.php'];
@@ -46,7 +47,7 @@ function native_start(string $title,array $user,string $active,array $extraStyle
         }
         echo '</div>';
     }else{
-        foreach($nav['employee'] as [$page,$label,$icon])echo '<a href="'.view_h(native_url($page,$role)).'"'.($page===$active?' class="active" aria-current="page"':'').'><span class="ui-icon ui-icon-'.view_h($icon).'" aria-hidden="true"></span>'.view_h($label).'</a>';
+        foreach($nav['employee'] as [$page,$label,$icon]){if($page==='grade'&&function_exists('db')&&!grade_employee_available($user,entries_for($user),(new DateTimeImmutable('now',new DateTimeZone('Asia/Seoul')))->format('Y-m-d')))continue;echo '<a href="'.view_h(native_url($page,$role)).'"'.($page===$active?' class="active" aria-current="page"':'').'><span class="ui-icon ui-icon-'.view_h($icon).'" aria-hidden="true"></span>'.view_h($label).'</a>';}
     }
     echo '</nav></aside><main class="nf-main">';
     if($selectedGroup){

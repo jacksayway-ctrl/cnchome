@@ -50,11 +50,12 @@ function csrf_ok(string $value): bool { return hash_equals($_SESSION['csrf'], $v
 function h(string $s): string { return htmlspecialchars($s, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'); }
 function entries_for(array $user): array {
     require_once __DIR__.'/policy.php';
+    require_once __DIR__.'/grade-departments.php';
     $sql='SELECT id,department,effective_date,saved_at,policy,actor_name FROM grade_versions';
     $q=db()->prepare($sql.($user['role']==='admin'?'':' WHERE department=?').' ORDER BY id');
     $q->execute($user['role']==='admin'?[]:[$user['department']]);
-    $groups=[];foreach($q->fetchAll() as $r)$groups[$r['department']][]=['id'=>(int)$r['id'],'department'=>$r['department'],'date'=>$r['effective_date'],'savedAt'=>str_replace(' ','T',$r['saved_at']).'Z','savedBy'=>$r['actor_name'],'policy'=>json_decode($r['policy'],true,512,JSON_THROW_ON_ERROR)];
-    $entries=[];foreach($groups as $group)$entries=array_merge($entries,grade_resolve_entries($group));usort($entries,fn($a,$b)=>$a['id']<=>$b['id']);return $entries;
+    $groups=[];foreach($q->fetchAll() as $r){if(!grade_department_owns($r['department'],json_decode($r['policy'],true,512,JSON_THROW_ON_ERROR)))continue;$groups[$r['department']][]=['id'=>(int)$r['id'],'department'=>$r['department'],'date'=>$r['effective_date'],'savedAt'=>str_replace(' ','T',$r['saved_at']).'Z','savedBy'=>$r['actor_name'],'policy'=>json_decode($r['policy'],true,512,JSON_THROW_ON_ERROR)];}
+    $entries=[];foreach($groups as $department=>$group)$entries=array_merge($entries,grade_resolve_entries($group,$department==='insurance'?null:grade_department_empty($department)));usort($entries,fn($a,$b)=>$a['id']<=>$b['id']);return $entries;
 }
 function snapshot(array $user): array {
     // One consistent snapshot prevents a new revision paired with older entries.

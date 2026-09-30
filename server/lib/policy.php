@@ -25,9 +25,9 @@ function grade_merge_period(array $base,array $changes,string $period): array {
     return normalize_policy($base);
 }
 /** Resolve independent period changes chronologically; later weekly saves cannot revert a daily save. */
-function grade_resolve_entries(array $entries): array {
+function grade_resolve_entries(array $entries,?array $initial=null): array {
     usort($entries,fn($a,$b)=>strcmp($a['date'],$b['date'])?:strcmp($a['savedAt']??'',$b['savedAt']??'')?:($a['id']??0)<=>($b['id']??0));
-    $current=grade_empty_policy();
+    $current=$initial??grade_empty_policy();
     foreach($entries as &$entry){
         $saved=$entry['policy'];$period=$saved['savedPeriod']??'all';unset($saved['savedPeriod']);
         $current=$period==='all'?$saved:grade_merge_period($current,$saved,$period);

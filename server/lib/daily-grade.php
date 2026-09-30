@@ -8,7 +8,7 @@ function daily_grade_admin(array $user,string $date): array {
     $q=db()->prepare("SELECT id,username,display_name,role,department,active FROM app_users WHERE role='employee' AND (active=1 OR id IN (SELECT employee_id FROM daily_grade_receipts WHERE performance_date=?)) ORDER BY display_name,id");$q->execute([$date]);$users=$q->fetchAll();$rows=[];
     foreach($users as $employee){
         $s=grade_summary_snapshot($employee,$date);$daily=$s['daily'];
-        if(!$daily['eligible']&&!$daily['receipts'])continue;
+        if((!$daily['eligible']||!$s['gradeAvailable'])&&!$daily['receipts'])continue;
         $rows[]=['employeeId'=>(int)$employee['id'],'name'=>$employee['display_name'],'department'=>$employee['department'],'isTest'=>$s['isTest'],'count'=>$daily['count'],'earned'=>$daily['amount'],'received'=>$daily['paid'],'paidCount'=>$daily['paidCount'],'receiptMode'=>'automatic','receipts'=>$daily['receipts']];
     }
     return ['date'=>$date,'rows'=>$rows];

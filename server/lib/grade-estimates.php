@@ -75,6 +75,7 @@ function grade_estimates(array $input,array $history,array $calendar,bool $admin
         }
         $policy=normalize_policy($fixed?($selected['savedPolicy']??$selected['policy']):$selected['policy']);
     }else{$policy=normalize_policy($input['policy']??null);}
+    $policy=grade_department_fields($policy,$input['department']??'insurance');
     $entries=$history;
     if($preview){
         $entries=grade_preview_entries($entries,$input['date'],$policy);
@@ -92,7 +93,7 @@ function grade_estimates(array $input,array $history,array $calendar,bool $admin
     foreach($counts as $count){
         bounded($count);
         $grade=grade_ledger($month,grade_forecast_records($month,$count,$calendar),$entries,[],$calendar);
-        $rows[]=$basis==='full-month'?grade_estimate_minimums($grade,$policy):$grade;
+        $rows[]=$basis==='full-month'&&($input['department']??'insurance')==='insurance'?grade_estimate_minimums($grade,$policy):$grade;
     }
     return ['month'=>$month,'days'=>count($dates),'hours'=>count($dates)*6,'basis'=>$basis,'rows'=>$rows]+($selected?['policy'=>$policy,'effectiveDate'=>$selected['date']]:[]);
 }
