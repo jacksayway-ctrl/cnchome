@@ -3,6 +3,14 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 [[ $(id -u) == 0 ]] || { echo 'root로 실행해 주세요.'; exit 1; }
 [[ -f /etc/cnchome/database.json ]] || { echo 'DB 연결 설정이 없습니다.'; exit 1; }
+# Intake regression checks use a temporary in-memory DB, never the production DB.
+if ! php -r 'exit(in_array("sqlite", PDO::getAvailableDrivers(), true) ? 0 : 1);'; then
+  command -v apt-get >/dev/null || { echo '격리 검증에 필요한 PHP SQLite 모듈을 설치해 주세요.'; exit 1; }
+  php_cli_version=$(php -r 'echo PHP_MAJOR_VERSION,".",PHP_MINOR_VERSION;')
+  apt-get update -qq
+  DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "php${php_cli_version}-sqlite3"
+  php -r 'exit(in_array("sqlite", PDO::getAvailableDrivers(), true) ? 0 : 1);'
+fi
 while IFS= read -r -d '' file; do php -l "$file" >/dev/null; done < <(find server -name '*.php' -type f -print0)
 php server/bin/check-views.php
 php server/bin/check-intake-management.php
