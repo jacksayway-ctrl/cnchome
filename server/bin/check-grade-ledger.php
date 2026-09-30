@@ -80,13 +80,13 @@ gl_check($employee['rows'][0]===$full&&$employee['effectiveDate']===hr_today(),'
 $previous=grade_estimates($request+['fixed'=>true,'historyId'=>16],$ownHistory,$calendar,false);
 gl_check($previous['rows'][0]['daily']===245000&&$previous['effectiveDate']==='2000-01-01','employee can read the selected immutable policy from their department history');
 try{grade_estimates($request+['fixed'=>true,'historyId'=>999],$ownHistory,$calendar,false);throw new RuntimeException('Unknown or other-department history accepted');}catch(InvalidArgumentException $e){}
-// Monthly criteria replace only a whole zero daily/weekly component with its first payable tier.
+// Monthly criteria replace only a whole zero component with daily seven / weekly eight cases.
 $zeroRequest=array_replace($request,['counts'=>[0]]);
 $minimum=grade_estimates($zeroRequest,[],$calendar,true)['rows'][0];
-gl_check($minimum['daily']===105000&&$minimum['weekly']===114000&&$minimum['base']===1890000&&$minimum['monthly']===0,'21-day comparison uses 21 first daily awards and three full plus one four-fifths first weekly award');
+gl_check($minimum['daily']===210000&&$minimum['weekly']===114000&&$minimum['base']===1890000&&$minimum['monthly']===0,'21-day comparison uses cumulative seven-case daily awards and three full plus one four-fifths eight-case weekly awards');
 gl_check($minimum['minimumGrade']['daily']['applied']&&$minimum['minimumGrade']['weekly']['applied']&&$minimum['minimumGrade']['daily']['originalAmount']===0&&$minimum['minimumGrade']['weekly']['originalAmount']===0,'comparison floors record original amounts and both applied flags');
-gl_check($minimum['total']===2109000&&$minimum['salary']===2004000&&$minimum['total']-$minimum['daily']===$minimum['salary'],'minimum awards reconcile with gross and daily-advance-excluded payday');
-foreach($minimum['dailyDetails'] as $day)gl_check($day['count']===0&&$day['paidCount']===0&&$day['amount']===5000&&$day['originalAmount']===0&&$day['floorApplied'],'daily detail preserves sample counts while identifying the display-only minimum');
+gl_check($minimum['total']===2214000&&$minimum['salary']===2004000&&$minimum['total']-$minimum['daily']===$minimum['salary'],'minimum awards reconcile with gross and daily-advance-excluded payday');
+foreach($minimum['dailyDetails'] as $day)gl_check($day['count']===0&&$day['paidCount']===0&&$day['amount']===10000&&$day['perCase']===5000&&$day['minimumCount']===7&&$day['minimumPaidCount']===2&&$day['originalAmount']===0&&$day['floorApplied'],'daily detail preserves actual counts and per-case rate while identifying the cumulative seven-case reference');
 gl_check(array_sum(array_column($minimum['dailyDetails'],'amount'))===$minimum['daily'],'minimum daily details sum to the displayed component');
 foreach($minimum['weeks'] as $week){
     gl_check($week['count']==0&&$week['bonus']===array_sum(array_column($week['parts'],'bonus')),'weekly details preserve sample counts and parts reconcile');
@@ -94,7 +94,9 @@ foreach($minimum['weeks'] as $week){
 }
 gl_check(array_sum(array_column(array_filter($minimum['weeks'],fn($week)=>$week['included']),'bonus'))===$minimum['weekly'],'included weekly details sum to the displayed component');
 $minimum22=grade_estimates($zeroRequest,[],[],true)['rows'][0];
-gl_check($minimum22['days']===22&&$minimum22['daily']===110000&&$minimum22['weekly']===120000&&$minimum22['total']===2210000,'22-day sample includes 22 daily minimums and four full payable weekly minimums');
+gl_check($minimum22['days']===22&&$minimum22['daily']===220000&&$minimum22['weekly']===120000&&$minimum22['total']===2320000,'22-day sample includes 22 cumulative seven-case daily awards and four eight-case weekly awards');
+$sevenMinimum=grade_estimates(array_replace($zeroRequest,['policy'=>$seven['policy']]),[],$calendar,true)['rows'][0];
+gl_check($sevenMinimum['daily']===105000&&$sevenMinimum['dailyDetails'][0]['minimumPaidCount']===1&&$sevenMinimum['minimumGrade']['daily']['minimumCount']===7,'seven-case starting threshold gives exactly one paid unit for the seven-case reference');
 $partialRequest=array_replace($request,['counts'=>[110]]);$partial=grade_estimates($partialRequest,[],$calendar,true)['rows'][0];
 gl_check($partial['daily']===25000&&!$partial['minimumGrade']['daily']['applied']&&$partial['weekly']===114000&&$partial['minimumGrade']['weekly']['applied'],'a nonzero daily aggregate retains zero days unchanged while a zero weekly aggregate gets its minimum');
 gl_check(!$full['minimumGrade']['daily']['applied']&&!$full['minimumGrade']['weekly']['applied'],'earned nonzero daily and weekly examples keep their calculated totals');
@@ -102,9 +104,15 @@ $trustedMinimum=grade_estimates(array_replace($zeroRequest,['policy'=>grade_zero
 gl_check($trustedMinimum===$minimum,'admin and employee minimum examples match using the employee trusted saved policy');
 $disabled=grade_estimates(array_replace($zeroRequest,['policy'=>grade_zero_policy()]),[],$calendar,true)['rows'][0];
 gl_check($disabled['daily']===0&&$disabled['weekly']===0&&!$disabled['minimumGrade']['daily']['applied']&&!$disabled['minimumGrade']['weekly']['applied'],'disabled all-zero policies never invent a paid grade');
+$laterDaily=$criteria;$laterDaily['dailyCash']['start']=8;
+$laterDailyMinimum=grade_estimates(array_replace($zeroRequest,['policy'=>$laterDaily]),[],$calendar,true)['rows'][0];
+gl_check($laterDailyMinimum['daily']===0&&!$laterDailyMinimum['minimumGrade']['daily']['applied']&&$laterDailyMinimum['minimumGrade']['daily']['minimumCount']===7,'zero seven-case award never advances to the later eight-case daily threshold');
 $extraPolicy=$criteria;$extraPolicy['weekly']=[['min'=>0,'max'=>8,'hourly'=>0,'achievement'=>0,'extraStart'=>null,'extra'=>0],['min'=>8,'max'=>10,'hourly'=>0,'achievement'=>0,'extraStart'=>9,'extra'=>7000],['min'=>10,'max'=>null,'hourly'=>0,'achievement'=>1000,'extraStart'=>null,'extra'=>0]];
 $extraMinimum=grade_estimates(array_replace($zeroRequest,['policy'=>$extraPolicy]),[],$calendar,true)['rows'][0];
-gl_check($extraMinimum['weekly']===26600&&$extraMinimum['minimumGrade']['weekly']['minimumCount']===9&&$extraMinimum['minimumGrade']['weekly']['unitAmount']===7000,'first payable extra-only tier wins by its threshold, not a later lower money amount');
+gl_check($extraMinimum['weekly']===0&&!$extraMinimum['minimumGrade']['weekly']['applied']&&$extraMinimum['minimumGrade']['weekly']['minimumCount']===8&&$extraMinimum['minimumGrade']['weekly']['unitAmount']===0,'zero at eight cases stays zero instead of selecting a payable nine- or ten-case tier');
+$totalPolicy=$criteria;$totalPolicy['weeklyBasis']='total';$totalPolicy['weekly']=[['min'=>0,'max'=>7,'hourly'=>0,'achievement'=>0,'extraStart'=>null,'extra'=>0],['min'=>8,'max'=>8,'hourly'=>0,'achievement'=>12000,'extraStart'=>null,'extra'=>0],['min'=>9,'max'=>null,'hourly'=>0,'achievement'=>99000,'extraStart'=>null,'extra'=>0]];
+$totalMinimum=grade_estimates(array_replace($zeroRequest,['policy'=>$totalPolicy]),[],$calendar,true)['rows'][0];
+gl_check($totalMinimum['weekly']===45600&&$totalMinimum['minimumGrade']['weekly']['unitAmount']===12000&&$totalMinimum['minimumGrade']['weekly']['minimumCount']===8,'total basis chooses exactly eight total cases instead of average-basis forty cases');
 $actualZero=grade_ledger('2026-09',grade_forecast_records('2026-09',0,$calendar),[['date'=>'2000-01-01','policy'=>$criteria]],[],$calendar);
 $effectiveZero=grade_estimates(array_replace($zeroRequest,['basis'=>'effective','preview'=>true]),[],$calendar,true)['rows'][0];
 gl_check($actualZero['daily']===0&&$actualZero['weekly']===0&&$effectiveZero['daily']===0&&$effectiveZero['weekly']===0&&!isset($effectiveZero['minimumGrade']),'actual payroll ledger and effective-date preview never receive the comparison floor');

@@ -2,31 +2,22 @@
 declare(strict_types=1);
 require_once __DIR__.'/grade-ledger.php';
 
-/** First payable weekly tier, including a tier paid only from its extra threshold. */
+/** Fixed eight-case reference: average per day or total according to the saved basis. */
 function grade_estimate_minimum_weekly(array $policy): array {
-    foreach($policy['weekly'] as $row){
-        $count=$row['min'];
-        if($row['achievement']<=0){
-            if($row['extra']<=0||$row['extraStart']===null)continue;
-            $count=max($count,$row['extraStart']);
-        }
-        $amount=$row['achievement']+($row['extraStart']===null?0:max(0,$count-$row['extraStart']+1)*$row['extra']);
-        if($amount>0)return ['count'=>$count,'amount'=>$amount];
-    }
-    return ['count'=>null,'amount'=>0];
+    return ['count'=>8,'amount'=>(int)grade_evaluate($policy,'weekly',$policy['weeklyBasis']==='average'?40:8,5)['bonus']];
 }
 
 /** Display-only floor for a whole zero daily/weekly component in monthly criteria examples. */
 function grade_estimate_minimums(array $grade,array $policy): array {
-    $dailyRate=$policy['dailyCash']['perCase'];$weekly=grade_estimate_minimum_weekly($policy);
+    $dailyRate=grade_evaluate($policy,'daily',7)['bonus'];$weekly=grade_estimate_minimum_weekly($policy);
     $minimum=[
-        'daily'=>['applied'=>false,'originalAmount'=>$grade['daily'],'unitAmount'=>$dailyRate,'minimumCount'=>$policy['dailyCash']['start'],'days'=>count($grade['dailyDetails'])],
+        'daily'=>['applied'=>false,'originalAmount'=>$grade['daily'],'unitAmount'=>$dailyRate,'minimumCount'=>7,'days'=>count($grade['dailyDetails'])],
         'weekly'=>['applied'=>false,'originalAmount'=>$grade['weekly'],'unitAmount'=>$weekly['amount'],'minimumCount'=>$weekly['count'],'weeklyBasis'=>$policy['weeklyBasis'],'includedDays'=>array_sum(array_column(array_filter($grade['weeks'],fn($week)=>$week['included']),'days'))]
     ];
     if($grade['general']&&$grade['daily']===0&&$dailyRate>0&&$grade['dailyDetails']){
         foreach($grade['dailyDetails'] as &$day){
             // Preserve actual sample counts: this amount is a comparison floor, not an earned award.
-            $day['floorApplied']=true;$day['originalAmount']=$day['amount'];$day['minimumCount']=$policy['dailyCash']['start'];$day['amount']=$dailyRate;
+            $day['floorApplied']=true;$day['originalAmount']=$day['amount'];$day['minimumCount']=7;$day['minimumPaidCount']=max(0,7-$policy['dailyCash']['start']+1);$day['amount']=$dailyRate;
         }unset($day);
         $grade['daily']=array_sum(array_column($grade['dailyDetails'],'amount'));$minimum['daily']['applied']=true;
     }
