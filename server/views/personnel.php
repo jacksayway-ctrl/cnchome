@@ -10,6 +10,8 @@
 <?php if(!$editing): ?><a class="<?= $admin?'':'nf-contract-open' ?>" href="/contracts.php?role=<?= h($role) ?><?= $admin?'':'&amp;document=1' ?>"<?= $admin?'':' target="_blank" rel="noopener"' ?>>근로계약서</a><?php endif; ?>
 <?php if($record&&!$editing): ?><button type="button" data-print>인사기록카드 인쇄</button><?php endif; ?>
 </div>
+<?php if($admin&&!$editing&&!$popup): ?><details class="nf-card"><summary>로그인 세션 유지시간 설정</summary><form method="post"><?= native_csrf() ?><input type="hidden" name="action" value="sessionSettings"><label>페이지를 닫은 뒤 유지시간 (분) <input type="number" name="timeoutMinutes" min="5" max="1440" required value="<?= session_timeout_minutes() ?>"></label><button>설정 저장</button><p>페이지가 열려 있는 동안 1분마다 세션을 갱신합니다. 브라우저 종료·절전이나 통신 중단 시에는 설정한 시간이 적용됩니다.</p><?php if(isset($_GET['sessionSaved'])): ?><p role="status">저장했습니다.</p><?php endif ?></form></details><?php endif ?>
+<?php if(!empty($record['loginName'])): ?><p>직원 로그인 아이디: <strong><?= h($record['loginName']) ?></strong></p><?php endif ?>
 <?php if($editing): ?>
 <form class="personnel-form" method="post" action="/personnel.php?role=admin<?= $isNew?'&amp;new=1':'&amp;id='.$id.'&amp;edit=1' ?><?= $popup?'&amp;popup=1':'' ?>">
 <?= native_csrf() ?><input type="hidden" name="id" value="<?= $isNew?0:$id ?>"><input type="hidden" name="revision" value="<?= $formRevision ?>">
@@ -77,7 +79,8 @@ personnel_field($profile,'accountNumber','급여 계좌번호','text',40,false,'
 <?php if(!empty($record['user_id'])): ?><p class="personnel-note personnel-full">직원 로그인 계정이 연결되어 있습니다. 직책 변경으로 로그인 권한이 바뀌지는 않습니다.</p>
 <?php else: ?>
 <label class="nf-field personnel-wide">기존 직원 로그인 계정<select name="accountId"><option value="0">계정 연결 없이 저장</option><?php foreach($accounts as $account): ?><option value="<?= (int)$account['id'] ?>"><?= h($account['display_name'].' · '.$account['username']) ?></option><?php endforeach; ?></select></label>
-<label class="nf-field personnel-wide">또는 새 계정 비밀번호<input type="password" name="password" minlength="12" maxlength="72" autocomplete="new-password"><span class="personnel-note">12~72바이트. 새 계정 아이디는 자동 발급되는 사번입니다.</span></label>
+<label class="nf-field personnel-wide">새 직원 로그인 아이디<input name="username" pattern="[a-z0-9_.-]{3,64}" minlength="3" maxlength="64" autocomplete="off" placeholder="예: cncstaff01"><span>비워 두면 사번으로 생성합니다. 중복 아이디는 저장되지 않습니다.</span></label>
+<label class="nf-field personnel-wide">새 계정 비밀번호<input type="password" name="password" minlength="12" maxlength="72" autocomplete="new-password"><span class="personnel-note">12~72바이트. 아이디와 비밀번호를 함께 입력하면 직원 계정을 생성합니다.</span></label>
 <?php endif; ?>
 <?php personnel_textarea($profile,'memo','관리자 메모 (직원 화면에는 표시하지 않음)',1000); ?>
 </div></fieldset></section>

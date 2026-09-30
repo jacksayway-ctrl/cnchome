@@ -55,4 +55,4 @@ function native_start(string $title,array $user,string $active,array $extraStyle
     }
     echo '<div class="nf-page-heading"><h1>'.view_h($title).'</h1>'.$headingExtra.'<span>'.(new DateTimeImmutable('now',new DateTimeZone('Asia/Seoul')))->format('Y.m.d').'</span></div>';
 }
-function native_end(): void {echo '</main></div>';if(!empty($GLOBALS['native_notice_bar']))echo '<script src="'.view_h(asset_url('notice-ticker.js')).'" defer></script>';echo '<script src="'.view_h(asset_url('native-ui.js')).'" defer></script></body></html>';}
+function native_end(): void {echo '</main></div><script src="'.view_h(asset_url('session-keepalive.js')).'" defer></script>';if(!empty($GLOBALS['native_notice_bar']))echo '<script src="'.view_h(asset_url('notice-ticker.js')).'" defer></script>';echo '<script src="'.view_h(asset_url('native-ui.js')).'" defer></script></body></html>';}

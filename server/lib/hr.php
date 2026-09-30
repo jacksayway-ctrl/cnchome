@@ -55,6 +55,10 @@ function hr_calculate(array $profile,array $input): array {
     $minutes=hr_int($input['minutes']??null,44640);
     $allowance=hr_int($input['allowance']??null);$deductions=hr_int($input['deductions']??null);
     $rate=hr_int($profile['payAmount']);
+    if($profile['payType']==='시급제'&&!empty($input['gradeSnapshot']['parts'])){
+        $weighted=0;$weight=0;foreach($input['gradeSnapshot']['parts'] as $part){$hours=max(0,(float)$part['hours']);$weighted+=$hours*max($rate,(int)$part['hourly']);$weight+=$hours;}
+        if($weight>0)$rate=$weighted/$weight;
+    }
     $inclusive=$profile['payType']==='시급제'&&($input['holidayInclusive']??false)===true;
     $split=$inclusive?hr_holiday_split($rate,$minutes,$input['weeklyMinutes']??[],$input['month']??''):null;
     $holiday=$split['holiday']??0;
@@ -106,13 +110,19 @@ function hr_mutate(array $user,array $in): ?int {
             $q=$d->prepare('SELECT serial FROM hr_employee_sequences WHERE day=? FOR UPDATE');$q->execute([$day]);$seq=(int)$q->fetchColumn();
             $no='cnc'.$day.str_pad((string)$seq,3,'0',STR_PAD_LEFT);
         }else $no=$existing['employee_no'];
+        hr_assert(empty($in['username'])||!empty($in['password']),'새 아이디를 입력하면 비밀번호도 입력해 주세요.');
+        hr_assert(empty($in['accountId'])||empty($in['password']),'기존 계정 연결 또는 새 계정 생성 중 하나를 선택해 주세요.');
         if(!$uid && !empty($in['accountId'])){
             $accountId=hr_int($in['accountId']);$q=$d->prepare("SELECT id FROM app_users WHERE id=? AND role='employee' AND active=1 FOR UPDATE");$q->execute([$accountId]);hr_assert((bool)$q->fetch(),'연결할 직원 계정을 확인해 주세요.');
             $q=$d->prepare('SELECT id FROM hr_employees WHERE user_id=?');$q->execute([$accountId]);hr_assert(!$q->fetch(),'이미 연결된 계정입니다.');$uid=$accountId;
         }
         if(!$uid&&!empty($in['password'])){
             $pass=$in['password'];hr_assert(is_string($pass)&&strlen($pass)>=12&&strlen($pass)<=72,'새 직원 비밀번호는 12~72바이트로 입력해 주세요.');
-            $q=$d->prepare("INSERT INTO app_users(username,display_name,password_hash,role,department) VALUES(?,?,?,'employee',?)");$q->execute([$no,$p['name'],password_hash($pass,PASSWORD_DEFAULT),$p['team']]);$uid=(int)$d->lastInsertId();
+            $username=strtolower(trim((string)($in['username']??'')))?:$no;
+            hr_assert((bool)preg_match('/^[a-z0-9_.-]{3,64}$/D',$username),'아이디는 영문 소문자·숫자·밑줄·점·하이픈 3~64자입니다.');
+            hr_assert(empty($in['accountId']),'기존 계정 연결과 새 계정 생성을 동시에 선택할 수 없습니다.');
+            $q=$d->prepare('SELECT id FROM app_users WHERE username=?');$q->execute([$username]);hr_assert(!$q->fetch(),'이미 사용 중인 아이디입니다.');
+            $q=$d->prepare("INSERT INTO app_users(username,display_name,password_hash,role,department) VALUES(?,?,?,'employee',?)");$q->execute([$username,$p['name'],password_hash($pass,PASSWORD_DEFAULT),$p['team']]);$uid=(int)$d->lastInsertId();
         }
         if($uid){$q=$d->prepare("UPDATE app_users SET display_name=?,department=? WHERE id=? AND role='employee'");$q->execute([$p['name'],$p['team'],$uid]);}
         if($existing){$q=$d->prepare('UPDATE hr_employees SET user_id=?,profile=?,revision=revision+1 WHERE id=?');$q->execute([$uid,hr_json($p),$id]);}

@@ -2,7 +2,7 @@
 declare(strict_types=1);
 // Company-agreed inclusive hourly pay: 5 parts base pay + 1 part weekly support.
 // No 15-hour or full-attendance gate is applied to this voluntary support rule.
-function hr_holiday_split(int $rate,int $minutes,array $weeks,string $month): array {
+function hr_holiday_split(int|float $rate,int $minutes,array $weeks,string $month): array {
     hr_assert(preg_match('/^\d{4}-\d{2}$/D',$month)===1&&hr_day($month.'-01'),'귀속 월을 확인해 주세요.');
     hr_assert(array_is_list($weeks)&&count($weeks)<=6,'주별 인정시간을 입력해 주세요.');
     $last=(new DateTimeImmutable($month.'-01'))->modify('last day of this month')->format('Y-m-d');

@@ -19,12 +19,18 @@ try {
         if(!$admin)throw new HRForbidden('인사정보 변경은 관리자만 할 수 있습니다.');
         if(!is_string($_POST['csrf']??null)||!csrf_ok($_POST['csrf']))throw new HRForbidden('세션이 변경되었습니다. 새로고침 후 다시 저장해 주세요.');
         try {
+            if(($_POST['action']??'')==='sessionSettings'){
+                $minutes=filter_var($_POST['timeoutMinutes']??'',FILTER_VALIDATE_INT);
+                hr_assert($minutes!==false&&$minutes>=5&&$minutes<=1440,'세션 시간은 5~1440분입니다.');
+                $q=db()->prepare('UPDATE app_session_settings SET timeout_minutes=? WHERE id=1');$q->execute([$minutes]);
+                header('Location: /personnel.php?role=admin&sessionSaved=1',true,303);exit;
+            }
             $postId=personnel_natural($_POST['id']??0);
             hr_assert($postId===($isNew?0:$id),'직원 정보가 변경되었습니다. 다시 열어 주세요.');
             $formRevision=personnel_natural($_POST['revision']??0);
             $profile=personnel_post_profile($_POST,$record['profile']??[]);
             $password=$_POST['password']??'';hr_assert(is_string($password),'계정 입력을 확인해 주세요.');
-            $input=['action'=>'saveStaff','id'=>$postId,'revision'=>$formRevision,'profile'=>$profile,'accountId'=>personnel_natural($_POST['accountId']??0),'password'=>$password];
+            $input=['action'=>'saveStaff','id'=>$postId,'revision'=>$formRevision,'profile'=>$profile,'accountId'=>personnel_natural($_POST['accountId']??0),'password'=>$password,'username'=>$_POST['username']??''];
             $savedId=hr_mutate($user,$input);
             $_SESSION['personnel_saved']=true;
             header('Location: /personnel.php?role=admin'.($savedId?'&id='.$savedId:'').($popup?'&popup=1':''),true,303);exit;

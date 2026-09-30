@@ -12,13 +12,17 @@ function db(): PDO {
 function session_role(): string {
     return ($_GET['role'] ?? $_SERVER['HTTP_X_CNC_ROLE'] ?? 'employee') === 'admin' ? 'admin' : 'employee';
 }
+function session_timeout_minutes(): int {
+    try {return max(5,min(1440,(int)(db()->query('SELECT timeout_minutes FROM app_session_settings WHERE id=1')->fetchColumn()?:60)));}catch(Throwable $e){return 60;}
+}
 function session_boot(): void {
+    ini_set('session.gc_maxlifetime','86400');
     ini_set('session.use_strict_mode', '1');
     ini_set('session.use_only_cookies', '1');
     session_name('cnchome_session_' . session_role());
     session_set_cookie_params(['lifetime'=>0,'path'=>'/','secure'=>true,'httponly'=>true,'samesite'=>'Lax']);
     session_start();
-    if (isset($_SESSION['last']) && time() - $_SESSION['last'] > 3600) $_SESSION=[];
+    if (isset($_SESSION['last']) && time() - $_SESSION['last'] > session_timeout_minutes()*60) $_SESSION=[];
     $_SESSION['last']=time();
     $_SESSION['csrf'] ??= bin2hex(random_bytes(32));
     header('Cache-Control: no-store');

@@ -96,3 +96,8 @@ $ledger=grade_ledger('2026-09',$records,[['date'=>'2020-01-01','policy'=>grade_z
 gl_check($ledger['base']===2310000,'effective rates weighted by actual hours');
 $ledger=grade_ledger('2026-09',$records,[['date'=>'2020-01-01','policy'=>grade_zero_policy(17000)]],['payAmount'=>19000]);
 gl_check($ledger['base']===2508000,'contract hourly floor preserved');
+foreach([17000,18000] as $hourly){
+    $g=grade_ledger('2026-09',grade_forecast_records('2026-09',175),[['date'=>'2000-01-01','policy'=>grade_zero_policy($hourly)]],['payAmount'=>15000]);
+    $c=hr_calculate(['payType'=>'시급제','payAmount'=>15000],['minutes'=>7920,'allowance'=>0,'deductions'=>0,'gradeSnapshot'=>$g]);
+    gl_check($c['base']===132*$hourly,'saved payroll uses earned grade hourly rate');
+}

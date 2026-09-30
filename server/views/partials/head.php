@@ -12,7 +12,7 @@
 <script src="<?= view_h(asset_url('native-navigation.js')) ?>"></script>
 <script src="<?= view_h(asset_url('notice-ticker.js')) ?>" defer></script>
 <script src="<?= view_h(asset_url('session-navigation.js')) ?>" defer></script>
-<?php if (!$preview): ?><script src="<?= view_h(asset_url('test-workspace.js')) ?>" defer></script><?php endif; ?>
+<?php if (!$preview): ?><script src="<?= view_h(asset_url('session-keepalive.js')) ?>" defer></script><script src="<?= view_h(asset_url('test-workspace.js')) ?>" defer></script><?php endif; ?>
 
 <?php if (is_array($user) && isset($user['role'], $_SESSION['csrf'])): ?>
 <script>window.CNCHOME_POLICY=<?= view_json(['role'=>$user['role'],'csrf'=>$_SESSION['csrf']]) ?>;</script>

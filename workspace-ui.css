@@ -279,3 +279,4 @@
   .intake-detail-grid {grid-template-columns:minmax(0,1fr)}
   .bc-day-box {min-height:64px;font-size:12px;word-break:keep-all}
 }
+.region-map-disclosure{min-width:0;padding:12px 0}.region-map-disclosure>summary{cursor:pointer;font-weight:600;padding:10px;border:1px solid #dce3ec;border-radius:8px}.region-map-disclosure>a{display:inline-block;margin:10px 0}[data-pending-panel] summary{cursor:pointer}[data-pending-panel] textarea{width:100%;min-width:180px;min-height:64px}

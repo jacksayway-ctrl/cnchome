@@ -11,6 +11,7 @@ function personnel_records(array $user): array {
     return array_map(function(array $row): array {
         $row['id']=(int)$row['id'];$row['revision']=(int)$row['revision'];
         $row['profile']=json_decode($row['profile'],true,512,JSON_THROW_ON_ERROR);
+        $row['loginName']='';if($row['user_id']){$q=db()->prepare('SELECT username FROM app_users WHERE id=?');$q->execute([$row['user_id']]);$row['loginName']=$q->fetchColumn()?:'';}
         return $row;
     },$q->fetchAll());
 }

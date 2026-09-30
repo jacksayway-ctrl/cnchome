@@ -258,3 +258,6 @@ CREATE TABLE IF NOT EXISTS test_fixture_batches (
  manifest JSON NOT NULL,
  created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS app_session_settings (id TINYINT PRIMARY KEY, timeout_minutes INT NOT NULL DEFAULT 60);
+INSERT IGNORE INTO app_session_settings(id,timeout_minutes) VALUES(1,60);

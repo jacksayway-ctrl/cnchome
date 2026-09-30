@@ -10,13 +10,14 @@
   function element(tag,className,text){const node=doc.createElement(tag);if(className)node.className=className;if(text!==undefined)node.textContent=text;return node;}
   function showDialog(title){if(dialog)dialog.remove();dialog=element('dialog','cnc-notice-dialog');dialog.setAttribute('aria-label',title);const head=element('div','cnc-notice-dialog-heading');head.append(element('h2','',title));const close=element('button','','닫기');close.type='button';close.addEventListener('click',()=>dialog.close());head.append(close);dialog.append(head);doc.body.append(dialog);dialog.showModal();return dialog;}
   function showList(channel){
+   if(channel==='company'){global.location.assign('/notices.php?role='+encodeURIComponent(live.user.role));return;}
    const list=channel==='company'?company:activity.slice().reverse(),box=showDialog(channel==='company'?'회사 공지사항':'정책 수량 감소 알림');
    if(!list.length)box.append(element('p','','아직 등록된 내용이 없습니다.'));
    for(const item of list){const card=element('article','cnc-notice-card');card.append(element('strong','',item.title),element('p','',item.body),element('small','',new Date(item.createdAt).toLocaleString('ko-KR',{timeZone:'Asia/Seoul'})));box.append(card);}
   }
   function channel(label,key,empty){
    const box=element('section','cnc-notice-channel'),heading=element('strong','cnc-notice-label',label),viewport=element('button','cnc-notice-viewport'),text=element('span','cnc-notice-text',empty);
-   viewport.type='button';viewport.setAttribute('aria-label',label+' 전체 보기');viewport.append(text);viewport.addEventListener('click',()=>showList(key));box.append(heading,viewport);area.append(box);
+   viewport.type='button';viewport.setAttribute('aria-label',label+' 전체 보기');viewport.append(text);viewport.addEventListener('click',()=>showList(key));heading.style.cursor='pointer';heading.addEventListener('click',()=>showList(key));box.append(heading,viewport);area.append(box);
    let items=[],pending=[],current=null,index=0,timer=null,paused=false;
    const reduced=()=>global.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
    function animate(){
