@@ -30,8 +30,14 @@
  }
  function calendar(team,records){
   const [year,m]=month.split('-').map(Number),first=new Date(Date.UTC(year,m-1,1)).getUTCDay(),days=new Date(Date.UTC(year,m,0)).getUTCDate();
-  let cells=Array.from({length:first},()=>'<div class="day sales-outside-month"></div>').join('');
-  for(let n=1;n<=days;n++){const date=month+'-'+String(n).padStart(2,'0'),c=daily(records,team,date),isToday=date===today();cells+='<button type="button" class="day sales-live-day '+(date===selected?'active ':'')+(isToday?'team-performance-today':'')+'" data-sales-day="'+date+'" data-sales-team="'+team+'" '+(isToday?'aria-current="date"':'')+' aria-label="'+date+' '+esc(teams[team]||'전체')+' 가접수 '+c.pending+'건 정상접수 '+c.normal+'건 A/S '+c.as+'건"><span class="date-number">'+n+'</span>'+Object.keys(labels).map(k=>'<small class="count sales-status-'+tones[k]+'" data-sales-count="'+k+'">'+labels[k]+' '+c[k]+'건</small>').join('')+'</button>';}
+  const employee=!admin(),cellCount=employee?Math.ceil((first+days)/7)*7:first+days;
+  let cells='';
+  for(let index=0;index<cellCount;index++){
+   const n=index-first+1,cellDate=new Date(Date.UTC(year,m-1,n)),date=cellDate.toISOString().slice(0,10),outside=date.slice(0,7)!==month;
+   if(outside){cells+='<div class="day sales-outside-month"'+(employee?' aria-label="'+date+'"':'')+'>'+(employee?'<span class="date-number">'+(cellDate.getUTCMonth()+1)+'월 '+cellDate.getUTCDate()+'</span>':'')+'</div>';continue;}
+   const c=daily(records,team,date),isToday=date===today(),statusKeys=Object.keys(labels).filter(k=>!employee||k!=='as'||c.as>0);
+   cells+='<button type="button" class="day sales-live-day '+(date===selected?'active ':'')+(isToday?'team-performance-today':'')+'" data-sales-day="'+date+'" data-sales-team="'+team+'" '+(isToday?'aria-current="date"':'')+' aria-label="'+date+' '+esc(teams[team]||'전체')+' 가접수 '+c.pending+'건 정상접수 '+c.normal+'건'+(!employee||c.as>0?' A/S '+c.as+'건':'')+'"><span class="date-number">'+n+'</span>'+statusKeys.map(k=>'<small class="count sales-status-'+tones[k]+'" data-sales-count="'+k+'">'+labels[k]+' '+c[k]+'건</small>').join('')+'</button>';
+  }
   const total=counts(records.filter(r=>!team||r.team===team));
   return '<section class="panel" data-sales-calendar="'+team+'"><h3>'+esc(teams[team]||'전체')+' 실적 달력</h3><div class="sales-live-totals">'+summary(total)+'</div><div class="team-performance-scroll"><div class="calendar sales-live-calendar">'+['일','월','화','수','목','금','토'].map(d=>'<div class="weekday">'+d+'</div>').join('')+cells+'</div></div></section>';
  }
