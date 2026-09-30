@@ -9,6 +9,11 @@ try{
  if(!$p){$d->commit();exit;}
  $old=json_decode($p['calculation'],true,512,JSON_THROW_ON_ERROR);$profile=json_decode($p['profile'],true,512,JSON_THROW_ON_ERROR);
  if(($old['holidayInclusive']??false)||$profile['payType']!=='시급제'){$d->commit();exit;}
+ // This legacy migration only splits unchanged contract-rate demo wages.
+ // Grade-rated statements are rebuilt by refresh-test-full-attendance.php later in deploy.
+ if(isset($old['gradeSnapshot'])||(float)($old['rate']??$profile['payAmount'])!==(float)$profile['payAmount']){
+  $d->commit();echo "그레이드 시급 명세서: 최신 만근·그레이드 재산정 단계에서 처리합니다.\n";exit;
+ }
  $q=$d->prepare('SELECT state FROM test_employee_data WHERE user_id=?');$q->execute([$p['user_id']]);$raw=$q->fetchColumn();$state=$raw?json_decode($raw,true,512,JSON_THROW_ON_ERROR):[];
  $attendance=array_filter($state['attendance']??[],fn($r)=>str_starts_with($r['date'],$month));usort($attendance,fn($a,$b)=>strcmp($a['date'],$b['date']));
  $remaining=(int)$old['minutes'];$weeks=[];
