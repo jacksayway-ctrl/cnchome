@@ -48,25 +48,56 @@ function intake_history(array $user,string $id): array {
     }
     usort($rows,fn($a,$b)=>strcmp($b['created_at'],$a['created_at']));return array_slice($rows,0,100);
 }
+// Callers must supply only records they are allowed to read; null is for an already authorized administrator.
+function intake_outstanding_recalls(?array $recordIds=null): array {
+    if($recordIds===[])return [];$d=db();$requests=[];$params=$recordIds===null?[]:array_values(array_unique(array_map('strval',$recordIds)));
+    $q=$d->prepare("SELECT e.id,e.record_key,e.action,e.after_data,e.reason,e.created_at,u.display_name AS actor FROM intake_management_events e JOIN app_users u ON u.id=e.actor_id WHERE e.action IN ('recall','resubmit')".($recordIds===null?'':' AND e.record_key IN ('.implode(',',array_fill(0,count($params),'?')).')')." AND NOT EXISTS (SELECT 1 FROM intake_management_events later WHERE later.record_key=e.record_key AND later.id>e.id AND later.action IN ('recall','resubmit','status','hold')) ORDER BY e.id");$q->execute($params);
+    foreach($q->fetchAll() as $event){$after=json_decode($event['after_data'],true,512,JSON_THROW_ON_ERROR);$event['carrier']=(string)($after['carrier']??'');$requests[$event['record_key']]=$event;}
+    $ids=array_values(array_filter(array_keys($requests),fn($id)=>ctype_digit((string)$id)));
+    if($ids){$q=$d->prepare("SELECT e.sale_id,MAX(e.created_at) AS handled_at FROM sales_events e JOIN app_users u ON u.id=e.actor_id WHERE u.role='admin' AND e.old_status<>'' AND e.sale_id IN (".implode(',',array_fill(0,count($ids),'?')).") GROUP BY e.sale_id");$q->execute($ids);foreach($q->fetchAll() as $event){$id=(string)$event['sale_id'];if($event['handled_at']>=$requests[$id]['created_at'])unset($requests[$id]);}}
+    return $requests;
+}
+function intake_recall_queue(array $user,array $filters): array {
+    intake_admin($user);$d=db();$requests=intake_outstanding_recalls();
+    if(!$requests)return [];
+    $records=[];
+    $q=$d->query("SELECT s.*,u.display_name AS employee_name,c.consultation_place FROM sales_records s JOIN app_users u ON u.id=s.employee_id LEFT JOIN sales_consultation_details c ON c.sale_id=s.id WHERE s.status='pending'");
+    foreach($q->fetchAll() as $r){$id=(string)$r['id'];if(!isset($requests[$id]))continue;$records[]=['id'=>$id,'date'=>$r['first_date'],'employeeId'=>(int)$r['employee_id'],'employee'=>$r['employee_name'],'team'=>$r['department'],'customer'=>$r['customer_name'],'phone'=>$r['phone'],'carrier'=>$r['carrier'],'consultationPlace'=>$r['consultation_place']??'','note'=>$r['note'],'status'=>'pending','revision'=>(int)$r['revision'],'isTest'=>(bool)$r['is_test']];}
+    if($filters['scope']!=='real')foreach($d->query('SELECT t.state,t.revision,u.id,u.display_name,u.department FROM test_employee_data t JOIN app_users u ON u.id=t.user_id')->fetchAll() as $test){
+        foreach(json_decode($test['state'],true,512,JSON_THROW_ON_ERROR)['sales']??[] as $sale){$id='test:'.$test['id'].':'.$sale['id'];if($sale['status']!=='가접수'||!isset($requests[$id]))continue;$records[]=['id'=>$id,'date'=>$sale['date'],'employeeId'=>(int)$test['id'],'employee'=>$test['display_name'],'team'=>$test['department'],'customer'=>$sale['name'],'phone'=>$sale['phone']??'','carrier'=>$sale['carrier']??'','consultationPlace'=>$sale['consultationPlace']??'','note'=>$sale['note']??'','status'=>'pending','revision'=>(int)$test['revision'],'isTest'=>true];}
+    }
+    $records=intake_filtered($records,array_replace($filters,['month'=>'','from'=>'','to'=>'','status'=>'pending']));$rows=[];
+    foreach($records as $row){$row['recall']=$requests[$row['id']];$rows[]=$row;}
+    usort($rows,fn($a,$b)=>strcmp($a['date'],$b['date'])?:strcmp($a['recall']['created_at'],$b['recall']['created_at'])?:strnatcmp($a['id'],$b['id']));return $rows;
+}
+function intake_recall_request(string $id,int $eventId): array {
+    $q=db()->prepare("SELECT id,action,after_data,created_at FROM intake_management_events WHERE record_key=? AND action IN ('recall','resubmit','status','hold') ORDER BY id DESC LIMIT 1");$q->execute([$id]);$event=$q->fetch();
+    hr_assert($event&&(int)$event['id']===$eventId&&in_array($event['action'],['recall','resubmit'],true),'이미 처리되었거나 새 재콜 요청이 있습니다. 새로고침해 주세요.');
+    if(ctype_digit($id)){$q=db()->prepare("SELECT MAX(e.created_at) FROM sales_events e JOIN app_users u ON u.id=e.actor_id WHERE e.sale_id=? AND u.role='admin' AND e.old_status<>''");$q->execute([(int)$id]);$handled=$q->fetchColumn();hr_assert(!$handled||$handled<$event['created_at'],'다른 화면에서 처리한 요청입니다. 새로고침해 주세요.');}
+    return json_decode($event['after_data'],true,512,JSON_THROW_ON_ERROR);
+}
 function intake_update(array $user,array $in): void {
     intake_admin($user);$id=intake_text($in['id']??'',60);$revision=intake_number($in['revision']??0);$action=intake_text($in['action']??'',15);hr_assert(in_array($action,['status','edit','hold'],true),'지원하지 않는 작업입니다.');
     $reason=intake_text($in['reason']??'',500);if($action==='hold'&&$reason==='')$reason='내용 확인 후 가접수 유지';$status=intake_text($in['status']??'',10);hr_assert(in_array($status,['pending','normal','as'],true),'상태를 확인해 주세요.');
+    $recallId=intake_number($in['recallEventId']??0);if($recallId)hr_assert(($action==='status'&&$status==='normal')||($action==='hold'&&$status==='pending'),'재콜 확인 작업을 다시 선택해 주세요.');
     $d=db();$d->beginTransaction();
     try{
         if(preg_match('/^test:(\d+):(\d+)$/D',$id,$m)){
             hr_assert(in_array($action,['status','hold'],true),'이전 테스트 자료는 상태만 변경할 수 있습니다.');
             $q=$d->prepare('SELECT state,revision FROM test_employee_data WHERE user_id=? FOR UPDATE');$q->execute([(int)$m[1]]);$row=$q->fetch();hr_assert($row&&(int)$row['revision']===$revision,'자료가 변경됐습니다. 새로고침 후 확인해 주세요.');
-            $state=json_decode($row['state'],true,512,JSON_THROW_ON_ERROR);$found=false;
-            foreach($state['sales'] as &$sale)if((int)$sale['id']===(int)$m[2]){$before=['status'=>['가접수'=>'pending','정상'=>'normal','A/S'=>'as'][$sale['status']]];$sale['status']=['pending'=>'가접수','normal'=>'정상','as'=>'A/S'][$status];$found=true;}unset($sale);
+            $request=$recallId?intake_recall_request($id,$recallId):null;$state=json_decode($row['state'],true,512,JSON_THROW_ON_ERROR);$found=false;$after=['status'=>$status];
+            foreach($state['sales'] as &$sale)if((int)$sale['id']===(int)$m[2]){$before=['status'=>['가접수'=>'pending','정상'=>'normal','A/S'=>'as'][$sale['status']]];if($request){hr_assert($before['status']==='pending','가접수 상태를 다시 확인해 주세요.');if($status==='normal'&&($request['carrier']??'')!==''){$before['carrier']=$sale['carrier']??'';$sale['carrier']=intake_text($request['carrier'],100);$after['carrier']=$sale['carrier'];}}$sale['status']=['pending'=>'가접수','normal'=>'정상','as'=>'A/S'][$status];$found=true;}unset($sale);
             hr_assert($found,'접수를 찾을 수 없습니다.');hr_assert($action==='hold'?($before['status']==='pending'&&$status==='pending'):$before['status']!==$status,'현재 상태를 다시 확인해 주세요.');
             $q=$d->prepare('UPDATE test_employee_data SET state=?,revision=revision+1 WHERE user_id=?');$q->execute([hr_json($state),(int)$m[1]]);
-            intake_audit($id,$user,$action,$before,['status'=>$status],$reason);
+            if($recallId)$after['recallEventId']=$recallId;intake_audit($id,$user,$action,$before,$after,$reason);
         }else{
             hr_assert(ctype_digit($id),'접수 번호를 확인해 주세요.');$q=$d->prepare('SELECT * FROM sales_records WHERE id=? FOR UPDATE');$q->execute([(int)$id]);$row=$q->fetch();hr_assert((bool)$row,'접수를 찾을 수 없습니다.');hr_assert((int)$row['revision']===$revision,'다른 화면에서 변경했습니다. 새로고침 후 다시 확인해 주세요.');
+            $request=$recallId?intake_recall_request($id,$recallId):null;if($request)hr_assert($row['status']==='pending','가접수 상태를 다시 확인해 주세요.');
             if(in_array($action,['status','hold'],true)){
                 hr_assert($action==='hold'?($row['status']==='pending'&&$status==='pending'):$row['status']!==$status,'현재 상태를 다시 확인해 주세요.');
-                $q=$d->prepare('UPDATE sales_records SET status=?,revision=revision+1,updated_at=UTC_TIMESTAMP(6) WHERE id=?');$q->execute([$status,(int)$id]);
-                intake_audit($id,$user,$action,['status'=>$row['status']],['status'=>$status],$reason);
+                $before=['status'=>$row['status']];$after=['status'=>$status];$carrier=$row['carrier'];if($request&&$status==='normal'&&($request['carrier']??'')!==''){$carrier=intake_text($request['carrier'],100);$before['carrier']=$row['carrier'];$after['carrier']=$carrier;}if($recallId)$after['recallEventId']=$recallId;
+                $q=$d->prepare('UPDATE sales_records SET status=?,carrier=?,revision=revision+1,updated_at=UTC_TIMESTAMP(6) WHERE id=?');$q->execute([$status,$carrier,(int)$id]);
+                intake_audit($id,$user,$action,$before,$after,$reason);
             }else{
                 $fields=['customer_name'=>['customer',100],'phone'=>['phone',20],'carrier'=>['carrier',100],'note'=>['note',1000]];$next=[];
                 foreach($fields as $column=>[$key,$max])$next[$column]=intake_text($in[$key]??'',$max);

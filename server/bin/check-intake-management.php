@@ -61,3 +61,51 @@ try{intake_alert_snapshot($one,intake_alert_filters([]));throw new RuntimeExcept
 $f=intake_alert_filters(['scope'=>'all']);$data=$newest;ob_start();require __DIR__.'/../views/partials/intake-alert-list.php';$queueHtml=ob_get_clean();
 check(str_contains($queueHtml,'data-intake-window')&&str_contains($queueHtml,'popup=1'),'queue opens detailed intake in separate window');
 echo "PASS: realtime queue role isolation, all-month coverage, both sort orders and audited pending holds.\n";
+
+// The recall workflow is verified only against this isolated in-memory fixture.
+$recallId=(string)$pending['id'];$baseNote=str_repeat('기존 메모 ',80);$d->prepare('UPDATE sales_records SET note=?,carrier=? WHERE id=?')->execute([$baseNote,'GA',$recallId]);
+$addRecall=function(string $key,string $action,string $memo,string $carrier='한화')use($d,$one,$lastMonth):int{
+    $d->prepare('UPDATE sales_records SET revision=revision+1 WHERE id=?')->execute([$key]);
+    intake_audit($key,$one,$action,['status'=>'pending'],['status'=>'pending','carrier'=>$carrier,'date'=>$lastMonth],$memo);return (int)$d->lastInsertId();
+};
+$firstRequest=$addRecall($recallId,'resubmit','기존 재접수 메모');
+$currentRequest=$addRecall($recallId,'recall','<script>재콜 메모</script>');
+$addRecall($recallId,'memo','재콜 이후 추가 메모','');
+$recallFilters=intake_filters(['month'=>$month,'scope'=>'real','status'=>'normal','from'=>$today,'to'=>$today]);
+$recallQueue=intake_recall_queue($admin,$recallFilters);$recallRow=array_values(array_filter($recallQueue,fn($r)=>$r['id']===$recallId))[0]??null;
+check($recallRow!==null&&$recallRow['date']===$lastMonth,'recall queue includes previous month and ignores monthly date/status restriction');
+check((int)$recallRow['recall']['id']===$currentRequest&&$recallRow['recall']['carrier']==='한화','latest recall replaces earlier request and survives a later memo');
+check($recallRow['note']===$baseNote,'appended recall notes preserve the original full note');
+check(intake_recall_queue($admin,array_replace($recallFilters,['employee'=>'3']))===[],'recall queue respects employee filter');
+check(intake_recall_queue($admin,array_replace($recallFilters,['team'=>'cosmetics']))===[],'recall queue respects department filter');
+check(intake_recall_queue($admin,array_replace($recallFilters,['scope'=>'test']))===[],'real recall is excluded from test scope');
+check(isset(intake_outstanding_recalls([$recallId])[$recallId])&&intake_outstanding_recalls([])===[],'employee request flags use the same outstanding-event rule and empty scope stays empty');
+rejects(fn()=>intake_recall_queue($one,$recallFilters),'employee cannot read administrator recall queue');
+$revision=(int)$recallRow['revision'];
+rejects(fn()=>intake_update($admin,['id'=>$recallId,'revision'=>$revision,'action'=>'status','status'=>'normal','recallEventId'=>$firstRequest]),'superseded recall rejected with current record revision');
+rejects(fn()=>intake_update($one,['id'=>$recallId,'revision'=>$revision,'action'=>'status','status'=>'normal','recallEventId'=>$currentRequest]),'employee cannot approve recall');
+// Render the populated queue: notes must be escaped and mutation guards must be present.
+ob_start();require __DIR__.'/../views/intake.php';$recallHtml=ob_get_clean();
+check(str_contains($recallHtml,'정상접수 확인표')&&str_contains($recallHtml,'name="recallEventId"')&&str_contains($recallHtml,'fixture-token'),'recall confirmation table includes request identity, revision and CSRF controls');
+check(!str_contains($recallHtml,'<script>재콜 메모</script>')&&str_contains($recallHtml,'&lt;script&gt;재콜 메모&lt;/script&gt;'),'recall memo is escaped in rendered table');
+intake_update($admin,['id'=>$recallId,'revision'=>$revision,'action'=>'hold','status'=>'pending','recallEventId'=>$currentRequest,'reason'=>'추가 상담 필요']);
+$heldRow=$d->query('SELECT * FROM sales_records WHERE id='.(int)$recallId)->fetch();
+check($heldRow['status']==='pending'&&$heldRow['note']===$baseNote&&$heldRow['carrier']==='GA','hold preserves original memo, carrier and pending status');
+check(!isset(intake_outstanding_recalls([$recallId])[$recallId])&&intake_recall_queue($admin,$recallFilters)===[],'processed hold leaves both administrator queue and employee waiting flag');
+rejects(fn()=>intake_update($admin,['id'=>$recallId,'revision'=>(int)$heldRow['revision'],'action'=>'status','status'=>'normal','recallEventId'=>$currentRequest]),'already processed request cannot be replayed with a newer revision');
+$approvedRequest=$addRecall($recallId,'recall','추가 통화 후 정상 확인 요청','신한');$approvedRevision=(int)$d->query('SELECT revision FROM sales_records WHERE id='.(int)$recallId)->fetchColumn();
+intake_update($admin,['id'=>$recallId,'revision'=>$approvedRevision,'action'=>'status','status'=>'normal','recallEventId'=>$approvedRequest,'reason'=>'정상 확인 완료']);
+$approvedRow=$d->query('SELECT * FROM sales_records WHERE id='.(int)$recallId)->fetch();
+check($approvedRow['status']==='normal'&&$approvedRow['carrier']==='신한'&&$approvedRow['first_date']===$lastMonth&&$approvedRow['note']===$baseNote,'approval applies requested carrier and keeps original intake date and full memo');
+check(intake_recall_queue($admin,$recallFilters)===[],'approved recall leaves pending confirmation queue');
+$recallHistory=intake_history($admin,$recallId);$reasons=array_column($recallHistory,'reason');
+check(in_array('재콜 이후 추가 메모',$reasons,true)&&in_array('기존 재접수 메모',$reasons,true)&&in_array('<script>재콜 메모</script>',$reasons,true),'every appended memo remains in audit history after approval');
+// Handling from the original sales page also closes recall requests, even after reopening pending.
+intake_update($admin,['id'=>$recallId,'revision'=>(int)$approvedRow['revision'],'action'=>'status','status'=>'pending']);
+$externalRequest=$addRecall($recallId,'recall','기존 접수 화면 확인');$externalRevision=(int)$d->query('SELECT revision FROM sales_records WHERE id='.(int)$recallId)->fetchColumn();
+sales_mutate($admin,['id'=>$recallId,'revision'=>$externalRevision,'action'=>'status','status'=>'normal']);sales_mutate($admin,['id'=>$recallId,'revision'=>$externalRevision+1,'action'=>'status','status'=>'pending']);
+// The SQLite fixture lacks the production sales_events timestamp default.
+$d->prepare('UPDATE sales_events SET created_at=? WHERE sale_id=? AND old_status<>?')->execute(['2999-01-01 00:00:00',$recallId,'']);
+check(intake_recall_queue($admin,$recallFilters)===[]&&!isset(intake_outstanding_recalls([$recallId])[$recallId]),'original sales status handling closes recall after status is reopened');
+rejects(fn()=>intake_update($admin,['id'=>$recallId,'revision'=>$externalRevision+2,'action'=>'status','status'=>'normal','recallEventId'=>$externalRequest]),'old recall cannot be approved after original sales screen handling');
+echo "PASS: all-month recall queue, scoped access, append-only memos, latest-request guards, approval/hold behavior, original-date preservation, escaped rendering and shared employee waiting state.\n";

@@ -1,1 +1,33 @@
 .intake-toolbar{display:flex;flex-wrap:wrap;align-items:end;gap:8px}.intake-toolbar label{min-width:100px;flex:1}.intake-toolbar .intake-search{flex:2;min-width:180px}.intake-summary{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}.intake-summary a{background:#fff;border:1px solid #d5dfec;padding:8px 12px;border-radius:6px;text-decoration:none;font-size:13px}.intake-summary strong{margin-left:7px;color:#1a57a5}.intake-status{display:inline-block;border-radius:4px;padding:2px 6px;white-space:nowrap;font-size:11px}.intake-status.pending{background:#fff1d8;color:#81590f}.intake-status.normal{background:#e6f5eb;color:#1c6637}.intake-status.as{background:#ffebe9;color:#9b352c}.intake-list th,.intake-list td{white-space:nowrap}.intake-test{font-size:10px;background:#eef0ff;color:#5a4d94;padding:2px 5px;border-radius:3px;margin-left:5px}.intake-detail-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px 14px}.intake-detail-grid dt{font-size:11px;color:#67788b}.intake-detail-grid dd{margin:2px 0 8px;overflow-wrap:anywhere}.intake-history details{max-width:680px}.intake-history dl{margin:5px 0;font-size:12px}.intake-history dt{font-weight:600}.intake-history dd{white-space:pre-wrap;margin:0 0 7px;overflow-wrap:anywhere}.intake-pagination{display:flex;gap:9px;align-items:center;justify-content:flex-end;margin:12px 0}.intake-form textarea{min-height:70px}@media(max-width:700px){.intake-detail-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* Intake review polish, shared with the employee follow-up queue. */
+.intake-summary{gap:10px;margin:14px 0}
+.intake-summary a{padding:10px 15px;border-color:#dce5ef;border-radius:9px;color:#52677f;box-shadow:0 2px 7px #173f7006}
+.intake-summary a:hover{border-color:#a8c4e5;background:#f5f9ff}
+.intake-summary strong{font-size:15px;font-variant-numeric:tabular-nums;color:#285d98}
+.intake-status{padding:3px 8px;border-radius:20px;font-weight:600}
+.intake-list th{padding:11px 10px;background:#f3f6fa;color:#60748d;border-color:#e0e7ef}
+.intake-list td{padding:11px 10px;border-color:#e5ebf2}
+.intake-list tbody tr:hover td{background:#f8faff}
+.intake-list td>a{font-weight:600;text-decoration:none;display:inline-block;padding:3px 7px;border-radius:5px;background:#ecf3fc;color:#2d5e96}
+.intake-detail-grid{padding:14px;background:#f7f9fc;border:1px solid #e3eaf2;border-radius:9px;gap:10px 18px}
+.intake-detail-grid dt{color:#708198}.intake-detail-grid dd{font-weight:500;color:#2d4158}
+.intake-history{margin-top:16px;padding-top:12px;border-top:1px solid #e4ebf3}
+.intake-history>summary{color:#365d88;font-size:13px}
+.intake-history>section{margin-top:12px;padding:10px 14px;border-left:3px solid #cbdcf0;background:#f7fafe;border-radius:0 7px 7px 0}
+.intake-pagination{color:#718197;font-size:12px;gap:12px}
+.intake-pagination a{border:1px solid #d8e2ee;border-radius:6px;padding:5px 10px;text-decoration:none;background:#fff}
+.intake-recall-queue{border-color:#c8d9ee;background:#fff;box-shadow:0 2px 10px #173f7008}
+.intake-recall-queue h2{color:#2a568a}
+.intake-recall-queue .nf-table th{background:#edf4fd;color:#4b6c92}
+.intake-recall-queue .nf-table td{padding-top:10px;padding-bottom:10px}
+.intake-recall-queue .nf-table tbody tr:hover td{background:#f8faff}
+.intake-recall-card{border-color:#c8d9ee;background:#fff;box-shadow:0 2px 10px #173f7008}
+.intake-recall-card h2{color:#2a568a}.intake-recall-count{display:inline-block;margin-left:6px;padding:2px 7px;border-radius:12px;background:#e8f1fd;color:#2c609b;font-size:12px;font-weight:700}
+.intake-recall-table th{background:#edf4fd;color:#4b6c92}
+.intake-recall-table .intake-recall-memo{min-width:180px;max-width:340px;white-space:pre-wrap;overflow-wrap:anywhere}
+.intake-recall-process{min-width:150px}.intake-recall-process>summary,.intake-memo-history>summary{color:#365d88;font-size:12px;cursor:pointer}
+.intake-recall-actions{display:grid;gap:8px;margin-top:10px;min-width:180px;white-space:normal}
+.intake-recall-actions label{display:grid;gap:5px;font-size:12px;color:#63768d}.intake-recall-actions textarea{min-height:64px;width:100%}
+.intake-memo-history{margin-top:12px;padding-top:10px;border-top:1px solid #e3eaf2}.intake-memo-history p{white-space:pre-wrap;overflow-wrap:anywhere}
+.intake-empty{padding:20px 12px;color:#718197;font-size:13px;text-align:center}

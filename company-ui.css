@@ -1,0 +1,69 @@
+/* Final screen theme. Layout, data, policy colors, and print documents stay in their own stylesheets. */
+@media screen {
+  :root {
+    --cnc-ink:#26384d;
+    --cnc-muted:#718094;
+    --cnc-line:#dfe6ef;
+    --cnc-bg:#f4f6fa;
+    --cnc-blue:#2c609b;
+    --cnc-soft:#edf3fb;
+    --cnc-radius:10px;
+  }
+  #tm-preview,.nf-body {font-family:"Malgun Gothic","Apple SD Gothic Neo","Noto Sans KR",Arial,sans-serif;letter-spacing:-.15px}
+  #tm-preview .shell>aside,.nf-nav {background:#19334f;border-right:1px solid #122b45}
+  #tm-preview :is(.cnc-brand strong,.team),.nf-sidebar-brand strong,.nf-team {letter-spacing:0}
+  #tm-preview nav button,#tm-preview aside .native-menu-link,.nf-nav nav a {color:#bfcee0;font-weight:500;transition:background-color .15s,color .15s}
+  #tm-preview nav button:hover,#tm-preview aside .native-menu-link:hover,.nf-nav nav a:hover {background:#254565;color:#fff}
+  #tm-preview nav button.active,#tm-preview aside .native-menu-link.active,.nf-nav nav a.active {background:#315e8d;color:#fff;box-shadow:inset 3px 0 #91bce9;font-weight:600}
+  #tm-preview :is(.aw-subpages,.work>header),.nf-topbar,.nf-subpages {border-color:var(--cnc-line)}
+  #tm-preview :is(.aw-subpage-links button,.aw-subpage-links a),.nf-subpage-links a {border-color:#e0e7f0;border-radius:7px;color:#64768c;background:#fff;font-size:13px;font-weight:500}
+  #tm-preview :is(.aw-subpage-links button.active,.aw-subpage-links a.active),.nf-subpage-links a.active {color:#2b5b91;border-color:#c1d4eb;background:#edf4fd;font-weight:700}
+  #tm-preview :is(.panel,.stat,.aw-metrics>div,.aw-task,.aw-case,.aw-hub),.nf-body :is(.nf-card,.contract-panel,.panel,.metric) {border-color:var(--cnc-line);border-radius:10px;box-shadow:0 2px 8px #253e5a05}
+  #tm-preview h1,#tm-preview #tm-main>h2,#tm-preview .region-page-heading h2,.nf-page-heading h1 {color:#243b55;font-weight:700;letter-spacing:-.5px}
+  #tm-preview :is(.panel h3,.aw h3),.nf-body :is(.nf-card h2,.contract-panel h2,.panel h3) {color:#304c69;font-weight:700}
+  #tm-preview :is(.sub,.hr-muted),.nf-muted,.nf-field,.contract-hint,.personnel-note {color:#6b7d91}
+  #tm-preview :is(button.action,button.secondary,.aw .action,.aw .secondary),.nf-body :is(button,.nf-button,.contract-button) {border-radius:7px;font-size:13px;font-weight:600;box-shadow:none;transition:background-color .15s,border-color .15s}
+  #tm-preview button.action,.nf-body :is(button.primary,.nf-button.primary,.contract-button) {background:#2c609b;border-color:#2c609b;color:#fff}
+  #tm-preview button.secondary,.nf-body .nf-button:not(.primary) {background:#fff;border-color:#cfdbe8;color:#426080}
+  #tm-preview :is(button.action,button.secondary):disabled,.nf-body :is(button,.nf-button):disabled {opacity:.48;cursor:not-allowed}
+  #tm-preview :is(input,select,textarea):not([type=checkbox]):not([type=radio]):not([type=hidden]),.nf-body :is(input,select,textarea):not([type=checkbox]):not([type=radio]):not([type=hidden]) {border-color:#ced9e6;background:#fff;color:#2c4058}
+  #tm-preview :is(input,select,textarea):not([type=checkbox]):not([type=radio]):not([type=hidden]):disabled,.nf-body :is(input,select,textarea):not([type=checkbox]):not([type=radio]):not([type=hidden]):disabled {background:#f2f5f9;color:#8795a6}
+  #tm-preview :is(input,textarea)::placeholder,.nf-body :is(input,textarea)::placeholder {color:#94a1b1}
+  #tm-preview :is(button,a,input,select,textarea):focus-visible,.nf-body :is(button,a,input,select,textarea):focus-visible {outline:2px solid #6594c5;outline-offset:2px}
+  #tm-preview :is(.grade-table,.aw-table) th,.nf-table th,.contract-list th {background:#f1f5fa;color:#60758e;font-size:12px;font-weight:600;border-color:#dfe6ef}
+  #tm-preview :is(.grade-table,.aw-table) td,.nf-table td,.contract-list td {border-color:#e3e9f1}
+  #tm-preview :is(.grade-table,.aw-table),.nf-table,.contract-list {font-variant-numeric:tabular-nums}
+  #tm-preview .stat .value,#tm-preview .aw-metrics strong {color:#294d77;letter-spacing:-.5px}
+  #tm-preview .work.employee-compact-header>header .header-grades {background:#f3f6fb;border:1px solid #e2e9f2;border-radius:8px}
+  #tm-preview .header-grade-item strong {color:#2b5a90}
+  .nf-totals>div {border-radius:8px;background:#f5f8fc}
+  .nf-totals>div:last-child {background:#eaf2fc;border-color:#c3d5ec;color:#29568b}
+  #tm-preview .region-map-disclosure {border:1px solid #dbe5f0;border-radius:9px;background:#fff;padding:12px 14px;margin-top:14px}
+  #tm-preview .region-map-disclosure>summary {color:#3f6085;font-size:13px;font-weight:600;cursor:pointer}
+  #tm-preview .region-map-disclosure>a {display:inline-block;margin-top:8px;font-size:12px;color:#396da6}
+  #tm-preview dialog,.nf-body dialog {border-color:#ccd9e8;border-radius:12px;box-shadow:0 16px 54px #15314e2b}
+  #tm-preview dialog::backdrop,.nf-body dialog::backdrop {background:#18324f66}
+  .nf-body .intake-recall-queue {border-color:#c8d9ee}
+  #tm-preview [data-pending-panel] {padding:0;border-color:#c9d9ee;overflow:hidden}
+  #tm-preview [data-pending-list] .pending-intake-row[aria-expanded="true"]>td {background:#eaf2fe}
+  #tm-preview [data-pending-list] .pending-intake-detail>td {background:#f8fafd}
+}
+@media(prefers-reduced-motion:reduce) {
+  #tm-preview nav button,#tm-preview aside .native-menu-link,.nf-nav nav a,
+  #tm-preview :is(button.action,button.secondary),.nf-body :is(button,.nf-button) {transition:none}
+}
+@media screen {
+  #tm-preview .aw-table :is(th,td),.nf-body .nf-table :is(th,td) {padding:10px 11px;line-height:1.55}
+  #tm-preview .aw-heading,.nf-page-heading {margin-bottom:16px}
+  #tm-preview :is(button.action,button.secondary),.nf-body :is(button,.nf-button) {min-height:34px}
+  .cnc-login {background:#f4f6fa;color:#26384d;font-family:"Malgun Gothic","Apple SD Gothic Neo","Noto Sans KR",Arial,sans-serif}
+  .cnc-login main {border:1px solid #dfe6ef;border-radius:14px;box-shadow:0 12px 42px #19334f0d;padding:32px}
+  .cnc-login h1 {color:#243b55;font-size:23px;letter-spacing:-.6px;margin:20px 0 8px}
+  .cnc-login .company-brand {color:#284f7b}
+  .cnc-login .sub {color:#718094;line-height:1.65}
+  .cnc-login form>label {color:#526a83;font-size:13px;font-weight:600}
+  .cnc-login input:not([type=radio]):not([type=hidden]) {border-color:#ced9e6;border-radius:7px;padding:10px 12px;font-size:14px;color:#2c4058}
+  .cnc-login button {border-radius:7px;background:#2c609b;min-height:42px;font-size:14px;font-weight:600}
+  .cnc-login .login-role {border-color:#dfe6ef;border-radius:8px;background:#f8fafd}
+  .cnc-login :is(input,button):focus-visible {outline:2px solid #6594c5;outline-offset:2px}
+}
