@@ -2144,7 +2144,7 @@ function gradeMonthlyReferenceRows(){return [
  {label:'171건 이상',max:null,hourly:18000,achievement:600000,threshold:170,extra:10000,example:175}
 ];}
 function gradeSyncMonthlyReference(rows){
- rows.forEach((r,i)=>{const previous=i?rows[i-1].max:0;r.label=i===0?gradeNumber(r.max)+'건 이하':gradeNumber(previous+1)+(r.max===null?'건 이상':'~'+gradeNumber(r.max)+'건');});
+ rows.forEach((r,i)=>{const previous=i?rows[i-1].max:0;const min=i===0?0:previous+1;if(r.example<min||(r.max!==null&&r.example>r.max))r.example=r.max===null?min:Math.floor((min+r.max)/2);r.label=i===0?gradeNumber(r.max)+'건 이하':gradeNumber(previous+1)+(r.max===null?'건 이상':'~'+gradeNumber(r.max)+'건');});
 }
 function gradeEditMonthlyRange(rows,index,key,value){
  if(!Number.isSafeInteger(value)||value<(key==='min'?1:0)||value>99999999)throw Error('실적 구간은 0 이상의 정수로 입력해 주세요.');
@@ -2160,7 +2160,7 @@ function gradeReferenceMonthly(count,hours,policy=null){const row=(policy?.month
 function gradeOriginalMonthlyTable(policy=null,editable=false,context={}){
  queueMicrotask(gradeRefreshEstimates);
  const estimateContext={policy:policy||gradePolicy,editable,basis:editable||window.CNCHOME_LIVE?.user.role==='employee'?'full-month':'effective',...context};
- const rows=policy?.monthlyReference||gradeMonthlyReferenceRows();
+ const rows=policy?.monthlyReference||gradeMonthlyReferenceRows();gradeSyncMonthlyReference(rows);
  const input=(r,i,key)=>`<input type="text" inputmode="numeric" data-grade-number min="${key==='hourly'?15000:0}" max="100000000" step="1" required data-grade-monthly-reference="${key}" data-grade-reference-index="${i}" aria-label="${gradeEscape(r.label)} ${{hourly:'시급',achievement:'목표달성수당',extra:'초과 건당 수당',max:'실적 구간 종료 건수',min:'실적 구간 시작 건수',example:'월 예상 정상 접수 건수'}[key]}" value="${gradeNumber(key==='min'?rows[i-1].max+1:r[key])}">`;
  const cells=rows.map((r,i)=>{
   const fields=[editable?(i===0?input(r,i,'max')+'건 이하':input(r,i,'min')+(r.max===null?'건 이상':'~'+input(r,i,'max')+'건')):gradeEscape(r.label),editable?input(r,i,'hourly'):gradeMoney(r.hourly),'기본 '+gradeMoney(r.hourly),editable?input(r,i,'achievement'):r.achievement?gradeMoney(r.achievement):'-',editable?(gradeNumber(r.threshold)+'건 초과분 '+input(r,i,'extra')):r.extra?gradeNumber(r.threshold)+'건 초과분 '+gradeMoney(r.extra):'-',(editable?input(r,i,'example'):gradeNumber(r.example))+'건<br><small class="sub" data-estimate-average></small>'];
@@ -2213,7 +2213,9 @@ async function gradeRefreshEstimates(){
  for(const table of root.querySelectorAll('[data-grade-estimate]')){
   const context=JSON.parse(table.dataset.gradeEstimate),policy=context.editable?gradeDraft:context.policy;
   const date=context.editable?gradeEffectiveDate:(context.date||gradeToday()),month=context.month||date.slice(0,7),department=context.department||(context.editable?gradeDepartment:gradeEmployeeDepartment());
-  const counts=(policy.monthlyReference||gradeMonthlyReferenceRows()).map(r=>r.example),body={policy,counts,month,department,date,basis:context.basis||'effective',preview:!!context.preview,fixed:!!context.fixed,historyId:context.historyId===undefined?undefined:Number(context.historyId)};
+  const exampleRows=policy.monthlyReference||gradeMonthlyReferenceRows();gradeSyncMonthlyReference(exampleRows);
+  table.querySelectorAll('[data-grade-monthly-reference="example"]').forEach((el,i)=>el.value=gradeNumber(exampleRows[i].example));
+  const counts=exampleRows.map(r=>r.example),body={policy,counts,month,department,date,basis:context.basis||'effective',preview:!!context.preview,fixed:!!context.fixed,historyId:context.historyId===undefined?undefined:Number(context.historyId)};
   const key=JSON.stringify(body);if(table.dataset.estimateKey===key)continue;table.dataset.estimateKey=key;
   const caption=table.querySelector('[data-grade-caption]');caption.textContent='예상액 계산 중';table.setAttribute('aria-busy','true');
   table.querySelectorAll('[data-estimate-column],[data-estimate-breakdown]').forEach(el=>{el.textContent='—';el.title='';});
@@ -2233,7 +2235,7 @@ async function gradeRefreshEstimates(){
     const total=row.querySelector('[data-estimate-column="total"]'),salary=row.querySelector('[data-estimate-column="salary"]');
     if(typeof result.base==='number'){const monthly=typeof result.monthly==='number'?result.monthly:result.monthly?.bonus;total.title='시간근무금액 '+gradeMoney(result.base)+' + 일 '+gradeMoney(result.daily)+' + 주 '+gradeMoney(result.weekly)+' + 월 '+gradeMoney(monthly);}
     salary.title='예상 총액 '+gradeMoney(result.total)+' − 일그레이드 선지급 '+gradeMoney(result.daily)+' = '+gradeMoney(result.salary);
-    row.querySelector('[data-estimate-breakdown="base"]').textContent='시간근무 '+gradeMoney(result.base);
+    row.querySelector('[data-estimate-breakdown="base"]').textContent='시간근무 '+gradeMoney(result.base)+' ('+gradeNumber(data.hours)+'시간 × '+gradeMoney(result.hours?result.base/result.hours:0)+')';
     row.querySelector('[data-estimate-breakdown="advance"]').textContent='일 선지급 −'+gradeMoney(result.daily);
    });
    caption.textContent=`${data.month} · 영업일 ${data.days}일 × 하루 6시간 = ${data.hours}시간 · ${body.fixed?'선택한 이전 기준 · 월 전체 비교':body.basis==='full-month'?(context.editable?'수정 중 기준 · 월 전체 비교 (실제 급여는 적용일별 계산)':(data.effectiveDate?data.effectiveDate+' 적용 기준':'현재 적용 기준')+' · 월 전체 비교 (실제 급여는 위 내 합계 확인)'):body.preview?date+' 적용일별 미리보기':'저장된 적용일별 기준'}`;

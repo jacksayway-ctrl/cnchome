@@ -67,6 +67,8 @@ function normalize_policy(mixed $p): array {
             $max=$i===8?null:bounded($r['max']??null);
             if (($i===8 && ($r['max']??null)!==null) || ($max!==null && ($max>99999999 || ($i>0 && $max<=$previous)))) throw new InvalidArgumentException('월 구간을 확인해 주세요.');
             $v=['max'=>$max,'hourly'=>bounded($r['hourly']??null,15000),'achievement'=>bounded($r['achievement']??null),'threshold'=>bounded($r['threshold']??null),'extra'=>bounded($r['extra']??null),'example'=>bounded($r['example']??null)];
+            $min=$i===0?0:$previous+1;
+            if($v['example']<$min||($max!==null&&$v['example']>$max))$v['example']=$max===null?$min:intdiv($min+$max,2);
             $v['label']=$i===0?number_format($max).'건 이하':number_format($previous+1).($max===null?'건 이상':'~'.number_format($max).'건');
             $out['monthlyReference'][]=$v; $previous=$max;
         }

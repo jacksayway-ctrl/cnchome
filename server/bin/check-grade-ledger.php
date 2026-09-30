@@ -101,3 +101,11 @@ foreach([17000,18000] as $hourly){
     $c=hr_calculate(['payType'=>'시급제','payAmount'=>15000],['minutes'=>7920,'allowance'=>0,'deductions'=>0,'gradeSnapshot'=>$g]);
     gl_check($c['base']===132*$hourly,'saved payroll uses earned grade hourly rate');
 }
+
+// Moving range boundaries must not leave examples in a higher hourly tier.
+$shifted=$criteria;foreach($shifted['monthlyReference'] as $i=>&$row)if($row['max']!==null)$row['max']-=20;unset($row);
+$shifted=normalize_policy($shifted);
+foreach($shifted['monthlyReference'] as $i=>$row){$min=$i?$shifted['monthlyReference'][$i-1]['max']+1:0;gl_check($row['example']>=$min&&($row['max']===null||$row['example']<=$row['max']),'comparison example belongs to displayed range');}
+$lower=grade_ledger('2026-09',grade_forecast_records('2026-09',$shifted['monthlyReference'][7]['example']),[['date'=>'2000-01-01','policy'=>$shifted]]);
+$upper=grade_ledger('2026-09',grade_forecast_records('2026-09',$shifted['monthlyReference'][8]['example']),[['date'=>'2000-01-01','policy'=>$shifted]]);
+gl_check($lower['base']===2244000&&$upper['base']===2376000,'141-150 tier at 17k differs from 151-plus tier at 18k for 132 hours');
