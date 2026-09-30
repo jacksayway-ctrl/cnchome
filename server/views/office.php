@@ -16,4 +16,7 @@
 <script src="<?= view_h(asset_url($file)) ?>"></script>
 <?php endforeach; ?>
 </div>
+<?php if (!$preview && !empty($showLoginNotice)): ?>
+<?php require __DIR__.'/partials/login-notice.php'; ?>
+<?php endif; ?>
 </body></html>

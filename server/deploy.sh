@@ -39,7 +39,7 @@ install -m 644 server/views/partials/*.php /opt/cnchome-runtime/views/partials/
 install -m 644 server/config/*.json /opt/cnchome-runtime/config/
 install -m 644 docs/*.md docs/*.json /opt/cnchome-runtime/docs/
 # Atomic file replacements avoid truncated assets during a page refresh.
-for file in ./*.js ./*.css cnc-mark.svg index.html payroll.html; do
+for file in ./*.js ./*.css cnc-mark.svg login-system-notice-v1.png index.html payroll.html; do
   target="/var/www/html/$(basename "$file")"
   install -m 644 "$file" "$target.new"
   mv "$target.new" "$target"

@@ -25,7 +25,7 @@ try {
         $dummy='$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2uheWG/igi.';
         $valid=password_verify($password,$user['password_hash']??$dummy);
         if (!$user || !$valid || $user['role']!==$loginRole) throw new RuntimeException('아이디·비밀번호와 직원/관리자 선택을 확인해 주세요.');
-        session_regenerate_id(true); $_SESSION=['user_id'=>(int)$user['id'],'last'=>time(),'csrf'=>bin2hex(random_bytes(32))];
+        session_regenerate_id(true); $_SESSION=['user_id'=>(int)$user['id'],'last'=>time(),'csrf'=>bin2hex(random_bytes(32)),'login_notice_pending'=>true];
         header('Location: /office.php?role='.$loginRole.($loginRole==='employee'?'#home':'#adminHome')); exit;
     }
 } catch(RuntimeException $e) {

@@ -9,7 +9,9 @@ try {
     $role=$user['role'];$page=office_page($role,$_GET['page']??null);
     if(isset(native_routes()[$page])){header('Location: '.native_url($page,$role));exit;}
     $boot=snapshot($user)+['user'=>$user,'page'=>$page,'csrf'=>$_SESSION['csrf'],'hr'=>hr_snapshot($user)];
-    render_view('office',compact('boot','user','role','page'));
+    $showLoginNotice=!empty($_SESSION['login_notice_pending']);
+    render_view('office',compact('boot','user','role','page','showLoginNotice'));
+    if($showLoginNotice)unset($_SESSION['login_notice_pending']);
 } catch (Throwable $e) {
     error_log('cnchome office: '.$e->getMessage());
     http_response_code(503);
