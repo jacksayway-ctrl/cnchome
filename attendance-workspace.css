@@ -26,3 +26,15 @@
 #tm-preview .home-overview .checkin-error{flex-basis:100%;overflow-wrap:anywhere}
 #tm-preview .home-checkin-preview{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-left:auto;font-size:12px}
 @media(max-width:700px){#tm-preview .checkin-controls{width:100%}#tm-preview .home-overview{gap:8px 12px}#tm-preview .home-overview .checkin-panel,#tm-preview .home-checkin-preview{margin-left:0}#tm-preview button.checkin-button{min-height:40px}}
+#tm-preview .test-attendance-disclosure{margin:12px 0;border:1px solid #dce5ef;border-radius:10px;background:#fff;min-width:0}
+#tm-preview .test-attendance-disclosure>summary{display:flex;align-items:center;gap:9px;padding:10px 14px;list-style:none;cursor:pointer;color:#304c69;font-size:14px;font-weight:700;line-height:1.5}
+#tm-preview .test-attendance-disclosure>summary::-webkit-details-marker{display:none}
+#tm-preview .test-attendance-disclosure>summary::before{content:'›';color:#6581a0;font-size:22px;line-height:1;flex-shrink:0;transition:transform .15s ease}
+#tm-preview .test-attendance-disclosure[open]>summary::before{transform:rotate(90deg)}
+#tm-preview .test-attendance-disclosure>summary small{margin-left:auto;font-size:12px;font-weight:500;color:#6b8097;white-space:nowrap}
+#tm-preview .test-attendance-disclosure>summary:focus-visible{outline:2px solid #5e91e4;outline-offset:2px;border-radius:9px}
+#tm-preview .test-attendance-body{padding:0 14px 14px}
+#tm-preview .test-attendance-body .notice{margin:0 0 10px;font-size:12px;line-height:1.6}
+#tm-preview .test-attendance-body .scroll{max-height:none;overflow:visible}
+#tm-preview .test-attendance-body table{width:100%;min-width:0;table-layout:fixed}
+#tm-preview .test-attendance-body th,#tm-preview .test-attendance-body td{white-space:normal;overflow-wrap:anywhere}
