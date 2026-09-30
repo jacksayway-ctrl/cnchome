@@ -13,9 +13,9 @@ async function load(){
   if(!data.pendingCount){clear();lastToken='';return;}
   if(data.token===closedToken){clear();return;}if(data.token===lastToken&&toast)return;
   clear();lastToken=data.token;toast=document.createElement('aside');toast.className='membership-toast';toast.setAttribute('role','status');toast.setAttribute('aria-live','polite');
-  const heading=document.createElement('strong');heading.textContent='회원가입 승인 대기 '+data.pendingCount+'건';
+  const heading=document.createElement('strong');heading.textContent='직원 등록 승인 대기 '+data.pendingCount+'건';
   const text=document.createElement('p');text.textContent='로그인 승인을 기다리는 신청이 있습니다.';
-  const actions=document.createElement('div'),link=document.createElement('a'),close=document.createElement('button');link.href='/memberships.php?role=admin';link.textContent='승인 목록 보기';close.type='button';close.textContent='닫기';close.setAttribute('aria-label','회원가입 승인 알림 닫기');
+  const actions=document.createElement('div'),link=document.createElement('a'),close=document.createElement('button');link.href='/memberships.php?role=admin';link.textContent='승인 목록 보기';close.type='button';close.textContent='닫기';close.setAttribute('aria-label','직원 등록 승인 알림 닫기');
   close.addEventListener('click',()=>{closedToken=data.token;try{sessionStorage.setItem(storageKey,closedToken)}catch(e){}clear();});actions.append(link,close);toast.append(heading,text,actions);document.body.append(toast);
  }catch(e){}finally{clearTimeout(timer);busy=false;}
 }

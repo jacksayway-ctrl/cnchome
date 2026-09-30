@@ -41,3 +41,5 @@
  .nf-body .nf-shell .personnel-wide{grid-column:1/-1}
  .nf-body .personnel-meta{font-size:11px;gap:5px}
 }
+
+.personnel-record-list>summary{display:flex;align-items:center;gap:10px;cursor:pointer;padding:3px 0;font-size:15px;color:#315879;list-style:none}.personnel-record-list>summary::before{content:"";width:6px;height:6px;border-right:2px solid #6b83a0;border-bottom:2px solid #6b83a0;transform:rotate(45deg);margin:0 5px 4px 1px}.personnel-record-list[open]>summary::before{transform:rotate(225deg);margin-bottom:0}.personnel-record-list>summary small{margin-left:auto;font-size:12px;font-weight:400}.personnel-record-list[open]>summary{padding-bottom:10px;border-bottom:1px solid #e3eaf2;margin-bottom:10px}.personnel-record-list>summary:hover{color:#174c8b}

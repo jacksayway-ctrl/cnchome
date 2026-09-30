@@ -15,3 +15,5 @@ body.cnc-login-notice-open{overflow:hidden}
 #cnc-login-notice .cnc-login-notice-copy h2{margin:22px 0 18px;font-size:28px;line-height:1.35;letter-spacing:-.04em;word-break:keep-all}
 #cnc-login-notice .cnc-login-notice-copy p{margin:0;font-size:17px;line-height:1.9;word-break:keep-all}
 @media(max-width:480px){#cnc-login-notice{border-radius:20px}#cnc-login-notice .cnc-login-notice-footer{padding:0 18px 18px}#cnc-login-notice .cnc-login-notice-close{top:9px;right:9px;width:32px;height:32px;font-size:24px}}
+
+#cnc-login-notice .cnc-login-notice-today{display:flex;align-items:center;gap:8px;margin:0 0 13px;font-size:13px;font-weight:400;color:#61738b;cursor:pointer}#cnc-login-notice .cnc-login-notice-today input{width:16px;height:16px;min-height:0;margin:0;padding:0;accent-color:#234c99}#cnc-login-notice .cnc-login-notice-today input:focus-visible{outline:2px solid #5e91e4;outline-offset:3px}

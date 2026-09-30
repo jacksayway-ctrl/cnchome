@@ -7,6 +7,12 @@ function business_calendar_dates(string $month): array {
     hr_assert((bool)preg_match('/^20\d{2}-(0[1-9]|1[0-2])$/D',$month),'영업일 달력의 월을 확인해 주세요.');
     $dates=[];for($day=new DateTimeImmutable($month.'-01');$day->format('Y-m')===$month;$day=$day->modify('+1 day'))$dates[]=$day->format('Y-m-d');return $dates;
 }
+/** Complete Monday-to-Sunday rows, including muted adjoining-month display dates. */
+function business_calendar_grid_dates(string $month): array {
+    $dates=business_calendar_dates($month);$first=new DateTimeImmutable($month.'-01');$leading=(int)$first->format('N')-1;
+    $start=$first->modify('-'.$leading.' days');$cells=(int)(ceil(($leading+count($dates))/7)*7);$grid=[];
+    for($i=0;$i<$cells;$i++)$grid[]=$start->modify('+'.$i.' days')->format('Y-m-d');return $grid;
+}
 function business_calendar_is_workday(string $date,array $calendar=[]): bool {return $calendar[$date]??((int)(new DateTimeImmutable($date))->format('N')<=5);}
 function business_calendar_workdays(string $month,array $calendar=[]): array {return array_values(array_filter(business_calendar_dates($month),fn($day)=>business_calendar_is_workday($day,$calendar)));}
 function business_calendar_validate(string $month,mixed $days): array {

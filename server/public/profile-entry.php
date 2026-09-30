@@ -6,7 +6,7 @@ require_once CNC_RUNTIME_DIR.'/native.php';
 try {
     session_boot();$user=current_user();if(!$user){header('Location: /login.php?role=employee');exit;}
     if($user['role']!=='employee')throw new HRForbidden('직원 본인 정보만 입력할 수 있습니다.');
-    $member=membership_record((int)$user['id']);if(!$member||$member['status']!=='approved')throw new HRForbidden('가입 승인된 직원만 사용할 수 있습니다.');
+    $member=membership_record((int)$user['id']);if(!$member||$member['status']!=='approved')throw new HRForbidden('등록 승인된 직원만 사용할 수 있습니다.');
     $record=personnel_records($user)[0]??null;hr_assert((bool)$record,'연결된 인사정보를 확인해 주세요.');$profile=$record['profile'];$formRevision=$record['revision'];$error='';
     if(($_SERVER['REQUEST_METHOD']??'GET')==='POST'){
         if(!is_string($_POST['csrf']??null)||!csrf_ok($_POST['csrf']))throw new HRForbidden('세션이 변경되었습니다. 새로고침 후 저장해 주세요.');

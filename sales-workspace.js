@@ -30,11 +30,11 @@
  }
  function calendar(team,records){
   const [year,m]=month.split('-').map(Number),first=new Date(Date.UTC(year,m-1,1)).getUTCDay(),days=new Date(Date.UTC(year,m,0)).getUTCDate();
-  const employee=!admin(),cellCount=employee?Math.ceil((first+days)/7)*7:first+days;
+  const employee=!admin(),cellCount=Math.ceil((first+days)/7)*7;
   let cells='';
   for(let index=0;index<cellCount;index++){
    const n=index-first+1,cellDate=new Date(Date.UTC(year,m-1,n)),date=cellDate.toISOString().slice(0,10),outside=date.slice(0,7)!==month;
-   if(outside){cells+='<div class="day sales-outside-month"'+(employee?' aria-label="'+date+'"':'')+'>'+(employee?'<span class="date-number">'+(cellDate.getUTCMonth()+1)+'월 '+cellDate.getUTCDate()+'</span>':'')+'</div>';continue;}
+   if(outside){cells+='<div class="day sales-outside-month" aria-label="'+date+'"><span class="date-number">'+(cellDate.getUTCMonth()+1)+'월 '+cellDate.getUTCDate()+'</span></div>';continue;}
    const c=daily(records,team,date),isToday=date===today(),statusKeys=Object.keys(labels).filter(k=>!employee||k!=='as'||c.as>0);
    cells+='<button type="button" class="day sales-live-day '+(date===selected?'active ':'')+(isToday?'team-performance-today':'')+'" data-sales-day="'+date+'" data-sales-team="'+team+'" '+(isToday?'aria-current="date"':'')+' aria-label="'+date+' '+esc(teams[team]||'전체')+' 가접수 '+c.pending+'건 정상접수 '+c.normal+'건'+(!employee||c.as>0?' A/S '+c.as+'건':'')+'"><span class="date-number">'+n+'</span>'+statusKeys.map(k=>'<small class="count sales-status-'+tones[k]+'" data-sales-count="'+k+'">'+labels[k]+' '+c[k]+'건</small>').join('')+'</button>';
   }

@@ -878,14 +878,16 @@ const adminTeamPerformance={
  insurance:{1:18,2:21,3:24,4:19,7:23,8:20,9:26,10:28,11:22,14:25,15:27,16:24,17:29,18:26,21:25,22:10},
  cosmetics:{1:15,2:18,3:20,4:16,7:19,8:17,9:22,10:24,11:18,14:21,15:23,16:20,17:25,18:22,21:21,22:8}
 };
+function calendarNeighborCell(year,month,day){const date=new Date(Date.UTC(year,month-1,day));return `<div class="day sales-outside-month" aria-label="${date.toISOString().slice(0,10)}"><span class="date-number">${date.getUTCMonth()+1}월 ${date.getUTCDate()}</span></div>`;}
 function adminTeamPerformanceCalendar(team){
  const daily=adminTeamPerformance[team.id]||{},monthTotal=Object.values(daily).reduce((sum,count)=>sum+count,0);
  const firstDay=new Date(2026,8,1).getDay();
- let cells=Array.from({length:firstDay},()=>'<div class="empty" aria-hidden="true"></div>').join('');
+ let cells=Array.from({length:firstDay},(_,i)=>calendarNeighborCell(2026,9,i-firstDay+1)).join('');
  for(let day=1;day<=30;day++){
   const count=daily[day],future=day>22;
   cells+=`<div class="day ${day===22?'active':''}" aria-label="9월 ${day}일 ${future?'집계 전':'정상 접수 '+(count||0)+'건'}"><span>${day}</span><small>${future?'집계 전':count?'정상 '+count+'건':'0건'}</small></div>`;
  }
+ cells+=Array.from({length:(7-(firstDay+30)%7)%7},(_,i)=>calendarNeighborCell(2026,9,31+i)).join('');
  return panel(team.name+' 실적 달력',`<div class="row" style="margin-bottom:12px"><strong>2026년 9월</strong><span class="pill">정상접수 누계 ${monthTotal}건</span></div><div class="calendar">${['일','월','화','수','목','금','토'].map(day=>`<div class="weekday">${day}</div>`).join('')}${cells}</div>`);
 }
 function adminHome(){
@@ -2051,13 +2053,13 @@ function adminPerformance(){
  const dailySum=day=>rows.reduce((sum,row)=>sum+(row.daily[day]||0),0);
  const totalCount=rows.reduce((sum,row)=>sum+monthSum(row),0),hasData=rows.some(row=>Object.keys(row.daily).length);
  const cutoff=adminPerformanceMonth==='2026-09'?22:0;
- let cells=Array.from({length:first},()=>'<div class="day sales-outside-month" aria-hidden="true"></div>').join('');
+ let cells=Array.from({length:first},(_,i)=>calendarNeighborCell(year,month,i-first+1)).join('');
  for(let day=1;day<=days;day++){
   const dow=new Date(year,month-1,day).getDay(),date=adminPerformanceMonth+'-'+String(day).padStart(2,'0'),holiday=calendarHolidays[date];
   const available=hasData&&day<=cutoff;
   cells+=`<button type="button" class="day ${holiday||dow===0?'day-red':dow===6?'day-blue':''} ${day===adminPerformanceDay?'active':''} ${date===todayDate?'team-performance-today':''}" ${date===todayDate?'aria-current="date"':''} data-admin-performance-day="${day}" aria-pressed="${day===adminPerformanceDay}"><span class="date-number">${day}</span>${available?rows.map((row,i)=>`<small class="team-performance-count team-tone-${i%4}">${policyEscape(row.team.name)} <b>${row.daily[day]||0}건</b></small>`).join('')+`<small class="team-performance-total">전체 <b>${dailySum(day)}건</b></small>` :''}</button>`;
  }
- const pad=(7-(first+days)%7)%7;cells+=Array.from({length:pad},()=>'<div class="day sales-outside-month" aria-hidden="true"></div>').join('');
+ const pad=(7-(first+days)%7)%7;cells+=Array.from({length:pad},(_,i)=>calendarNeighborCell(year,month,days+1+i)).join('');
  const summary=rows.map(row=>[policyEscape(row.team.name),hasData?monthSum(row)+'건':'—']);
  if(rows.length)summary.push(['<strong>전체 합계</strong>','<strong>'+ (hasData?totalCount+'건':'—')+'</strong>']);
  const selectedAvailable=hasData&&adminPerformanceDay<=cutoff;

@@ -1,4 +1,4 @@
-<section class="contract-panel nf-no-print" data-contract-management-list><div class="membership-heading"><h2>계약 관리 목록</h2><a class="nf-button" href="/memberships.php?role=admin">회원가입 · 로그인 승인</a></div>
+<section class="contract-panel nf-no-print" data-contract-management-list><div class="membership-heading"><h2>계약 관리 목록</h2><a class="nf-button" href="/memberships.php?role=admin">직원 등록 요청 · 로그인 승인</a></div>
 <p class="contract-hint">직원 행을 누르면 계약 내용을 확인하고 수정할 수 있는 새창이 열립니다.</p>
 <?php if(!$contracts): ?><p>아직 작성한 계약서가 없습니다.</p><?php else: ?>
 <div class="contract-table-scroll"><table class="contract-list"><thead><tr><th>직원</th><th>문서</th><th>발행일</th><th>임금 적용일</th><th>상태</th><th>최근 처리일</th></tr></thead><tbody>

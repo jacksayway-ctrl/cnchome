@@ -30,9 +30,13 @@ business_calendar_save($admin,'2026-10',[],0);$empty=business_calendar_rules('20
 check(grade_forecast_records('2026-10',0,$empty)===[],'all-holiday month permits a zero forecast');
 $caught=false;try{grade_forecast_records('2026-10',10,$empty);}catch(InvalidArgumentException $e){$caught=true;}check($caught,'nonzero performance requires business days');
 check((int)$d->query('SELECT COUNT(*) FROM business_calendar_events')->fetchColumn()===3,'only successful saves have audit records');
+check(business_calendar_grid_dates('2026-09')[0]==='2026-08-31'&&array_slice(business_calendar_grid_dates('2026-09'),-1)[0]==='2026-10-04','Monday-first neighboring dates fill complete September rows');
+check(business_calendar_grid_dates('2027-01')[0]==='2026-12-28','January grid preserves previous-year dates');
+check(in_array('2024-02-29',business_calendar_grid_dates('2024-02'),true)&&array_slice(business_calendar_grid_dates('2024-02'),-1)[0]==='2024-03-03','leap-day grid ends with adjoining March dates');
 // Render a standalone fixture for browser checks; the form works with HTML checkboxes and PHP POST.
 $data=business_calendar_month($month);$dates=business_calendar_dates($month);$savedCount=count($data['days']);$error='';$saved=false;$_SESSION['csrf']='TEST';
 ob_start();native_start('영업일 달력',$admin,'adminBusinessCalendar',['business-calendar.css']);require view_root().'/business-calendar.php';native_end();$html=ob_get_clean();
 check(substr_count($html,'type="checkbox"')===30&&str_contains($html,'영업일 저장')&&str_contains($html,'name="csrf"'),'calendar has every date, save and CSRF');
+check(substr_count($html,'class="bc-day bc-outside-month"')===5&&str_contains($html,'2026-08-31')&&str_contains($html,'2026-10-04'),'adjoining dates display without editable checkboxes');
 file_put_contents(dirname(__DIR__,2).'/.build/business-calendar.html',$html);
 echo "PASS: calendar save/restore, authorization, revisions, audit, holiday-aware five-day grades, actual earnings preservation and PHP calendar render.\n";

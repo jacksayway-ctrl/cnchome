@@ -3,11 +3,11 @@
 <?php if($error): ?><p class="nf-alert nf-error" role="alert"><?= h($error) ?></p><?php endif; ?>
 <div class="nf-actions personnel-no-print">
 <?php if($admin): ?>
-<a href="/personnel.php?role=admin">직원 목록</a>
+<a class="nf-button" href="/personnel.php?role=admin">직원 목록</a>
 <a class="nf-button" href="/personnel.php?role=admin&amp;new=1&amp;popup=1" target="_blank" rel="noopener" data-personnel-window>직원 등록</a>
 <?php if($record&&!$editing): ?><a class="nf-button" href="/personnel.php?role=admin&amp;id=<?= $record['id'] ?>&amp;edit=1<?= $popup?'&amp;popup=1':'' ?>">인사정보 수정</a><?php endif; ?>
 <?php endif; ?>
-<?php if(!$editing): ?><a class="<?= $admin?'':'nf-contract-open' ?>" href="/contracts.php?role=<?= h($role) ?><?= $admin?'':'&amp;document=1' ?>"<?= $admin?'':' target="_blank" rel="noopener"' ?>>근로계약서</a><?php endif; ?>
+<?php if(!$editing): ?><a class="nf-button<?= $admin?'':' nf-contract-open' ?>" href="/contracts.php?role=<?= h($role) ?><?= $admin?'':'&amp;document=1' ?>"<?= $admin?'':' target="_blank" rel="noopener"' ?>>근로계약서</a><?php endif; ?>
 <?php if(!empty($canSelfEdit)): ?><a class="nf-button" href="/profile-entry.php?role=employee">본인 정보 수정</a><?php endif; ?>
 <?php if($record&&!$editing): ?><button type="button" data-print>인사기록카드 인쇄</button><?php endif; ?>
 </div>
@@ -133,9 +133,9 @@ personnel_cells('임금 적용일',$p['wageEffective']??'','급여일',($p['payd
 <p class="personnel-note">미입력 항목은 ‘—’로 표시합니다. 정보가 다르면 관리자에게 정정을 요청해 주세요.</p>
 </article>
 <?php elseif($admin): ?>
-<section class="nf-card"><h2>직원 인사기록</h2><p class="personnel-note">인사기록과 근로계약은 별도로 관리합니다. 개인정보는 인사·급여 업무 목적으로 확인해 주세요.</p>
+<details class="nf-card personnel-record-list"><summary><span>직원 인사기록</span><small><?= count($records) ?>명 · 펼쳐보기</small></summary><p class="personnel-note">인사기록과 근로계약은 별도로 관리합니다. 개인정보는 인사·급여 업무 목적으로 확인해 주세요.</p>
 <div class="nf-table-wrap"><table class="nf-table personnel-list"><thead><tr><th>사번</th><th>성명</th><th>소속·직책</th><th>입사일</th><th>상태</th><th>인사기록</th></tr></thead><tbody>
 <?php foreach($records as $item): $p=$item['profile']; ?><tr><td><?= h($item['employee_no']) ?></td><td><?= h($p['name']??'') ?></td><td><?= h(department_label($p['team']??'').' · '.($p['role']??'')) ?></td><td><?= h($p['startDate']??'') ?></td><td><?= h($p['employment']??'') ?></td><td><a href="/personnel.php?role=admin&amp;id=<?= $item['id'] ?>">보기</a> · <a href="/personnel.php?role=admin&amp;id=<?= $item['id'] ?>&amp;edit=1">수정</a></td></tr><?php endforeach; ?>
 <?php if(!$records): ?><tr><td colspan="6" class="personnel-empty">등록된 직원이 없습니다. 직원 등록에서 인사기록을 작성해 주세요.</td></tr><?php endif; ?>
-</tbody></table></div></section>
+</tbody></table></div></details>
 <?php else: ?><section class="nf-card personnel-empty">아직 연결된 인사기록이 없습니다. 관리자에게 직원 계정 연결을 요청해 주세요.</section><?php endif; ?>

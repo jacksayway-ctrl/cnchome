@@ -2,6 +2,7 @@
 declare(strict_types=1);
 require_once __DIR__.'/hr.php';
 require_once __DIR__.'/personnel.php';
+require_once __DIR__.'/passwords.php';
 function membership_text(mixed $value,int $max): string {
     hr_assert(is_string($value),'입력 형식을 확인해 주세요.');$value=trim($value);
     hr_assert(mb_strlen($value)<=$max&&!preg_match('/[\p{Cc}\p{Cf}]/u',$value),'입력 길이와 문자를 확인해 주세요.');return $value;
@@ -10,9 +11,9 @@ function membership_register(array $in): int {
     $username=strtolower(membership_text($in['username']??'',64));$name=membership_text($in['name']??'',60);$phone=membership_text($in['phone']??'',20);
     hr_assert((bool)preg_match('/^[a-z0-9_.-]{3,64}$/D',$username),'아이디는 영문·숫자·밑줄·점·하이픈 3~64자로 입력해 주세요.');
     hr_assert($name!==''&&(bool)preg_match('/^0[0-9 -]{8,14}$/D',$phone),'이름과 연락처를 입력해 주세요.');
-    $password=$in['password']??null;hr_assert(is_string($password)&&strlen($password)>=12&&strlen($password)<=72,'비밀번호는 12~72바이트로 입력해 주세요.');
+    $password=$in['password']??null;hr_assert(is_string($password)&&$password!=='','비밀번호를 입력해 주세요.');
     hr_assert(is_string($in['passwordConfirm']??null)&&hash_equals($password,$in['passwordConfirm']),'비밀번호 확인이 일치하지 않습니다.');
-    $hash=password_hash($password,PASSWORD_DEFAULT);$d=db();$d->beginTransaction();
+    $hash=cnc_password_hash($password);$d=db();$d->beginTransaction();
     try {
         $q=$d->prepare('SELECT id FROM app_users WHERE username=?');$q->execute([$username]);hr_assert(!$q->fetch(),'이미 사용 중인 아이디입니다.');
         $q=$d->prepare("INSERT INTO app_users(username,display_name,password_hash,role,department,active) VALUES(?,?,?,'employee','insurance',0)");$q->execute([$username,$name,$hash]);$id=(int)$d->lastInsertId();
@@ -22,7 +23,7 @@ function membership_register(array $in): int {
 function membership_record(int $id): ?array {
     $q=db()->prepare('SELECT * FROM employee_memberships WHERE user_id=?');$q->execute([$id]);return $q->fetch()?:null;
 }
-function membership_admin(array $user): void {if(($user['role']??'')!=='admin')throw new HRForbidden('회원가입 관리는 관리자만 사용할 수 있습니다.');}
+function membership_admin(array $user): void {if(($user['role']??'')!=='admin')throw new HRForbidden('직원 등록 요청 관리는 관리자만 사용할 수 있습니다.');}
 function membership_list(array $user): array {
     membership_admin($user);return db()->query("SELECT m.*,u.username,u.display_name,u.department,u.active,e.id AS employee_id FROM employee_memberships m JOIN app_users u ON u.id=m.user_id LEFT JOIN hr_employees e ON e.user_id=m.user_id ORDER BY CASE m.status WHEN 'pending' THEN 0 WHEN 'approved' THEN 1 ELSE 2 END,m.created_at,m.user_id")->fetchAll();
 }
@@ -31,7 +32,7 @@ function membership_approve(array $user,int $id,int $revision,string $team,strin
     hr_assert(in_array($team,['insurance','cosmetics','health'],true)&&hr_day($startDate),'부서와 입사일을 확인해 주세요.');$d=db();$d->beginTransaction();
     try {
         $q=$d->prepare('SELECT m.*,u.display_name,u.role FROM employee_memberships m JOIN app_users u ON u.id=m.user_id WHERE m.user_id=? FOR UPDATE');$q->execute([$id]);$row=$q->fetch();
-        hr_assert($row&&$row['role']==='employee'&&$row['status']==='pending'&&(int)$row['revision']===$revision,'이미 처리되었거나 변경된 가입 신청입니다. 새로고침해 주세요.');
+        hr_assert($row&&$row['role']==='employee'&&$row['status']==='pending'&&(int)$row['revision']===$revision,'이미 처리되었거나 변경된 직원 등록 요청입니다. 새로고침해 주세요.');
         if($action==='approve'){
             $q=$d->prepare('SELECT id FROM hr_employees WHERE user_id=?');$q->execute([$id]);
             if(!$q->fetch()){

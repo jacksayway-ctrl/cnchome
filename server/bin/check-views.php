@@ -42,6 +42,6 @@ foreach(['admin','employee'] as $role){
  check(str_contains($html,'/logout.php?role='.$role),'native notices retain role-specific logout');
  check(str_contains($html,'notice-ticker.js'),'native shared notice feed refreshes');
  check(str_contains($html,'헤더 &lt;직원&gt;'),'shared header escapes display names');
- if($role==='admin')check(str_contains($html,'membership-notification.js')&&str_contains($html,'회원가입 승인'),'admin approval notification and submenu present');
+ if($role==='admin')check(str_contains($html,'membership-notification.js')&&str_contains($html,'직원 등록 승인'),'admin approval notification and submenu present');
 }
 echo 'PASS: role-checked PHP routes, escaped output, original-menu exclusion, document allowlist and rendered fixtures.'.PHP_EOL;

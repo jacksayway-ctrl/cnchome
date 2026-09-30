@@ -22,10 +22,10 @@ CREATE TABLE hr_employees(id INTEGER PRIMARY KEY AUTOINCREMENT,employee_no TEXT 
 CREATE TABLE employee_membership_events(id INTEGER PRIMARY KEY AUTOINCREMENT,user_id INTEGER REFERENCES app_users(id),actor_id INTEGER REFERENCES app_users(id),event TEXT,payload TEXT,created_at TEXT DEFAULT CURRENT_TIMESTAMP);
 INSERT INTO app_users(username,display_name,password_hash,role,department) VALUES('admin','관리자','unused','admin','insurance');");
 $admin=['id'=>1,'role'=>'admin'];$pass='Membership!23456';$base=['username'=>'JoinOne','name'=>'직원 <예시>','phone'=>'010-1234-5678','password'=>$pass,'passwordConfirm'=>$pass];
-rejects(fn()=>membership_register(array_replace($base,['password'=>'1234','passwordConfirm'=>'1234'])),'weak password rejected');
+rejects(fn()=>membership_register(array_replace($base,['password'=>'','passwordConfirm'=>''])),'empty password rejected');
 rejects(fn()=>membership_register(array_replace($base,['passwordConfirm'=>'different'])),'password confirmation checked');
 $id=membership_register($base);$q=$d->prepare('SELECT * FROM app_users WHERE id=?');$q->execute([$id]);$account=$q->fetch();
-check($account['username']==='joinone'&&password_verify($pass,$account['password_hash'])&&$account['password_hash']!==$pass,'normalized username and hashed password');
+check($account['username']==='joinone'&&cnc_password_verify($pass,$account['password_hash'])&&$account['password_hash']!==$pass,'normalized username and hashed password');
 check(!$account['active']&&$account['role']==='employee'&&membership_record($id)['status']==='pending','signup cannot log in and cannot choose administrator role');
 check((int)$d->query('SELECT COUNT(*) FROM hr_employees')->fetchColumn()===0,'pending applications do not create active personnel records');
 rejects(fn()=>membership_register($base),'duplicate signup preserves existing account');
@@ -44,6 +44,12 @@ check((int)$d->query('SELECT active FROM app_users WHERE id='.$id)->fetchColumn(
 check(membership_notification($admin)['pendingCount']===0,'approved applicant removed from pending alert');
 rejects(fn()=>membership_approve($admin,$id,0,'insurance',hr_today()),'duplicate/stale approval cannot repeat');
 $record=$d->query('SELECT * FROM hr_employees WHERE user_id='.$id)->fetch();$original=json_decode($record['profile'],true);
+$short=membership_register(array_replace($base,['username'=>'shortpass','password'=>'1','passwordConfirm'=>'1']));
+$q=$d->prepare('SELECT password_hash FROM app_users WHERE id=?');$q->execute([$short]);check(cnc_password_verify('1',$q->fetchColumn()),'one-character password is accepted without a minimum length');
+$longPass=str_repeat('가상!',400);$long=membership_register(array_replace($base,['username'=>'longpass','password'=>$longPass,'passwordConfirm'=>$longPass]));$q->execute([$long]);$longHash=$q->fetchColumn();
+check(cnc_password_verify($longPass,$longHash)&&!cnc_password_verify($longPass.'x',$longHash),'long passwords accepted without bcrypt truncation');
+check(cnc_password_verify($pass,password_hash($pass,PASSWORD_DEFAULT)),'existing account password hashes remain compatible');
+membership_approve($admin,$short,0,'insurance',hr_today(),'reject');membership_approve($admin,$long,0,'insurance',hr_today(),'reject');
 $second=membership_register(array_replace($base,['username'=>'second']));
 $third=membership_register(array_replace($base,['username'=>'third']));membership_approve($admin,$third,0,'insurance',hr_today(),'reject');
 check(membership_record($third)['status']==='rejected'&&!(int)$d->query('SELECT active FROM app_users WHERE id='.$third)->fetchColumn(),'rejected applicant remains unable to log in');
@@ -55,7 +61,7 @@ foreach(['payAmount','team','role','startDate','contractType','workDays'] as $ke
 check(membership_record($second)['status']==='pending'&&!membership_record($second)['profile_completed'],'posted foreign owner ignored');
 rejects(fn()=>membership_save_profile($employee,$in),'stale profile rejected');
 rejects(fn()=>membership_save_profile($admin,$in),'administrator cannot use employee self-service route');
-check(count(membership_list($admin))===3&&membership_notification($admin)['pendingCount']===1,'administrator list and current notification counts match');
+check(count(membership_list($admin))===5&&membership_notification($admin)['pendingCount']===1,'administrator list and current notification counts match');
 $memberships=membership_list($admin);$_SESSION=['csrf'=>'FIXTURE'];ob_start();require view_root().'/partials/membership-list.php';$html=ob_get_clean();
 check(str_contains($html,'직원 &lt;예시&gt;')&&!str_contains($html,'직원 <예시>'),'application names escaped');
 check(str_contains($html,'name="action" value="approve"')&&str_contains($html,'name="csrf"'),'approval controls carry CSRF and explicit action');
