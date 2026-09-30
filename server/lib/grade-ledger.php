@@ -27,7 +27,7 @@ function grade_ledger(string $month,array $records,array $entries,array $profile
     $monthlyRows=array_filter($ledger,fn($r)=>str_starts_with($r['date'],$month));$count=array_sum(array_column($monthlyRows,'count'));$hours=array_sum(array_column($monthlyRows,'hours'));$base=0;$monthRaw=0;$daily=0;$parts=[];
     $partDates=array_values(array_unique(array_merge($dates,array_keys($monthlyRows))));sort($partDates);
     foreach($partDates as $date){if(!$eligible($date))continue;[$p,$since]=$at($date);$result=grade_evaluate($p,'monthly',$count);$key=$since.':'.hash('sha256',hr_json($p['monthlyReference']??$p['monthly']));
-        if(!isset($parts[$key]))$parts[$key]=['start'=>$date,'end'=>$date,'effective'=>$since,'days'=>0,'hours'=>0,'hourly'=>$result['hourly'],'fullBonus'=>$general?$result['bonus']:0,'bonus'=>0];
+        if(!isset($parts[$key]))$parts[$key]=['start'=>$date,'end'=>$date,'effective'=>$since,'days'=>0,'hours'=>0,'hourly'=>($profile['payType']??'시급제')==='시급제'?max((int)($profile['payAmount']??15000),$result['hourly']):$result['hourly'],'fullBonus'=>$general?$result['bonus']:0,'bonus'=>0];
         $parts[$key]['end']=$date;$parts[$key]['days']+=business_calendar_is_workday($date,$calendar)?1:0;$parts[$key]['hours']+=(float)($ledger[$date]['hours']??0);
     }
     foreach($parts as &$part){$part['ratio']=$part['days']/max(1,count($dates));$part['bonus']=$part['fullBonus']*$part['ratio'];$monthRaw+=$part['bonus'];$base+=$part['hours']*$part['hourly'];}unset($part);
@@ -97,8 +97,13 @@ function grade_payroll_input(array $input,array $grade): array {
     $input['gradeSnapshot']=$grade;$input['prepaidDaily']=$dailyPaid;$input['dailyGradeSettlement']=$automatic?'cash-auto':'cash';return $input;
 }
 function grade_personal_totals(array $employee,string $month): array {
-    $grade=grade_employee_context($employee,$month);$profile=$employee['profile'];
-    $rate=(int)($profile['payAmount']??15000);$base=($profile['payType']??'시급제')==='월급제'?$rate:(int)round($grade['hours']*$rate);
+    return grade_personal_totals_from_ledger(grade_employee_context($employee,$month),$employee['profile']);
+}
+function grade_personal_totals_from_ledger(array $grade,array $profile): array {
+    $month=$grade['month'];$contractRate=(int)($profile['payAmount']??15000);
+    $rates=array_values(array_unique(array_column($grade['parts'],'hourly')));
+    $rate=count($rates)===1?$rates[0]:null;
+    $base=($profile['payType']??'시급제')==='월급제'?$contractRate:$grade['base'];
     $payday=$base+$grade['weekly']+$grade['monthly'];
-    return ['month'=>$month,'asOf'=>$grade['asOf'],'count'=>$grade['count'],'hours'=>$grade['hours'],'rate'=>$rate,'workPay'=>$base,'daily'=>$grade['daily'],'weekly'=>$grade['weekly'],'monthly'=>$grade['monthly'],'dailyPaid'=>$grade['dailyReceived'],'dailyPending'=>$grade['dailyOutstanding'],'total'=>$payday+$grade['daily'],'payday'=>$payday,'dailyDetails'=>$grade['dailyDetails'],'weeklyDetails'=>array_values(array_filter($grade['weeks'],fn($week)=>$week['start']<=$grade['asOf']))];
+    return ['month'=>$month,'asOf'=>$grade['asOf'],'count'=>$grade['count'],'hours'=>$grade['hours'],'rate'=>$rate,'contractRate'=>$contractRate,'payType'=>$profile['payType']??'시급제','workDetails'=>$grade['parts'],'workPay'=>$base,'daily'=>$grade['daily'],'weekly'=>$grade['weekly'],'monthly'=>$grade['monthly'],'dailyPaid'=>$grade['dailyReceived'],'dailyPending'=>$grade['dailyOutstanding'],'total'=>$payday+$grade['daily'],'payday'=>$payday,'dailyDetails'=>$grade['dailyDetails'],'weeklyDetails'=>array_values(array_filter($grade['weeks'],fn($week)=>$week['start']<=$grade['asOf']))];
 }

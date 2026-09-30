@@ -81,3 +81,18 @@ $previous=grade_estimates($request+['fixed'=>true,'historyId'=>16],$ownHistory,$
 gl_check($previous['rows'][0]['daily']===245000&&$previous['effectiveDate']==='2000-01-01','employee can read the selected immutable policy from their department history');
 try{grade_estimates($request+['fixed'=>true,'historyId'=>999],$ownHistory,$calendar,false);throw new RuntimeException('Unknown or other-department history accepted');}catch(InvalidArgumentException $e){}
 echo "PASS: matching admin/employee full-month totals, trusted employee policy/history selection, exact 175/21-day totals, daily advance deduction, effective-date preservation, five-day weekly/monthly stacking and repeated saves.\n";
+
+// Personal totals must use each earned hourly tier, including effective-date splits.
+foreach([17000,18000] as $rate){
+    $policy=grade_zero_policy($rate);
+    $ledger=grade_ledger('2026-09',$records,[['date'=>'2020-01-01','policy'=>$policy]],['payAmount'=>15000]);
+    $ledger+=['asOf'=>'2026-09-30','dailyReceived'=>0,'dailyOutstanding'=>0];
+    $totals=grade_personal_totals_from_ledger($ledger,['payAmount'=>15000]);
+    gl_check($totals['rate']===$rate&&$totals['workPay']===132*$rate,'personal hourly tier changes work pay');
+    gl_check($totals['total']===$totals['workPay']+$totals['daily']+$totals['weekly']+$totals['monthly'],'grade-adjusted totals reconcile');
+    gl_check(grade_personal_totals_from_ledger($ledger,['payType'=>'월급제','payAmount'=>3000000])['workPay']===3000000,'fixed monthly salary preserved');
+}
+$ledger=grade_ledger('2026-09',$records,[['date'=>'2020-01-01','policy'=>grade_zero_policy(17000)],['date'=>'2026-09-16','policy'=>grade_zero_policy(18000)]],['payAmount'=>15000]);
+gl_check($ledger['base']===2310000,'effective rates weighted by actual hours');
+$ledger=grade_ledger('2026-09',$records,[['date'=>'2020-01-01','policy'=>grade_zero_policy(17000)]],['payAmount'=>19000]);
+gl_check($ledger['base']===2508000,'contract hourly floor preserved');

@@ -45,7 +45,7 @@ foreach($normalBatch['manifest'] as $entry){
  $totals=grade_personal_totals(['userId'=>$entry['userId'],'profile'=>$profile],$entry['month']);
  fixture_check($totals['count']===array_sum($entry['normalByDate']),'personal monthly totals use saved synthetic normal counts');
  fixture_check($totals['total']===$totals['workPay']+$totals['daily']+$totals['weekly']+$totals['monthly']&&$totals['payday']===$totals['total']-$totals['daily'],'personal totals include all grades once and exclude daily cash at payday');
- fixture_check($totals['workPay']===(int)round($totals['hours']*15000),'personal pay estimate uses contract inclusive rate');
+ fixture_check($totals['workPay']===(int)floor(array_sum(array_map(fn($part)=>$part['hours']*$part['hourly'],$totals['workDetails']))),'personal pay estimate uses effective grade rates');
  fixture_check($totals['dailyPaid']===$totals['daily']&&$totals['dailyPending']===0,'normal range top-up automatically updates prepaid amount without new receipt rows');
  fixture_check(array_sum(array_column($totals['dailyDetails'],'amount'))===$totals['daily'],'daily breakdown sums to personal total');
 }
