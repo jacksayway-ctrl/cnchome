@@ -701,3 +701,5 @@ body.policy-window #tm-preview main{padding-top:14px}
 #tm-preview .policy-window-button{min-height:36px;padding:8px 12px;gap:6px;font-size:13px;font-weight:600;box-shadow:none}
 #tm-preview .sales-birth-picker .ui-icon{width:12px;height:12px;flex-basis:12px}
 @media(max-width:480px){#tm-preview nav button{padding:7px 9px;font-size:12px;gap:7px}#tm-preview nav button .ui-icon{width:14px;height:14px;flex-basis:14px}}
+
+#tm-preview [data-estimate-minimum]{display:block;margin-top:4px;font-size:11px;line-height:1.4;color:#426b91}

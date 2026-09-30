@@ -2,6 +2,50 @@
 declare(strict_types=1);
 require_once __DIR__.'/grade-ledger.php';
 
+/** First payable weekly tier, including a tier paid only from its extra threshold. */
+function grade_estimate_minimum_weekly(array $policy): array {
+    foreach($policy['weekly'] as $row){
+        $count=$row['min'];
+        if($row['achievement']<=0){
+            if($row['extra']<=0||$row['extraStart']===null)continue;
+            $count=max($count,$row['extraStart']);
+        }
+        $amount=$row['achievement']+($row['extraStart']===null?0:max(0,$count-$row['extraStart']+1)*$row['extra']);
+        if($amount>0)return ['count'=>$count,'amount'=>$amount];
+    }
+    return ['count'=>null,'amount'=>0];
+}
+
+/** Display-only floor for a whole zero daily/weekly component in monthly criteria examples. */
+function grade_estimate_minimums(array $grade,array $policy): array {
+    $dailyRate=$policy['dailyCash']['perCase'];$weekly=grade_estimate_minimum_weekly($policy);
+    $minimum=[
+        'daily'=>['applied'=>false,'originalAmount'=>$grade['daily'],'unitAmount'=>$dailyRate,'minimumCount'=>$policy['dailyCash']['start'],'days'=>count($grade['dailyDetails'])],
+        'weekly'=>['applied'=>false,'originalAmount'=>$grade['weekly'],'unitAmount'=>$weekly['amount'],'minimumCount'=>$weekly['count'],'weeklyBasis'=>$policy['weeklyBasis'],'includedDays'=>array_sum(array_column(array_filter($grade['weeks'],fn($week)=>$week['included']),'days'))]
+    ];
+    if($grade['general']&&$grade['daily']===0&&$dailyRate>0&&$grade['dailyDetails']){
+        foreach($grade['dailyDetails'] as &$day){
+            // Preserve actual sample counts: this amount is a comparison floor, not an earned award.
+            $day['floorApplied']=true;$day['originalAmount']=$day['amount'];$day['minimumCount']=$policy['dailyCash']['start'];$day['amount']=$dailyRate;
+        }unset($day);
+        $grade['daily']=array_sum(array_column($grade['dailyDetails'],'amount'));$minimum['daily']['applied']=true;
+    }
+    if($grade['general']&&$grade['weekly']===0&&$weekly['amount']>0&&$minimum['weekly']['includedDays']>0){
+        foreach($grade['weeks'] as &$week){
+            if(!$week['included'])continue;
+            $week['floorApplied']=true;$week['originalBonus']=$week['bonus'];$week['minimumCount']=$weekly['count'];
+            foreach($week['parts'] as &$part){
+                $part['floorApplied']=true;$part['originalFullBonus']=$part['fullBonus'];$part['originalBonus']=$part['bonus'];$part['minimumCount']=$weekly['count'];
+                $part['fullBonus']=$weekly['amount'];$part['bonus']=$part['fullBonus']*$part['ratio'];
+            }unset($part);
+            $week['bonus']=grade_round_parts($week['parts']);
+        }unset($week);
+        $grade['weekly']=array_sum(array_column(array_filter($grade['weeks'],fn($week)=>$week['included']),'bonus'));$minimum['weekly']['applied']=true;
+    }
+    $grade['salary']=$grade['base']+$grade['monthly']+$grade['weekly'];$grade['total']=$grade['salary']+$grade['daily'];$grade['minimumGrade']=$minimum;
+    return $grade;
+}
+
 /** Criteria examples use one policy for the entire month; payroll previews retain effective dates. */
 function grade_estimates(array $input,array $history,array $calendar,bool $admin): array {
     $month=$input['month']??substr(hr_today(),0,7);
@@ -41,7 +85,8 @@ function grade_estimates(array $input,array $history,array $calendar,bool $admin
     $rows=[];
     foreach($counts as $count){
         bounded($count);
-        $rows[]=grade_ledger($month,grade_forecast_records($month,$count,$calendar),$entries,[],$calendar);
+        $grade=grade_ledger($month,grade_forecast_records($month,$count,$calendar),$entries,[],$calendar);
+        $rows[]=$basis==='full-month'?grade_estimate_minimums($grade,$policy):$grade;
     }
     return ['month'=>$month,'days'=>count($dates),'hours'=>count($dates)*6,'basis'=>$basis,'rows'=>$rows]+($selected?['policy'=>$policy,'effectiveDate'=>$selected['date']]:[]);
 }
