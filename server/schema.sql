@@ -13,6 +13,15 @@ CREATE TABLE IF NOT EXISTS login_limits (
  attempts INT NOT NULL DEFAULT 0,
  window_start DATETIME NOT NULL
 ) ENGINE=InnoDB;
+CREATE TABLE IF NOT EXISTS employee_checkins (
+ user_id BIGINT UNSIGNED NOT NULL,
+ work_date DATE NOT NULL,
+ check_in_at DATETIME(6) NOT NULL,
+ created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+ PRIMARY KEY (user_id,work_date),
+ INDEX checkin_date (work_date),
+ FOREIGN KEY (user_id) REFERENCES app_users(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 CREATE TABLE IF NOT EXISTS grade_revision (
  id TINYINT PRIMARY KEY,
  revision BIGINT UNSIGNED NOT NULL DEFAULT 0

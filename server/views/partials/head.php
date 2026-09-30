@@ -5,7 +5,7 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://cdn.jsdelivr.net https://t1.kakaocdn.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://cdn.jsdelivr.net https://tessdata.projectnaptha.com https://raw.githubusercontent.com; media-src 'self' data: blob:; object-src 'none'; frame-src https://postcode.map.kakao.com https://postcode.map.daum.net https://t1.kakaocdn.net; base-uri 'none'; form-action 'self'; worker-src 'self' blob: https://cdn.jsdelivr.net">
 <title>씨앤씨 · <?= $preview?'직원 화면 미리보기':'업무 관리' ?></title>
 <link rel="icon" href="./cnc-mark.svg" type="image/svg+xml">
-<?php foreach (['ui-icons.css','admin-workspace.css','hr-workspace.css','office.css','session-navigation.css','compact.css','workspace-ui.css','pending-intakes.css','company-ui.css'] as $file): ?>
+<?php foreach (['ui-icons.css','admin-workspace.css','hr-workspace.css','office.css','session-navigation.css','compact.css','workspace-ui.css','pending-intakes.css','attendance-workspace.css','company-ui.css'] as $file): ?>
 <link rel="stylesheet" href="<?= view_h(asset_url($file)) ?>">
 <?php endforeach; ?>
 <?php require __DIR__.'/boot.php'; ?>
