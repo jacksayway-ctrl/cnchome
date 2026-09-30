@@ -18,6 +18,10 @@
   function channel(label,key,empty){
    const box=element('section','cnc-notice-channel'),heading=element('strong','cnc-notice-label',label),viewport=element('button','cnc-notice-viewport'),text=element('span','cnc-notice-text',empty);
    viewport.type='button';viewport.setAttribute('aria-label',label+' 전체 보기');viewport.append(text);viewport.addEventListener('click',()=>showList(key));heading.style.cursor='pointer';heading.addEventListener('click',()=>showList(key));box.append(heading,viewport);area.append(box);
+   if(key==='activity'){
+    box.classList.add('cnc-notice-fixed');let signature='',timer=null;
+    return {box,update(items){const current=items[items.length-1],value=current?current.id+'|'+current.title+'|'+current.body:'';if(value===signature)return;signature=value;clearTimeout(timer);text.textContent=current?current.title+' · '+current.body:empty;viewport.title=text.textContent;box.classList.remove('cnc-notice-blink');if(current){void box.offsetWidth;box.classList.add('cnc-notice-blink');timer=setTimeout(()=>box.classList.remove('cnc-notice-blink'),5000);}},resize(){},error(message){viewport.title=message;}};
+   }
    let items=[],pending=[],current=null,index=0,timer=null,paused=false;
    const reduced=()=>global.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
    function animate(){

@@ -24,3 +24,8 @@ body:has(>.cnc-session-bar){padding-top:0}
 body:has(>.cnc-session-bar)>#tm-preview{height:calc(100vh - var(--cnc-session-height,48px));height:calc(100dvh - var(--cnc-session-height,48px))}
 @media(max-width:600px){.cnc-session-bar{padding:8px 12px;gap:8px;flex-wrap:wrap}}
 @media(min-width:701px){body:has(>.cnc-session-bar)>.sidebar{top:48px}}
+
+.cnc-notice-fixed .cnc-notice-text{animation:none;transform:none;display:block;overflow:hidden;text-overflow:ellipsis}
+.cnc-notice-fixed.cnc-notice-blink{animation:cnc-policy-blink 1s ease-in-out 5}
+@keyframes cnc-policy-blink{0%,100%{background:#fff7ed}50%{background:#fed7aa}}
+@media(prefers-reduced-motion:reduce){.cnc-notice-fixed.cnc-notice-blink{animation:none}}
