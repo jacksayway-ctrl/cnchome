@@ -18,7 +18,6 @@
 [data-pending-list] .pending-intake-detail[hidden]{display:none}
 [data-pending-list] .pending-intake-status{display:inline-flex;align-items:center;padding:3px 8px;border-radius:20px;font-size:11px;font-weight:700;background:#edf1f6;color:#687a8c;white-space:nowrap}
 [data-pending-list] .pending-intake-status.available{background:#e4f3ed;color:#236b50}
-[data-pending-list] .pending-intake-status.unavailable{background:#fff3df;color:#866323}
 [data-pending-list] .pending-note-history{padding:12px 14px;background:#fff;border:1px solid #e0e7f0;border-radius:8px;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.7;max-height:240px;overflow:auto}
 [data-pending-list] form{display:flex;flex-wrap:wrap;align-items:end;gap:10px;margin-top:12px}
 [data-pending-list] form label{display:grid;gap:5px;min-width:0;font-size:12px;color:#526a83}
@@ -36,12 +35,12 @@
 [data-pending-list] .pending-intake-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
 [data-pending-list] .pending-intake-feedback{margin:8px 0 0;font-size:12px;color:#38624f;line-height:1.6}
 [data-pending-list] .pending-intake-feedback:empty{display:none}
-[data-pending-list] .pending-intake-form>label:first-child{flex:1 1 320px}
-[data-pending-list] .pending-intake-form>label:nth-child(2){flex:0 1 190px}
-[data-pending-list] .pending-intake-form>label textarea{flex:none}
+[data-pending-list] .pending-intake-form fieldset>label:first-child{flex:1 1 320px}
+[data-pending-list] .pending-intake-form fieldset>label:nth-child(2){flex:0 1 190px}
+[data-pending-list] .pending-intake-form label textarea{flex:none}
 [data-pending-list] .pending-note-history article{margin-top:10px;padding-top:10px;border-top:1px solid #e8edf4}
 [data-pending-list] .pending-note-history article small{color:#728399;font-size:11px}
-@media(max-width:700px){[data-pending-list] .pending-intake-form>label:nth-child(2){flex:1 1 100%}}
+@media(max-width:700px){[data-pending-list] .pending-intake-form fieldset>label:nth-child(2){flex:1 1 100%}}
 
 #tm-preview [data-pending-panel] .pending-intake-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 16px;background:#edf4ff;border-bottom:1px solid #dce7f5}
 #tm-preview [data-pending-panel] .pending-intake-heading h3{margin:0;color:#214f89;font-size:15px}
@@ -59,3 +58,26 @@
 @media(max-width:700px){[data-pending-list] .pending-intake-filters label{flex:1 1 130px}}
 [data-pending-list]>.scroll{max-height:480px;overflow:auto;scrollbar-gutter:stable}
 [data-pending-list] thead th{position:sticky;top:0;z-index:1}
+[data-pending-list] .pending-intake-counts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:0 0 18px}
+[data-pending-list] .pending-intake-counts>div{display:grid;gap:5px;padding:15px 17px;border:1px solid #dbe5f0;border-radius:9px;background:#f7f9fc}
+[data-pending-list] .pending-intake-counts span{font-size:12px;font-weight:700;color:#526a83}
+[data-pending-list] .pending-intake-counts strong{font-size:25px;line-height:1.3;color:#244f88;font-variant-numeric:tabular-nums}
+[data-pending-list] .pending-intake-counts small{font-size:11px;color:#6c8198;line-height:1.5}
+[data-pending-list] .pending-intake-counts .pending-intake-today{background:#f0f8f4;border-color:#c7e2d4}
+[data-pending-list] .pending-intake-today strong{color:#236b50}
+[data-pending-list] .pending-intake-muted{color:#9aa8b7}
+[data-pending-list] form.pending-intake-edit-form,[data-pending-list] form.pending-intake-form{display:block}
+[data-pending-list] form fieldset{min-width:0;margin:0;padding:0;border:0}
+[data-pending-list] .pending-intake-edit-form{padding:15px;margin:0 0 16px;background:#fff;border:1px solid #dbe5f0;border-radius:9px}
+[data-pending-list] .pending-intake-edit-form fieldset{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;align-items:start}
+[data-pending-list] .pending-intake-edit-form legend{padding:0 0 12px;font-size:13px;font-weight:700;color:#315879}
+[data-pending-list] .pending-intake-edit-form input,[data-pending-list] .pending-intake-edit-form select{width:100%;min-width:0;min-height:38px}
+[data-pending-list] .pending-intake-edit-form input[readonly]{background:#f3f6fa;color:#677b91}
+[data-pending-list] .pending-intake-edit-form output{display:block;min-height:38px;box-sizing:border-box;padding:9px 10px;border-radius:7px;background:#f3f6fa;color:#365a80;line-height:20px}
+[data-pending-list] .pending-intake-edit-form label small{font-size:10px;color:#8191a4}
+[data-pending-list] .pending-intake-wide{grid-column:1/-1}
+[data-pending-list] .pending-intake-edit-state{font-size:11px;color:#6a7f95;line-height:1.5}
+[data-pending-list] .pending-intake-form fieldset{display:flex;flex-wrap:wrap;align-items:end;gap:10px}
+[data-pending-list] .pending-note-history p{margin:4px 0 0}
+@media(max-width:1000px){[data-pending-list] .pending-intake-edit-form fieldset{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:700px){[data-pending-list] .pending-intake-counts{grid-template-columns:1fr;gap:8px}[data-pending-list] .pending-intake-counts>div{grid-template-columns:1fr auto;align-items:center;padding:11px 13px}[data-pending-list] .pending-intake-counts small{grid-column:1/-1}[data-pending-list] .pending-intake-counts strong{font-size:21px}[data-pending-list] .pending-intake-edit-form{padding:12px}[data-pending-list] .pending-intake-edit-form fieldset{grid-template-columns:1fr}}

@@ -2,9 +2,14 @@
 const role=window.CNCHOME_LIVE?.user?.role;
 if(!['employee','admin'].includes(role))return;
 const admin=role==='admin',teams={insurance:'보험팀',cosmetics:'화장품팀',health:'건강보조식품팀'};
-let rows=[],busy=false,queued=null,index,feedback='',loadError='',loaded=false,composingInput=null;
-const expanded=new Set(),drafts=new Map(),filters={employee:'',scope:'all',query:''};
+let rows=[],busy=false,posting=false,queued=null,index,feedback='',loadError='',loaded=false,composingInput=null;
+const expanded=new Set(),drafts=new Map(),editDrafts=new Map(),formBases=new Map(),filters={employee:'',scope:'all',query:''};
+const editFields=['customer','phone','birthDate','birthYear','carrier','consultationTime','consultationPlace','premiumBand'];
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fieldValues=r=>Object.fromEntries(editFields.map(key=>[key,String(r[key]??'')]));
+const sameFields=(a,b)=>editFields.every(key=>a[key]===b[key]);
+const minute=value=>value?String(value).slice(0,16):'작성 시간 미기록';
+function ageLabel(values,team){const year=Number(new Intl.DateTimeFormat('en',{year:'numeric',timeZone:'Asia/Seoul'}).format(new Date())),birth=Number(values.birthDate.slice(0,4)||values.birthYear),age=birth?year-birth+1:0;return age>0?age+'세 (세는나이)'+(team==='insurance'?' · '+(age<=60?'일반':age<=70?'실버':'연령 초과'):''):'생년월일 또는 출생연도 입력';}
 function evaluatedRows(){
  const core=window.IntakeDetails?.core;
  if(core&&!index)try{index=core.placeIndex(window.KoreaRegionCatalog);}catch(e){/* Pending records remain visible while location data is unavailable. */}
@@ -36,37 +41,59 @@ function filterMarkup(){
 function adminActions(r){
  const params=new URLSearchParams({role:'admin',month:r.date.slice(0,7),scope:r.isTest?'test':'real',id:r.id,popup:'1'});
  const queue=new URLSearchParams({role:'admin',month:r.date.slice(0,7),scope:r.isTest?'test':'real',employee:String(r.employeeId)});
- return `<div class="pending-intake-actions pending-intake-admin-actions"><a class="action" href="/intake.php?${esc(params.toString())}" target="_blank" rel="noopener">접수 상세·수정 새창</a>${r.recallPending?`<a class="secondary" href="/intake.php?${esc(queue.toString())}#recall-confirmations" target="_blank" rel="noopener">정상접수 확인표</a>`:''}</div><p class="pending-intake-feedback">접수 상세에서 내용을 수정하거나 상태를 처리할 수 있습니다.</p>`;
+ return `<div class="pending-intake-actions pending-intake-admin-actions"><a class="action" href="/intake.php?${esc(params.toString())}" target="_blank" rel="noopener">접수관리 새창</a>${r.recallPending?`<a class="secondary" href="/intake.php?${esc(queue.toString())}#recall-confirmations" target="_blank" rel="noopener">정상접수 확인표</a>`:''}</div>`;
 }
-function employeeForm(r,codes){
+function editForm(r,i){
+ const draft=editDrafts.get(r.id),values=draft?.fields||fieldValues(r),revision=draft?.revision??r.revision;
+ formBases.set(r.id,{fields:fieldValues(r),revision:r.revision});
+ const carrierOptions=[...new Set([r.carrier,...(window.PolicySync?.snapshot?.codes||[]).map(c=>c.label)].filter(Boolean))];
+ return `<form class="pending-intake-edit-form" data-pending-edit-id="${esc(r.id)}" data-revision="${revision}"><fieldset ${posting?'disabled':''}><legend>접수내용 수정</legend>
+ <label>고객명<input name="customer" maxlength="100" required value="${esc(values.customer)}" autocomplete="off"></label>
+ <label>연락처<input name="phone" type="tel" maxlength="15" required pattern="[0-9\\-]{9,15}" value="${esc(values.phone)}" autocomplete="off"></label>
+ <label>생년월일<input name="birthDate" type="date" min="1900-01-01" max="${esc(r.date)}" value="${esc(values.birthDate)}"></label>
+ <label>출생연도<input name="birthYear" type="number" min="1900" max="${esc(r.date.slice(0,4))}" step="1" required ${values.birthDate?'readonly':''} value="${esc(values.birthYear||'')}"><small>생년월일 입력 시 자동 적용</small></label>
+ <label>접수 코드<input name="carrier" maxlength="100" value="${esc(values.carrier)}" list="pending-carriers-${i}" autocomplete="off"><datalist id="pending-carriers-${i}">${carrierOptions.map(c=>`<option value="${esc(c)}"></option>`).join('')}</datalist></label>
+ <label>상담 시간<input name="consultationTime" type="time" value="${esc(values.consultationTime)}"></label>
+ <label>현재 납부 보험료<select name="premiumBand">${[['','미입력'],['100000','10만 원 이상'],['200000','20만 원 이상'],['300000','30만 원 이상']].map(([value,label])=>`<option value="${value}" ${values.premiumBand===value?'selected':''}>${label}</option>`).join('')}</select></label>
+ <label>현재 나이·구분<output data-pending-age>${esc(ageLabel(values,r.team))}</output></label>
+ <label class="pending-intake-wide">상담 장소·지역<input name="consultationPlace" maxlength="500" value="${esc(values.consultationPlace)}" placeholder="시·도, 시·군·구와 상세 상담 장소" autocomplete="off"></label>
+ <div class="pending-intake-wide pending-intake-actions"><button type="submit" ${busy?'disabled':''}>수정내용 적용</button><button type="button" class="secondary" data-pending-edit-reset="${esc(r.id)}" ${busy?'disabled':''}>저장내용으로 되돌리기</button><span class="pending-intake-edit-state" data-pending-edit-state>${draft?(revision!==r.revision?'다른 화면에서 내용이 변경되었습니다. 저장내용으로 되돌린 뒤 수정해 주세요.':'수정 중 · 적용하면 저장됩니다.'):r.lastEditAt?'마지막 수정 '+esc(minute(r.lastEditAt)):''}</span></div>
+ </fieldset></form>`;
+}
+function memoForm(r,codes){
  const draft=drafts.get(r.id)||{};
- return `<form class="pending-intake-form" data-pending-id="${esc(r.id)}"><label>메모 이어쓰기<textarea name="memo" maxlength="500" required placeholder="통화 결과나 다음 연락 내용을 입력해 주세요.">${esc(draft.memo||'')}</textarea></label><label>재콜 접수 코드<select name="carrier">${codes.length?codes.map(c=>`<option value="${esc(c.label)}" ${(draft.carrier||r.carrier)===c.label?'selected':''}>${esc(c.label)}</option>`).join(''):'<option value="">접수 가능한 정책 없음</option>'}</select></label><div class="pending-intake-actions"><button type="submit" class="secondary" name="action" value="memo" ${busy?'disabled':''}>메모 추가</button><button type="submit" name="action" value="recall" ${busy||!codes.length||r.recallPending?'disabled':''}>${r.recallPending?'관리자 확인 대기':'재콜 수정'}</button></div></form><p class="pending-intake-feedback">메모는 기존 기록 뒤에 추가됩니다. 재콜 수정은 관리자 정상접수 확인표로 전달됩니다.</p>`;
+ return `<form class="pending-intake-form" data-pending-id="${esc(r.id)}" data-revision="${r.revision}"><fieldset ${posting?'disabled':''}><label>메모 이어쓰기<textarea name="memo" maxlength="500" required placeholder="통화 결과나 다음 연락 내용을 입력해 주세요.">${esc(draft.memo||'')}</textarea></label>${admin?'':`<label>재콜 접수 코드<select name="carrier">${codes.length?codes.map(c=>`<option value="${esc(c.label)}" ${(draft.carrier||r.carrier)===c.label?'selected':''}>${esc(c.label)}</option>`).join(''):'<option value="">접수 가능한 정책 없음</option>'}</select></label>`}<div class="pending-intake-actions"><button type="submit" class="secondary" name="action" value="memo" ${busy?'disabled':''}>메모 추가</button>${admin?'':`<button type="submit" name="action" value="recall" ${busy||!codes.length||r.recallPending?'disabled':''}>${r.recallPending?'관리자 확인 대기':'재콜 수정'}</button>`}</div></fieldset></form><p class="pending-intake-feedback">메모는 작성자·날짜·시간과 함께 기존 기록에 추가됩니다.${admin?'':' 재콜 수정은 관리자 정상접수 확인표로 전달됩니다.'}</p>`;
 }
-function rowMarkup({r,result,kind,codes,todayCodes},i){
+function rowMarkup({r,codes,todayCodes},i){
  const isOpen=expanded.has(r.id),detailId='pending-detail-'+i;
- return `<tr class="pending-intake-row" data-pending-toggle="${esc(r.id)}" aria-expanded="${isOpen}"><td>${esc(r.date)}${admin&&r.isTest?'<br><span class="pending-intake-test">테스트</span>':''}</td>${admin?`<td>${esc(r.employee||'직원명 미입력')}</td><td>${esc(teams[r.team]||r.team||'부서 미입력')}</td>`:''}<td><strong>${esc(r.customer)}</strong></td><td>${esc(r.consultationPlace||'지역 미입력')}</td><td><span class="pending-intake-status ${codes.length?'available':'unavailable'}">${todayCodes.length?'오늘 접수 가능':codes.length?'기존 정책 가능':'확인 필요'}</span><br><small>${esc(codes.map(c=>c.label).join(' · ')||result.text)}</small></td><td>${r.recallPending?'관리자 확인 대기':'가접수'}</td><td><button type="button" class="pending-intake-toggle" aria-expanded="${isOpen}" aria-controls="${detailId}" aria-label="${esc(r.customer)} 상세 ${isOpen?'접기':'펼치기'}">${isOpen?'접기':'펼치기'}</button></td></tr>
- <tr id="${detailId}" class="pending-intake-detail" ${isOpen?'':'hidden'}><td colspan="${admin?8:6}"><div class="pending-intake-meta"><span>연락처 <strong>${esc(r.phone||'미입력')}</strong></span><span>생년월일 ${esc(r.birthDate||r.birthYear||'미입력')}</span><span>상담 시간 ${esc(r.consultationTime||'미입력')}</span><span>접수 코드 ${esc(r.carrier||'미입력')}</span><span>${kind==='silver'?'실버':kind==='general'?'일반':'연령 확인 필요'}</span></div><div class="pending-note-history"><strong>상담 메모</strong><p>${esc(r.note||'기존 메모가 없습니다.')}</p>${(r.memoHistory||[]).map(n=>`<article><small>${esc(n.at)} · ${esc(n.actor)} · ${n.action==='recall'?'재콜 수정':'메모 추가'}</small><p>${esc(n.memo)}</p></article>`).join('')}</div>${admin?adminActions(r):employeeForm(r,codes)}</td></tr>`;
+ return `<tr class="pending-intake-row" data-pending-toggle="${esc(r.id)}" aria-expanded="${isOpen}"><td>${esc(r.date)}${admin&&r.isTest?'<br><span class="pending-intake-test">테스트</span>':''}</td>${admin?`<td>${esc(r.employee||'직원명 미입력')}</td><td>${esc(teams[r.team]||r.team||'부서 미입력')}</td>`:''}<td><strong>${esc(r.customer)}</strong></td><td>${esc(r.consultationPlace||'지역 미입력')}</td><td>${codes.length?`<span class="pending-intake-status available">${todayCodes.length?'오늘 재접수 가능':'기존 정책 가능'}</span><br><small>${esc((todayCodes.length?todayCodes:codes).map(c=>c.label).join(' · '))}</small>`:'<span class="pending-intake-muted">—</span>'}</td><td>${r.recallPending?'관리자 확인 대기':'가접수'}</td><td><button type="button" class="pending-intake-toggle" aria-expanded="${isOpen}" aria-controls="${detailId}" aria-label="${esc(r.customer)} 상세 ${isOpen?'접기':'펼치기'}">${isOpen?'접기':'펼치기'}</button></td></tr>
+ <tr id="${detailId}" class="pending-intake-detail" ${isOpen?'':'hidden'}><td colspan="${admin?8:6}"><div class="pending-intake-meta"><span>최초 접수일 <strong>${esc(r.date)}</strong></span><span>담당 직원 ${esc(r.employee||'미입력')}</span><span>${esc(teams[r.team]||r.team||'')}</span><span>${r.recallPending?'관리자 확인 대기':'가접수'}</span></div>${editForm(r,i)}<div class="pending-note-history"><strong>상담 메모 기록</strong>${r.note?`<article><small>기존 메모 · ${esc(minute(r.originalMemoAt))}</small><p>${esc(r.note)}</p></article>`:''}${(r.memoHistory||[]).map(n=>`<article><small>${esc(minute(n.at))} · ${esc(n.actor)} · ${esc(({recall:'재콜 수정',resubmit:'재접수',edit:'접수내용 수정',hold:'보류',status:'상태 처리',memo:'메모 추가'})[n.action]||'메모')}</small><p>${esc(n.memo)}</p></article>`).join('')}${!r.note&&!r.memoHistory?.length?'<p>등록된 상담 메모가 없습니다.</p>':''}</div>${memoForm(r,codes)}${admin?adminActions(r):''}</td></tr>`;
 }
 function render(force=false){
  const refresh=document.querySelector('[data-pending-refresh]');if(refresh)refresh.disabled=busy;
  const el=document.querySelector('[data-pending-list]'),active=document.activeElement;
- if(!el||(!force&&((el.contains(active)&&active.matches('textarea,select'))||(composingInput&&el.contains(composingInput)))))return;
- const focusedFilter=el.contains(active)?active.dataset.pendingFilter:null,selection=focusedFilter==='query'?[active.selectionStart,active.selectionEnd]:null;
- const evaluated=filteredRows(evaluatedRows()),possible=evaluated.filter(x=>x.todayCodes.length>0).length;
+ if(!el||posting||(!force&&((el.contains(active)&&active.closest('form')&&active.matches('input,textarea,select'))||(composingInput&&el.contains(composingInput)))))return;
+ const focusedFilter=el.contains(active)?active.dataset.pendingFilter:null,focusedForm=el.contains(active)?active.closest('form'):null,focusedId=focusedForm?.dataset.pendingEditId||focusedForm?.dataset.pendingId,focusedName=active.name,selection=typeof active.selectionStart==='number'?[active.selectionStart,active.selectionEnd]:null;
+ const scroll=el.querySelector('.scroll'),scrollPosition=scroll?[scroll.scrollTop,scroll.scrollLeft]:[0,0];
+ const all=evaluatedRows(),evaluated=filteredRows(all),possible=all.filter(x=>x.todayCodes.length>0).length,policyReady=!!(window.PolicySync?.snapshot&&window.IntakeDetails?.core&&index&&!window.PolicySync?.error);
  const empty=loadError?'가접수 조회를 완료하지 못했습니다. 새로고침을 눌러 다시 확인해 주세요.':loaded?(admin?'현재 조회 조건에 해당하는 가접수가 없습니다.':'현재 본인의 가접수가 없습니다.'):(admin?'직원별 가접수를 불러오는 중입니다.':'본인 가접수를 불러오는 중입니다.');
- el.innerHTML=filterMarkup()+'<p>오늘 등록 정책에 접수 가능한 건 우선 · 최초 접수일이 오래된 순서입니다. 행을 누르면 상세내용과 상담 메모가 펼쳐집니다.</p><div class="pending-intake-meta"><strong>가접수 '+(loaded?evaluated.length+'건':loadError?'조회 실패':'조회 중')+'</strong>'+(admin&&loaded?'<span>전체 '+rows.length+'건</span>':'')+'<span title="오늘 등록된 정책의 지역·연령·가능 수량에 맞는 가접수를 중복 없이 집계합니다.">오늘 정책 접수 가능 '+possible+'건</span><span>확인 대기 '+evaluated.filter(x=>x.r.recallPending).length+'건</span></div><p class="pending-intake-feedback" role="status">'+esc(feedback)+'</p>'+(loadError?'<p class="pending-intake-error" role="alert">'+esc(loadError)+'</p>':'')+'<div class="scroll"><table class="pending-intake-table"><thead><tr><th>최초 접수일</th>'+(admin?'<th>담당 직원</th><th>부서</th>':'')+'<th>고객명</th><th>상담 지역</th><th>현재 정책</th><th>처리 상태</th><th>상세</th></tr></thead><tbody>'+evaluated.map(rowMarkup).join('')+(!evaluated.length?'<tr><td colspan="'+(admin?8:6)+'">'+esc(empty)+'</td></tr>':'')+'</tbody></table></div>';
- if(focusedFilter){const control=el.querySelector('[data-pending-filter="'+focusedFilter+'"]');if(control){control.focus({preventScroll:true});if(selection)control.setSelectionRange(...selection);}}
+ el.innerHTML='<div class="pending-intake-counts" aria-label="가접수 집계"><div><span>전체 가접수</span><strong>'+ (loaded?rows.length+'건':loadError?'조회 실패':'조회 중')+'</strong><small>'+(admin?'전체 직원 · 모든 접수월':'본인 접수 · 모든 접수월')+'</small></div><div class="pending-intake-today"><span>오늘 재접수 가능</span><strong>'+(loaded&&policyReady?possible+'건':window.PolicySync?.error?'정책 조회 실패':'조회 중')+'</strong><small>오늘 등록 정책의 지역·연령·잔여 수량 비교</small></div><div><span>관리자 확인 대기</span><strong>'+(loaded?all.filter(x=>x.r.recallPending).length+'건':'조회 중')+'</strong><small>재콜 요청 후 확인 대기 중</small></div></div>'+filterMarkup()+'<p>오늘 재접수 가능한 건 우선 · 최초 접수일이 오래된 순서입니다. 행을 누르면 접수내용을 수정하고 메모를 이어 쓸 수 있습니다.</p>'+(admin&&loaded?'<div class="pending-intake-meta"><span>현재 조회 '+evaluated.length+'건</span><span>조회 결과 중 오늘 재접수 가능 '+(policyReady?evaluated.filter(x=>x.todayCodes.length>0).length+'건':'조회 중')+'</span></div>':'')+'<p class="pending-intake-feedback" role="status">'+esc(feedback)+'</p>'+(loadError?'<p class="pending-intake-error" role="alert">'+esc(loadError)+'</p>':'')+'<div class="scroll"><table class="pending-intake-table"><thead><tr><th>최초 접수일</th>'+(admin?'<th>담당 직원</th><th>부서</th>':'')+'<th>고객명</th><th>상담 지역</th><th>현재 정책</th><th>처리 상태</th><th>상세</th></tr></thead><tbody>'+evaluated.map(rowMarkup).join('')+(!evaluated.length?'<tr><td colspan="'+(admin?8:6)+'">'+esc(empty)+'</td></tr>':'')+'</tbody></table></div>';
+ let control;if(focusedFilter)control=el.querySelector('[data-pending-filter="'+focusedFilter+'"]');else if(focusedId&&focusedName){const form=Array.from(el.querySelectorAll('form')).find(f=>(focusedForm.dataset.pendingEditId?f.dataset.pendingEditId:f.dataset.pendingId)===focusedId);control=form?.elements[focusedName];}
+ if(control){control.focus({preventScroll:true});if(selection&&control.setSelectionRange)control.setSelectionRange(...selection);}
+ const nextScroll=el.querySelector('.scroll');if(nextScroll){nextScroll.scrollTop=scrollPosition[0];nextScroll.scrollLeft=scrollPosition[1];}
 }
 async function load(body){
- if(admin&&body)return;
- const el=document.querySelector('[data-pending-list]');if(busy){if(body){queued=body;el?.querySelectorAll('button[type="submit"]').forEach(b=>b.disabled=true);}return;}busy=true;if(body)el?.querySelectorAll('button[type="submit"]').forEach(b=>b.disabled=true);
+ if(admin&&body&&body.action==='recall')return;
+ const el=document.querySelector('[data-pending-list]');if(body){posting=true;el?.querySelectorAll('form fieldset').forEach(f=>f.disabled=true);}if(busy){if(body&&!queued)queued=body;return;}busy=true;
  const refresh=document.querySelector('[data-pending-refresh]');if(refresh)refresh.disabled=true;
  const controller=new AbortController(),timer=body?null:setTimeout(()=>controller.abort(),45000);
- try{const response=await fetch('/pending-intakes.php?role='+encodeURIComponent(role),{method:body?'POST':'GET',credentials:'same-origin',cache:'no-store',signal:controller.signal,headers:{'Content-Type':'application/json','X-CSRF-Token':window.CNCHOME_LIVE.csrf},...(body?{body:JSON.stringify(body)}:{})});const data=await response.json();if(!response.ok)throw Error(data.error||(response.status===401?'로그인 상태를 확인한 뒤 다시 접속해 주세요.':'가접수 조회에 실패했습니다.'));if(!Array.isArray(data.records))throw Error('가접수 응답을 확인하지 못했습니다. 다시 조회해 주세요.');rows=data.records;loaded=true;loadError='';if(body){const draft=drafts.get(body.id);if(!draft||(draft.memo===body.memo&&draft.carrier===body.carrier))drafts.delete(body.id);feedback=body.action==='memo'?'메모를 기존 기록에 이어 저장했습니다.':'재콜 수정 내용을 관리자 정상접수 확인표로 전달했습니다.';}}
- catch(e){loadError=e.name==='AbortError'?'가접수 조회 시간이 초과됐습니다. 새로고침을 눌러 주세요.':e.message;}finally{clearTimeout(timer);busy=false;render(!!body);if(queued){const next=queued;queued=null;load(next);}}
+ try{const response=await fetch('/pending-intakes.php?role='+encodeURIComponent(role),{method:body?'POST':'GET',credentials:'same-origin',cache:'no-store',signal:controller.signal,headers:{'Content-Type':'application/json','X-CSRF-Token':window.CNCHOME_LIVE.csrf},...(body?{body:JSON.stringify(body)}:{})});const data=await response.json();if(!response.ok)throw Error(data.error||(response.status===401?'로그인 상태를 확인한 뒤 다시 접속해 주세요.':'가접수 조회에 실패했습니다.'));if(!Array.isArray(data.records))throw Error('가접수 응답을 확인하지 못했습니다. 다시 조회해 주세요.');rows=data.records;loaded=true;loadError='';if(body){if(body.action==='edit')editDrafts.delete(body.id);else drafts.delete(body.id);feedback=body.action==='edit'?'수정한 접수내용을 적용했습니다.':body.action==='memo'?'작성 날짜·시간과 함께 메모를 추가했습니다.':'재콜 수정 내용을 관리자 정상접수 확인표로 전달했습니다.';}
+ for(const r of rows){const draft=editDrafts.get(r.id);if(draft&&sameFields(draft.base,fieldValues(r)))draft.revision=r.revision;}}
+ catch(e){loadError=e.name==='AbortError'?'가접수 조회 시간이 초과됐습니다. 새로고침을 눌러 주세요.':e.message;}finally{clearTimeout(timer);busy=false;if(queued){const next=queued;queued=null;load(next);}else{posting=false;render(!!body);}}
 }
 document.addEventListener('click',e=>{
  if(e.target.closest('[data-pending-refresh]')){load();return;}
+ const reset=e.target.closest('[data-pending-edit-reset]');if(reset){editDrafts.delete(reset.dataset.pendingEditReset);feedback='저장된 접수내용을 다시 불러왔습니다.';render(true);load();return;}
  if(admin&&e.target.closest('[data-pending-filter-reset]')){Object.assign(filters,{employee:'',scope:'all',query:''});render(true);return;}
  const row=e.target.closest('[data-pending-toggle]');if(!row)return;
  const id=row.dataset.pendingToggle,on=!expanded.has(id);if(on)expanded.add(id);else expanded.delete(id);row.setAttribute('aria-expanded',String(on));const button=row.querySelector('button');button.setAttribute('aria-expanded',String(on));button.textContent=on?'접기':'펼치기';button.setAttribute('aria-label',(rows.find(r=>r.id===id)?.customer||'고객')+' 상세 '+(on?'접기':'펼치기'));row.nextElementSibling.hidden=!on;
@@ -74,12 +101,20 @@ document.addEventListener('click',e=>{
 function capture(e){
  const filter=e.target.closest('[data-pending-filter]');
  if(admin&&filter){if(e.type==='input'&&filter.tagName==='SELECT')return;if(e.isComposing)return;filters[filter.dataset.pendingFilter]=filter.value;render(true);return;}
- if(admin)return;const f=e.target.closest('[data-pending-id]');if(f)drafts.set(f.dataset.pendingId,{memo:f.elements.memo.value,carrier:f.elements.carrier.value});
+ const edit=e.target.closest('[data-pending-edit-id]');if(edit){captureEdit(edit);return;}
+ const f=e.target.closest('[data-pending-id]');if(f)drafts.set(f.dataset.pendingId,{memo:f.elements.memo.value,carrier:f.elements.carrier?.value||''});
+}
+function captureEdit(form){
+ const id=form.dataset.pendingEditId,existing=editDrafts.get(id),base=formBases.get(id),values=Object.fromEntries(editFields.map(key=>[key,form.elements[key].value]));
+ if(values.birthDate){values.birthYear=values.birthDate.slice(0,4);form.elements.birthYear.value=values.birthYear;}form.elements.birthYear.readOnly=!!values.birthDate;
+ const draft={fields:values,revision:existing?.revision??Number(form.dataset.revision),base:existing?.base||base?.fields||fieldValues(rows.find(r=>r.id===id)||{})};editDrafts.set(id,draft);
+ const r=rows.find(r=>r.id===id);form.querySelector('[data-pending-age]').textContent=ageLabel(values,r?.team);form.querySelector('[data-pending-edit-state]').textContent=draft.revision!==r?.revision?'다른 화면에서 내용이 변경되었습니다. 저장내용으로 되돌린 뒤 수정해 주세요.':'수정 중 · 적용하면 저장됩니다.';
+ return draft;
 }
 document.addEventListener('input',capture);document.addEventListener('change',capture);
-document.addEventListener('compositionstart',e=>{if(e.target.matches('[data-pending-filter="query"]'))composingInput=e.target;});
+document.addEventListener('compositionstart',e=>{if(e.target.closest('[data-pending-list]'))composingInput=e.target;});
 document.addEventListener('compositionend',e=>{if(e.target===composingInput)composingInput=null;if(e.target.matches('[data-pending-filter="query"]'))capture(e);});
-document.addEventListener('submit',e=>{const f=e.target.closest('[data-pending-id]');if(!f)return;e.preventDefault();if(admin)return;const r=rows.find(r=>r.id===f.dataset.pendingId),action=e.submitter?.value||'memo';if(!r||!f.reportValidity())return;load({id:r.id,revision:r.revision,action,memo:f.elements.memo.value,carrier:f.elements.carrier.value});});
+document.addEventListener('submit',e=>{const f=e.target.closest('[data-pending-edit-id],[data-pending-id]');if(!f)return;e.preventDefault();if(posting||!f.reportValidity())return;if(f.dataset.pendingEditId){const draft=captureEdit(f);load({id:f.dataset.pendingEditId,revision:draft.revision,action:'edit',...draft.fields});return;}const r=rows.find(r=>r.id===f.dataset.pendingId),action=e.submitter?.value||'memo';if(!r||(admin&&action!=='memo'))return;load({id:r.id,revision:r.revision,action,memo:f.elements.memo.value,carrier:f.elements.carrier?.value||''});});
 function mount(){const el=document.querySelector('[data-pending-list]');if(el&&!el.dataset.loaded){el.dataset.loaded='1';render();load();}}
 const observer=new MutationObserver(mount);const main=document.getElementById('tm-main');if(main)observer.observe(main,{childList:true,subtree:true});window.PolicySync?.subscribe(()=>render());mount();setInterval(()=>{if(!document.hidden&&document.querySelector('[data-pending-panel]'))load();},15000);
 })();

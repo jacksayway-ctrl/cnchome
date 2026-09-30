@@ -140,6 +140,51 @@ $d->exec("INSERT INTO app_users VALUES(5,'empty','접수 없는 직원','employe
 check(pending_intake_snapshot(['id'=>5,'role'=>'employee'])===['records'=>[]],'employee with no pending records receives an empty feed');
 $forbidden=function(callable $fn,string $message):void{try{$fn();}catch(HRForbidden $e){return;}throw new RuntimeException($message);};
 $forbidden(fn()=>pending_intake_snapshot(['id'=>2,'role'=>'manager']),'unknown role must receive forbidden pending access');
-$forbidden(fn()=>pending_intake_authorize($admin,true),'administrator must not use employee memo or recall write endpoint');
+$forbidden(fn()=>pending_intake_authorize($admin,true),'administrator must not submit an employee recall request');
 pending_intake_authorize($one,true);pending_intake_authorize($admin);
-echo "PASS: administrator all-month pending feed, employee ownership isolation, complete test/real row metadata, scoped memo history, recall parity, empty results and employee-only write authorization.\n";
+echo "PASS: administrator all-month pending feed, employee ownership isolation, complete test/real row metadata, scoped memo history, recall parity, empty results and recall authorization.\n";
+
+// Inline pending edits use the same owner/revision guard for native and legacy records.
+$pendingRow=fn(array $user,string $id)=>array_column(pending_intake_snapshot($user)['records'],null,'id')[$id];
+$before=$pendingRow($one,(string)$legacyId);$birth=((int)substr($before['date'],0,4)-60).'-05-06';
+$editPending=['action'=>'edit','id'=>(string)$legacyId,'revision'=>$before['revision'],'customer'=>'정정 고객 <script>','phone'=>'010-1234-9876','birthDate'=>$birth,'birthYear'=>'1999','carrier'=>'신한','consultationTime'=>'16:25','consultationPlace'=>'경기도 이천시 부발읍','premiumBand'=>'300000','memo'=>'접수정보 정정 사유','employeeId'=>3,'date'=>$today,'status'=>'normal','note'=>'덮어쓰면 안 됨'];
+$forbidden(fn()=>pending_intake_update($two,$editPending),'another employee must not edit a real pending receipt');
+pending_intake_update($one,$editPending);$after=$pendingRow($one,(string)$legacyId);
+check($after['customer']===$editPending['customer']&&$after['phone']===$editPending['phone']&&$after['consultationPlace']===$editPending['consultationPlace']&&$after['consultationTime']==='16:25'&&$after['premiumBand']==='300000','employee receipt changes persist, including missing consultation detail insertion');
+check($after['birthDate']===$birth&&$after['birthYear']===(int)substr($birth,0,4)&&$after['kind']==='silver','full date controls birth year and age classification');
+foreach(['employeeId','date','status','note','address'] as $key)check($after[$key]===$before[$key],'inline edit preserves '.$key);
+check($after['revision']===$before['revision']+1&&$after['lastEditAt']!==''&&$after['recallPending'],'edit is audited once and preserves outstanding recall');
+rejects(fn()=>pending_intake_update($one,$editPending),'stale pending revision rejected');
+$same=array_replace($editPending,['revision'=>$after['revision'],'memo'=>'']);rejects(fn()=>pending_intake_update($one,$same),'unchanged fields cannot create an edit');
+foreach(['phone'=>'invalid','birthDate'=>'1990-02-30','consultationTime'=>'25:10','premiumBand'=>'50000','customer'=>'','consultationPlace'=>str_repeat('가',501)] as $key=>$value)rejects(fn()=>pending_intake_update($one,array_replace($same,[$key=>$value])),'invalid inline field rejected: '.$key);
+check($pendingRow($one,(string)$legacyId)===$after,'invalid and stale edits leave every field, revision and history intact');
+pending_intake_update($admin,['action'=>'edit','id'=>(string)$legacyId,'revision'=>$after['revision'],'consultationTime'=>'17:40']);
+$afterAdmin=$pendingRow($one,(string)$legacyId);check($afterAdmin['consultationTime']==='17:40'&&$afterAdmin['customer']===$after['customer'],'administrator may edit one field while retaining all omitted fields');
+pending_intake_update($admin,['action'=>'memo','id'=>(string)$legacyId,'revision'=>$afterAdmin['revision'],'memo'=>'관리자 확인 메모']);
+$memoId=(int)$d->lastInsertId();$d->prepare('UPDATE intake_management_events SET created_at=? WHERE id=?')->execute(['2026-09-30 08:07:06',$memoId]);
+$memoRow=$pendingRow($one,(string)$legacyId);$lastMemo=$memoRow['memoHistory'][count($memoRow['memoHistory'])-1];
+check($lastMemo['memo']==='관리자 확인 메모'&&$lastMemo['actor']==='관리자'&&$lastMemo['at']==='2026-09-30 17:07:06','appended memo exposes server timestamp in Seoul time and its author');
+check($memoRow['note']===$before['note']&&in_array('접수정보 정정 사유',array_column($memoRow['memoHistory'],'memo'),true),'original note and edit reason survive later memo additions');
+check($pendingRow($admin,(string)$legacyId)===$memoRow,'both roles see identical edits and timestamped history');
+$forbidden(fn()=>pending_intake_update($admin,['action'=>'recall','id'=>(string)$legacyId,'revision'=>$memoRow['revision'],'carrier'=>'GA','memo'=>'권한 검증']),'administrator recall remains forbidden after enabling edit and memo');
+$eventsBefore=(int)$d->query('SELECT count(*) FROM intake_management_events')->fetchColumn();
+try{pending_intake_update(['id'=>999,'role'=>'admin'],['action'=>'edit','id'=>(string)$legacyId,'revision'=>$memoRow['revision'],'customer'=>'감사 실패 시 취소']);throw new RuntimeException('Expected audit failure');}catch(PDOException $e){}
+check($pendingRow($one,(string)$legacyId)===$memoRow&&(int)$d->query('SELECT count(*) FROM intake_management_events')->fetchColumn()===$eventsBefore,'failed audit rolls back inline content and revision atomically');
+rejects(fn()=>pending_intake_update($one,['action'=>'edit','id'=>'1','revision'=>(int)$d->query('SELECT revision FROM sales_records WHERE id=1')->fetchColumn(),'customer'=>'완료된 건 수정']),'non-pending records cannot be edited through pending feed');
+
+$legacyBefore=$pendingRow($testUser,'test:4:42');
+$legacyEdit=['action'=>'edit','id'=>'test:4:42','revision'=>$legacyBefore['revision'],'customer'=>'테스트 수정 고객','phone'=>'010-1111-2222','birthDate'=>'1988-02-29','carrier'=>'GA','consultationTime'=>'09:30','consultationPlace'=>'서울특별시 강남구','premiumBand'=>'100000'];
+$forbidden(fn()=>pending_intake_update($one,$legacyEdit),'another employee must not edit legacy test receipts');
+pending_intake_update($testUser,$legacyEdit);$legacyAfter=$pendingRow($testUser,'test:4:42');
+check($legacyAfter['customer']==='테스트 수정 고객'&&$legacyAfter['birthDate']==='1988-02-29'&&$legacyAfter['birthYear']===1988&&$legacyAfter['phone']==='010-1111-2222'&&$legacyAfter['consultationPlace']==='서울특별시 강남구','legacy receipt supports all inline customer and consultation edits');
+check($legacyAfter['date']===$legacyBefore['date']&&$legacyAfter['note']===$legacyBefore['note']&&$legacyAfter['originalMemoAt']===''&&$legacyAfter['status']==='pending','legacy edit preserves original receipt and does not fabricate old memo timestamps');
+rejects(fn()=>pending_intake_update($testUser,$legacyEdit),'stale legacy edits rejected');
+pending_intake_update($admin,['action'=>'edit','id'=>'test:4:42','revision'=>$legacyAfter['revision'],'birthDate'=>'','birthYear'=>'1991']);
+$yearOnly=$pendingRow($testUser,'test:4:42');check($yearOnly['birthDate']===''&&$yearOnly['birthYear']===1991,'year-only legacy edit remains readable without an invented birthday');
+$legacySales=array_column(sales_snapshot($admin,substr($yearOnly['date'],0,7))['records'],null,'id');check($legacySales['test:4:42']['birthYear']===1991,'edited legacy birth year is shared with the original intake screens');
+pending_intake_update($testUser,['action'=>'memo','id'=>'test:4:42','revision'=>$yearOnly['revision'],'memo'=>'새 날짜가 남는 직원 메모']);
+$legacyMemo=$pendingRow($testUser,'test:4:42');check(count($legacyMemo['memoHistory'])===2&&$legacyMemo['memoHistory'][1]['at']!==''&&$legacyMemo['note']==='테스트 기존 메모','legacy memo appends a timestamp without replacing original notes');
+check($pendingRow($admin,'test:4:42')===$legacyMemo,'administrator and employee legacy edits remain in sync');
+pending_intake_update($one,['action'=>'edit','id'=>(string)$legacyId,'revision'=>$memoRow['revision'],'birthDate'=>'','birthYear'=>'1990']);
+$yearOnlyReal=$pendingRow($one,(string)$legacyId);check($yearOnlyReal['birthDate']===''&&$yearOnlyReal['birthYear']===1990&&$yearOnlyReal['kind']==='general','clearing full birthday updates the year and removes stale birth detail');
+echo "PASS: inline real/legacy receipt edits, administrator and employee parity, per-owner access, immutable owner/date/status/notes, complete field validation, no-op and stale rejection, atomic audit rollback and timestamped append-only memo history.\n";
