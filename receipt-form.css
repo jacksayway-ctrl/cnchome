@@ -17,8 +17,8 @@
 #tm-preview .receipt-form .receipt-phone{gap:12px;white-space:nowrap}
 #tm-preview .receipt-form .receipt-phone input{max-width:125px}
 #tm-preview .receipt-gender{gap:28px}
-#tm-preview .receipt-form .receipt-gender label{display:flex;align-items:center;gap:8px;margin:0;font-weight:400}
-#tm-preview .receipt-form .receipt-gender input{width:14px;height:14px;margin:0;accent-color:#203963}
+#tm-preview .receipt-form .receipt-gender label,#tm-preview .receipt-form .receipt-premium label{display:flex;align-items:center;gap:8px;margin:0;font-weight:400}
+#tm-preview .receipt-form .receipt-gender input,#tm-preview .receipt-form .receipt-premium input{width:14px;height:14px;margin:0;accent-color:#203963}
 #tm-preview .receipt-grid>.receipt-region{grid-column:span 3;display:block;position:relative}
 #tm-preview .receipt-region .sales-place-control{position:relative;width:100%}
 #tm-preview .receipt-region [data-place-status]{display:block;font-size:11px;line-height:1.5;text-align:right;color:#0b9275}
@@ -38,3 +38,8 @@ body.receipt-window #tm-preview>.shell{visibility:hidden}
 body.receipt-window #tm-preview #tm-dialog.receipt-dialog{width:100vw;max-height:100dvh;margin:0;min-height:100dvh}
 body.receipt-window #tm-preview #tm-dialog.receipt-dialog::backdrop{background:#fff}
 @media(max-width:680px){#tm-preview .receipt-grid{grid-template-columns:100px minmax(0,1fr);margin:18px 14px 0}#tm-preview .receipt-grid>.receipt-region{grid-column:span 1}#tm-preview .receipt-header{padding:18px 20px}#tm-preview .receipt-policy,#tm-preview .receipt-feedback{margin-left:14px;margin-right:14px}#tm-preview .receipt-actions{padding:12px 14px 20px;gap:8px}#tm-preview .receipt-actions button{min-width:80px}}
+
+#tm-preview .receipt-form .receipt-call{gap:8px}
+#tm-preview .receipt-form .receipt-call select{width:68px;flex:none}
+#tm-preview .receipt-form .receipt-premium{gap:8px;flex-wrap:wrap}
+#tm-preview .receipt-form .receipt-premium label{gap:4px;white-space:nowrap;font-size:12px}
