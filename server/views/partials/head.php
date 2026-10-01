@@ -9,6 +9,7 @@
 <link rel="stylesheet" href="<?= view_h(asset_url($file)) ?>">
 <?php endforeach; ?>
 <link rel="stylesheet" href="<?= view_h(asset_url('receipt-form.css')) ?>">
+<script src="<?= view_h(asset_url('window-session.js')) ?>"></script>
 <?php require __DIR__.'/boot.php'; ?>
 <script src="<?= view_h(asset_url('page-navigation.js')) ?>"></script>
 <script src="<?= view_h(asset_url('native-navigation.js')) ?>"></script>

@@ -9,7 +9,7 @@ window.fetch=function(input,init){
  const url=new URL(input instanceof Request?input.url:input,location.href);
  if(url.origin===location.origin&&endpoints.has(url.pathname)){
   const headers=new Headers(init?.headers||(input instanceof Request?input.headers:undefined));
-  headers.set('X-CNC-Role',role);
+  if(!url.searchParams.has('role')&&!headers.has('X-CNC-Role'))headers.set('X-CNC-Role',role);
   return originalFetch(input,{...init,headers});
  }
  return originalFetch(input,init);

@@ -1,5 +1,6 @@
 <?php
 declare(strict_types=1);
+require_once __DIR__.'/window-session.php';
 function db(): PDO {
     static $db;
     if (!$db) {
@@ -16,19 +17,16 @@ function session_timeout_minutes(): int {
     try {return max(5,min(1440,(int)(db()->query('SELECT timeout_minutes FROM app_session_settings WHERE id=1')->fetchColumn()?:60)));}catch(Throwable $e){return 60;}
 }
 function session_boot(): void {
-    ini_set('session.gc_maxlifetime','86400');
-    ini_set('session.use_strict_mode', '1');
-    ini_set('session.use_only_cookies', '1');
-    session_name('cnchome_session_' . session_role());
-    session_set_cookie_params(['lifetime'=>0,'path'=>'/','secure'=>true,'httponly'=>true,'samesite'=>'Lax']);
-    session_start();
-    if (isset($_SESSION['last']) && time() - $_SESSION['last'] > session_timeout_minutes()*60) $_SESSION=[];
-    $_SESSION['last']=time();
-    $_SESSION['csrf'] ??= bin2hex(random_bytes(32));
     header('Cache-Control: no-store');
     header('X-Content-Type-Options: nosniff');
     header('X-Frame-Options: DENY');
-    header('Referrer-Policy: same-origin');
+    header('Referrer-Policy: no-referrer');
+    try{
+        $id=window_session_request_context($_GET,$_POST,$_SERVER);
+        if($id===null)window_session_bootstrap_document();
+        window_session_start($id,session_role(),session_timeout_minutes());
+        window_session_register_redirects();
+    }catch(WindowSessionError $e){window_session_error_response($e);}
 }
 function current_user(): ?array {
     if (empty($_SESSION['user_id'])) return null;

@@ -85,10 +85,10 @@
  }
  function confirmDuplicate(form,count){
   return new Promise(resolve=>{
-   const dialog=global.document.createElement('dialog');dialog.className='sales-duplicate-dialog';dialog.setAttribute('aria-label','중복 접수 확인');
+   const dialog=global.document.createElement('dialog');dialog.className='sales-duplicate-dialog cnc-admin-save-confirm';dialog.setAttribute('aria-label','중복 접수 확인');
    dialog.innerHTML='<h2>중복 접수 확인</h2><p>같은 이름과 전화번호의 기존 접수가 '+Number(count)+'건 있습니다.</p><p>저장하면 고객명 뒤에 <strong>(중복)</strong>을 붙여 접수합니다.</p><div class="row"><button type="button" class="secondary" data-duplicate-cancel autofocus>취소</button><button type="button" class="action" data-duplicate-save>저장</button></div>';
    bridge.root.append(dialog);let approved=false;
-   dialog.querySelector('[data-duplicate-cancel]').addEventListener('click',()=>dialog.close());dialog.querySelector('[data-duplicate-save]').addEventListener('click',()=>{approved=true;dialog.close();});
+   dialog.querySelector('[data-duplicate-cancel]').addEventListener('click',()=>dialog.close());dialog.querySelector('[data-duplicate-save]').addEventListener('click',event=>{if(event.detail<1){event.preventDefault();return;}approved=true;dialog.close();});
    dialog.addEventListener('close',()=>{dialog.remove();resolve(approved&&form.isConnected);},{once:true});dialog.showModal();
   });
  }
@@ -103,7 +103,7 @@
    if(response.status===409&&data.duplicate===true&&form){global.clearTimeout(timeout);const approved=await confirmDuplicate(form,data.duplicateCount);if(approved)duplicateRetry={...body,duplicateConfirmed:true};else if(form.isConnected)form.querySelector('[data-sales-error]').textContent='중복 접수 저장을 취소했습니다. 입력 내용을 수정할 수 있습니다.';return;}
    if(!response.ok)throw Error(data.error||'접수 내역을 불러오지 못했습니다.');if(!body&&(version!==requestVersion||month!==requestedMonth))return;
    if(!store)showTest=!admin()&&testAccount()&&data.isTestAccount===true;if(!canViewTest())showTest=false;
-   const changed=JSON.stringify(store?.records)!==JSON.stringify(data.records)||store?.month!==data.month||!!error;store=data;error='';lastFetch=new Date().toLocaleTimeString('ko-KR',{timeZone:'Asia/Seoul'});
+   const changed=JSON.stringify(store?.records)!==JSON.stringify(data.records)||store?.month!==data.month||!!error;store=data;global.ReceiptForm?.updateCounselors(bridge.root.querySelector('[data-sales-form]'),data.counselorNames);error='';lastFetch=new Date().toLocaleTimeString('ko-KR',{timeZone:'Asia/Seoul'});
    if(body){if(body.action==='create'){if(form?.isConnected&&form.dataset.requestKey===body.requestKey)global.ReceiptForm.saved(form,data.savedReceipt||{});else if(!form)bridge.close();}bridge.toast('접수 상태를 저장했습니다.');global.dispatchEvent(new global.Event('cnc:sales-changed'));try{global.localStorage.setItem('cnchome.sales.changed',String(Date.now()))}catch(e){}}
    busy=false;if(changed||body)redraw();else {const el=bridge.root.querySelector('[data-sales-sync]');if(el)el.textContent='5초마다 자동 갱신 · 마지막 확인 '+lastFetch;}
   }catch(e){error=e.name==='AbortError'?(body?'저장 확인 응답이 지연되었습니다. 같은 입력으로 저장을 다시 눌러 확인해 주세요.':'조회 응답이 지연되었습니다. 잠시 후 다시 확인해 주세요.'):e.message;if(body){const target=form?.isConnected?form.querySelector('[data-sales-error]'):null;if(target)target.textContent=error;bridge.toast(error)}redraw();}
@@ -112,7 +112,7 @@
  function intake(){
   if(!live())return false;
   const own=live().user.department;
-  bridge.open('접수증',global.ReceiptForm.markup({admin:admin(),staff:store?.staff||[],user:live().user}));
+  bridge.open('접수증',global.ReceiptForm.markup({admin:admin(),staff:store?.staff||[],user:live().user,counselorNames:store?.counselorNames||[]}));
   const form=bridge.root.querySelector('[data-sales-form]');global.ReceiptForm.attach(form,{close:bridge.close});
   global.ConsultationLocation?.attach(form);global.IntakeDetails?.attach(form,{admin:admin(),team:()=>admin()?form.elements.employeeId.selectedOptions[0]?.dataset.team:own});return true;
  }

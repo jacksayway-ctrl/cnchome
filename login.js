@@ -1,1 +1,1 @@
-document.querySelectorAll('[name="login_role"]').forEach(r=>r.addEventListener("change",()=>{location.assign("/login.php?role="+encodeURIComponent(r.value));}));
+document.querySelectorAll('[name="login_role"]').forEach(r=>r.addEventListener("change",()=>{const url="/login.php?role="+encodeURIComponent(r.value);location.assign(window.CNCWindowSession?.url(url)||url);}));

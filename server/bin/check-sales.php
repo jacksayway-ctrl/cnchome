@@ -8,6 +8,7 @@ function check(bool $ok,string $message):void {if(!$ok)throw new Exception($mess
 function rejects(callable $fn,string $message):void {try{$fn();}catch(InvalidArgumentException|HRForbidden $e){return;}throw new Exception('Unexpected success: '.$message);}
 $d=db();$d->exec("PRAGMA foreign_keys=ON;
 CREATE TABLE app_users(id INTEGER PRIMARY KEY,username TEXT,display_name TEXT,role TEXT,department TEXT,active INTEGER DEFAULT 1);
+CREATE TABLE employee_memberships(user_id INTEGER PRIMARY KEY REFERENCES app_users(id),status TEXT);
 CREATE TABLE sales_records(id INTEGER PRIMARY KEY AUTOINCREMENT,employee_id INTEGER REFERENCES app_users(id),department TEXT,first_date TEXT,customer_name TEXT,phone TEXT,address TEXT,carrier TEXT,insurance_kind TEXT,birth_year INTEGER,note TEXT,status TEXT,is_test INTEGER,request_key TEXT UNIQUE,revision INTEGER DEFAULT 1,updated_at TEXT DEFAULT CURRENT_TIMESTAMP);
 CREATE TABLE sales_consultation_details(sale_id INTEGER PRIMARY KEY REFERENCES sales_records(id),consultation_time TEXT DEFAULT '',consultation_place TEXT DEFAULT '',premium_band TEXT DEFAULT '');
 CREATE TABLE sales_receipt_details(sale_id INTEGER PRIMARY KEY REFERENCES sales_records(id),gender TEXT DEFAULT '',call_availability TEXT DEFAULT '',visit_schedule TEXT DEFAULT '',created_at TEXT DEFAULT CURRENT_TIMESTAMP);
@@ -17,6 +18,13 @@ CREATE TABLE sales_events(id INTEGER PRIMARY KEY AUTOINCREMENT,sale_id INTEGER R
 CREATE TABLE test_employee_data(user_id INTEGER PRIMARY KEY REFERENCES app_users(id),state TEXT,revision INTEGER DEFAULT 1);
 INSERT INTO app_users VALUES(1,'admin','관리자','admin','insurance',1),(2,'one','보험 직원','employee','insurance',1),(3,'two','화장품 직원','employee','cosmetics',1),(4,'user1','테스트 직원','employee','insurance',1);");
 $admin=['id'=>1,'role'=>'admin'];$one=['id'=>2,'role'=>'employee'];$two=['id'=>3,'role'=>'employee'];$today=hr_today();$year=(int)substr($today,0,4);$month=substr($today,0,7);
+// Counselor choices use account data and approval state; they never change receipt ownership.
+check(sales_counselor_names($one)===['보험 직원'],'employee counselor choices omit other departments and test accounts');
+check(sales_counselor_names($admin)===['관리자','보험 직원','화장품 직원'],'administrator counselor choices include real active employees and the login name');
+check(in_array('테스트 직원',sales_counselor_names(['id'=>4,'role'=>'employee']),true),'test login keeps its own default counselor');
+$d->exec("INSERT INTO app_users VALUES(51,'choice_pending','승인 대기 상담원','employee','insurance',1),(52,'choice_inactive','사용 중지 상담원','employee','insurance',0),(53,'choice_approved','승인 상담원','employee','insurance',1); INSERT INTO employee_memberships VALUES(51,'pending'),(52,'approved'),(53,'approved');");
+$choices=sales_counselor_names($one);check(in_array('승인 상담원',$choices,true)&&!in_array('승인 대기 상담원',$choices,true)&&!in_array('사용 중지 상담원',$choices,true),'only active approved counselor names are offered');
+$d->exec('DELETE FROM employee_memberships WHERE user_id IN (51,52,53); DELETE FROM app_users WHERE id IN (51,52,53);');
 foreach([60=>'general',61=>'silver',62=>'silver',70=>'silver'] as $age=>$kind)check(sales_kind($year-$age+1,$today)===$kind,'counting-age boundary '.$age);
 rejects(fn()=>sales_kind($year-70,$today),'age 71');rejects(fn()=>sales_kind($year+1,$today),'future birth');
 $create=['action'=>'create','duplicateConfirmed'=>true,'counselorName'=>'변경 상담원','date'=>$today,'customer'=>'가상 검증','phone'=>'010-0000-0000','address'=>'검증용 주소','carrier'=>'GA','birthYear'=>$year-60,'requestKey'=>'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa','consultationTime'=>'14:30','consultationPlace'=>'검증용 상담 장소','premiumBand'=>'200000','gender'=>'여','callAvailability'=>'오후 2시~5시','visitSchedule'=>'금요일 3시, 상담실'];

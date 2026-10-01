@@ -29,7 +29,7 @@ try {
         if (!$user || !$valid || $user['role']!==$loginRole) throw new RuntimeException('아이디·비밀번호와 직원/관리자 선택을 확인해 주세요.');
         if(!$user['active'])throw new RuntimeException('사용중지된 아이디입니다. 관리자에게 사용 재개를 요청해 주세요.');
         if($user['membership_status']!==null&&$user['membership_status']!=='approved')throw new RuntimeException('직원 등록 승인이 완료되지 않았습니다. 관리자에게 승인 상태를 확인해 주세요.');
-        session_regenerate_id(true); $_SESSION=['user_id'=>(int)$user['id'],'last'=>time(),'csrf'=>bin2hex(random_bytes(32)),'login_notice_pending'=>true];
+        session_regenerate_id(true); $_SESSION=['cnc_window'=>window_session_current_context(),'cnc_role'=>$loginRole,'user_id'=>(int)$user['id'],'last'=>time(),'csrf'=>bin2hex(random_bytes(32)),'login_notice_pending'=>true];
         if($loginRole==='employee'&&$user['membership_status']==='approved'&&!$user['profile_completed']){
             $q=$d->prepare('SELECT profile FROM hr_employees WHERE user_id=?');$q->execute([$user['id']]);$profile=json_decode($q->fetchColumn()?:'{}',true,512,JSON_THROW_ON_ERROR);
             if(empty($profile['selfEditLocked'])){header('Location: /profile-entry.php?role=employee');exit;}

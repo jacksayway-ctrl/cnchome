@@ -20,7 +20,7 @@
    const button=document.createElement('button');button.type='button';button.textContent=label;
    button.className=value==='save'?'primary':'secondary';
    if(value==='cancel')button.autofocus=true;
-   button.addEventListener('click',()=>dialog.close(value));actions.append(button);
+   button.addEventListener('click',event=>{if(value==='save'&&dialog.dataset.pointerOnly==='true'&&event.detail<1){event.preventDefault();return;}dialog.close(value);});actions.append(button);
   }
   dialog.append(title,message,actions);document.body.append(dialog);
   dialog.addEventListener('cancel',event=>{event.preventDefault();dialog.close('cancel');});
@@ -29,9 +29,9 @@
    if(resolve)resolve(dialog.returnValue==='save');
   });
  }
- function request(label,note=''){
+ function request(label,note='',pointerOnly=false){
   if(busy)return Promise.resolve(false);
-  setupDialog();busy=true;
+  setupDialog();busy=true;dialog.dataset.pointerOnly=String(pointerOnly);
   dialog.querySelector('p').textContent=(note?note+'\n\n':'')+(normalize(label)?normalize(label)+' 내용을 저장하시겠습니까?':'변경한 내용을 저장하시겠습니까?');
   dialog.returnValue='';
   return new Promise(resolve=>{resolveConfirmation=resolve;dialog.showModal();});
@@ -78,7 +78,7 @@
   const contract=form.querySelector('[name="profile[contractType]"]');
   if(contract&&!contract.value){window.alert('계약 구분이 선택되지 않았습니다. 계약 구분을 선택해 주세요.');contract.focus();return;}
   const note=contract?.value==='무기계약'?'기간의 정함 없음으로 저장됩니다. 계약 종료일이 없는 계약인지 확인해 주세요.':'';
-  request(label,note).then(save=>{
+  request(label,note,form.matches('.receipt-form,.intake-form')).then(save=>{
    if(!save||!form.isConnected||(submitter&&(!submitter.isConnected||submitter.disabled)))return;
    approvedForms.add(form);
    try{form.requestSubmit(submitter||undefined);}finally{approvedForms.delete(form);}

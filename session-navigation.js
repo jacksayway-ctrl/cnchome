@@ -1,8 +1,7 @@
 (function(){
 'use strict';
-const role=window.CNCHOME_LIVE?.user.role||(new URLSearchParams(location.search).get('role')==='admin'?'admin':'employee');
-const sessionUrl=path=>path+'?role='+encodeURIComponent(role);
-const logoutKey='cnc-session-logout-'+role;
+const role=window.CNCHOME_LIVE?.user.role||(new URL(window.CNCPageUrl||location.href).searchParams.get('role')==='admin'?'admin':'employee');
+const sessionUrl=path=>window.CNCWindowSession?.url(path+'?role='+encodeURIComponent(role))||path+'?role='+encodeURIComponent(role);
 const bar=document.createElement('div');bar.className='cnc-session-bar';bar.setAttribute('aria-label','로그인 계정');
 const name=document.createElement('span'),error=document.createElement('span'),button=document.createElement('button');
 error.setAttribute('role','alert');button.type='button';button.textContent='로그아웃';button.dataset.cncLogout='';
@@ -23,10 +22,8 @@ button.addEventListener('click',async()=>{
   const data=new URLSearchParams({csrf:s.csrf});
   const r=await fetch(sessionUrl('/logout.php'),{method:'POST',credentials:'same-origin',cache:'no-store',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:data});
   if(!r.ok)throw Error('로그아웃하지 못했습니다. 다시 눌러 주세요.');
-  try{localStorage.setItem(logoutKey,String(Date.now()));}catch(_){}
   login();
  }catch(e){error.textContent=e.message;button.disabled=false;}
 });
-window.addEventListener('storage',e=>{if(e.key===logoutKey&&authenticated)login();});
 window.addEventListener('pageshow',e=>{if(e.persisted)location.reload();});
 })();

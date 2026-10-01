@@ -37,6 +37,16 @@ function sales_receipt_fields(array $in,array $current=[]): array {
     $fields=[];foreach(['gender'=>4,'callAvailability'=>200,'visitSchedule'=>500,'counselorName'=>100] as $key=>$max){$value=$in[$key]??$current[$key]??'';hr_assert(is_string($value)&&mb_strlen($value)<=$max,'상담원·성별·통화 가능시간·방문 내용을 확인해 주세요.');$fields[$key]=trim($value);}
     hr_assert(in_array($fields['gender'],['','남','여'],true),'성별을 확인해 주세요.');return $fields;
 }
+function sales_counselor_names(array $user): array {
+    $d=db();$q=$d->prepare('SELECT id,username,display_name,role,department FROM app_users WHERE id=? AND active=1');$q->execute([(int)($user['id']??0)]);$account=$q->fetch();
+    if(!$account)return [];
+    $names=[];$own=trim((string)$account['display_name']);if($own!=='')$names[]=$own;
+    $admin=$account['role']==='admin';$test=cnc_test_user($account);
+    $q=$d->prepare("SELECT u.username,u.display_name,u.role FROM app_users u LEFT JOIN employee_memberships m ON m.user_id=u.id WHERE u.role='employee' AND u.active=1 AND (m.status IS NULL OR m.status='approved')".($admin?'':' AND u.department=?').' ORDER BY u.display_name,u.id');
+    $q->execute($admin?[]:[$account['department']]);
+    foreach($q->fetchAll() as $row){if(!$test&&cnc_test_user($row))continue;$name=trim((string)$row['display_name']);if($name!==''&&!in_array($name,$names,true))$names[]=$name;}
+    return $names;
+}
 function sales_snapshot(array $user,string $month): array {
     hr_assert(sales_month($month),'조회할 월을 확인해 주세요.');
     $admin=$user['role']==='admin';$d=db();$test=sales_test_user($user);
@@ -53,7 +63,7 @@ function sales_snapshot(array $user,string $month): array {
     foreach($q->fetchAll() as $r){$state=json_decode($r['state'],true,512,JSON_THROW_ON_ERROR);foreach($state['sales']??[] as $sale){if($sale['date']<$start||$sale['date']>=$next)continue;$status=['정상'=>'normal','가접수'=>'pending','A/S'=>'as'][$sale['status']]??null;if(!$status)continue;$records[]=['id'=>'test:'.$r['id'].':'.$sale['id'],'date'=>$sale['date'],'employeeId'=>(int)$r['id'],'employee'=>$r['display_name'],'team'=>$r['department'],'customer'=>$sale['name'],'carrier'=>$sale['carrier'],'kind'=>$sale['kind']==='실버'?'silver':'general','status'=>$status,'revision'=>(int)$r['revision'],'isTest'=>true,'phone'=>$sale['phone']??'','birthDate'=>$sale['birthDate']??'','birthYear'=>(int)($sale['birthYear']??substr($sale['birthDate']??'',0,4)),'note'=>$sale['note']??'','consultationTime'=>$sale['consultationTime']??'','consultationPlace'=>$sale['consultationPlace']??'','premiumBand'=>$sale['premiumBand']??'','gender'=>$sale['gender']??'','callAvailability'=>$sale['callAvailability']??'','visitSchedule'=>$sale['visitSchedule']??'','counselorName'=>$sale['counselorName']??''];}}
     }
     $staff=$admin?$d->query("SELECT id,display_name AS name,department AS team FROM app_users WHERE role='employee' AND active=1 ORDER BY id")->fetchAll():[];
-    return ['records'=>$records,'staff'=>$staff,'isTestAccount'=>$test,'month'=>$month,'today'=>hr_today(),'fetchedAt'=>gmdate('c')];
+    return ['records'=>$records,'staff'=>$staff,'counselorNames'=>sales_counselor_names($user),'isTestAccount'=>$test,'month'=>$month,'today'=>hr_today(),'fetchedAt'=>gmdate('c')];
 }
 function sales_mutate(array $user,array $in): void {
     $d=db();$d->beginTransaction();

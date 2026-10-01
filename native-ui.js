@@ -21,6 +21,6 @@ const nativeDuplicate=document.querySelector('[data-native-duplicate]');
 if(nativeDuplicate){
  const form=document.querySelector('[data-intake-create]');
  nativeDuplicate.querySelector('[data-native-duplicate-cancel]').addEventListener('click',()=>nativeDuplicate.close());
- nativeDuplicate.querySelector('[data-native-duplicate-save]').addEventListener('click',()=>{const confirmation=document.createElement('input');confirmation.type='hidden';confirmation.name='duplicateConfirmed';confirmation.value='1';form.append(confirmation);nativeDuplicate.close();form.requestSubmit();});
+ nativeDuplicate.querySelector('[data-native-duplicate-save]').addEventListener('click',event=>{if(event.detail<1){event.preventDefault();return;}const confirmation=document.createElement('input');confirmation.type='hidden';confirmation.name='duplicateConfirmed';confirmation.value='1';form.append(confirmation);nativeDuplicate.close();form.requestSubmit();});
  nativeDuplicate.showModal();
 }

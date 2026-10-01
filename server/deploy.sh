@@ -44,6 +44,7 @@ run_deploy_step server/bin/check-grade-settings.php
 run_deploy_step server/bin/check-intake-policy.php
 run_deploy_step server/bin/check-performance-reset.php
 run_deploy_step server/bin/check-user1-cleanup.php
+run_deploy_step server/bin/check-window-session.php
 deployment_stage=web-config
 publish_deployment_status running
 nginx -t
@@ -68,6 +69,7 @@ run_deploy_step server/bin/update-personnel-schedule.php
 deployment_stage=runtime-install
 publish_deployment_status running
 install -d -m 755 /opt/cnchome-runtime /opt/cnchome-runtime/views/partials /opt/cnchome-runtime/config /opt/cnchome-runtime/docs
+install -m 644 server/lib/window-session.php /opt/cnchome-runtime/
 install -m 644 server/lib/*.php /opt/cnchome-runtime/
 install -m 644 server/views/*.php /opt/cnchome-runtime/views/
 install -m 644 server/views/partials/*.php /opt/cnchome-runtime/views/partials/
@@ -85,7 +87,7 @@ for file in server/public/*.php; do
   mv "$target.new" "$target"
 done
 # Old bookmarked demo URLs now enter the PHP-authenticated preview.
-printf '%s\n' '<!doctype html><html lang="ko"><meta charset="utf-8"><title>씨앤씨</title><body data-cnc-destination="preview.php"><a href="./preview.php?role=admin">미리보기 열기</a><script src="./legacy-redirect.js"></script></body></html>' > /var/www/html/preview.html
+printf '%s\n' '<!doctype html><html lang="ko"><meta charset="utf-8"><title>씨앤씨</title><script src="./window-session.js"></script><body data-cnc-destination="preview.php"><a href="./preview.php?role=admin">미리보기 열기</a><script src="./legacy-redirect.js"></script></body></html>' > /var/www/html/preview.html
 chmod 644 /var/www/html/preview.html
 # Compatibility index.html handles servers whose index order has HTML before PHP.
 deployment_stage=php-health

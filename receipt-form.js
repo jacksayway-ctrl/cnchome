@@ -4,8 +4,9 @@
  const today=()=>new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
  const clock=()=>new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Seoul',hour:'2-digit',minute:'2-digit',second:'2-digit',hourCycle:'h23'}).format(new Date());
  const popup=()=>new URL(global.CNCPageUrl||global.location.href).searchParams.get('intakeWindow')==='1';
- function markup({admin,staff,user}){
-  const date=today(),owner=(admin?'<select id="receipt-owner" name="employeeId" required aria-label="담당 직원"><option value="">담당 직원 선택</option>'+staff.map(row=>'<option value="'+row.id+'" data-team="'+esc(row.team)+'">'+esc(row.name)+'</option>').join('')+'</select>':'')+'<input id="receipt-counselor" name="counselorName" maxlength="100" value="'+esc(user?.display_name||'')+'" required aria-label="상담원 이름" autocomplete="off">';
+ function markup({admin,staff,user,counselorNames=[]}){
+  const defaultCounselor=String(user?.display_name||''),names=[...new Set([defaultCounselor,...counselorNames].filter(name=>typeof name==='string'&&name.trim()))];
+  const date=today(),owner=(admin?'<select id="receipt-owner" name="employeeId" required aria-label="담당 직원"><option value="">담당 직원 선택</option>'+staff.map(row=>'<option value="'+row.id+'" data-team="'+esc(row.team)+'">'+esc(row.name)+'</option>').join('')+'</select>':'')+'<select id="receipt-counselor" name="counselorName" data-default-counselor="'+esc(defaultCounselor)+'" required aria-label="상담원 이름">'+(defaultCounselor?'':'<option value="" selected>상담원 선택</option>')+names.map(name=>'<option value="'+esc(name)+'"'+(name===defaultCounselor?' selected':'')+'>'+esc(name)+'</option>').join('')+'</select>';
   return `<form class="receipt-form" data-sales-form data-intake-admin="${admin}" data-request-key="${global.crypto.randomUUID()}">
    <div class="receipt-header"><div><h2 id="receipt-title">접수증</h2><p>저장하면 가접수로 등록됩니다.</p></div><label class="receipt-input-mode">입력 모드<select data-receipt-input-mode aria-label="문자 입력 모드"><option value="ko" selected>한글 자동</option><option value="en">기본 자판</option></select></label></div>
    <input type="hidden" name="date" value="${date}"><input type="hidden" name="consultationTime" value="${clock().slice(0,5)}"><input type="hidden" name="phone"><input type="hidden" name="birthYear"><input type="hidden" name="birthMonth"><input type="hidden" name="birthDay"><input type="hidden" name="carrier"><input type="hidden" name="callAvailability">
@@ -21,6 +22,14 @@
    <div hidden><input data-age-number readonly><output data-age-kind></output></div><p class="receipt-feedback" data-sales-error role="status" aria-live="polite"></p>
    <div class="receipt-actions"><button type="submit" class="receipt-save">저장</button><button type="reset" class="receipt-reset">초기화</button><button type="button" class="receipt-close" data-receipt-close>종료</button></div>
   </form>`;
+ }
+ function updateCounselors(form,names){
+  const select=form?.elements.counselorName;if(!select||!Array.isArray(names))return;
+  const selected=select.value,defaultName=select.dataset.defaultCounselor||'',choices=[...new Set([defaultName,...names,selected].filter(name=>typeof name==='string'&&name.trim()))];
+  const options=choices.map(name=>new global.Option(name,name,name===defaultName,name===selected));
+  if(!selected)options.unshift(new global.Option('상담원 선택','',!defaultName,true));
+  if(select.options.length===options.length&&[...select.options].every((option,index)=>option.value===options[index].value&&option.defaultSelected===options[index].defaultSelected))return;
+  select.replaceChildren(...options);
  }
  function attach(form,{close}){
   const dialog=form.closest('dialog'),fields=form.elements,date=form.querySelector('[data-receipt-date]'),datePreview=form.querySelector('[data-receipt-date-preview]'),phone=form.querySelector('[data-receipt-phone]'),birthYear=form.querySelector('[data-receipt-birth-year]'),birthMonth=form.querySelector('[data-receipt-birth-month]'),birthDay=form.querySelector('[data-receipt-birth-day]'),periods=[...form.querySelectorAll('[data-receipt-period]')],callTime=form.querySelector('[data-receipt-calltime]');
@@ -64,5 +73,15 @@
   global.KoreanInput?.attach(form);global.RoadAddress?.attach(form);sync();date.focus();
  }
  function saved(form){if(!form)return;form.reset();const feedback=form.querySelector('[data-sales-error]');feedback.dataset.state='success';feedback.textContent='가접수로 저장했습니다. 새 접수를 입력해 주세요.';}
- global.ReceiptForm={markup,attach,saved};
+ // Keep Enter available for multiline notes and IME completion, but never let it save a receipt.
+ global.addEventListener('keydown',event=>{
+  const target=event.target;if(!(target instanceof global.Element)||!target.closest('.receipt-form,.intake-form')||event.isComposing||event.keyCode===229)return;
+  const save=target.closest('.receipt-save,[data-receipt-pointer-save]');
+  if((save&&(event.key==='Enter'||event.key===' '))||(event.key==='Enter'&&!target.matches('textarea,select')))event.preventDefault();
+ },true);
+ global.addEventListener('click',event=>{
+  const target=event.target;if(!(target instanceof global.Element)||!target.closest('.receipt-save,[data-receipt-pointer-save]')||event.detail>0)return;
+  event.preventDefault();event.stopImmediatePropagation();
+ },true);
+ global.ReceiptForm={markup,attach,saved,updateCounselors};
 })(window);
