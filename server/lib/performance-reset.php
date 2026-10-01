@@ -7,9 +7,15 @@ function performance_reset_hantest(string $backupDirectory): array {
     $batch='hantest-performance-clear-20261001-user-request-v1';$d=db();$d->beginTransaction();
     try{
         $q=$d->prepare('SELECT manifest FROM test_fixture_batches WHERE batch=? FOR UPDATE');$q->execute([$batch]);
-        if($raw=$q->fetchColumn()){$d->commit();return ['alreadyApplied'=>true]+json_decode($raw,true,512,JSON_THROW_ON_ERROR);}
+        if($raw=$q->fetchColumn()){$manifest=json_decode($raw,true,512,JSON_THROW_ON_ERROR);$d->commit();return ['alreadyApplied'=>empty($manifest['targetUnavailable'])]+$manifest;}
         $q=$d->prepare("SELECT id,username,role FROM app_users WHERE username=? AND role='employee' FOR UPDATE");$q->execute(['hantest']);$user=$q->fetch();
-        hr_assert((bool)$user,'hantest 직원 계정을 찾을 수 없습니다.');$uid=(int)$user['id'];
+        if(!$user){
+            // Never apply an old cleanup request to an account created later with this username.
+            $manifest=['username'=>'hantest','targetUnavailable'=>true,'state'=>'suspended','checkedAt'=>gmdate('c')];
+            $q=$d->prepare('INSERT INTO test_fixture_batches(batch,manifest) VALUES(?,?)');$q->execute([$batch,hr_json($manifest)]);
+            $d->commit();return ['alreadyApplied'=>false]+$manifest;
+        }
+        $uid=(int)$user['id'];
         $q=$d->prepare('SELECT * FROM sales_records WHERE employee_id=? FOR UPDATE');$q->execute([$uid]);$records=$q->fetchAll();$ids=array_column($records,'id');
         $backup=['account'=>$user,'requestedAt'=>'2026-10-01','savedAt'=>gmdate('c'),'sales_records'=>$records];
         $childTables=['sales_events','sales_consultation_details','sales_receipt_details','sales_birth_details','sales_counselor_details'];

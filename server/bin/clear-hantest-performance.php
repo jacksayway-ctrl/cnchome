@@ -4,6 +4,7 @@ if(PHP_SAPI!=='cli')exit;
 require __DIR__.'/../lib/bootstrap.php';require __DIR__.'/../lib/performance-reset.php';
 try {
     $result=performance_reset_hantest('/var/backups/cnchome/performance');
+    if(!empty($result['targetUnavailable'])){echo "hantest와 일치하는 직원 계정이 없어 삭제 요청을 보류했습니다. 이후 생성된 계정에는 자동 적용하지 않습니다.\n";exit;}
     echo $result['alreadyApplied']?"hantest 실적 삭제 요청은 이미 적용되었습니다. 새 입력은 유지합니다.\n":"hantest 접수·실적·A/S 및 일그레이드 지급 기록 삭제 완료.\n";
 } catch(Throwable $e) {
     // Private service logs retain the error; the public health report gets only a numeric category.

@@ -19,5 +19,11 @@ try{
     sales_mutate($target,array_replace($input,['requestKey'=>'a7a7a7a7-a7a7-a7a7-a7a7-a7a7a7a7a7a7']));$again=performance_reset_hantest($backupDirectory);
     check($again['alreadyApplied']&&(int)$d->query('SELECT count(*) FROM sales_records WHERE employee_id=5')->fetchColumn()===1,'future deployments never delete the new real records');
     check((fileperms($result['backup'])&0777)===0600,'customer backup is private');
+    // A missing target suspends this request permanently rather than deleting a later account's entries.
+    $d->exec("DELETE FROM test_fixture_batches;UPDATE app_users SET username='renamed-fixture' WHERE id=5");
+    $missing=performance_reset_hantest($backupDirectory);
+    check(!empty($missing['targetUnavailable'])&&!$missing['alreadyApplied']&&!$d->inTransaction(),'missing employee suspends cleanup without an open transaction');
+    $d->exec("UPDATE app_users SET username='hantest' WHERE id=5");$later=performance_reset_hantest($backupDirectory);
+    check(!empty($later['targetUnavailable'])&&(int)$d->query('SELECT count(*) FROM sales_records WHERE employee_id=5')->fetchColumn()===1,'a later matching account never receives the old suspended deletion request');
 }finally{foreach(glob($backupDirectory.'/*.json')?:[] as $file)unlink($file);if(is_dir($backupDirectory))rmdir($backupDirectory);}
 echo "PASS: requested account-only performance cleanup, private backup, atomic deletion, retained attendance and one-time protection for future actual records.\n";
