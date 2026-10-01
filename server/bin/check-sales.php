@@ -11,6 +11,7 @@ CREATE TABLE app_users(id INTEGER PRIMARY KEY,username TEXT,display_name TEXT,ro
 CREATE TABLE sales_records(id INTEGER PRIMARY KEY AUTOINCREMENT,employee_id INTEGER REFERENCES app_users(id),department TEXT,first_date TEXT,customer_name TEXT,phone TEXT,address TEXT,carrier TEXT,insurance_kind TEXT,birth_year INTEGER,note TEXT,status TEXT,is_test INTEGER,request_key TEXT UNIQUE,revision INTEGER DEFAULT 1,updated_at TEXT DEFAULT CURRENT_TIMESTAMP);
 CREATE TABLE sales_consultation_details(sale_id INTEGER PRIMARY KEY REFERENCES sales_records(id),consultation_time TEXT DEFAULT '',consultation_place TEXT DEFAULT '',premium_band TEXT DEFAULT '');
 CREATE TABLE sales_receipt_details(sale_id INTEGER PRIMARY KEY REFERENCES sales_records(id),gender TEXT DEFAULT '',call_availability TEXT DEFAULT '',visit_schedule TEXT DEFAULT '',created_at TEXT DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE sales_counselor_details(sale_id INTEGER PRIMARY KEY REFERENCES sales_records(id),counselor_name TEXT DEFAULT '');
 CREATE TABLE sales_birth_details(sale_id INTEGER PRIMARY KEY REFERENCES sales_records(id),birth_date TEXT NOT NULL);
 CREATE TABLE sales_events(id INTEGER PRIMARY KEY AUTOINCREMENT,sale_id INTEGER REFERENCES sales_records(id),actor_id INTEGER REFERENCES app_users(id),old_status TEXT,new_status TEXT);
 CREATE TABLE test_employee_data(user_id INTEGER PRIMARY KEY REFERENCES app_users(id),state TEXT,revision INTEGER DEFAULT 1);
@@ -18,11 +19,12 @@ INSERT INTO app_users VALUES(1,'admin','관리자','admin','insurance',1),(2,'on
 $admin=['id'=>1,'role'=>'admin'];$one=['id'=>2,'role'=>'employee'];$two=['id'=>3,'role'=>'employee'];$today=hr_today();$year=(int)substr($today,0,4);$month=substr($today,0,7);
 foreach([60=>'general',61=>'silver',62=>'silver',70=>'silver'] as $age=>$kind)check(sales_kind($year-$age+1,$today)===$kind,'counting-age boundary '.$age);
 rejects(fn()=>sales_kind($year-70,$today),'age 71');rejects(fn()=>sales_kind($year+1,$today),'future birth');
-$create=['action'=>'create','date'=>$today,'customer'=>'가상 검증','phone'=>'010-0000-0000','address'=>'검증용 주소','carrier'=>'GA','birthYear'=>$year-60,'requestKey'=>'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa','consultationTime'=>'14:30','consultationPlace'=>'검증용 상담 장소','premiumBand'=>'200000','gender'=>'여','callAvailability'=>'오후 2시~5시','visitSchedule'=>'금요일 3시, 상담실'];
+$create=['action'=>'create','duplicateConfirmed'=>true,'counselorName'=>'변경 상담원','date'=>$today,'customer'=>'가상 검증','phone'=>'010-0000-0000','address'=>'검증용 주소','carrier'=>'GA','birthYear'=>$year-60,'requestKey'=>'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa','consultationTime'=>'14:30','consultationPlace'=>'검증용 상담 장소','premiumBand'=>'200000','gender'=>'여','callAvailability'=>'오후 2시~5시','visitSchedule'=>'금요일 3시, 상담실'];
 sales_mutate($one,$create+['employeeId'=>3]);$r=sales_snapshot($one,$month)['records'][0];
 check($r['employeeId']===2&&$r['kind']==='silver'&&$r['status']==='pending','server owns employee assignment and age classification');
 check($r['consultationTime']==='14:30'&&$r['consultationPlace']==='검증용 상담 장소'&&$r['premiumBand']==='200000','consultation fields round-trip through database');
 check($r['gender']==='여'&&$r['callAvailability']==='오후 2시~5시'&&$r['visitSchedule']==='금요일 3시, 상담실'&&$r['receivedAt']!=='','receipt fields and server timestamp survive database reload');
+check($r['counselorName']==='변경 상담원','editable counselor survives database reload without changing employee ownership');
 sales_mutate($one,$create);check(count(sales_snapshot($one,$month)['records'])===1,'retry does not duplicate');
 check((int)$d->query('SELECT count(*) FROM sales_consultation_details')->fetchColumn()===1,'retry does not duplicate consultation details');
 check(count(sales_snapshot($two,$month)['records'])===0,'employee data isolation');
@@ -95,8 +97,27 @@ $testCreate=array_replace($create,['requestKey'=>'edededed-eded-eded-eded-ededed
 sales_mutate(['id'=>4,'role'=>'employee'],$testCreate);
 $testCreateId=(int)$d->query("SELECT id FROM sales_records WHERE request_key='edededed-eded-eded-eded-edededededed'")->fetchColumn();
 check((int)$d->query('SELECT is_test FROM sales_records WHERE id='.$testCreateId)->fetchColumn()===1,'new receipts by dedicated test accounts stay marked as test records');
-foreach(['sales_events','sales_consultation_details','sales_receipt_details','sales_birth_details'] as $table)$d->exec('DELETE FROM '.$table.' WHERE sale_id='.$testCreateId);
+foreach(['sales_events','sales_consultation_details','sales_receipt_details','sales_birth_details','sales_counselor_details'] as $table)$d->exec('DELETE FROM '.$table.' WHERE sale_id='.$testCreateId);
 $d->exec('DELETE FROM sales_records WHERE id='.$testCreateId);
 // Restore the shared fixture before check-intake-management.php continues.
 check(count(sales_snapshot($one,$month)['records'])===$isolationCount&&!$d->inTransaction(),'fixture isolation checks leave the shared data and transaction state intact');
+// Duplicate confirmation matches BOTH customer and normalized phone across months and employees.
+$duplicateBefore=(int)$d->query('SELECT count(*) FROM sales_records')->fetchColumn();
+$duplicateBase=array_replace($create,['customer'=>'중복 검증 고객','phone'=>'010-5555-1111','duplicateConfirmed'=>false,'date'=>(new DateTimeImmutable($today))->modify('-40 days')->format('Y-m-d'),'requestKey'=>'a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1']);
+sales_mutate($one,$duplicateBase);
+$duplicateNext=array_replace($duplicateBase,['date'=>$today,'phone'=>'01055551111','requestKey'=>'b2b2b2b2-b2b2-b2b2-b2b2-b2b2b2b2b2b2']);
+try{sales_mutate($two,$duplicateNext);throw new RuntimeException('duplicate saved without confirmation');}catch(SalesDuplicate $e){check($e->count===1&&!$d->inTransaction(),'both-field duplicate warns without saving and rolls back');}
+check((int)$d->query('SELECT count(*) FROM sales_records')->fetchColumn()===$duplicateBefore+1,'cancelled duplicate does not create a record');
+sales_mutate($two,array_replace($duplicateNext,['duplicateConfirmed'=>true]));
+$duplicateSaved=$d->query("SELECT customer_name FROM sales_records WHERE request_key='b2b2b2b2-b2b2-b2b2-b2b2-b2b2b2b2b2b2'")->fetchColumn();check($duplicateSaved==='중복 검증 고객 (중복)','confirmed duplicate stores the label in the customer name');
+sales_mutate($two,$duplicateNext);check((int)$d->query('SELECT count(*) FROM sales_records')->fetchColumn()===$duplicateBefore+2,'acknowledged duplicate retry remains idempotent even without a second acknowledgement');
+$duplicateEmployee=$d->query('SELECT * FROM app_users WHERE id=2')->fetch();check(sales_duplicate_count($duplicateEmployee,'중복 검증 고객 (중복)','010-5555-1111')===2,'stored duplicate label does not hide repeated matches');
+sales_mutate($one,array_replace($duplicateNext,['customer'=>'다른 고객','requestKey'=>'c3c3c3c3-c3c3-c3c3-c3c3-c3c3c3c3c3c3']));
+sales_mutate($one,array_replace($duplicateNext,['phone'=>'010-5555-2222','requestKey'=>'d4d4d4d4-d4d4-d4d4-d4d4-d4d4d4d4d4d4']));
+sales_mutate($testUser,array_replace($duplicateNext,['requestKey'=>'e5e5e5e5-e5e5-e5e5-e5e5-e5e5e5e5e5e5']));
+check(sales_duplicate_count($duplicateEmployee,'다른 고객','010-5555-2222')===0,'only one field matching is never a duplicate');
+check(sales_duplicate_count($duplicateEmployee,'중복 검증 고객','010-5555-1111')===2,'test duplicates are never counted as real data');
+$cleanupKeys=['a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1','b2b2b2b2-b2b2-b2b2-b2b2-b2b2b2b2b2b2','c3c3c3c3-c3c3-c3c3-c3c3-c3c3c3c3c3c3','d4d4d4d4-d4d4-d4d4-d4d4-d4d4d4d4d4d4','e5e5e5e5-e5e5-e5e5-e5e5-e5e5e5e5e5e5'];
+foreach($cleanupKeys as $cleanupKey){$q=$d->prepare('SELECT id FROM sales_records WHERE request_key=?');$q->execute([$cleanupKey]);$cleanupId=(int)$q->fetchColumn();foreach(['sales_events','sales_consultation_details','sales_receipt_details','sales_birth_details','sales_counselor_details'] as $table)$d->exec('DELETE FROM '.$table.' WHERE sale_id='.$cleanupId);$d->exec('DELETE FROM sales_records WHERE id='.$cleanupId);}
+check((int)$d->query('SELECT count(*) FROM sales_records')->fetchColumn()===$duplicateBefore,'duplicate gate restores shared receipt fixtures');
 echo "PASS: sales ownership, role isolation, age boundaries, duplicate prevention, stale changes, both departments, test separation, status history, optional address compatibility full birth dates, and consultation persistence/validation.\n";

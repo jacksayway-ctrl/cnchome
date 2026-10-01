@@ -52,3 +52,5 @@ body.receipt-window #tm-preview #tm-dialog.receipt-dialog::backdrop{background:#
 #tm-preview .receipt-form .receipt-value textarea[name=note]:focus{background:#f7faff}
 #tm-preview .receipt-form .receipt-premium{gap:8px;flex-wrap:wrap}
 #tm-preview .receipt-form .receipt-premium label{gap:4px;white-space:nowrap;font-size:12px}
+
+#tm-preview .receipt-form .receipt-counselor{flex-direction:column;align-items:stretch;justify-content:center;gap:4px}

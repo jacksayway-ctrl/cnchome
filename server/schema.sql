@@ -155,6 +155,13 @@ CREATE TABLE IF NOT EXISTS sales_receipt_details (
  FOREIGN KEY (sale_id) REFERENCES sales_records(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- Editable counselor text is separate from the authenticated employee owner.
+CREATE TABLE IF NOT EXISTS sales_counselor_details (
+ sale_id BIGINT UNSIGNED PRIMARY KEY,
+ counselor_name VARCHAR(100) NOT NULL DEFAULT '',
+ FOREIGN KEY (sale_id) REFERENCES sales_records(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- Company announcements and confirmed policy quota reductions.
 CREATE TABLE IF NOT EXISTS office_notices (
  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,

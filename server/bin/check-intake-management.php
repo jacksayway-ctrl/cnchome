@@ -19,6 +19,7 @@ intake_update($admin,$edit);
 $saved=$d->query('SELECT * FROM sales_records WHERE id=1')->fetch();
 check($saved['customer_name']===$edit['customer']&&$saved['employee_id']===$row['employee_id']&&$saved['first_date']===$row['first_date'],'editable fields change without shifting owner/date');
 check($d->query('SELECT consultation_place FROM sales_consultation_details WHERE sale_id=1')->fetchColumn()==='경기도 이천시','consultation changes persist');
+check(sales_counselor_fields(1)['counselorName']==='변경 상담원','other administrator edits preserve the stored counselor');
 $events=intake_history($admin,'1');check(count($events)>=3&&in_array('edit',array_column($events,'action'),true),'old creation/state history and new edits coexist');
 $bad=$edit;$bad['revision']=$revision+2;$bad['phone']='bad-phone';rejects(fn()=>intake_update($admin,$bad),'invalid phone rejected');
 // Audit insertion failure must roll the state change back.
@@ -188,6 +189,9 @@ $legacyMemo=$pendingRow($testUser,'test:4:42');check(count($legacyMemo['memoHist
 check($pendingRow($admin,'test:4:42')===$legacyMemo,'administrator and employee legacy edits remain in sync');
 pending_intake_update($one,['action'=>'edit','id'=>(string)$legacyId,'revision'=>$memoRow['revision'],'birthDate'=>'','birthYear'=>'1990']);
 $yearOnlyReal=$pendingRow($one,(string)$legacyId);check($yearOnlyReal['birthDate']===''&&$yearOnlyReal['birthYear']===1990&&$yearOnlyReal['kind']==='general','clearing full birthday updates the year and removes stale birth detail');
+$counselorBefore=$pendingRow($one,(string)$legacyId);
+pending_intake_update($one,['action'=>'edit','id'=>(string)$legacyId,'revision'=>$counselorBefore['revision'],'counselorName'=>'실제 상담원']);
+$counselorAfter=$pendingRow($one,(string)$legacyId);check($counselorAfter['counselorName']==='실제 상담원'&&$counselorAfter['employeeId']===$counselorBefore['employeeId'],'counselor edits round trip through the database without changing the authenticated owner');
 // A regular employee must not discover or mutate fixtures attached to their own ID.
 $isolationPending=$d->query('SELECT * FROM sales_records WHERE id='.(int)$legacyId)->fetch();
 $isolationPendingCount=count(pending_intake_snapshot($one)['records']);

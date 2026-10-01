@@ -6,7 +6,7 @@ let rows=[],busy=false,posting=false,queued=null,index,feedback='',loadError='',
 let listScope=null,listPage=1;
 const pageSize=10,scopeLabels={all:'전체 가접수',today:'오늘 재접수 가능',waiting:'관리자 확인 대기'};
 const expanded=new Set(),drafts=new Map(),editDrafts=new Map(),formBases=new Map(),filters={employee:'',scope:'real',query:''};
-const editFields=['customer','phone','birthDate','birthYear','carrier','consultationTime','consultationPlace','premiumBand','gender','callAvailability','visitSchedule'];
+const editFields=['customer','phone','birthDate','birthYear','carrier','consultationTime','consultationPlace','premiumBand','gender','callAvailability','visitSchedule','counselorName'];
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fieldValues=r=>Object.fromEntries(editFields.map(key=>[key,String(r[key]??'')]));
 const sameFields=(a,b)=>editFields.every(key=>a[key]===b[key]);
@@ -57,6 +57,7 @@ function editForm(r,i){
  <label>접수 코드<input name="carrier" maxlength="100" value="${esc(values.carrier)}" list="pending-carriers-${i}" autocomplete="off"><datalist id="pending-carriers-${i}">${carrierOptions.map(c=>`<option value="${esc(c)}"></option>`).join('')}</datalist></label>
  <label>상담 시간<input name="consultationTime" type="time" value="${esc(values.consultationTime)}"></label>
  <label>현재 납부 보험료<select name="premiumBand">${[['','미입력'],['100000','10만 원 이상'],['200000','20만 원 이상'],['300000','30만 원 이상']].map(([value,label])=>`<option value="${value}" ${values.premiumBand===value?'selected':''}>${label}</option>`).join('')}</select></label>
+ <label>상담원<input name="counselorName" maxlength="100" value="${esc(values.counselorName)}"></label>
  <label>성별<select name="gender">${[['','미입력'],['남','남'],['여','여']].map(([value,label])=>`<option value="${value}" ${values.gender===value?'selected':''}>${label}</option>`).join('')}</select></label>
  <label>통화 가능시간<input name="callAvailability" maxlength="200" value="${esc(values.callAvailability)}" placeholder="예: 오후 2시~5시"></label>
  <label>방문 일정·장소<input name="visitSchedule" maxlength="500" value="${esc(values.visitSchedule)}"></label>

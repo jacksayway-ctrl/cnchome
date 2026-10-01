@@ -16,3 +16,11 @@ window.addEventListener('afterprint',()=>{document.body.classList.remove('nf-pri
 function openMembershipRow(row){const popup=window.open(row.dataset.membershipRow,'_blank','popup,width=850,height=950,scrollbars=yes,resizable=yes');if(popup)popup.opener=null;}
 document.addEventListener('click',event=>{const row=event.target.closest('[data-membership-row]');if(row&&!event.target.closest('a,button,input,select'))openMembershipRow(row);});
 document.addEventListener('keydown',event=>{if(event.target.matches('[data-membership-row]')&&['Enter',' '].includes(event.key)){event.preventDefault();openMembershipRow(event.target);}});
+
+const nativeDuplicate=document.querySelector('[data-native-duplicate]');
+if(nativeDuplicate){
+ const form=document.querySelector('[data-intake-create]');
+ nativeDuplicate.querySelector('[data-native-duplicate-cancel]').addEventListener('click',()=>nativeDuplicate.close());
+ nativeDuplicate.querySelector('[data-native-duplicate-save]').addEventListener('click',()=>{const confirmation=document.createElement('input');confirmation.type='hidden';confirmation.name='duplicateConfirmed';confirmation.value='1';form.append(confirmation);nativeDuplicate.close();form.requestSubmit();});
+ nativeDuplicate.showModal();
+}

@@ -11,7 +11,10 @@ try {
         $raw=file_get_contents('php://input',false,null,0,8193);if(strlen($raw)>8192)sales_reply(413,['error'=>'입력 내용이 너무 깁니다.']);
         $in=json_decode($raw,true,32,JSON_THROW_ON_ERROR);hr_assert(is_array($in),'입력 내용을 확인해 주세요.');sales_mutate($user,$in);
     }elseif($_SERVER['REQUEST_METHOD']!=='GET')sales_reply(405,['error'=>'허용되지 않은 요청입니다.']);
-    sales_reply(200,sales_snapshot($user,$month));
-}catch(HRForbidden $e){sales_reply(403,['error'=>$e->getMessage()]);}
+    $result=sales_snapshot($user,$month);
+    if(($in['action']??'')==='create'){$q=db()->prepare('SELECT s.customer_name,cc.counselor_name FROM sales_records s LEFT JOIN sales_counselor_details cc ON cc.sale_id=s.id WHERE s.request_key=?');$q->execute([$in['requestKey']]);$saved=$q->fetch();if($saved)$result['savedReceipt']=['customer'=>$saved['customer_name'],'counselorName'=>$saved['counselor_name']??''];}
+    sales_reply(200,$result);
+}catch(SalesDuplicate $e){sales_reply(409,['duplicate'=>true,'duplicateCount'=>$e->count,'error'=>$e->getMessage()]);}
+catch(HRForbidden $e){sales_reply(403,['error'=>$e->getMessage()]);}
 catch(InvalidArgumentException|JsonException $e){sales_reply(422,['error'=>$e->getMessage()]);}
 catch(Throwable $e){error_log('cnchome sales error '.get_class($e));sales_reply(503,['error'=>'접수 정보를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.']);}
