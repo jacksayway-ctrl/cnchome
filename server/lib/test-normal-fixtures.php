@@ -11,7 +11,7 @@ function seed_test_normal_range(): array {
         $today=hr_today();$month=substr($today,0,7);$manifest=[];
         $users=$d->query("SELECT u.id,u.username,u.display_name,u.role,u.department,e.profile FROM app_users u JOIN hr_employees e ON e.user_id=u.id WHERE u.active=1 AND u.role='employee' ORDER BY u.id")->fetchAll();
         foreach($users as $user){
-            if(!cnc_test_user($user))continue;
+            if(!cnc_test_user($user)||test_account_cleanup_protected((int)$user['id']))continue;
             $q=$d->prepare('SELECT state FROM test_employee_data WHERE user_id=? FOR UPDATE');$q->execute([$user['id']]);$raw=$q->fetchColumn();if(!$raw)continue;
             $state=json_decode($raw,true,512,JSON_THROW_ON_ERROR);$profile=json_decode($user['profile'],true,512,JSON_THROW_ON_ERROR);$counts=[];
             foreach($state['sales']??[] as $sale)if($sale['status']==='정상')$counts[$sale['date']]=($counts[$sale['date']]??0)+1;

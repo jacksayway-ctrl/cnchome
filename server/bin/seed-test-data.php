@@ -3,6 +3,7 @@ declare(strict_types=1);
 if(PHP_SAPI!=='cli')exit;
 require __DIR__.'/../lib/bootstrap.php';require __DIR__.'/../lib/hr.php';require __DIR__.'/../lib/test-data.php';
 $d=db();$q=$d->query("SELECT e.*,u.id uid FROM hr_employees e JOIN app_users u ON u.id=e.user_id WHERE u.username='user1' AND u.role='employee' AND u.display_name='테스트 직원'");$e=$q->fetch();if(!$e)exit;
+if(test_account_cleanup_protected((int)$e['uid']))exit;
 $d->beginTransaction();
 try{
  $state=test_seed_state();$q=$d->prepare('INSERT IGNORE INTO test_employee_data(user_id,state) VALUES(?,?)');$q->execute([$e['uid'],hr_json($state)]);

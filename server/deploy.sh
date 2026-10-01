@@ -43,6 +43,7 @@ run_deploy_step server/bin/check-grade-summary.php
 run_deploy_step server/bin/check-grade-settings.php
 run_deploy_step server/bin/check-intake-policy.php
 run_deploy_step server/bin/check-performance-reset.php
+run_deploy_step server/bin/check-user1-cleanup.php
 deployment_stage=web-config
 publish_deployment_status running
 nginx -t
@@ -101,5 +102,6 @@ curl --fail --silent --show-error --max-time 20 --resolve jacksayway.cafe24.com:
 printf 'PHP 화면 배포 완료. 백업: %s\n' "$backup"
 # The separately authorized, transactional data cleanup must not hold back verified screen fixes.
 run_deploy_step server/bin/clear-hantest-performance.php
+run_deploy_step server/bin/cleanup-user1.php
 deployment_stage=complete
 publish_deployment_status complete

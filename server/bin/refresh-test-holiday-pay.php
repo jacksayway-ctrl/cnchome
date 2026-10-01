@@ -7,6 +7,7 @@ try{
  $month=substr(hr_today(),0,7);
  $q=$d->prepare("SELECT p.*,e.profile,u.id user_id FROM hr_payroll p JOIN hr_employees e ON e.id=p.employee_id JOIN app_users u ON u.id=e.user_id WHERE u.username='user1' AND u.display_name='테스트 직원' AND u.role='employee' AND p.month=? AND p.status<>'confirmed' FOR UPDATE");$q->execute([$month]);$p=$q->fetch();
  if(!$p){$d->commit();exit;}
+ if(test_account_cleanup_protected((int)$p['user_id'])){$d->commit();exit;}
  $old=json_decode($p['calculation'],true,512,JSON_THROW_ON_ERROR);$profile=json_decode($p['profile'],true,512,JSON_THROW_ON_ERROR);
  if(($old['holidayInclusive']??false)||$profile['payType']!=='시급제'){$d->commit();exit;}
  // This legacy migration only splits unchanged contract-rate demo wages.

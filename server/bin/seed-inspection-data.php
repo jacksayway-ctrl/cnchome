@@ -8,6 +8,7 @@ $batch='inspection-20260929';$d=db();$d->beginTransaction();
 try {
     $q=$d->query("SELECT e.id employee_id,e.profile,u.id user_id,u.department FROM hr_employees e JOIN app_users u ON u.id=e.user_id WHERE u.username='user1' AND u.display_name='테스트 직원' AND u.role='employee' AND u.active=1 FOR UPDATE");$e=$q->fetch();
     if(!$e){$d->rollBack();exit("점검용 테스트 계정을 찾지 못했습니다.\n");}
+    if(test_account_cleanup_protected((int)$e['user_id'])){$d->commit();exit;}
     $uid=(int)$e['user_id'];$today=hr_today();$month=substr($today,0,7);
     $q=$d->prepare('SELECT state FROM test_employee_data WHERE user_id=? FOR UPDATE');$q->execute([$uid]);$raw=$q->fetchColumn();
     if(!$raw){$d->rollBack();exit("기본 테스트 자료 준비 후 다시 실행하세요.\n");}

@@ -61,7 +61,7 @@
   form.querySelector('[data-receipt-close]').addEventListener('click',()=>{close();if(popup())global.close();});
   const timer=global.setInterval(()=>{form.querySelector('[data-receipt-clock]').textContent=clock();},1000);
   dialog.addEventListener('close',()=>{global.clearInterval(timer);dialog.classList.remove('receipt-dialog');dialog.setAttribute('aria-labelledby','tm-dialog-title');if(popup())global.close();},{once:true});
-  global.KoreanInput?.attach(form);sync();date.focus();
+  global.KoreanInput?.attach(form);global.RoadAddress?.attach(form);sync();date.focus();
  }
  function saved(form){if(!form)return;form.reset();const feedback=form.querySelector('[data-sales-error]');feedback.dataset.state='success';feedback.textContent='가접수로 저장했습니다. 새 접수를 입력해 주세요.';}
  global.ReceiptForm={markup,attach,saved};

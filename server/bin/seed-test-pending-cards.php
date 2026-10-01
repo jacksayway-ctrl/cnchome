@@ -10,6 +10,7 @@ try {
     if($q->fetchColumn()){$d->commit();echo "가접수 카드 예시: 기존 변경 유지\n";exit;}
     $q=$d->query("SELECT * FROM app_users WHERE username='user1' AND active=1");$user=$q->fetch();
     hr_assert($user&&cnc_test_user($user)&&$user['department']==='insurance','가접수 예시용 테스트 직원 계정을 확인해 주세요.');
+    if(test_account_cleanup_protected((int)$user['id'])){$d->commit();exit;}
     $q=$d->prepare('SELECT state FROM test_employee_data WHERE user_id=? FOR UPDATE');$q->execute([$user['id']]);$raw=$q->fetchColumn();hr_assert((bool)$raw,'테스트 기본 자료가 필요합니다.');
     $state=json_decode($raw,true,512,JSON_THROW_ON_ERROR);$serial=max(array_merge([0],array_column($state['sales']??[],'id')));$today=hr_today();$savedAt=gmdate('c');$ids=[];
     // A dated demo policy is attached only to these virtual receipts, never published as an operating policy.
