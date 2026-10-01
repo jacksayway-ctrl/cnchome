@@ -1,7 +1,23 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -Eeuo pipefail
 cd "$(dirname "$0")/.."
 [[ $(id -u) == 0 ]] || { echo 'root로 실행해 주세요.'; exit 1; }
+# Public deployment health contains only revision, state, stage and time; never logs or account data.
+deployment_stage=prerequisites
+publish_deployment_status() {
+  local deployment_state=$1 deployment_target=/var/www/html/deployment-status.json
+  [[ -d /var/www/html ]] || return 0
+  printf '{"revision":"%s","state":"%s","stage":"%s","updatedAt":"%s"}\n' "$(git rev-parse HEAD)" "$deployment_state" "$deployment_stage" "$(date -u +%FT%TZ)" > "$deployment_target.new"
+  chmod 644 "$deployment_target.new"
+  mv "$deployment_target.new" "$deployment_target"
+}
+trap 'deployment_exit=$?; publish_deployment_status failed || true; exit "$deployment_exit"' ERR
+run_deploy_step() {
+  deployment_stage=${1##*/}
+  publish_deployment_status running
+  php "$1"
+}
+publish_deployment_status running
 [[ -f /etc/cnchome/database.json ]] || { echo 'DB 연결 설정이 없습니다.'; exit 1; }
 # Intake regression checks use a temporary in-memory DB, never the production DB.
 if ! php -r 'exit(in_array("sqlite", PDO::getAvailableDrivers(), true) ? 0 : 1);'; then
@@ -11,38 +27,46 @@ if ! php -r 'exit(in_array("sqlite", PDO::getAvailableDrivers(), true) ? 0 : 1);
   DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "php${php_cli_version}-sqlite3"
   php -r 'exit(in_array("sqlite", PDO::getAvailableDrivers(), true) ? 0 : 1);'
 fi
+deployment_stage=php-lint
+publish_deployment_status running
 while IFS= read -r -d '' file; do php -l "$file" >/dev/null; done < <(find server -name '*.php' -type f -print0)
-php server/bin/check-views.php
-php server/bin/check-intake-management.php
-php server/bin/check-attendance.php
-php server/bin/check-membership.php
-php server/bin/check-personnel.php
-php server/bin/check-business-calendar.php
-php server/bin/check-pay-statements.php
-php server/bin/check-grade-ledger.php
-php server/bin/check-grade-departments.php
-php server/bin/check-grade-summary.php
-php server/bin/check-grade-settings.php
-php server/bin/check-intake-policy.php
-php server/bin/check-performance-reset.php
+run_deploy_step server/bin/check-views.php
+run_deploy_step server/bin/check-intake-management.php
+run_deploy_step server/bin/check-attendance.php
+run_deploy_step server/bin/check-membership.php
+run_deploy_step server/bin/check-personnel.php
+run_deploy_step server/bin/check-business-calendar.php
+run_deploy_step server/bin/check-pay-statements.php
+run_deploy_step server/bin/check-grade-ledger.php
+run_deploy_step server/bin/check-grade-departments.php
+run_deploy_step server/bin/check-grade-summary.php
+run_deploy_step server/bin/check-grade-settings.php
+run_deploy_step server/bin/check-intake-policy.php
+run_deploy_step server/bin/check-performance-reset.php
+deployment_stage=web-config
+publish_deployment_status running
 nginx -t
+deployment_stage=backup
+publish_deployment_status running
 backup="/var/backups/cnchome/$(date +%Y%m%d-%H%M%S)"
 install -d -m 700 "$backup"
 cp -a /var/www/html "$backup/html"
 if [[ -d /opt/cnchome-runtime ]]; then cp -a /opt/cnchome-runtime "$backup/runtime"; fi
 # Existing additive migrations preserve accounts, grade history and payroll records.
-php server/bin/migrate.php
-php server/bin/provision-test-user.php
-php server/bin/seed-test-data.php
-php server/bin/seed-inspection-data.php
-php server/bin/refresh-test-holiday-pay.php
-php server/bin/seed-five-test-staff.php
-php server/bin/seed-test-normal-range.php
-php server/bin/seed-test-inspection-refresh.php
-php server/bin/seed-test-pending-cards.php
-php server/bin/refresh-test-full-attendance.php
-php server/bin/update-personnel-schedule.php
-php server/bin/clear-hantest-performance.php
+run_deploy_step server/bin/migrate.php
+run_deploy_step server/bin/provision-test-user.php
+run_deploy_step server/bin/seed-test-data.php
+run_deploy_step server/bin/seed-inspection-data.php
+run_deploy_step server/bin/refresh-test-holiday-pay.php
+run_deploy_step server/bin/seed-five-test-staff.php
+run_deploy_step server/bin/seed-test-normal-range.php
+run_deploy_step server/bin/seed-test-inspection-refresh.php
+run_deploy_step server/bin/seed-test-pending-cards.php
+run_deploy_step server/bin/refresh-test-full-attendance.php
+run_deploy_step server/bin/update-personnel-schedule.php
+run_deploy_step server/bin/clear-hantest-performance.php
+deployment_stage=runtime-install
+publish_deployment_status running
 install -d -m 755 /opt/cnchome-runtime /opt/cnchome-runtime/views/partials /opt/cnchome-runtime/config /opt/cnchome-runtime/docs
 install -m 644 server/lib/*.php /opt/cnchome-runtime/
 install -m 644 server/views/*.php /opt/cnchome-runtime/views/
@@ -64,6 +88,8 @@ done
 printf '%s\n' '<!doctype html><html lang="ko"><meta charset="utf-8"><title>씨앤씨</title><body data-cnc-destination="preview.php"><a href="./preview.php?role=admin">미리보기 열기</a><script src="./legacy-redirect.js"></script></body></html>' > /var/www/html/preview.html
 chmod 644 /var/www/html/preview.html
 # Compatibility index.html handles servers whose index order has HTML before PHP.
+deployment_stage=php-health
+publish_deployment_status running
 check=$(mktemp /var/www/html/runtime-check-XXXXXXXX.php)
 trap 'rm -f "$check"' EXIT
 printf '%s' '<?php header("Content-Type: text/plain"); echo "CNCHOME_PHP_OK";' > "$check"
@@ -74,3 +100,5 @@ if [[ $(curl --fail --silent --show-error --max-time 20 --resolve jacksayway.caf
 fi
 curl --fail --silent --show-error --max-time 20 --resolve jacksayway.cafe24.com:443:127.0.0.1 'https://jacksayway.cafe24.com/login.php?role=employee' -o /dev/null
 printf 'PHP 화면 배포 완료. 백업: %s\n' "$backup"
+deployment_stage=complete
+publish_deployment_status complete
