@@ -108,10 +108,25 @@ function intake_update(array $user,array $in): void {
                 $q=$d->prepare('SELECT consultation_time,consultation_place,premium_band FROM sales_consultation_details WHERE sale_id=?');$q->execute([(int)$id]);$details=$q->fetch();
                 $q=$d->prepare('SELECT gender,call_availability AS callAvailability,visit_schedule AS visitSchedule FROM sales_receipt_details WHERE sale_id=?');$q->execute([(int)$id]);$receiptRow=$q->fetch();$currentReceipt=($receiptRow?:[])+sales_counselor_fields((int)$id);$receipt=sales_receipt_fields($in,$currentReceipt);
                 $beforeReceipt=sales_receipt_fields([],$currentReceipt);
+                $q=$d->prepare('SELECT birth_date FROM sales_birth_details WHERE sale_id=?');$q->execute([(int)$id]);$storedBirth=$q->fetchColumn();
+                $beforeBirth=['birth_date'=>$storedBirth===false?'':(string)$storedBirth,'birth_year'=>(int)$row['birth_year'],'insurance_kind'=>(string)$row['insurance_kind']];$afterBirth=$beforeBirth;
+                // Older callers may omit the date, and year-only records must not gain an invented birthday.
+                if(array_key_exists('birthDate',$in)){
+                    $birthDate=intake_text($in['birthDate'],10);
+                    hr_assert($birthDate!==''||$beforeBirth['birth_date']==='','기존 생년월일을 지울 수 없습니다. 올바른 생년월일을 입력해 주세요.');
+                    if($birthDate!==''){
+                        hr_assert(hr_day($birthDate)&&$birthDate<=$row['first_date'],'생년월일은 올바른 날짜이며 최초 접수일 이전이어야 합니다.');$birthYear=(int)substr($birthDate,0,4);
+                        hr_assert($birthYear>=1900,'출생연도를 확인해 주세요.');
+                        $afterBirth=['birth_date'=>$birthDate,'birth_year'=>$birthYear,'insurance_kind'=>$row['department']==='insurance'?sales_kind($birthYear,$row['first_date']):''];
+                    }
+                }
                 $before=[];foreach(array_keys($next) as $column)$before[$column]=(string)$row[$column];
-                $before+=$beforeReceipt+['consultation_time'=>(string)($details['consultation_time']??''),'consultation_place'=>(string)($details['consultation_place']??''),'premium_band'=>(string)($details['premium_band']??''),'status'=>$row['status']];
-                $after=$next+$receipt+['consultation_time'=>$time,'consultation_place'=>$place,'premium_band'=>$band,'status'=>$status];hr_assert($before!==$after,'변경된 내용이 없습니다.');
-                $q=$d->prepare('UPDATE sales_records SET customer_name=?,phone=?,carrier=?,note=?,status=?,revision=revision+1,updated_at=UTC_TIMESTAMP(6) WHERE id=?');$q->execute([$next['customer_name'],$next['phone'],$next['carrier'],$next['note'],$status,(int)$id]);
+                $before+=$beforeReceipt+$beforeBirth+['consultation_time'=>(string)($details['consultation_time']??''),'consultation_place'=>(string)($details['consultation_place']??''),'premium_band'=>(string)($details['premium_band']??''),'status'=>$row['status']];
+                $after=$next+$receipt+$afterBirth+['consultation_time'=>$time,'consultation_place'=>$place,'premium_band'=>$band,'status'=>$status];hr_assert($before!==$after,'변경된 내용이 없습니다.');
+                $q=$d->prepare('UPDATE sales_records SET customer_name=?,phone=?,carrier=?,note=?,birth_year=?,insurance_kind=?,status=?,revision=revision+1,updated_at=UTC_TIMESTAMP(6) WHERE id=?');$q->execute([$next['customer_name'],$next['phone'],$next['carrier'],$next['note'],$afterBirth['birth_year'],$afterBirth['insurance_kind'],$status,(int)$id]);
+                if($afterBirth['birth_date']!==$beforeBirth['birth_date']){
+                    $q=$d->prepare($storedBirth===false?'INSERT INTO sales_birth_details(birth_date,sale_id) VALUES(?,?)':'UPDATE sales_birth_details SET birth_date=? WHERE sale_id=?');$q->execute([$afterBirth['birth_date'],(int)$id]);
+                }
                 if($details){$q=$d->prepare('UPDATE sales_consultation_details SET consultation_time=?,consultation_place=?,premium_band=? WHERE sale_id=?');$q->execute([$time,$place,$band,(int)$id]);}
                 else{$q=$d->prepare('INSERT INTO sales_consultation_details(sale_id,consultation_time,consultation_place,premium_band) VALUES(?,?,?,?)');$q->execute([(int)$id,$time,$place,$band]);}
                 if($receiptRow){$q=$d->prepare('UPDATE sales_receipt_details SET gender=?,call_availability=?,visit_schedule=? WHERE sale_id=?');$q->execute([$receipt['gender'],$receipt['callAvailability'],$receipt['visitSchedule'],(int)$id]);}

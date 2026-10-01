@@ -42,14 +42,20 @@ $snapshot=sales_snapshot($admin,$month);$rows=intake_filtered($snapshot['records
 $user=$admin;$mode='list';$error='';$notice='';$posted=[];$total=count($rows);$pages=1;$testCount=1;$counts=['pending'=>0,'normal'=>0,'as'=>1];$history=intake_history($admin,'1');$_SESSION=['csrf'=>'fixture-token'];
 ob_start();require __DIR__.'/../views/intake.php';$html=ob_get_clean();
 check(!str_contains($html,'<script>alert(1)</script>')&&str_contains($html,'&lt;script&gt;'),'customer text escaped in list and detail');
-check(str_contains($html,'value="300000" selected'),'stored premium band remains selected when editing');
+preg_match('/<template data-intake-edit-data>(.*?)<\/template>/s',$html,$editDataMatch);
+$editBoot=json_decode(html_entity_decode($editDataMatch[1]??'',ENT_QUOTES|ENT_HTML5,'UTF-8'),true,512,JSON_THROW_ON_ERROR);
+check(($editBoot['record']['premiumBand']??'')==='300000','stored premium band reaches the shared receipt editor unchanged');
 check(str_contains($html,'fixture-token')&&str_contains($html,'name="revision"'),'mutations carry CSRF and revision');
 check(str_contains($html,'<th>상담원</th>')&&str_contains($html,'data-intake-id="1"')&&str_contains($html,'data-intake-toggle aria-expanded="true"')&&str_contains($html,'id="intake-detail-1" data-intake-detail data-intake-loaded="true"'),'selected receipt stays expanded beneath its searchable table row with counselor column');
-preg_match_all('/<form\b[^>]*>.*?<\/form>/s',$html,$renderedForms);$expandedEditForms=array_values(array_filter($renderedForms[0],fn($form)=>str_contains($form,'name="action" value="edit"')));
-check(count($expandedEditForms)===1&&str_contains($expandedEditForms[0],'<select name="status">')&&str_contains($expandedEditForms[0],'<select name="counselorName"')&&str_contains($expandedEditForms[0],'value="as" selected')&&str_contains($expandedEditForms[0],'value="변경 상담원" selected'),'expanded receipt posts selected counselor and approval status together in one guarded form');
+check(substr_count($html,'data-intake-edit-host')===1&&str_contains($html,'<template data-intake-edit-hidden>')&&str_contains($html,'name="action" value="edit"')&&($editBoot['record']['status']??'')==='as'&&($editBoot['record']['counselorName']??'')==='변경 상담원','one guarded shared receipt editor receives the selected counselor and approval status');
+check(($editBoot['record']['customer']??'')===$selected['customer']&&str_contains($html,'admin-intake-edit.js')&&str_contains($html,'consultation-location.js')&&str_contains($html,'<th>상품 구분</th>'),'shared editor retains untrusted text as data and loads address search with product classification');
 $detailFragment=true;ob_start();require __DIR__.'/../views/intake.php';$fragmentHtml=ob_get_clean();$detailFragment=false;
 check(str_contains($fragmentHtml,'data-intake-detail-panel data-intake-record="1"')&&!str_contains($fragmentHtml,'<script')&&!str_contains($fragmentHtml,'data-intake-row')&&!str_contains($fragmentHtml,'접수 목록'),'lazy detail response contains only the requested receipt panel without page scripts or list');
 check(str_contains($fragmentHtml,'&lt;script&gt;')&&str_contains($fragmentHtml,'fixture-token')&&str_contains($fragmentHtml,'name="revision"')&&str_contains($fragmentHtml,'name="id" value="1"'),'lazy detail keeps escaped customer text and exact record, CSRF and revision guards');
+// Registration uses the same receipt renderer and scoped staff identity data.
+$mode='new';$registrationData=['user'=>['id'=>1,'role'=>'admin','display_name'=>'관리자'],'csrf'=>'fixture-token','staff'=>$snapshot['staff'],'counselorNames'=>$snapshot['counselorNames'],'listUrl'=>intake_url(),'employeeId'=>'2'];
+ob_start();require __DIR__.'/../views/intake.php';$registrationHtml=ob_get_clean();$mode='list';
+check(str_contains($registrationHtml,'id="admin-intake-register-data"')&&str_contains($registrationHtml,'data-admin-receipt')&&str_contains($registrationHtml,'admin-intake-register.js')&&!str_contains($registrationHtml,'data-intake-create'),'native registration mounts the shared employee receipt with administrator staff selection');
 echo "PASS: intake admin authorization, shared status, edits, atomic audit, stale writes, test isolation, filters, CSV safety, registration retry and rendered escaping.\n";
 
 require __DIR__.'/../lib/intake-alerts.php';

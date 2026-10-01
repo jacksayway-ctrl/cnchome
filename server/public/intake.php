@@ -36,7 +36,13 @@ try{
     $testCount=count(array_filter($snapshot['records'],fn($r)=>$r['isTest']&&str_starts_with($r['date'],$filters['month'])));
     $notice=$_SESSION['intake_notice']??'';unset($_SESSION['intake_notice']);
     $requestKey=$posted['requestKey']??sprintf('%s-%s-%s-%s-%s',bin2hex(random_bytes(4)),bin2hex(random_bytes(2)),bin2hex(random_bytes(2)),bin2hex(random_bytes(2)),bin2hex(random_bytes(6)));
-    native_start('접수관리',$user,$mode==='new'?'adminIntakeRegister':'adminIntake',['intake-management.css'],$popup);require view_root().'/intake.php';native_end();
+    $registrationData=null;
+    if($mode==='new'){
+        $staffFlags=[];foreach(db()->query("SELECT id,username,display_name,role FROM app_users WHERE role='employee' AND active=1")->fetchAll() as $staffAccount)$staffFlags[(int)$staffAccount['id']]=cnc_test_user($staffAccount);
+        $staff=$snapshot['staff'];foreach($staff as &$person)$person['isTest']=$staffFlags[(int)$person['id']]??false;unset($person);
+        $registrationData=['user'=>array_intersect_key($user,array_flip(['id','role','display_name','department'])),'csrf'=>(string)($_SESSION['csrf']??''),'staff'=>$staff,'counselorNames'=>$snapshot['counselorNames'],'listUrl'=>intake_url(),'employeeId'=>$filters['employee']];
+    }
+    native_start('접수관리',$user,$mode==='new'?'adminIntakeRegister':'adminIntake',['intake-management.css','receipt-form.css'],$popup);require view_root().'/intake.php';native_end();
 }catch(HRForbidden $e){http_response_code(403);render_view('error',['title'=>'관리자 전용 메뉴입니다.','message'=>$e->getMessage(),'role'=>'admin']);}
 catch(InvalidArgumentException $e){http_response_code(422);render_view('error',['title'=>'조회 조건을 확인해 주세요.','message'=>$e->getMessage(),'role'=>'admin']);}
 catch(Throwable $e){error_log('cnchome intake management: '.$e->getMessage());http_response_code(503);render_view('error',['title'=>'접수관리를 불러오지 못했습니다.','message'=>'잠시 후 다시 시도해 주세요.','role'=>'admin']);}

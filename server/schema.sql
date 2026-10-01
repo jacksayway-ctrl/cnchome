@@ -334,3 +334,15 @@ CREATE TABLE IF NOT EXISTS employee_membership_events (
  FOREIGN KEY (user_id) REFERENCES app_users(id),
  FOREIGN KEY (actor_id) REFERENCES app_users(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Reusable public address results; searches are keyed by provider/version + SHA-256.
+-- No applicant name, telephone number, employee identity or session is stored here.
+CREATE TABLE IF NOT EXISTS address_search_cache (
+ query_hash CHAR(64) CHARACTER SET ascii COLLATE ascii_bin PRIMARY KEY,
+ response_json JSON NOT NULL,
+ cached_at BIGINT UNSIGNED NOT NULL,
+ expires_at BIGINT UNSIGNED NOT NULL,
+ stale_until BIGINT UNSIGNED NOT NULL,
+ INDEX address_cache_expiry(stale_until),
+ INDEX address_cache_recent(cached_at,query_hash)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

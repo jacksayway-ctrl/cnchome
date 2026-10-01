@@ -1,6 +1,9 @@
 (function(root){
  'use strict';
- const context=root.CNCHOME_POLICY||(root.CNCHOME_LIVE?{role:root.CNCHOME_LIVE.user.role,csrf:root.CNCHOME_LIVE.csrf}:null);
+ let nativeContext=null;
+ const nativeData=root.document?.getElementById('native-session-data');
+ if(nativeData){try{const data=JSON.parse(nativeData.textContent);if(data.user?.role==='admin')nativeContext={role:'admin',csrf:data.csrf};}catch(_){}}
+ const context=root.CNCHOME_POLICY||(root.CNCHOME_LIVE?{role:root.CNCHOME_LIVE.user.role,csrf:root.CNCHOME_LIVE.csrf}:nativeContext);
  let snapshot=null;const subscribers=new Set();
  let revision=null,loading=false,saving=false,error='',apply=()=>{},notify=()=>{},active=()=>true;
  const url='/intake-policy-api.php?role='+encodeURIComponent(context?.role||'employee');
@@ -32,4 +35,5 @@
  root.PolicySync={enabled:!!context,role:context?.role,get snapshot(){return snapshot},subscribe(fn){subscribers.add(fn);return ()=>subscribers.delete(fn)},get ready(){return revision!==null},get saving(){return saving},get error(){return error},load,save,async readback(){const data=await request();accept(data);return data;},
   init(options){if(!context)return;apply=options.apply;notify=options.notify;active=options.active||active;load();setInterval(()=>{if(!document.hidden&&(active()||subscribers.size))load()},15000);root.addEventListener('focus',()=>{if(active()||subscribers.size)load()});}
  };
+ if(nativeContext)root.PolicySync.init({apply:()=>{},notify:()=>{},active:()=>!!root.document.querySelector('.receipt-form')});
 })(typeof window!=='undefined'?window:globalThis);

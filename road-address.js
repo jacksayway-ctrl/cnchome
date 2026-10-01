@@ -1,6 +1,6 @@
 (function(global){
  'use strict';
- const endpoint='https://api.poesis.kr/post/search.php',cache=new Map();
+ const endpoint='/address-search-api.php',cache=new Map();
  const cacheAge=5*60*1000,cacheLimit=100,responseLimit=1024*1024;
  const clean=value=>typeof value==='string'?value.replace(/\s+/gu,' ').trim():'';
  const plain=value=>value!==null&&typeof value==='object'&&!Array.isArray(value);
@@ -60,9 +60,8 @@
   if(signal?.aborted){signal.removeEventListener('abort',cancel);throw aborted();}
   const timer=global.setTimeout(()=>{timedOut=true;controller.abort();},8000);
   try{
-   const url=new global.URL(endpoint);
-   url.searchParams.set('v','3.5.0');url.searchParams.set('q',query);url.searchParams.set('ref',global.location.hostname);
-   const response=await global.fetch(url.href,{method:'GET',mode:'cors',credentials:'omit',referrerPolicy:'no-referrer',redirect:'error',headers:{Accept:'application/json'},signal:controller.signal});
+   const url=new global.URL(endpoint,global.location.origin);url.searchParams.set('q',query);
+   const response=await global.fetch(url.href,{method:'GET',mode:'same-origin',credentials:'same-origin',cache:'no-store',referrerPolicy:'no-referrer',redirect:'error',headers:{Accept:'application/json'},signal:controller.signal});
    if(!response.ok||Number(response.headers.get('content-length'))>responseLimit)throw failed();
    const body=await response.text();if(body.length>responseLimit)throw failed();
    let data;try{data=JSON.parse(body);}catch(error){throw failed();}
