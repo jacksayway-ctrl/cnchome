@@ -6,7 +6,8 @@
  const popup=()=>new URL(global.CNCPageUrl||global.location.href).searchParams.get('intakeWindow')==='1';
  function markup({admin,staff,user,counselorNames=[]}){
   const defaultCounselor=String(user?.display_name||''),names=[...new Set([defaultCounselor,...counselorNames].filter(name=>typeof name==='string'&&name.trim()))];
-  const date=today(),owner=(admin?'<select id="receipt-owner" name="employeeId" required aria-label="담당 직원"><option value="">담당 직원 선택</option>'+staff.map(row=>'<option value="'+row.id+'" data-team="'+esc(row.team)+'">'+esc(row.name)+'</option>').join('')+'</select>':'')+'<select id="receipt-counselor" name="counselorName" data-default-counselor="'+esc(defaultCounselor)+'" required aria-label="상담원 이름">'+(defaultCounselor?'':'<option value="" selected>상담원 선택</option>')+names.map(name=>'<option value="'+esc(name)+'"'+(name===defaultCounselor?' selected':'')+'>'+esc(name)+'</option>').join('')+'</select>';
+  const counselor=admin?'<select id="receipt-counselor" name="counselorName" data-default-counselor="'+esc(defaultCounselor)+'" required aria-label="상담원 이름">'+(defaultCounselor?'':'<option value="" selected>상담원 선택</option>')+names.map(name=>'<option value="'+esc(name)+'"'+(name===defaultCounselor?' selected':'')+'>'+esc(name)+'</option>').join('')+'</select>':'<input id="receipt-counselor" name="counselorName" value="'+esc(defaultCounselor)+'" readonly tabindex="-1" aria-label="상담원 이름">';
+  const date=today(),owner=(admin?'<select id="receipt-owner" name="employeeId" required aria-label="담당 직원"><option value="">담당 직원 선택</option>'+staff.map(row=>'<option value="'+row.id+'" data-team="'+esc(row.team)+'">'+esc(row.name)+'</option>').join('')+'</select>':'')+counselor;
   return `<form class="receipt-form" data-sales-form data-intake-admin="${admin}" data-request-key="${global.crypto.randomUUID()}">
    <div class="receipt-header"><div><h2 id="receipt-title">접수증</h2><p>저장하면 가접수로 등록됩니다.</p></div><label class="receipt-input-mode">입력 모드<select data-receipt-input-mode aria-label="문자 입력 모드"><option value="ko" selected>한글 자동</option><option value="en">기본 자판</option></select></label></div>
    <input type="hidden" name="date" value="${date}"><input type="hidden" name="consultationTime" value="${clock().slice(0,5)}"><input type="hidden" name="phone"><input type="hidden" name="birthYear"><input type="hidden" name="birthMonth"><input type="hidden" name="birthDay"><input type="hidden" name="carrier"><input type="hidden" name="callAvailability">
@@ -24,7 +25,7 @@
   </form>`;
  }
  function updateCounselors(form,names){
-  const select=form?.elements.counselorName;if(!select||!Array.isArray(names))return;
+  const select=form?.elements.counselorName;if(select?.tagName!=='SELECT'||!Array.isArray(names))return;
   const selected=select.value,defaultName=select.dataset.defaultCounselor||'',choices=[...new Set([defaultName,...names,selected].filter(name=>typeof name==='string'&&name.trim()))];
   const options=choices.map(name=>new global.Option(name,name,name===defaultName,name===selected));
   if(!selected)options.unshift(new global.Option('상담원 선택','',!defaultName,true));
