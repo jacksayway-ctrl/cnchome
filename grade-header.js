@@ -1,6 +1,7 @@
 (function(global){
  'use strict';
  const live=global.CNCHOME_LIVE;if(!live||live.user.role!=='employee')return;
+ const testAccount=live.isTestAccount??/^user[1-6]$/.test(live.user.username||'');
  let data=null,error='',loading=false;
  const names=['workdays','daily','weekly','monthly'];
  function set(name,value,title){const el=global.document.getElementById('tm-head-'+name);if(el){el.textContent=value;el.title=title||'';}}
@@ -25,7 +26,7 @@
  }
  async function load(){
   if(loading)return;loading=true;
-  try{const response=await global.fetch('/grade-summary-api.php',{credentials:'same-origin',cache:'no-store'});const result=await response.json();if(!response.ok)throw Error(result.error||'조회 실패');if(!result.daily||!result.weekly||!result.monthly||!result.workdays)throw Error('조회 결과를 확인해 주세요.');data=result;error='';}
+  try{const response=await global.fetch('/grade-summary-api.php',{credentials:'same-origin',cache:'no-store'});const result=await response.json();if(!response.ok)throw Error(result.error||'조회 실패');if(!result.daily||!result.weekly||!result.monthly||!result.workdays)throw Error('조회 결과를 확인해 주세요.');if(result.isTest&&!testAccount)throw Error('본인 실적 정보를 다시 확인해 주세요.');data=result;error='';}
   catch(e){data=null;error=e.message;}finally{loading=false;render();global.dispatchEvent(new global.Event('cnc:grade-summary-updated'));}
  }
  global.GradeHeader={render,load,getState:()=>({data,error})};render();load();

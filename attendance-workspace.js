@@ -31,10 +31,10 @@ async function load(body){
   if(!Array.isArray(result.records)||typeof result.today!=='string')throw Error('출근 기록을 다시 확인해 주세요.');
   const changed=JSON.stringify(data)!==JSON.stringify(result);data=result;if(body&&admin)notice=(result.approvedCount||0)+'명의 출결을 승인했습니다.';
   if(changed&&!admin)window.dispatchEvent(new Event('cnc:attendance-changed'));
- }catch(e){error=e.name==='AbortError'?'응답이 지연되었습니다. 다시 확인을 눌러 출근 기록 여부를 확인해 주세요.':e.message;}
+ }catch(e){error=e.name==='AbortError'?'응답이 지연되었습니다. 다시 확인을 눌러 출근 기록 여부를 확인해 주세요.':e.message;if(!admin)window.dispatchEvent(new Event('cnc:attendance-changed'));}
  finally{clearTimeout(timer);loading=false;paint();if(admin&&selectedDate!==requestedDate)load();}
 }
-window.AttendanceWorkspace={homePanel:()=>'<section class="checkin-panel" aria-label="오늘 출근" data-checkin-panel>'+employeeMarkup()+'</section>',records:()=>data?.records||[]};
+window.AttendanceWorkspace={homePanel:()=>'<section class="checkin-panel" aria-label="오늘 출근" data-checkin-panel>'+employeeMarkup()+'</section>',records:()=>data?.records||[],getState:()=>({data,error,loading})};
 function mount(){
  const main=document.getElementById('tm-main');if(!main)return;
  if(admin&&route()==='adminAttendance'){selectedDate=selectedDate||day();if(!data&&!loading&&!error)load();}

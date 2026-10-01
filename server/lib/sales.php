@@ -8,26 +8,33 @@ function sales_kind(int $birthYear, string $date): string {
     return $age<=60?'general':'silver';
 }
 function sales_month(string $month): bool {return (bool)preg_match('/^\d{4}-(0[1-9]|1[0-2])$/D',$month);}
-function sales_test_user(array $user): bool {return cnc_test_user($user);}
+function sales_test_user(array $user): bool {
+    if(($user['role']??'')!=='employee'||(int)($user['id']??0)<=0)return false;
+    // Resolve classification from the account, never from a posted flag or partial caller metadata.
+    $q=db()->prepare('SELECT username,display_name,role FROM app_users WHERE id=?');$q->execute([(int)$user['id']]);
+    return cnc_test_user($q->fetch()?:[]);
+}
 function sales_receipt_fields(array $in,array $current=[]): array {
     $fields=[];foreach(['gender'=>4,'callAvailability'=>200,'visitSchedule'=>500] as $key=>$max){$value=$in[$key]??$current[$key]??'';hr_assert(is_string($value)&&mb_strlen($value)<=$max,'성별·통화 가능시간·방문 내용을 확인해 주세요.');$fields[$key]=trim($value);}
     hr_assert(in_array($fields['gender'],['','남','여'],true),'성별을 확인해 주세요.');return $fields;
 }
 function sales_snapshot(array $user,string $month): array {
     hr_assert(sales_month($month),'조회할 월을 확인해 주세요.');
-    $admin=$user['role']==='admin';$d=db();
-    $q=$d->prepare('SELECT s.*,u.display_name AS employee_name,c.consultation_time,c.consultation_place,c.premium_band,b.birth_date,rd.gender,rd.call_availability,rd.visit_schedule,rd.created_at AS receipt_created_at FROM sales_records s JOIN app_users u ON u.id=s.employee_id LEFT JOIN sales_consultation_details c ON c.sale_id=s.id LEFT JOIN sales_birth_details b ON b.sale_id=s.id LEFT JOIN sales_receipt_details rd ON rd.sale_id=s.id WHERE s.first_date>=? AND s.first_date<?'.($admin?'':' AND s.employee_id=?').' ORDER BY s.first_date,s.id');
+    $admin=$user['role']==='admin';$d=db();$test=sales_test_user($user);
+    $q=$d->prepare('SELECT s.*,u.display_name AS employee_name,c.consultation_time,c.consultation_place,c.premium_band,b.birth_date,rd.gender,rd.call_availability,rd.visit_schedule,rd.created_at AS receipt_created_at FROM sales_records s JOIN app_users u ON u.id=s.employee_id LEFT JOIN sales_consultation_details c ON c.sale_id=s.id LEFT JOIN sales_birth_details b ON b.sale_id=s.id LEFT JOIN sales_receipt_details rd ON rd.sale_id=s.id WHERE s.first_date>=? AND s.first_date<?'.($admin?'':' AND s.employee_id=?'.($test?'':' AND s.is_test=0')).' ORDER BY s.first_date,s.id');
     // Include the adjoining days so a selectable seven-day week is complete at month boundaries.
     $start=(new DateTimeImmutable($month.'-01'))->modify('-6 days')->format('Y-m-d');
     $next=(new DateTimeImmutable($month.'-01'))->modify('+1 month')->modify('+6 days')->format('Y-m-d');
     $q->execute($admin?[$start,$next]:[$start,$next,$user['id']]);$records=[];
     foreach($q->fetchAll() as $r)$records[]=['id'=>(string)$r['id'],'date'=>$r['first_date'],'employeeId'=>(int)$r['employee_id'],'employee'=>$r['employee_name'],'team'=>$r['department'],'customer'=>$r['customer_name'],'carrier'=>$r['carrier'],'kind'=>$r['insurance_kind'],'status'=>$r['status'],'revision'=>(int)$r['revision'],'isTest'=>(bool)$r['is_test'],'phone'=>$r['phone'],'address'=>$r['address'],'birthYear'=>(int)$r['birth_year'],'birthDate'=>$r['birth_date']??'','note'=>$r['note'],'consultationTime'=>$r['consultation_time']??'','consultationPlace'=>$r['consultation_place']??'','premiumBand'=>$r['premium_band']??'','gender'=>$r['gender']??'','callAvailability'=>$r['call_availability']??'','visitSchedule'=>$r['visit_schedule']??'','receivedAt'=>$r['receipt_created_at']??''];
-    // Keep existing test-account changes visible as explicitly marked test records.
+    // Fixture rows are available only to dedicated test accounts and administrator management.
+    if($admin||$test){
     $q=$d->prepare('SELECT t.state,t.revision,u.id,u.display_name,u.department FROM test_employee_data t JOIN app_users u ON u.id=t.user_id'.($admin?'':' WHERE u.id=?'));
     $q->execute($admin?[]:[$user['id']]);
     foreach($q->fetchAll() as $r){$state=json_decode($r['state'],true,512,JSON_THROW_ON_ERROR);foreach($state['sales']??[] as $sale){if($sale['date']<$start||$sale['date']>=$next)continue;$status=['정상'=>'normal','가접수'=>'pending','A/S'=>'as'][$sale['status']]??null;if(!$status)continue;$records[]=['id'=>'test:'.$r['id'].':'.$sale['id'],'date'=>$sale['date'],'employeeId'=>(int)$r['id'],'employee'=>$r['display_name'],'team'=>$r['department'],'customer'=>$sale['name'],'carrier'=>$sale['carrier'],'kind'=>$sale['kind']==='실버'?'silver':'general','status'=>$status,'revision'=>(int)$r['revision'],'isTest'=>true,'phone'=>$sale['phone']??'','birthDate'=>$sale['birthDate']??'','birthYear'=>(int)($sale['birthYear']??substr($sale['birthDate']??'',0,4)),'note'=>$sale['note']??'','consultationTime'=>$sale['consultationTime']??'','consultationPlace'=>$sale['consultationPlace']??'','premiumBand'=>$sale['premiumBand']??'','gender'=>$sale['gender']??'','callAvailability'=>$sale['callAvailability']??'','visitSchedule'=>$sale['visitSchedule']??''];}}
+    }
     $staff=$admin?$d->query("SELECT id,display_name AS name,department AS team FROM app_users WHERE role='employee' AND active=1 ORDER BY id")->fetchAll():[];
-    return ['records'=>$records,'staff'=>$staff,'isTestAccount'=>sales_test_user($user),'month'=>$month,'today'=>hr_today(),'fetchedAt'=>gmdate('c')];
+    return ['records'=>$records,'staff'=>$staff,'isTestAccount'=>$test,'month'=>$month,'today'=>hr_today(),'fetchedAt'=>gmdate('c')];
 }
 function sales_mutate(array $user,array $in): void {
     $d=db();$d->beginTransaction();
@@ -35,7 +42,7 @@ function sales_mutate(array $user,array $in): void {
         $action=$in['action']??'';
         if($action==='create'){
             $owner=$user['role']==='admin'?($in['employeeId']??0):$user['id'];
-            $q=$d->prepare("SELECT id,username,display_name,department FROM app_users WHERE id=? AND active=1 AND role='employee'");$q->execute([$owner]);$employee=$q->fetch();hr_assert((bool)$employee,'담당 직원을 선택해 주세요.');
+            $q=$d->prepare("SELECT id,username,display_name,role,department FROM app_users WHERE id=? AND active=1 AND role='employee'");$q->execute([$owner]);$employee=$q->fetch();hr_assert((bool)$employee,'담당 직원을 선택해 주세요.');
             $date=(string)($in['date']??hr_today());hr_assert(hr_day($date)&&$date<=hr_today(),'접수일을 확인해 주세요.');
             $name=trim((string)($in['customer']??''));$phone=trim((string)($in['phone']??''));$address=trim((string)($in['address']??''));$carrier=trim((string)($in['carrier']??''));$note=trim((string)($in['note']??''));
             $consultationTime=trim((string)($in['consultationTime']??''));$consultationPlace=trim((string)($in['consultationPlace']??''));$premiumBand=(string)($in['premiumBand']??'');$receipt=sales_receipt_fields($in);
@@ -53,10 +60,10 @@ function sales_mutate(array $user,array $in): void {
             }
             $kind=$employee['department']==='insurance'?sales_kind($birth,$date):'';
             $key=(string)($in['requestKey']??'');hr_assert((bool)preg_match('/^[a-f0-9-]{36}$/D',$key),'접수 화면을 다시 열어 주세요.');
-            $q=$d->prepare('SELECT employee_id FROM sales_records WHERE request_key=?');$q->execute([$key]);$existing=$q->fetch();
-            if($existing){hr_assert((int)$existing['employee_id']===(int)$owner,'접수 요청을 확인해 주세요.');$d->commit();return;}
+            $q=$d->prepare('SELECT employee_id,is_test FROM sales_records WHERE request_key=?');$q->execute([$key]);$existing=$q->fetch();
+            if($existing){hr_assert((int)$existing['employee_id']===(int)$owner,'접수 요청을 확인해 주세요.');if($user['role']!=='admin'&&!cnc_test_user($employee)&&!empty($existing['is_test']))throw new HRForbidden('접수 요청을 확인해 주세요.');$d->commit();return;}
             $q=$d->prepare("INSERT INTO sales_records(employee_id,department,first_date,customer_name,phone,address,carrier,insurance_kind,birth_year,note,status,is_test,request_key) VALUES(?,?,?,?,?,?,?,?,?,?,'pending',?,?)");
-            $q->execute([$owner,$employee['department'],$date,$name,$phone,$address,$carrier,$kind,$birth,$note,sales_test_user($employee)?1:0,$key]);
+            $q->execute([$owner,$employee['department'],$date,$name,$phone,$address,$carrier,$kind,$birth,$note,cnc_test_user($employee)?1:0,$key]);
             $id=(int)$d->lastInsertId();
             $q=$d->prepare('INSERT INTO sales_receipt_details(sale_id,gender,call_availability,visit_schedule) VALUES(?,?,?,?)');$q->execute([$id,$receipt['gender'],$receipt['callAvailability'],$receipt['visitSchedule']]);
             $q=$d->prepare('INSERT INTO sales_consultation_details(sale_id,consultation_time,consultation_place,premium_band) VALUES(?,?,?,?)');$q->execute([$id,$consultationTime,$consultationPlace,$premiumBand]);
@@ -65,13 +72,13 @@ function sales_mutate(array $user,array $in): void {
         }elseif($action==='status'){
             $status=$in['status']??'';hr_assert(in_array($status,['pending','normal','as'],true),'접수 상태를 확인해 주세요.');$id=(string)($in['id']??'');
             if(preg_match('/^test:(\d+):(\d+)$/D',$id,$match)){
-                if($user['role']!=='admin'&&(int)$match[1]!=(int)$user['id'])throw new HRForbidden('본인 접수만 변경할 수 있습니다.');
+                if($user['role']!=='admin'&&((int)$match[1]!=(int)$user['id']||!sales_test_user($user)))throw new HRForbidden('본인 접수만 변경할 수 있습니다.');
                 $q=$d->prepare('SELECT state,revision FROM test_employee_data WHERE user_id=? FOR UPDATE');$q->execute([(int)$match[1]]);$r=$q->fetch();hr_assert((bool)$r,'접수를 찾을 수 없습니다.');hr_assert((int)$r['revision']===($in['revision']??null),'다른 화면에서 변경되었습니다. 새로고침 후 다시 시도해 주세요.');
                 $state=json_decode($r['state'],true,512,JSON_THROW_ON_ERROR);$found=false;foreach($state['sales'] as &$sale){if((int)$sale['id']===(int)$match[2]){$sale['status']=['pending'=>'가접수','normal'=>'정상','as'=>'A/S'][$status];$found=true;}}unset($sale);hr_assert($found,'접수를 찾을 수 없습니다.');
                 $q=$d->prepare('UPDATE test_employee_data SET state=?,revision=revision+1 WHERE user_id=?');$q->execute([hr_json($state),(int)$match[1]]);
             }else{
                 hr_assert(ctype_digit($id),'접수를 확인해 주세요.');$q=$d->prepare('SELECT * FROM sales_records WHERE id=? FOR UPDATE');$q->execute([(int)$id]);$r=$q->fetch();hr_assert((bool)$r,'접수를 찾을 수 없습니다.');
-                if($user['role']!=='admin'&&(int)$r['employee_id']!==(int)$user['id'])throw new HRForbidden('본인 접수만 변경할 수 있습니다.');
+                if($user['role']!=='admin'&&((int)$r['employee_id']!==(int)$user['id']||(!empty($r['is_test'])&&!sales_test_user($user))))throw new HRForbidden('본인 접수만 변경할 수 있습니다.');
                 hr_assert((int)$r['revision']===($in['revision']??null),'다른 화면에서 변경되었습니다. 새로고침 후 다시 시도해 주세요.');
                 $q=$d->prepare('UPDATE sales_records SET status=?,revision=revision+1,updated_at=UTC_TIMESTAMP(6) WHERE id=?');$q->execute([$status,(int)$id]);
                 $q=$d->prepare('INSERT INTO sales_events(sale_id,actor_id,old_status,new_status) VALUES(?,?,?,?)');$q->execute([(int)$id,$user['id'],$r['status'],$status]);

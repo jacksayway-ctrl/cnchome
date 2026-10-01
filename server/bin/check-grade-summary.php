@@ -14,7 +14,15 @@ $q=$d->prepare('INSERT INTO hr_employees VALUES(?,?)');foreach([1,2,3] as $id)$q
 $q=$d->prepare('INSERT INTO grade_versions(id,department,effective_date,policy) VALUES(?,?,?,?)');$q->execute([1,'insurance','2026-09-01',hr_json($policy)]);$future=$policy;$future['dailyCash']['start']=99;$q->execute([2,'insurance','2026-10-01',hr_json($future)]);
 $q=$d->prepare('INSERT INTO sales_records VALUES(?,?,?,?,?)');foreach([[1,'insurance','2026-09-28','normal',0],[1,'insurance','2026-09-29','normal',0],[1,'insurance','2026-09-29','normal',0],[1,'insurance','2026-09-29','pending',0],[1,'insurance','2026-09-29','as',0],[2,'insurance','2026-09-29','normal',0],[1,'insurance','2026-09-29','normal',1],[1,'cosmetics','2026-09-29','normal',0],[1,'insurance','2026-10-01','normal',0],[3,'insurance','2026-09-29','normal',1]] as $row)$q->execute($row);
 $user=['id'=>1,'role'=>'employee','department'=>'insurance','username'=>'one','display_name'=>'직원'];
+// Test-looking names and incomplete identities never switch a regular account into fixture mode.
+check(!cnc_test_user($user+['test'=>true]),'client-style test flag cannot classify an ordinary account');
+foreach([['username'=>'one','display_name'=>'테스트 직원'],['username'=>'user1','display_name'=>'실제 직원'],['role'=>'admin','username'=>'user1','display_name'=>'테스트 직원']] as $identity)check(!cnc_test_user(array_replace($user,$identity)),'only the exact employee fixture identity is accepted');
+check(!cnc_test_user(['username'=>'user1','display_name'=>'테스트 직원']),'missing employee role never grants fixture access');
+foreach(range(1,6) as $number)check(cnc_test_user(['role'=>'employee','username'=>'user'.$number,'display_name'=>$number===1?'테스트 직원':'테스트 직원 '.$number]),'all six dedicated test accounts remain supported');
+$staleFixture=['sales'=>array_fill(0,20,['date'=>'2026-09-29','status'=>'정상']),'attendance'=>[['date'=>'2026-09-29','in'=>'10:00','out'=>'17:00']]];
+$q=$d->prepare('INSERT INTO test_employee_data VALUES(?,?)');$q->execute([1,hr_json($staleFixture)]);
 $r=grade_summary_snapshot($user,'2026-09-29');check($r['daily']['count']===2&&$r['monthly']['count']===3&&$r['weekly']['count']===3,'only own normal current department non-test records');check($r['daily']['target']===6,'future policy excluded');check($r['monthly']['range']==='3~10건','current monthly tier');check($r['workdays']===['total'=>22,'elapsed'=>21],'actual month schedule and elapsed days');check($r['weekly']['value']===0.6&&$r['weekly']['availableDays']===5,'weekly progress uses full available week');
+check(!$r['isTest'],'a stale fixture row cannot change the regular employee grade source');
 $d->exec("UPDATE sales_records SET status='as' WHERE employee_id=1 AND first_date='2026-09-28'");check(grade_summary_snapshot($user,'2026-09-29')['monthly']['count']===2,'status change immediately changes live progress');
 $firstWeek=$profile;$firstWeek['startDate']='2026-09-30';$r=grade_progress($firstWeek,['2026-09-30'=>9],$policy,'2026-09-30');check($r['weekly']['availableDays']===3&&$r['weekly']['value']===3.0,'hire week denominator includes possible days, not attendance');
 $r=grade_progress($profile,['2026-09-30'=>3,'2026-10-01'=>4,'2026-10-02'=>5],$policy,'2026-10-02');check($r['weekly']['count']===12&&$r['monthly']['count']===9,'week across month boundary');
@@ -67,4 +75,7 @@ check($after['daily']['amount']===35000&&$after['daily']['paidCount']===7&&$afte
 $changed=$policy;foreach($changed['weekly'] as &$tier)if($tier['achievement'])$tier['achievement']+=10000;unset($tier);
 $q=$d->prepare('INSERT INTO grade_versions(id,department,effective_date,policy) VALUES(?,?,?,?)');$q->execute([5,'insurance','2026-09-23',hr_json($changed)]);
 $r=grade_summary_snapshot($test,'2026-09-25');check($r['weekly']['amount']===56000&&array_column($r['weekly']['parts'],'bonus')===[20000,36000],'employee weekly amount shares payroll effective-day proration');
+$d->exec("CREATE TABLE app_users(id INTEGER PRIMARY KEY,username TEXT,display_name TEXT,role TEXT);INSERT INTO app_users VALUES(1,'one','직원','employee');");
+$ledger=grade_employee_context(['userId'=>1,'profile'=>$profile+['team'=>'insurance']],'2026-09');
+check($ledger['count']===2&&$ledger['hours']===0,'ordinary employee totals exclude stale fixture receipts and fixture attendance');
 echo "PASS: cumulative daily grades and automatic receipt-independent prepayment, combined own normal records, five-day weekly average, effective-date proration, personal isolation and boundaries.\n";

@@ -7,7 +7,7 @@
 #tm-preview .receipt-grid{display:grid;grid-template-columns:125px minmax(0,1fr) 125px minmax(0,1fr);margin:24px 26px 0;border-top:1px solid #a4a9af;border-left:1px solid #a4a9af}
 #tm-preview .receipt-grid>.receipt-label,#tm-preview .receipt-grid>.receipt-value{min-width:0;min-height:65px;margin:0;padding:10px 12px;border-right:1px solid #a4a9af;border-bottom:1px solid #a4a9af;display:flex;align-items:center;box-sizing:border-box}
 #tm-preview .receipt-grid>.receipt-label{justify-content:center;background:#f0f5fd;text-align:center;font-weight:700;font-size:14px;color:#173966}
-#tm-preview .receipt-form .receipt-value input:not([type=radio]),#tm-preview .receipt-form .receipt-value select,#tm-preview .receipt-form .receipt-value textarea{width:100%;min-width:0;margin:0;padding:7px 2px;border:1px solid transparent;border-radius:0;background:#fff;box-shadow:none;color:#173966;font:inherit}
+#tm-preview .receipt-form .receipt-value input:not([type=radio]):not([type=checkbox]),#tm-preview .receipt-form .receipt-value select,#tm-preview .receipt-form .receipt-value textarea{width:100%;min-width:0;margin:0;padding:7px 2px;border:1px solid transparent;border-radius:0;background:#fff;box-shadow:none;color:#173966;font:inherit}
 #tm-preview .receipt-form .receipt-value input:focus,#tm-preview .receipt-form .receipt-value textarea:focus{outline:0;border-bottom-color:#1f70cb;background:#f7faff}
 #tm-preview .receipt-form .receipt-value input[type=date],#tm-preview .receipt-form .receipt-value select{border-color:#bcc2ca;padding:3px}
 #tm-preview .receipt-form .receipt-value input::placeholder,#tm-preview .receipt-form .receipt-value textarea::placeholder{color:#858e9e}
@@ -18,7 +18,7 @@
 #tm-preview .receipt-form .receipt-phone input{max-width:125px}
 #tm-preview .receipt-gender{gap:28px}
 #tm-preview .receipt-form .receipt-gender label,#tm-preview .receipt-form .receipt-premium label{display:flex;align-items:center;gap:8px;margin:0;font-weight:400}
-#tm-preview .receipt-form .receipt-gender input,#tm-preview .receipt-form .receipt-premium input{width:14px;height:14px;margin:0;accent-color:#203963}
+#tm-preview .receipt-form .receipt-gender input,#tm-preview .receipt-form .receipt-premium input{width:14px;height:14px;margin:0;padding:0;flex:none;accent-color:#203963}
 #tm-preview .receipt-grid>.receipt-region{grid-column:span 3;display:block;position:relative}
 #tm-preview .receipt-region .sales-place-control{position:relative;width:100%}
 #tm-preview .receipt-region [data-place-status]{display:block;font-size:11px;line-height:1.5;text-align:right;color:#0b9275}
@@ -39,7 +39,16 @@ body.receipt-window #tm-preview #tm-dialog.receipt-dialog{width:100vw;max-height
 body.receipt-window #tm-preview #tm-dialog.receipt-dialog::backdrop{background:#fff}
 @media(max-width:680px){#tm-preview .receipt-grid{grid-template-columns:100px minmax(0,1fr);margin:18px 14px 0}#tm-preview .receipt-grid>.receipt-region{grid-column:span 1}#tm-preview .receipt-header{padding:18px 20px}#tm-preview .receipt-policy,#tm-preview .receipt-feedback{margin-left:14px;margin-right:14px}#tm-preview .receipt-actions{padding:12px 14px 20px;gap:8px}#tm-preview .receipt-actions button{min-width:80px}}
 
-#tm-preview .receipt-form .receipt-call{gap:8px}
-#tm-preview .receipt-form .receipt-call select{width:68px;flex:none}
+#tm-preview .receipt-form .receipt-call{gap:4px;align-items:stretch;flex-direction:column}
+#tm-preview .receipt-form .receipt-period{display:flex;gap:18px}
+#tm-preview .receipt-form .receipt-period label{display:flex;align-items:center;gap:5px;margin:0;white-space:nowrap}
+#tm-preview .receipt-form .receipt-period input[type=checkbox]{width:14px;height:14px;padding:0;margin:0;accent-color:#203963}
+#tm-preview .receipt-form .receipt-birth{display:block}
+#tm-preview .receipt-birth>div{display:flex;align-items:center;gap:3px}
+#tm-preview .receipt-form .receipt-value.receipt-birth input:not([type=radio]):not([type=checkbox]){width:30px;text-align:center;flex:none}
+#tm-preview .receipt-form .receipt-value.receipt-birth input[data-receipt-birth-year]:not([type=radio]):not([type=checkbox]){width:48px}
+#tm-preview .receipt-birth small{display:block;font-size:10px;color:#8190a5;margin-top:4px}
+#tm-preview .receipt-form .receipt-value textarea[name=note]{border:0;border-radius:0;box-shadow:none;background:transparent;outline:0;resize:none;padding:7px 2px}
+#tm-preview .receipt-form .receipt-value textarea[name=note]:focus{background:#f7faff}
 #tm-preview .receipt-form .receipt-premium{gap:8px;flex-wrap:wrap}
 #tm-preview .receipt-form .receipt-premium label{gap:4px;white-space:nowrap;font-size:12px}

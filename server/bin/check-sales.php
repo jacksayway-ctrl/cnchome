@@ -71,4 +71,32 @@ foreach([[1990,'02','29'],[1990,'04','31'],[1990,'13','01'],[1990,'00','01'],[19
 $tomorrow=(new DateTimeImmutable($today))->modify('+1 day')->format('Y-m-d');rejects(fn()=>sales_mutate($one,array_replace($birthCase,['birthYear'=>(int)substr($tomorrow,0,4),'birthMonth'=>substr($tomorrow,5,2),'birthDay'=>substr($tomorrow,8,2)])),'future birthday');
 $leap=array_replace($birthCase,['birthYear'=>2000,'birthMonth'=>'02','birthDay'=>'29','requestKey'=>'abababab-abab-abab-abab-abababababab']);sales_mutate($one,$leap);
 check((int)$d->query("SELECT count(*) FROM sales_birth_details WHERE birth_date='2000-02-29'")->fetchColumn()===1,'valid leap day is stored');
+// Contaminated own rows must not expose fixture data to a regular employee.
+check(sales_test_user(['id'=>4,'role'=>'employee']),'partial authenticated identity resolves the dedicated test account from the database');
+check(!sales_test_user(['id'=>2,'role'=>'employee','username'=>'user1','display_name'=>'테스트 직원']),'caller metadata cannot turn a regular account into a test account');
+$isolationRecord=$d->query('SELECT * FROM sales_records WHERE id=1')->fetch();
+$isolationCount=count(sales_snapshot($one,$month)['records']);
+$isolationState=$d->query('SELECT state,revision FROM test_employee_data WHERE user_id=4')->fetch();
+$d->exec('UPDATE sales_records SET is_test=1 WHERE id=1');
+$d->prepare('INSERT INTO test_employee_data(user_id,state) VALUES(2,?)')->execute([$isolationState['state']]);
+$isolationFeed=sales_snapshot($one,$month);
+check(count($isolationFeed['records'])===$isolationCount-1&&!$isolationFeed['isTestAccount']&&count(array_filter($isolationFeed['records'],fn($row)=>$row['isTest']))===0,'regular employee feed excludes both own marked test rows and own stale legacy fixtures');
+$isolationAdmin=array_column(sales_snapshot($admin,$month)['records'],null,'id');
+check(isset($isolationAdmin['1'],$isolationAdmin['test:2:1']),'administrator retains explicit access to fixture records for management');
+rejects(fn()=>sales_mutate($one,['action'=>'status','id'=>'1','revision'=>(int)$isolationRecord['revision'],'status'=>'as']),'regular employee cannot mutate own marked test row');
+rejects(fn()=>sales_mutate($one,['action'=>'status','id'=>'test:2:1','revision'=>1,'status'=>'pending']),'regular employee cannot mutate stale legacy fixture assigned to their own ID');
+check($d->query('SELECT revision FROM sales_records WHERE id=1')->fetchColumn()===$isolationRecord['revision']&&$d->query('SELECT state FROM test_employee_data WHERE user_id=2')->fetchColumn()===$isolationState['state'],'denied fixture mutations preserve records and legacy state');
+sales_mutate(['id'=>4,'role'=>'employee'],['action'=>'status','id'=>'test:4:1','revision'=>(int)$isolationState['revision'],'status'=>'pending']);
+check(sales_snapshot(['id'=>4,'role'=>'employee'],$month)['records'][0]['status']==='pending','dedicated test employee retains own legacy mutations');
+$d->prepare('UPDATE test_employee_data SET state=?,revision=? WHERE user_id=4')->execute([$isolationState['state'],$isolationState['revision']]);
+$d->exec('DELETE FROM test_employee_data WHERE user_id=2');
+$d->prepare('UPDATE sales_records SET is_test=? WHERE id=1')->execute([$isolationRecord['is_test']]);
+$testCreate=array_replace($create,['requestKey'=>'edededed-eded-eded-eded-edededededed']);
+sales_mutate(['id'=>4,'role'=>'employee'],$testCreate);
+$testCreateId=(int)$d->query("SELECT id FROM sales_records WHERE request_key='edededed-eded-eded-eded-edededededed'")->fetchColumn();
+check((int)$d->query('SELECT is_test FROM sales_records WHERE id='.$testCreateId)->fetchColumn()===1,'new receipts by dedicated test accounts stay marked as test records');
+foreach(['sales_events','sales_consultation_details','sales_receipt_details','sales_birth_details'] as $table)$d->exec('DELETE FROM '.$table.' WHERE sale_id='.$testCreateId);
+$d->exec('DELETE FROM sales_records WHERE id='.$testCreateId);
+// Restore the shared fixture before check-intake-management.php continues.
+check(count(sales_snapshot($one,$month)['records'])===$isolationCount&&!$d->inTransaction(),'fixture isolation checks leave the shared data and transaction state intact');
 echo "PASS: sales ownership, role isolation, age boundaries, duplicate prevention, stale changes, both departments, test separation, status history, optional address compatibility full birth dates, and consultation persistence/validation.\n";

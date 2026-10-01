@@ -188,4 +188,24 @@ $legacyMemo=$pendingRow($testUser,'test:4:42');check(count($legacyMemo['memoHist
 check($pendingRow($admin,'test:4:42')===$legacyMemo,'administrator and employee legacy edits remain in sync');
 pending_intake_update($one,['action'=>'edit','id'=>(string)$legacyId,'revision'=>$memoRow['revision'],'birthDate'=>'','birthYear'=>'1990']);
 $yearOnlyReal=$pendingRow($one,(string)$legacyId);check($yearOnlyReal['birthDate']===''&&$yearOnlyReal['birthYear']===1990&&$yearOnlyReal['kind']==='general','clearing full birthday updates the year and removes stale birth detail');
+// A regular employee must not discover or mutate fixtures attached to their own ID.
+$isolationPending=$d->query('SELECT * FROM sales_records WHERE id='.(int)$legacyId)->fetch();
+$isolationPendingCount=count(pending_intake_snapshot($one)['records']);
+$isolationPendingEvents=(int)$d->query('SELECT count(*) FROM intake_management_events')->fetchColumn();
+$isolationLegacy=$d->query('SELECT state FROM test_employee_data WHERE user_id=4')->fetchColumn();
+$d->exec('UPDATE sales_records SET is_test=1 WHERE id='.(int)$legacyId);
+$d->prepare('INSERT INTO test_employee_data(user_id,state) VALUES(2,?)')->execute([$isolationLegacy]);
+$isolationRows=pending_intake_snapshot($one)['records'];
+check(count($isolationRows)===$isolationPendingCount-1&&count(array_filter($isolationRows,fn($row)=>$row['isTest']))===0,'regular pending feed excludes stale own fixtures and marked test records');
+$isolationAdminRows=array_column(pending_intake_snapshot($admin)['records'],null,'id');
+check(isset($isolationAdminRows[(string)$legacyId],$isolationAdminRows['test:2:42']),'administrator pending management retains explicitly marked fixture records');
+foreach(['edit','memo','recall'] as $isolationAction){
+    foreach([[(string)$legacyId,(int)$isolationPending['revision']],['test:2:42',1]] as [$isolationId,$isolationRevision]){
+        $forbidden(fn()=>pending_intake_update($one,['action'=>$isolationAction,'id'=>$isolationId,'revision'=>$isolationRevision,'customer'=>'허용되지 않는 수정','carrier'=>'GA','memo'=>'허용되지 않는 메모']),'regular employee cannot '.$isolationAction.' own fixture through a forged record ID');
+    }
+}
+check((int)$d->query('SELECT count(*) FROM intake_management_events')->fetchColumn()===$isolationPendingEvents&&$d->query('SELECT revision FROM sales_records WHERE id='.(int)$legacyId)->fetchColumn()===$isolationPending['revision']&&$d->query('SELECT state FROM test_employee_data WHERE user_id=2')->fetchColumn()===$isolationLegacy,'denied fixture actions leave records and audit history untouched');
+$d->exec('DELETE FROM test_employee_data WHERE user_id=2');
+$d->prepare('UPDATE sales_records SET is_test=? WHERE id=?')->execute([$isolationPending['is_test'],$legacyId]);
+check(count(pending_intake_snapshot($one)['records'])===$isolationPendingCount&&!$d->inTransaction(),'pending isolation checks restore the fixture');
 echo "PASS: inline real/legacy receipt edits, administrator and employee parity, per-owner access, immutable owner/date/status/notes, complete field validation, no-op and stale rejection, atomic audit rollback and timestamped append-only memo history.\n";

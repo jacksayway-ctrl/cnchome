@@ -29,14 +29,14 @@ function pending_intake_fields(array $in,array $current): array {
 
 function pending_intake_update(array $user,array $in): void {
     $action=intake_text($in['action']??'recall',10);hr_assert(in_array($action,['edit','memo','recall'],true),'지원하지 않는 작업입니다.');
-    pending_intake_authorize($user,true,$action);$admin=$user['role']==='admin';
+    pending_intake_authorize($user,true,$action);$admin=$user['role']==='admin';$test=sales_test_user($user);
     $id=intake_text($in['id']??'',60);$revision=intake_number($in['revision']??0);$memo=intake_text($in['memo']??'',500);$carrier=intake_text($in['carrier']??'',100);
     hr_assert($action==='edit'||($memo!==''&&($action!=='recall'||$carrier!=='')),'메모와 재콜 접수 코드를 확인해 주세요.');
     $d=db();$d->beginTransaction();
     try{
         $legacy=preg_match('/^test:(\d+):(\d+)$/D',$id,$match)===1;
         if($legacy){
-            $owner=(int)$match[1];if(!$admin&&$owner!==(int)$user['id'])throw new HRForbidden('본인 접수만 수정할 수 있습니다.');
+            $owner=(int)$match[1];if(!$admin&&($owner!==(int)$user['id']||!$test))throw new HRForbidden('본인 접수만 수정할 수 있습니다.');
             $q=$d->prepare('SELECT t.state,t.revision,u.department FROM test_employee_data t JOIN app_users u ON u.id=t.user_id WHERE t.user_id=? FOR UPDATE');$q->execute([$owner]);$stored=$q->fetch();
             hr_assert($stored&&(int)$stored['revision']===$revision,'접수 내용이 변경되었습니다. 저장내용으로 되돌린 뒤 다시 확인해 주세요.');
             $state=json_decode($stored['state'],true,512,JSON_THROW_ON_ERROR);$found=null;
@@ -46,7 +46,7 @@ function pending_intake_update(array $user,array $in): void {
         }else{
             hr_assert(ctype_digit($id),'접수 번호를 확인해 주세요.');
             $q=$d->prepare('SELECT * FROM sales_records WHERE id=?'.($admin?'':' AND employee_id=?').' FOR UPDATE');$q->execute($admin?[$id]:[$id,$user['id']]);$stored=$q->fetch();
-            if(!$stored)throw new HRForbidden('수정할 수 있는 접수를 찾을 수 없습니다.');
+            if(!$stored||(!$admin&&!$test&&!empty($stored['is_test'])))throw new HRForbidden('수정할 수 있는 접수를 찾을 수 없습니다.');
             hr_assert($stored['status']==='pending'&&(int)$stored['revision']===$revision,'접수 내용이나 상태가 변경되었습니다. 저장내용으로 되돌린 뒤 다시 확인해 주세요.');
             $q=$d->prepare('SELECT consultation_time,consultation_place,premium_band FROM sales_consultation_details WHERE sale_id=?');$q->execute([$id]);$details=$q->fetch();
             $q=$d->prepare('SELECT birth_date FROM sales_birth_details WHERE sale_id=?');$q->execute([$id]);$birthDate=$q->fetchColumn();
@@ -79,10 +79,11 @@ function pending_intake_update(array $user,array $in): void {
 
 // The regions page keeps every pending month visible; employee ownership is enforced in SQL.
 function pending_intake_snapshot(array $user): array {
-    pending_intake_authorize($user);$admin=$user['role']==='admin';$d=db();$params=$admin?[]:[$user['id']];$rows=[];
-    $q=$d->prepare("SELECT s.*,u.display_name AS employee_name,c.consultation_time,c.consultation_place,c.premium_band,b.birth_date,rd.gender,rd.call_availability,rd.visit_schedule,rd.created_at AS receipt_created_at FROM sales_records s JOIN app_users u ON u.id=s.employee_id LEFT JOIN sales_consultation_details c ON c.sale_id=s.id LEFT JOIN sales_birth_details b ON b.sale_id=s.id LEFT JOIN sales_receipt_details rd ON rd.sale_id=s.id WHERE s.status='pending'".($admin?'':' AND s.employee_id=?'));
+    pending_intake_authorize($user);$admin=$user['role']==='admin';$test=sales_test_user($user);$d=db();$params=$admin?[]:[$user['id']];$rows=[];
+    $q=$d->prepare("SELECT s.*,u.display_name AS employee_name,c.consultation_time,c.consultation_place,c.premium_band,b.birth_date,rd.gender,rd.call_availability,rd.visit_schedule,rd.created_at AS receipt_created_at FROM sales_records s JOIN app_users u ON u.id=s.employee_id LEFT JOIN sales_consultation_details c ON c.sale_id=s.id LEFT JOIN sales_birth_details b ON b.sale_id=s.id LEFT JOIN sales_receipt_details rd ON rd.sale_id=s.id WHERE s.status='pending'".($admin?'':' AND s.employee_id=?'.($test?'':' AND s.is_test=0')));
     $q->execute($params);
     foreach($q->fetchAll() as $r){$id=(string)$r['id'];$rows[$id]=['id'=>$id,'date'=>$r['first_date'],'employeeId'=>(int)$r['employee_id'],'employee'=>$r['employee_name'],'team'=>$r['department'],'customer'=>$r['customer_name'],'carrier'=>$r['carrier'],'kind'=>$r['insurance_kind'],'status'=>'pending','revision'=>(int)$r['revision'],'isTest'=>(bool)$r['is_test'],'phone'=>$r['phone'],'address'=>$r['address'],'birthYear'=>(int)$r['birth_year'],'birthDate'=>$r['birth_date']??'','note'=>$r['note'],'consultationTime'=>$r['consultation_time']??'','consultationPlace'=>$r['consultation_place']??'','premiumBand'=>$r['premium_band']??'','gender'=>$r['gender']??'','callAvailability'=>$r['call_availability']??'','visitSchedule'=>$r['visit_schedule']??'','receivedAt'=>$r['receipt_created_at']??'','memoHistory'=>[],'recallPending'=>false];}
+    if($admin||$test){
     $q=$d->prepare('SELECT t.state,t.revision,u.id,u.display_name,u.department FROM test_employee_data t JOIN app_users u ON u.id=t.user_id'.($admin?'':' WHERE u.id=?'));
     $q->execute($params);
     foreach($q->fetchAll() as $r){
@@ -92,6 +93,7 @@ function pending_intake_snapshot(array $user): array {
             $rows[$id]=['id'=>$id,'date'=>$sale['date'],'employeeId'=>(int)$r['id'],'employee'=>$r['display_name'],'team'=>$r['department'],'customer'=>$sale['name'],'carrier'=>$sale['carrier']??'','kind'=>($sale['kind']??'')==='실버'?'silver':'general','status'=>'pending','revision'=>(int)$r['revision'],'isTest'=>true,'phone'=>$sale['phone']??'','address'=>$sale['address']??'','birthDate'=>$sale['birthDate']??'','birthYear'=>(int)($sale['birthYear']??substr($sale['birthDate']??'',0,4)),'note'=>$sale['note']??'','consultationTime'=>$sale['consultationTime']??'','consultationPlace'=>$sale['consultationPlace']??'','premiumBand'=>$sale['premiumBand']??'','gender'=>$sale['gender']??'','callAvailability'=>$sale['callAvailability']??'','visitSchedule'=>$sale['visitSchedule']??'','memoHistory'=>[],'recallPending'=>false];
             if(($sale['fixture']??'')==='pending-cards-demo-20261001-v1'&&isset($sale['demoPolicy']))$rows[$id]['demoPolicy']=$sale['demoPolicy'];
         }
+    }
     }
     foreach($rows as &$row){$row['originalMemoAt']='';$row['lastEditAt']='';}unset($row);
     // Read history only for the authorized records and bound placeholder counts for large lists.

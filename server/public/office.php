@@ -10,7 +10,7 @@ try {
     if(isset(native_routes()[$page])){header('Location: '.native_url($page,$role));exit;}
     $gradeSnapshot=snapshot($user);$gradeAvailable=grade_employee_available($user,$gradeSnapshot['entries'],hr_today());
     if($role==='employee'&&!$gradeAvailable&&$page==='grade')$page='home';
-    $boot=$gradeSnapshot+['gradeAvailable'=>$gradeAvailable]+['user'=>$user,'page'=>$page,'csrf'=>$_SESSION['csrf'],'hr'=>hr_snapshot($user)];
+    $boot=$gradeSnapshot+['gradeAvailable'=>$gradeAvailable]+['isTestAccount'=>cnc_test_user($user),'user'=>$user,'page'=>$page,'csrf'=>$_SESSION['csrf'],'hr'=>hr_snapshot($user)];
     $showLoginNotice=!empty($_SESSION['login_notice_pending']);
     render_view('office',compact('boot','user','role','page','showLoginNotice'));
     if($showLoginNotice)unset($_SESSION['login_notice_pending']);
