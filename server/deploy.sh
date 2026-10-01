@@ -5,13 +5,13 @@ cd "$(dirname "$0")/.."
 # Public deployment health contains only revision, state, stage and time; never logs or account data.
 deployment_stage=prerequisites
 publish_deployment_status() {
-  local deployment_state=$1 deployment_target=/var/www/html/deployment-status.json
+  local deployment_state=$1 deployment_code=${2:-0} deployment_target=/var/www/html/deployment-status.json
   [[ -d /var/www/html ]] || return 0
-  printf '{"revision":"%s","state":"%s","stage":"%s","updatedAt":"%s"}\n' "$(git rev-parse HEAD)" "$deployment_state" "$deployment_stage" "$(date -u +%FT%TZ)" > "$deployment_target.new"
+  printf '{"revision":"%s","state":"%s","stage":"%s","exitCode":%s,"updatedAt":"%s"}\n' "$(git rev-parse HEAD)" "$deployment_state" "$deployment_stage" "$deployment_code" "$(date -u +%FT%TZ)" > "$deployment_target.new"
   chmod 644 "$deployment_target.new"
   mv "$deployment_target.new" "$deployment_target"
 }
-trap 'deployment_exit=$?; publish_deployment_status failed || true; exit "$deployment_exit"' ERR
+trap 'deployment_exit=$?; publish_deployment_status failed "$deployment_exit" || true; exit "$deployment_exit"' ERR
 run_deploy_step() {
   deployment_stage=${1##*/}
   publish_deployment_status running
@@ -64,7 +64,6 @@ run_deploy_step server/bin/seed-test-inspection-refresh.php
 run_deploy_step server/bin/seed-test-pending-cards.php
 run_deploy_step server/bin/refresh-test-full-attendance.php
 run_deploy_step server/bin/update-personnel-schedule.php
-run_deploy_step server/bin/clear-hantest-performance.php
 deployment_stage=runtime-install
 publish_deployment_status running
 install -d -m 755 /opt/cnchome-runtime /opt/cnchome-runtime/views/partials /opt/cnchome-runtime/config /opt/cnchome-runtime/docs
@@ -100,5 +99,7 @@ if [[ $(curl --fail --silent --show-error --max-time 20 --resolve jacksayway.caf
 fi
 curl --fail --silent --show-error --max-time 20 --resolve jacksayway.cafe24.com:443:127.0.0.1 'https://jacksayway.cafe24.com/login.php?role=employee' -o /dev/null
 printf 'PHP 화면 배포 완료. 백업: %s\n' "$backup"
+# The separately authorized, transactional data cleanup must not hold back verified screen fixes.
+run_deploy_step server/bin/clear-hantest-performance.php
 deployment_stage=complete
 publish_deployment_status complete
