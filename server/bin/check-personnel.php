@@ -19,6 +19,7 @@ function db(): PDO {
 }
 function h(string $value): string {return htmlspecialchars($value,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');}
 function entries_for(array $user): array {return [];}
+function session_timeout_minutes(): int {return 60;}
 function personnel_check(bool $condition,string $message): void {if(!$condition)throw new RuntimeException($message);}
 function personnel_rejects(callable $operation,string $message): void {
     try{$operation();}catch(InvalidArgumentException|HRForbidden|PDOException $e){return;}
@@ -36,9 +37,10 @@ CREATE TABLE app_users(id INTEGER PRIMARY KEY,username TEXT UNIQUE,display_name 
 CREATE TABLE hr_employee_sequences(day TEXT PRIMARY KEY,serial INTEGER);
 CREATE TABLE hr_employees(id INTEGER PRIMARY KEY AUTOINCREMENT,employee_no TEXT UNIQUE,user_id INTEGER UNIQUE REFERENCES app_users(id),profile TEXT,revision INTEGER DEFAULT 1,created_at TEXT DEFAULT CURRENT_TIMESTAMP);
 CREATE TABLE hr_personnel_events(id INTEGER PRIMARY KEY AUTOINCREMENT,employee_id INTEGER REFERENCES hr_employees(id),actor_id INTEGER REFERENCES app_users(id),event TEXT,revision INTEGER,snapshot TEXT,created_at TEXT DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE office_notices(id INTEGER PRIMARY KEY,channel TEXT,department TEXT,title TEXT,body TEXT,active INTEGER DEFAULT 1,created_at TEXT DEFAULT CURRENT_TIMESTAMP);
 INSERT INTO app_users(id,username,display_name,role,department) VALUES(1,'fixture-admin','관리자','admin','insurance'),(2,'fixture-one','직원 1','employee','insurance'),(3,'fixture-two','직원 2','employee','insurance');");
 $_SESSION=['csrf'=>'fixture-csrf-token'];
-$admin=['id'=>1,'role'=>'admin','display_name'=>'관리자'];$employee=['id'=>2,'role'=>'employee','display_name'=>'직원 1'];
+$admin=['id'=>1,'role'=>'admin','display_name'=>'관리자','department'=>'insurance'];$employee=['id'=>2,'role'=>'employee','display_name'=>'직원 1','department'=>'insurance'];
 $payload='<img src=x onerror=alert(1)>';$career='<script>alert(2)</script>';$memo='ADMIN_ONLY_PRIVATE_NOTE';
 $profile=array_replace(personnel_default_profile(),['name'=>$payload,'phone'=>'010-0000-0000','startDate'=>'2026-01-01','contractStart'=>'2026-01-01','gender'=>'여','birthDate'=>'1990-01-01','address'=>'서울 <상세>','career'=>$career,'jobType'=>'고객상담','renewalDate'=>'2026-02-01','retirementReason'=>'계약 만료','deathDate'=>'','deathReason'=>'','qualification'=>'상담 교육 수료','memo'=>$memo]);
 hr_mutate($admin,['action'=>'saveStaff','profile'=>$profile,'accountId'=>2]);
