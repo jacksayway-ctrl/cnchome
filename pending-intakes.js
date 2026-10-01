@@ -3,7 +3,8 @@ const role=window.CNCHOME_LIVE?.user?.role;
 if(!['employee','admin'].includes(role))return;
 const admin=role==='admin',testAccount=window.CNCHOME_LIVE.isTestAccount===true,teams={insurance:'보험팀',cosmetics:'화장품팀',health:'건강보조식품팀'};
 let rows=[],busy=false,posting=false,queued=null,index,feedback='',loadError='',loaded=false,composingInput=null;
-let listScope=null,listPage=1;
+let listScope=null,listPage=1,counselorNames=[];
+const sharedEditors=new Map(),lockedControls=new Map();
 const pageSize=10,scopeLabels={all:'전체 가접수',today:'오늘 재접수 가능',waiting:'관리자 확인 대기'};
 const expanded=new Set(),drafts=new Map(),editDrafts=new Map(),formBases=new Map(),filters={employee:'',scope:'real',query:''};
 const editFields=['customer','phone','birthDate','birthYear','carrier','consultationTime','consultationPlace','premiumBand','gender','callAvailability','visitSchedule','counselorName'];
@@ -46,6 +47,7 @@ function adminActions(r){
  return `<div class="pending-intake-actions pending-intake-admin-actions"><a class="action" href="/intake.php?${esc(params.toString())}" target="_blank" rel="noopener">접수관리 새창</a>${r.recallPending?`<a class="secondary" href="/intake.php?${esc(queue.toString())}#recall-confirmations" target="_blank" rel="noopener">정상접수 확인표</a>`:''}</div>`;
 }
 function editForm(r,i){
+ if(admin)return `<div class="receipt-host" data-pending-receipt="${esc(r.id)}"></div>`;
  const draft=editDrafts.get(r.id),values=draft?.fields||fieldValues(r),revision=draft?.revision??r.revision;
  formBases.set(r.id,{fields:fieldValues(r),revision:r.revision});
  const carrierOptions=[...new Set([r.carrier,...(window.PolicySync?.snapshot?.codes||[]).map(c=>c.label)].filter(Boolean))];
@@ -66,6 +68,27 @@ function editForm(r,i){
  <div class="pending-intake-wide pending-intake-actions"><button type="submit" ${busy?'disabled':''}>수정내용 적용</button><button type="button" class="secondary" data-pending-edit-reset="${esc(r.id)}" ${busy?'disabled':''}>저장내용으로 되돌리기</button><span class="pending-intake-edit-state" data-pending-edit-state>${draft?(revision!==r.revision?'다른 화면에서 내용이 변경되었습니다. 저장내용으로 되돌린 뒤 수정해 주세요.':'수정 중 · 적용하면 저장됩니다.'):r.lastEditAt?'마지막 수정 '+esc(minute(r.lastEditAt)):''}</span></div>
  </fieldset></form>`;
 }
+function hydratePending(el){
+ if(!admin||!window.AdminIntakeEdit)return;
+ for(const placeholder of el.querySelectorAll('[data-pending-receipt]')){
+  const id=placeholder.dataset.pendingReceipt,r=rows.find(row=>row.id===id);if(!r||!expanded.has(id))continue;
+  let entry=sharedEditors.get(id);
+  if(!entry){
+   const host=document.createElement('div');host.className='receipt-host';host.dataset.pendingReceipt=id;host.dataset.intakeEditUrl='/intake.php';
+   const data=document.createElement('template');data.dataset.intakeEditData='';data.content.append(document.createTextNode(JSON.stringify({record:{...r,reason:''},counselorNames})));
+   const guards=document.createElement('template');guards.dataset.intakeEditHidden='';
+   const target=document.createElement('div');target.dataset.intakeEditForm='';host.append(data,guards,target);
+   entry={host};sharedEditors.set(id,entry);placeholder.replaceWith(host);
+   window.AdminIntakeEdit.mount(host,false,{reset:()=>{clearShared(id);render(true);load();},close:()=>{el.querySelectorAll('[data-pending-toggle]').forEach(row=>{if(row.dataset.pendingToggle===id)row.click();});},submit:form=>{
+    if(posting||busy){form.querySelector('[data-sales-error]').textContent='조회 또는 저장 중입니다. 잠시 후 다시 눌러 주세요.';return;}
+    const fields=Object.fromEntries(new FormData(form));
+    load({...fields,id,revision:r.revision,action:'edit'});
+   }});
+  }else if(placeholder!==entry.host)placeholder.replaceWith(entry.host);
+  window.ReceiptForm.updateCounselors(entry.host.querySelector('form'),counselorNames);
+ }
+}
+function clearShared(id){const entry=sharedEditors.get(id);if(entry){window.AdminIntakeEdit?.dispose(entry.host);sharedEditors.delete(id);}}
 function memoForm(r,codes){
  const draft=drafts.get(r.id)||{};
  return `<form class="pending-intake-form" data-pending-id="${esc(r.id)}" data-revision="${r.revision}"><fieldset ${posting?'disabled':''}><label>메모 이어쓰기<textarea name="memo" maxlength="500" required placeholder="통화 결과나 다음 연락 내용을 입력해 주세요.">${esc(draft.memo||'')}</textarea></label>${admin?'':`<label>재콜 접수 코드<select name="carrier">${codes.length?codes.map(c=>`<option value="${esc(c.label)}" ${(draft.carrier||r.carrier)===c.label?'selected':''}>${esc(c.label)}</option>`).join(''):'<option value="">접수 가능한 정책 없음</option>'}</select></label>`}<div class="pending-intake-actions"><button type="submit" class="secondary" name="action" value="memo" ${busy?'disabled':''}>메모 추가</button>${admin?'':`<button type="submit" name="action" value="recall" ${busy||!codes.length||r.recallPending?'disabled':''}>${r.recallPending?'관리자 확인 대기':'재콜 수정'}</button>`}</div></fieldset></form><p class="pending-intake-feedback">메모는 작성자·날짜·시간과 함께 기존 기록에 추가됩니다.${admin?'':' 재콜 수정은 관리자 정상접수 확인표로 전달됩니다.'}</p>`;
@@ -109,18 +132,19 @@ function render(force=false){
   results=admin?guidance+(loaded?'<div class="pending-intake-meta"><span>현재 조회 '+picked.length+'건</span><span>조회 결과 중 오늘 재접수 가능 '+(policyReady?picked.filter(x=>x.todayCodes.length>0).length+'건':'조회 중')+'</span></div>':'')+table:'<div class="pending-intake-list-heading"><h4>'+scopeLabels[listScope]+' · '+(selectedReady?picked.length+'건':'조회 중')+'</h4>'+pageMarkup(picked.length,pageCount)+'</div>'+guidance+table;
  }
  el.innerHTML=countMarkup(evaluated,possible,policyReady)+filterMarkup()+'<p class="pending-intake-feedback" role="status">'+esc(feedback)+'</p>'+(loadError?'<p class="pending-intake-error" role="alert">'+esc(loadError)+'</p>':'')+(admin?results:'<section id="pending-intake-results" class="pending-intake-results" aria-label="'+(scopeLabels[listScope]||'가접수 목록')+'" '+(listScope?'':'hidden')+'>'+results+'</section>');
+ hydratePending(el);
  let control;if(focusedScope)control=el.querySelector('[data-pending-scope="'+focusedScope+'"]');else if(focusedPage)control=el.querySelector('[data-pending-page="'+focusedPage+'"]:not(:disabled)')||el.querySelector('[data-pending-page]:not(:disabled)');else if(focusedFilter)control=el.querySelector('[data-pending-filter="'+focusedFilter+'"]');else if(focusedId&&focusedName){const form=Array.from(el.querySelectorAll('form')).find(f=>(focusedForm.dataset.pendingEditId?f.dataset.pendingEditId:f.dataset.pendingId)===focusedId);control=form?.elements[focusedName];}
  if(control){control.focus({preventScroll:true});if(selection&&control.setSelectionRange)control.setSelectionRange(...selection);}
  const nextScroll=el.querySelector('.scroll');if(nextScroll){nextScroll.scrollTop=scrollPosition[0];nextScroll.scrollLeft=scrollPosition[1];}
 }
 async function load(body){
  if(admin&&body&&body.action==='recall')return;
- const el=document.querySelector('[data-pending-list]');if(body){posting=true;el?.querySelectorAll('form fieldset,[data-pending-scope],[data-pending-page]').forEach(f=>f.disabled=true);}if(busy){if(body&&!queued)queued=body;return;}busy=true;
+ const el=document.querySelector('[data-pending-list]');if(body){posting=true;el?.querySelectorAll('[data-pending-receipt] input,[data-pending-receipt] select,[data-pending-receipt] textarea,[data-pending-receipt] button').forEach(control=>{lockedControls.set(control,control.disabled);control.disabled=true;});el?.querySelectorAll('form fieldset,[data-pending-scope],[data-pending-page]').forEach(f=>f.disabled=true);}if(busy){if(body&&!queued)queued=body;return;}busy=true;
  const refresh=document.querySelector('[data-pending-refresh]');if(refresh)refresh.disabled=true;
  const controller=new AbortController(),timer=body?null:setTimeout(()=>controller.abort(),45000);
- try{const response=await fetch('/pending-intakes.php?role='+encodeURIComponent(role),{method:body?'POST':'GET',credentials:'same-origin',cache:'no-store',signal:controller.signal,headers:{'Content-Type':'application/json','X-CSRF-Token':window.CNCHOME_LIVE.csrf},...(body?{body:JSON.stringify(body)}:{})});const data=await response.json();if(!response.ok)throw Error(data.error||(response.status===401?'로그인 상태를 확인한 뒤 다시 접속해 주세요.':'가접수 조회에 실패했습니다.'));if(!Array.isArray(data.records))throw Error('가접수 응답을 확인하지 못했습니다. 다시 조회해 주세요.');rows=data.records.filter(r=>admin||(Number(r.employeeId)===Number(window.CNCHOME_LIVE.user.id)&&Boolean(r.isTest)===testAccount));loaded=true;loadError='';if(body){if(body.action==='edit')editDrafts.delete(body.id);else drafts.delete(body.id);feedback=body.action==='edit'?'수정한 접수내용을 적용했습니다.':body.action==='memo'?'작성 날짜·시간과 함께 메모를 추가했습니다.':'재콜 수정 내용을 관리자 정상접수 확인표로 전달했습니다.';}
+ try{const response=await fetch('/pending-intakes.php?role='+encodeURIComponent(role),{method:body?'POST':'GET',credentials:'same-origin',cache:'no-store',signal:controller.signal,headers:{'Content-Type':'application/json','X-CSRF-Token':window.CNCHOME_LIVE.csrf},...(body?{body:JSON.stringify(body)}:{})});const data=await response.json();if(!response.ok)throw Error(data.error||(response.status===401?'로그인 상태를 확인한 뒤 다시 접속해 주세요.':'가접수 조회에 실패했습니다.'));if(!Array.isArray(data.records))throw Error('가접수 응답을 확인하지 못했습니다. 다시 조회해 주세요.');rows=data.records.filter(r=>admin||(Number(r.employeeId)===Number(window.CNCHOME_LIVE.user.id)&&Boolean(r.isTest)===testAccount));counselorNames=Array.isArray(data.counselorNames)?data.counselorNames:[];loaded=true;loadError='';if(body?.action==='edit')clearShared(body.id);for(const id of sharedEditors.keys())if(!rows.some(r=>r.id===id))clearShared(id);if(body){if(body.action==='edit')editDrafts.delete(body.id);else drafts.delete(body.id);feedback=body.action==='edit'?'수정한 접수내용을 적용했습니다.':body.action==='memo'?'작성 날짜·시간과 함께 메모를 추가했습니다.':'재콜 수정 내용을 관리자 정상접수 확인표로 전달했습니다.';}
  for(const r of rows){const draft=editDrafts.get(r.id);if(draft&&sameFields(draft.base,fieldValues(r)))draft.revision=r.revision;}}
- catch(e){loadError=e.name==='AbortError'?'가접수 조회 시간이 초과됐습니다. 새로고침을 눌러 주세요.':e.message;}finally{clearTimeout(timer);busy=false;if(queued){const next=queued;queued=null;load(next);}else{posting=false;render(!!body);}}
+ catch(e){loadError=e.name==='AbortError'?'가접수 조회 시간이 초과됐습니다. 새로고침을 눌러 주세요.':e.message;}finally{clearTimeout(timer);busy=false;if(queued){const next=queued;queued=null;load(next);}else{posting=false;for(const [control,disabled] of lockedControls)control.disabled=disabled;lockedControls.clear();render(!!body);if(body&&loadError){const message=sharedEditors.get(body.id)?.host.querySelector('[data-sales-error]');if(message){message.textContent=loadError;message.dataset.state='error';}}}}
 }
 document.addEventListener('click',e=>{
  if(e.target.closest('[data-pending-refresh]')){load();return;}
@@ -129,7 +153,7 @@ document.addEventListener('click',e=>{
  const reset=e.target.closest('[data-pending-edit-reset]');if(reset){editDrafts.delete(reset.dataset.pendingEditReset);feedback='저장된 접수내용을 다시 불러왔습니다.';render(true);load();return;}
  if(admin&&e.target.closest('[data-pending-filter-reset]')){Object.assign(filters,{employee:'',scope:'real',query:''});render(true);return;}
  const row=e.target.closest('[data-pending-toggle]');if(!row)return;
- const id=row.dataset.pendingToggle,on=!expanded.has(id);if(on)expanded.add(id);else expanded.delete(id);row.setAttribute('aria-expanded',String(on));const button=row.querySelector('button');button.setAttribute('aria-expanded',String(on));button.textContent=on?'접기':'펼치기';button.setAttribute('aria-label',(rows.find(r=>r.id===id)?.customer||'고객')+' 상세 '+(on?'접기':'펼치기'));row.nextElementSibling.hidden=!on;
+ const id=row.dataset.pendingToggle,on=!expanded.has(id);if(on)expanded.add(id);else expanded.delete(id);row.setAttribute('aria-expanded',String(on));const button=row.querySelector('button');button.setAttribute('aria-expanded',String(on));button.textContent=on?'접기':'펼치기';button.setAttribute('aria-label',(rows.find(r=>r.id===id)?.customer||'고객')+' 상세 '+(on?'접기':'펼치기'));row.nextElementSibling.hidden=!on;if(on)hydratePending(row.nextElementSibling);
 });
 function capture(e){
  const filter=e.target.closest('[data-pending-filter]');

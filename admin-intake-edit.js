@@ -13,16 +13,16 @@
  }
  function hidden(form,name,value){const input=document.createElement('input');input.type='hidden';input.name=name;input.value=String(value??'');form.append(input);return input;}
  function field(label,control){const wrapper=document.createElement('label');wrapper.className='receipt-admin-field';wrapper.append(document.createTextNode(label),control);return wrapper;}
- function mount(host,force=false){
+ function mount(host,force=false,options={}){
   if(active.has(host)&&!force)return;
   const target=host.querySelector('[data-intake-edit-form]'),data=host.querySelector('[data-intake-edit-data]'),nativeHidden=host.querySelector('[data-intake-edit-hidden]');
   if(!target||!data||!nativeHidden||!global.ReceiptForm||!global.IntakeDetails)return;
   let payload;try{payload=JSON.parse(data.content.textContent);}catch(_){target.textContent='접수 정보를 불러오지 못했습니다. 새로고침해 주세요.';return;}
-  const record=payload.record;if(!record||!/^\d+$/.test(record.id)||!/^\d{4}-\d{2}-\d{2}$/.test(record.date))return;
+  const record=payload.record;if(!record||!/^(?:\d+|test:\d+:\d+)$/.test(record.id)||!/^\d{4}-\d{2}-\d{2}$/.test(record.date))return;
   const action=new URL(host.dataset.intakeEditUrl,global.CNCPageUrl||location.href);if(action.origin!==location.origin||action.pathname!=='/intake.php')return;
   active.get(host)?.();
   target.innerHTML=global.ReceiptForm.markup({admin:true,editing:true,idPrefix:'receipt-edit-'+record.id,staff:[],user:{display_name:record.counselorName},counselorNames:payload.counselorNames||[]});
-  const form=target.querySelector('form');form.method='post';form.action=action.href;form.classList.add('intake-form');form.dataset.intakeEditForm='';form.dataset.receiptCarrierOriginal=record.carrier;
+  const form=target.querySelector('form');form.method='post';form.action=action.href;form.classList.add('intake-form');form.dataset.intakeEditForm='';if(options.submit)form.removeAttribute('data-sales-form');form.dataset.receiptCarrierOriginal=record.carrier;
   form.append(nativeHidden.content.cloneNode(true));
   for(const name of ['customer','consultationTime','consultationPlace','visitSchedule','carrier','callAvailability'])inputValue(form,name,record[name]);
   const counselor=form.elements.counselorName;
@@ -59,18 +59,19 @@
   const status=document.createElement('select');status.name='status';
   for(const [value,label] of [['pending','가접수'],['normal','정상접수 (승인)'],['as','A/S']])status.add(new Option(label,value,value===record.status,value===record.status));
   const reason=document.createElement('input');reason.name='reason';reason.maxLength=500;reason.value=record.reason;reason.defaultValue=reason.value;reason.placeholder='수정 사유 (선택)';
-  adminFields.append(field('승인 상태',status),field('수정 사유 (선택)',reason));form.querySelector('.receipt-grid').after(adminFields);
+  if(!options.submit){adminFields.append(field('승인 상태',status),field('수정 사유 (선택)',reason));form.querySelector('.receipt-grid').after(adminFields);}
   form.querySelector('.receipt-save').textContent='변경 내용 저장';form.querySelector('.receipt-save').dataset.receiptPointerSave='';
-  const reset=form.querySelector('.receipt-reset');reset.type='button';reset.textContent='되돌리기';reset.addEventListener('click',()=>mount(host,true));
-  function close(){const row=host.closest('[data-intake-detail]');const toggle=row?.previousElementSibling?.querySelector('[data-intake-toggle]');if(toggle)toggle.click();else host.closest('details')?.removeAttribute('open');}
+  const reset=form.querySelector('.receipt-reset');reset.type='button';reset.textContent='되돌리기';reset.addEventListener('click',()=>options.reset?options.reset():mount(host,true,options));
+  function close(){if(options.close){options.close();return;}const row=host.closest('[data-intake-detail]');const toggle=row?.previousElementSibling?.querySelector('[data-intake-toggle]');if(toggle)toggle.click();else host.closest('details')?.removeAttribute('open');}
   const detachReceipt=global.ReceiptForm.attach(form,{originalDate:record.date,originalCallAvailability:record.callAvailability,phoneMode:fullPhone?'full':'mobile',autofocus:false,close});
   global.ConsultationLocation?.attach(form);
   const detachDetails=global.IntakeDetails.attach(form,{team:()=>record.team});
   form.addEventListener('input',syncBirth);form.addEventListener('change',syncBirth);form.addEventListener('submit',syncBirth);syncBirth();
+  if(options.submit)form.addEventListener('submit',event=>{event.preventDefault();event.stopPropagation();syncBirth();if(form.reportValidity())options.submit(form);});
   global.CNCWindowSession?.decorateForm(form);
   active.set(host,()=>{detachReceipt?.();if(typeof detachDetails==='function')detachDetails();});
  }
  function hydrate(root=document){for(const host of root.querySelectorAll('[data-intake-edit-host]'))mount(host);}
- global.AdminIntakeEdit={hydrate};
+ global.AdminIntakeEdit={hydrate,mount,dispose(host){active.get(host)?.();active.delete(host);}};
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>hydrate(),{once:true});else hydrate();
 })(window);

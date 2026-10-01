@@ -116,7 +116,7 @@
    const selectedLabel=preserveCarrier?form.dataset.receiptCarrierOriginal:(selectedRadio?.dataset.receiptCarrierLabel??registered?.label??selectedRadio?.value??'');
    // The chosen insurer is independent of policy availability; never replace it with another insurer.
    if(carrierSelection)fields.carrier.value=selectedLabel;
-   if(product)product.textContent=team!=='insurance'?(team?'보험 상품 구분 적용 대상이 아닙니다.':'담당 직원을 선택해 주세요.'):info.error||(!info.birthDate?'생년월일 입력 시 일반·실버 자동 구분':!info.kind?'접수 가능 연령 초과 · '+info.age+'세':selectedLabel?[selectedLabel,info.kind==='silver'?'실버':'일반',info.age+'세'].join(' · '):'접수 코드를 선택해 주세요.');
+   if(product)product.textContent=info.error|| (info.age===null?'':!info.kind?'접수 가능 연령 초과 · '+info.age+'세':info.kind==='silver'?'실버':'일반');
    let result;
    if(team!=='insurance')result={state:'review',text:team?'보험 접수 정책 적용 대상이 아닙니다.':'담당 직원을 선택하면 해당 부서의 접수 기준을 확인합니다.',items:[]};
    else if(info.error||!info.birthDate)result={state:'review',text:info.error||'생년월일을 입력하면 나이에 맞는 접수 정책을 확인합니다.',items:[]};

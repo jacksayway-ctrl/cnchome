@@ -8,7 +8,7 @@ function pending_intake_authorize(array $user,bool $write=false,string $action='
     if($write&&$role==='admin'&&!in_array($action,['edit','memo'],true))throw new HRForbidden('재콜 요청은 직원 본인만 등록할 수 있습니다. 관리자는 정상접수 확인표에서 처리해 주세요.');
 }
 
-/** Validate editable receipt fields; assignment, original date, status and old notes are immutable here. */
+/** Validate editable receipt fields; assignment, original date, status are immutable here. */
 function pending_intake_fields(array $in,array $current): array {
     $next=sales_receipt_fields($in,$current);foreach(['customer'=>100,'phone'=>20,'birthDate'=>10,'carrier'=>100,'consultationTime'=>5,'consultationPlace'=>500,'premiumBand'=>6] as $key=>$max)$next[$key]=intake_text($in[$key]??$current[$key]??'',$max);
     hr_assert($next['customer']!=='','고객명을 입력해 주세요.');
@@ -55,10 +55,11 @@ function pending_intake_update(array $user,array $in): void {
         }
         $before=['status'=>'pending'];$after=['status'=>'pending','carrier'=>$carrier,'date'=>$current['date']];
         if($action==='edit'){
-            $next=pending_intake_fields($in,$current);$before=[];foreach($next as $key=>$value)$before[$key]=$current[$key];$after=$next;
+            $next=pending_intake_fields($in,$current);if($admin){$current['note']=$legacy?($sale['note']??''):($stored['note']??'');$next['note']=intake_text($in['note']??$current['note'],1000);}$before=[];foreach($next as $key=>$value)$before[$key]=$current[$key];$after=$next;
             hr_assert($before!==$after||$memo!=='','변경한 접수내용이 없습니다.');
             if($legacy){
                 foreach(['customer'=>'name','phone'=>'phone','birthDate'=>'birthDate','birthYear'=>'birthYear','carrier'=>'carrier','consultationTime'=>'consultationTime','consultationPlace'=>'consultationPlace','premiumBand'=>'premiumBand','gender'=>'gender','callAvailability'=>'callAvailability','visitSchedule'=>'visitSchedule','counselorName'=>'counselorName'] as $key=>$storedKey)$state['sales'][$found][$storedKey]=$next[$key];
+                if($admin)$state['sales'][$found]['note']=$next['note'];
                 $state['sales'][$found]['kind']=$next['kind']==='silver'?'실버':($next['kind']==='general'?'일반':'');$state['sales'][$found]['editedAt']=gmdate('c');
             }else{
                 $q=$d->prepare('UPDATE sales_records SET customer_name=?,phone=?,birth_year=?,insurance_kind=?,carrier=? WHERE id=?');$q->execute([$next['customer'],$next['phone'],$next['birthYear'],$next['kind'],$next['carrier'],$id]);
@@ -67,6 +68,7 @@ function pending_intake_update(array $user,array $in): void {
                 if($receiptRow){$q=$d->prepare('UPDATE sales_receipt_details SET gender=?,call_availability=?,visit_schedule=? WHERE sale_id=?');$q->execute([$next['gender'],$next['callAvailability'],$next['visitSchedule'],$id]);}
                 else{$q=$d->prepare('INSERT INTO sales_receipt_details(sale_id,gender,call_availability,visit_schedule) VALUES(?,?,?,?)');$q->execute([$id,$next['gender'],$next['callAvailability'],$next['visitSchedule']]);}
                 sales_save_counselor((int)$id,$next['counselorName']);
+                if($admin){$q=$d->prepare('UPDATE sales_records SET note=? WHERE id=?');$q->execute([$next['note'],$id]);}
                 if($next['birthDate']===''){$q=$d->prepare('DELETE FROM sales_birth_details WHERE sale_id=?');$q->execute([$id]);}
                 elseif($birthDate!==false){$q=$d->prepare('UPDATE sales_birth_details SET birth_date=? WHERE sale_id=?');$q->execute([$next['birthDate'],$id]);}
                 else{$q=$d->prepare('INSERT INTO sales_birth_details(sale_id,birth_date) VALUES(?,?)');$q->execute([$id,$next['birthDate']]);}
@@ -109,5 +111,5 @@ function pending_intake_snapshot(array $user): array {
         }
         $outstanding=intake_outstanding_recalls($ids);foreach($ids as $id)$rows[$id]['recallPending']=isset($outstanding[$id]);
     }
-    $rows=array_values($rows);usort($rows,fn($a,$b)=>strcmp($a['date'],$b['date'])?:strnatcmp($a['id'],$b['id']));return ['records'=>$rows];
+    $rows=array_values($rows);usort($rows,fn($a,$b)=>strcmp($a['date'],$b['date'])?:strnatcmp($a['id'],$b['id']));return ['records'=>$rows,'counselorNames'=>$admin?sales_counselor_names($user):[]];
 }
