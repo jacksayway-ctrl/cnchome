@@ -39,11 +39,17 @@ $retry=intake_create($admin,['employeeId'=>'2','date'=>$today,'customer'=>'관�
 check($created['id']===$retry['id'],'native registration is retry-safe');
 // Render the actual detail page with untrusted customer text.
 $snapshot=sales_snapshot($admin,$month);$rows=intake_filtered($snapshot['records'],$filters);$list=$rows;$selected=array_values(array_filter($snapshot['records'],fn($r)=>$r['id']==='1'))[0];
-$mode='list';$error='';$notice='';$posted=[];$total=count($rows);$pages=1;$testCount=1;$counts=['pending'=>0,'normal'=>0,'as'=>1];$history=intake_history($admin,'1');$_SESSION=['csrf'=>'fixture-token'];
+$user=$admin;$mode='list';$error='';$notice='';$posted=[];$total=count($rows);$pages=1;$testCount=1;$counts=['pending'=>0,'normal'=>0,'as'=>1];$history=intake_history($admin,'1');$_SESSION=['csrf'=>'fixture-token'];
 ob_start();require __DIR__.'/../views/intake.php';$html=ob_get_clean();
 check(!str_contains($html,'<script>alert(1)</script>')&&str_contains($html,'&lt;script&gt;'),'customer text escaped in list and detail');
 check(str_contains($html,'value="300000" selected'),'stored premium band remains selected when editing');
 check(str_contains($html,'fixture-token')&&str_contains($html,'name="revision"'),'mutations carry CSRF and revision');
+check(str_contains($html,'<th>상담원</th>')&&str_contains($html,'data-intake-id="1"')&&str_contains($html,'data-intake-toggle aria-expanded="true"')&&str_contains($html,'id="intake-detail-1" data-intake-detail data-intake-loaded="true"'),'selected receipt stays expanded beneath its searchable table row with counselor column');
+preg_match_all('/<form\b[^>]*>.*?<\/form>/s',$html,$renderedForms);$expandedEditForms=array_values(array_filter($renderedForms[0],fn($form)=>str_contains($form,'name="action" value="edit"')));
+check(count($expandedEditForms)===1&&str_contains($expandedEditForms[0],'<select name="status">')&&str_contains($expandedEditForms[0],'<select name="counselorName"')&&str_contains($expandedEditForms[0],'value="as" selected')&&str_contains($expandedEditForms[0],'value="변경 상담원" selected'),'expanded receipt posts selected counselor and approval status together in one guarded form');
+$detailFragment=true;ob_start();require __DIR__.'/../views/intake.php';$fragmentHtml=ob_get_clean();$detailFragment=false;
+check(str_contains($fragmentHtml,'data-intake-detail-panel data-intake-record="1"')&&!str_contains($fragmentHtml,'<script')&&!str_contains($fragmentHtml,'data-intake-row')&&!str_contains($fragmentHtml,'접수 목록'),'lazy detail response contains only the requested receipt panel without page scripts or list');
+check(str_contains($fragmentHtml,'&lt;script&gt;')&&str_contains($fragmentHtml,'fixture-token')&&str_contains($fragmentHtml,'name="revision"')&&str_contains($fragmentHtml,'name="id" value="1"'),'lazy detail keeps escaped customer text and exact record, CSRF and revision guards');
 echo "PASS: intake admin authorization, shared status, edits, atomic audit, stale writes, test isolation, filters, CSV safety, registration retry and rendered escaping.\n";
 
 require __DIR__.'/../lib/intake-alerts.php';
@@ -213,3 +219,57 @@ $d->exec('DELETE FROM test_employee_data WHERE user_id=2');
 $d->prepare('UPDATE sales_records SET is_test=? WHERE id=?')->execute([$isolationPending['is_test'],$legacyId]);
 check(count(pending_intake_snapshot($one)['records'])===$isolationPendingCount&&!$d->inTransaction(),'pending isolation checks restore the fixture');
 echo "PASS: inline real/legacy receipt edits, administrator and employee parity, per-owner access, immutable owner/date/status/notes, complete field validation, no-op and stale rejection, atomic audit rollback and timestamped append-only memo history.\n";
+
+// Administrator search keeps every matching receipt, including duplicate names/phones.
+$searchBase=array_column(sales_snapshot($admin,$month)['records'],null,'id')['1'];
+$searchBase=array_replace($searchBase,['date'=>$today,'isTest'=>false,'employee'=>'검색제외 상담원','carrier'=>'검색제외 정책','consultationPlace'=>'검색제외 지역']);
+$searchRecords=[
+    array_replace($searchBase,['id'=>'search-a','customer'=>'김고객','phone'=>'010-5555-1234']),
+    array_replace($searchBase,['id'=>'search-b','customer'=>'김고객 (중복)','phone'=>'01055551234']),
+    array_replace($searchBase,['id'=>'search-c','customer'=>'다른고객','phone'=>'010-5555-1234']),
+    array_replace($searchBase,['id'=>'search-d','customer'=>'김고객','phone'=>'010-0000-4321']),
+    array_replace($searchBase,['id'=>'search-old','customer'=>'김고객','phone'=>'010-5555-1234','date'=>$lastMonth]),
+    array_replace($searchBase,['id'=>'search-test','customer'=>'김고객','phone'=>'010-5555-1234','isTest'=>true]),
+];
+$searchFilters=intake_filters(['month'=>$month,'scope'=>'real']);
+$matchedNames=array_column(intake_filtered($searchRecords,array_replace($searchFilters,['q'=>'김고객'])),'id');sort($matchedNames);
+check($matchedNames===['search-a','search-b','search-d'],'name search shows every same-name receipt, including stored duplicate labels');
+$matchedPhones=array_column(intake_filtered($searchRecords,array_replace($searchFilters,['q'=>'(010) 5555-1234'])),'id');sort($matchedPhones);
+check($matchedPhones===['search-a','search-b','search-c'],'formatted phone search shows all matches regardless of stored hyphens or customer name');
+foreach(['검색제외','search-a','김5555'] as $query)check(intake_filtered($searchRecords,array_replace($searchFilters,['q'=>$query]))===[],'name/phone search does not match unrelated fields or extract digits from text');
+check(count(intake_filtered($searchRecords,array_replace($searchFilters,['q'=>'1234'])))===3,'partial phone search retains month and real-data scope');
+
+// Counselor, details and approval status save in one revision and one transaction.
+$combinedCreated=intake_create($admin,['employeeId'=>'2','date'=>$today,'customer'=>'함께 수정 고객','phone'=>'010-8765-4321','birthDate'=>'1990-01-01','counselorName'=>'보험 직원','note'=>'한화','requestKey'=>'12345678-aaaa-bbbb-cccc-010101010101']);
+$combinedId=(string)$combinedCreated['id'];
+$combinedRecord=fn()=>array_column(sales_snapshot($admin,$month)['records'],null,'id')[$combinedId];
+$combinedBefore=$combinedRecord();
+intake_audit($combinedId,$one,'recall',['status'=>'pending'],['status'=>'pending','carrier'=>'한화'],'결합 수정 전 재콜');
+check(isset(intake_outstanding_recalls([$combinedId])[$combinedId]),'combined edit fixture starts with an outstanding recall');
+$combinedEdit=['action'=>'edit','id'=>$combinedId,'revision'=>$combinedBefore['revision'],'customer'=>'함께 수정한 고객','phone'=>'010-8765-4321','carrier'=>'GA','note'=>'실버','consultationTime'=>'11:30','consultationPlace'=>'경기도 이천시','premiumBand'=>'200000','counselorName'=>'화장품 직원','gender'=>'여','callAvailability'=>'오후 2~3시','visitSchedule'=>'주민센터','status'=>'normal','reason'=>'상담원 및 승인 상태 확인','employeeId'=>'3','date'=>$lastMonth];
+rejects(fn()=>intake_update($one,$combinedEdit),'employee cannot combine counselor and approval changes');
+intake_update($admin,$combinedEdit);$combinedAfter=$combinedRecord();
+check($combinedAfter['status']==='normal'&&$combinedAfter['counselorName']==='화장품 직원'&&$combinedAfter['customer']==='함께 수정한 고객'&&$combinedAfter['consultationTime']==='11:30','combined administrator edit persists counselor, status and receipt details together');
+check($combinedAfter['revision']===$combinedBefore['revision']+1&&$combinedAfter['employeeId']===$combinedBefore['employeeId']&&$combinedAfter['date']===$combinedBefore['date'],'combined edit advances one revision and never reassigns owner or original receipt date');
+check(!isset(intake_outstanding_recalls([$combinedId])[$combinedId]),'status change through expanded receipt editing closes the outstanding recall');
+$combinedHistory=intake_history($admin,$combinedId);$combinedStatus=array_values(array_filter($combinedHistory,fn($event)=>$event['action']==='status'));$combinedDetail=array_values(array_filter($combinedHistory,fn($event)=>$event['action']==='edit'));
+check(count($combinedStatus)===1&&$combinedStatus[0]['before']['status']==='pending'&&$combinedStatus[0]['after']['status']==='normal'&&count($combinedDetail)===1&&$combinedDetail[0]['after']['counselorName']==='화장품 직원','combined save audits the edited data and the actual status transition');
+rejects(fn()=>intake_update($admin,$combinedEdit),'stale expanded receipt form cannot overwrite a newer counselor or status');
+$combinedSame=array_replace($combinedEdit,['revision'=>$combinedAfter['revision']]);rejects(fn()=>intake_update($admin,$combinedSame),'unchanged counselor/details/status does not create another revision or audit');
+check($combinedRecord()===$combinedAfter&&intake_history($admin,$combinedId)===$combinedHistory,'stale and no-op expanded edits preserve all stored fields and history');
+
+// Fail specifically at the second audit, after every data write and the edit audit.
+$d->exec("CREATE TRIGGER reject_combined_status_audit BEFORE INSERT ON intake_management_events WHEN NEW.action='status' AND NEW.record_key='".$combinedId."' BEGIN SELECT RAISE(ABORT,'isolated status audit failure'); END;");
+try{intake_update($admin,array_replace($combinedSame,['status'=>'as','counselorName'=>'보험 직원','customer'=>'취소되어야 하는 변경','consultationPlace'=>'취소 지역']));throw new RuntimeException('Expected combined audit failure');}catch(PDOException $e){}finally{$d->exec('DROP TRIGGER reject_combined_status_audit');}
+check($combinedRecord()===$combinedAfter&&intake_history($admin,$combinedId)===$combinedHistory&&!$d->inTransaction(),'failed status audit rolls back counselor, status, receipt details, revision and first edit audit');
+
+// A counselor-only correction must not silently mark a pending recall as handled.
+intake_update($admin,array_replace($combinedSame,['status'=>'pending']));
+$statusOnly=$combinedRecord();check($statusOnly['status']==='pending'&&$statusOnly['counselorName']===$combinedAfter['counselorName']&&$statusOnly['revision']===$combinedAfter['revision']+1,'changing only approval status is a valid expanded-form edit');
+intake_audit($combinedId,$one,'recall',['status'=>'pending'],['status'=>'pending','carrier'=>'한화'],'상담원 정정 중 재콜 유지');
+$beforeCounselorOnly=$combinedRecord();$statusCount=(int)$d->query("SELECT count(*) FROM intake_management_events WHERE record_key='".$combinedId."' AND action='status'")->fetchColumn();
+intake_update($admin,array_replace($combinedEdit,['revision'=>$beforeCounselorOnly['revision'],'status'=>'pending','counselorName'=>'보험 직원']));
+$afterCounselorOnly=$combinedRecord();
+check($afterCounselorOnly['counselorName']==='보험 직원'&&$afterCounselorOnly['status']==='pending'&&isset(intake_outstanding_recalls([$combinedId])[$combinedId]),'counselor-only edit preserves status and outstanding recall');
+check((int)$d->query("SELECT count(*) FROM intake_management_events WHERE record_key='".$combinedId."' AND action='status'")->fetchColumn()===$statusCount,'unchanged status never emits a false status-handled event');
+echo "PASS: administrator name/phone duplicate search, normalized phones, atomic counselor/status edits, immutable receipt ownership/date, stale and no-op guards, status audit rollback and precise recall handling.\n";

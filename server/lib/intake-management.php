@@ -18,7 +18,8 @@ function intake_filters(array $query): array {
 }
 function intake_filtered(array $records,array $f): array {
     $q=mb_strtolower($f['q']);$digits=preg_replace('/\D/','',$f['q']);
-    $rows=array_values(array_filter($records,function($r)use($f,$q,$digits){
+    $phoneQuery=$digits!==''&&(bool)preg_match('/^[0-9\s()+.\-]+$/uD',$f['q']);
+    $rows=array_values(array_filter($records,function($r)use($f,$q,$digits,$phoneQuery){
         if(!str_starts_with($r['date'],$f['month']))return false;
         if($f['scope']!=='all'&&(bool)$r['isTest']!==($f['scope']==='test'))return false;
         if($f['team']!==''&&$r['team']!==$f['team'])return false;
@@ -26,8 +27,8 @@ function intake_filtered(array $records,array $f): array {
         if($f['employee']!==''&&(int)$r['employeeId']!==(int)$f['employee'])return false;
         if(($f['from']&&$r['date']<$f['from'])||($f['to']&&$r['date']>$f['to']))return false;
         if($q!==''){
-            $hay=mb_strtolower(implode(' ',array_map(fn($key)=>(string)($r[$key]??''),['id','customer','phone','employee','carrier','consultationPlace'])));
-            if(!str_contains($hay,$q)&&!($digits!==''&&preg_match('/^[0-9 -]+$/D',$f['q'])&&str_contains(preg_replace('/\D/','',$r['phone']??''),$digits)))return false;
+            $name=mb_strtolower((string)($r['customer']??''));
+            if(!str_contains($name,$q)&&!($phoneQuery&&str_contains(sales_phone_key((string)($r['phone']??'')),$digits)))return false;
         }
         return true;
     }));
@@ -107,15 +108,18 @@ function intake_update(array $user,array $in): void {
                 $q=$d->prepare('SELECT consultation_time,consultation_place,premium_band FROM sales_consultation_details WHERE sale_id=?');$q->execute([(int)$id]);$details=$q->fetch();
                 $q=$d->prepare('SELECT gender,call_availability AS callAvailability,visit_schedule AS visitSchedule FROM sales_receipt_details WHERE sale_id=?');$q->execute([(int)$id]);$receiptRow=$q->fetch();$currentReceipt=($receiptRow?:[])+sales_counselor_fields((int)$id);$receipt=sales_receipt_fields($in,$currentReceipt);
                 $beforeReceipt=sales_receipt_fields([],$currentReceipt);
-                $before=array_intersect_key($row,$next)+$beforeReceipt+($details?:['consultation_time'=>'','consultation_place'=>'','premium_band'=>'']);
-                $after=$next+$receipt+['consultation_time'=>$time,'consultation_place'=>$place,'premium_band'=>$band];hr_assert($before!==$after,'변경된 내용이 없습니다.');
-                $q=$d->prepare('UPDATE sales_records SET customer_name=?,phone=?,carrier=?,note=?,revision=revision+1,updated_at=UTC_TIMESTAMP(6) WHERE id=?');$q->execute([$next['customer_name'],$next['phone'],$next['carrier'],$next['note'],(int)$id]);
+                $before=[];foreach(array_keys($next) as $column)$before[$column]=(string)$row[$column];
+                $before+=$beforeReceipt+['consultation_time'=>(string)($details['consultation_time']??''),'consultation_place'=>(string)($details['consultation_place']??''),'premium_band'=>(string)($details['premium_band']??''),'status'=>$row['status']];
+                $after=$next+$receipt+['consultation_time'=>$time,'consultation_place'=>$place,'premium_band'=>$band,'status'=>$status];hr_assert($before!==$after,'변경된 내용이 없습니다.');
+                $q=$d->prepare('UPDATE sales_records SET customer_name=?,phone=?,carrier=?,note=?,status=?,revision=revision+1,updated_at=UTC_TIMESTAMP(6) WHERE id=?');$q->execute([$next['customer_name'],$next['phone'],$next['carrier'],$next['note'],$status,(int)$id]);
                 if($details){$q=$d->prepare('UPDATE sales_consultation_details SET consultation_time=?,consultation_place=?,premium_band=? WHERE sale_id=?');$q->execute([$time,$place,$band,(int)$id]);}
                 else{$q=$d->prepare('INSERT INTO sales_consultation_details(sale_id,consultation_time,consultation_place,premium_band) VALUES(?,?,?,?)');$q->execute([(int)$id,$time,$place,$band]);}
                 if($receiptRow){$q=$d->prepare('UPDATE sales_receipt_details SET gender=?,call_availability=?,visit_schedule=? WHERE sale_id=?');$q->execute([$receipt['gender'],$receipt['callAvailability'],$receipt['visitSchedule'],(int)$id]);}
                 else{$q=$d->prepare('INSERT INTO sales_receipt_details(sale_id,gender,call_availability,visit_schedule) VALUES(?,?,?,?)');$q->execute([(int)$id,$receipt['gender'],$receipt['callAvailability'],$receipt['visitSchedule']]);}
                 sales_save_counselor((int)$id,$receipt['counselorName']);
                 intake_audit($id,$user,'edit',$before,$after,$reason);
+                // A status change here must close outstanding requests just like the status-only action.
+                if($row['status']!==$status)intake_audit($id,$user,'status',['status'=>$row['status']],['status'=>$status],$reason);
             }
         }
         $d->commit();

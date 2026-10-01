@@ -1,8 +1,10 @@
 <?php
 declare(strict_types=1);
 require __DIR__.'/_runtime.php';require_once CNC_RUNTIME_DIR.'/native.php';require_once CNC_RUNTIME_DIR.'/intake-management.php';
+$detailFragment=($_GET['detail']??'')==='1';
 try{
-    session_boot();$user=current_user();if(!$user){header('Location: /login.php?role=admin');exit;}intake_admin($user);
+    session_boot();$user=current_user();if(!$user){if($detailFragment){http_response_code(401);exit;}header('Location: /login.php?role=admin');exit;}intake_admin($user);
+    if($detailFragment&&($_SERVER['REQUEST_METHOD']??'GET')!=='GET'){http_response_code(405);header('Allow: GET');exit;}
     $popup=($_GET['popup']??'')==='1';$filters=intake_filters($_GET);if($popup)$filters['popup']='1';$mode=($_GET['new']??'')==='1'?'new':'list';$error='';$posted=[];$duplicateCount=0;
     if($_SERVER['REQUEST_METHOD']==='POST'){
         if(!is_string($_POST['csrf']??null)||!csrf_ok($_POST['csrf']))throw new HRForbidden('인증 시간이 만료됐습니다. 새로고침해 주세요.');
@@ -13,9 +15,18 @@ try{
         }catch(SalesDuplicate $e){http_response_code(409);$error=$e->getMessage();$duplicateCount=$e->count;$posted=array_filter($_POST,'is_string');}
         catch(InvalidArgumentException $e){http_response_code(422);$error=$e->getMessage();$posted=array_filter($_POST,'is_string');}
     }elseif($_SERVER['REQUEST_METHOD']!=='GET'){http_response_code(405);header('Allow: GET, POST');exit;}
-    $snapshot=sales_snapshot($user,$filters['month']);$rows=intake_filtered($snapshot['records'],$filters);$total=count($rows);$pages=max(1,(int)ceil($total/30));$filters['p']=min($filters['p'],$pages);$list=array_slice($rows,($filters['p']-1)*30,30);
+    $snapshot=sales_snapshot($user,$filters['month']);$rows=intake_filtered($snapshot['records'],$filters);$total=count($rows);$pages=max(1,(int)ceil($total/30));$filters['p']=min($filters['p'],$pages);
     $id=intake_text($_GET['id']??'',60);$selected=null;foreach($snapshot['records'] as $row)if($row['id']===$id)$selected=$row;
     if($id&&!$selected){http_response_code(404);$error='선택한 월에서 접수 내역을 찾을 수 없습니다.';}
+    if($detailFragment){
+        if(!$selected){http_response_code(404);exit;}
+        $history=intake_history($user,$id);
+        header('Content-Type: text/html; charset=utf-8');header('X-CNC-Intake-Detail: 1');
+        require view_root().'/intake.php';exit;
+    }
+    // Re-open the saved record on its actual result page after a filtered edit.
+    if($selected){$position=array_search($id,array_column($rows,'id'),true);if($position!==false)$filters['p']=(int)floor($position/30)+1;}
+    $list=array_slice($rows,($filters['p']-1)*30,30);
     if(($_GET['export']??'')==='csv'){
         header('Content-Type: text/csv; charset=UTF-8');header('Content-Disposition: attachment; filename="intake-'.$filters['month'].'.csv"');$out=fopen('php://output','w');fwrite($out,"\xEF\xBB\xBF");
         fputcsv($out,['접수번호','접수일','담당자','상담원','부서','고객명','전화번호','생년월일/출생연도','접수 코드','상담 시간','지역(동)','성별','통화 가능시간','방문 일정·장소','월보험료','메모','상태','자료 구분'],',','"','');

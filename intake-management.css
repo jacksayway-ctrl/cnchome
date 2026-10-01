@@ -31,3 +31,22 @@
 .intake-recall-actions label{display:grid;gap:5px;font-size:12px;color:#63768d}.intake-recall-actions textarea{min-height:64px;width:100%}
 .intake-memo-history{margin-top:12px;padding-top:10px;border-top:1px solid #e3eaf2}.intake-memo-history p{white-space:pre-wrap;overflow-wrap:anywhere}
 .intake-empty{padding:20px 12px;color:#718197;font-size:13px;text-align:center}
+
+/* Expand a matching receipt directly beneath its result row. */
+.intake-list [data-intake-row]{cursor:pointer}
+.intake-list [data-intake-row].is-expanded>td{background:#edf4fd;border-bottom-color:#c5d8f0}
+.intake-list [data-intake-row]:focus-within>td{background:#edf4fd}
+.intake-list [data-intake-toggle]:focus-visible{outline:2px solid #285d98;outline-offset:3px}
+.intake-list [data-intake-detail]>td{white-space:normal;padding:14px;background:#f4f7fb;border-bottom:2px solid #c5d8f0}
+.intake-list [data-intake-detail]:hover>td{background:#f4f7fb}
+.intake-list [data-intake-detail][hidden]{display:none}
+.intake-list .intake-detail-card{min-width:0;margin:0;box-shadow:none}
+.intake-list .intake-detail-card h2{font-size:17px}
+.intake-detail-card .intake-edit>summary{font-size:14px;color:#285d98;font-weight:700;cursor:pointer;margin:12px 0}
+.intake-detail-card .intake-edit form{margin-top:14px}
+.intake-detail-card .nf-field input,.intake-detail-card .nf-field select,.intake-detail-card .nf-field textarea{min-width:0;max-width:100%}
+.intake-original{margin-top:16px;padding-top:12px;border-top:1px solid #e4ebf3}
+.intake-original>summary{color:#365d88;font-size:13px;cursor:pointer}
+.intake-recall-card>summary{cursor:pointer;color:#2a568a;font-weight:700;font-size:16px}
+.intake-search-result{color:#285d98;font-weight:600}
+@media(max-width:700px){.intake-list [data-intake-detail]>td{padding:8px}.intake-list .intake-detail-card{padding:12px}.intake-detail-card .nf-grid-3{grid-template-columns:repeat(2,minmax(0,1fr))}}
