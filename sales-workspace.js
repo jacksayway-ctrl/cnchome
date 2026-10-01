@@ -95,7 +95,7 @@
  async function request(body,submittedForm=null){
   if(loading||busy)return;const version=++requestVersion,requestedMonth=month;loading=true;if(body)busy=true;
   let duplicateRetry=null;const form=body?.action==='create'?submittedForm:null,controls=form?[...form.querySelectorAll('input,select,textarea,button[type="submit"],button[type="reset"]')].map(input=>[input,input.disabled]):[];
-  if(form){form.setAttribute('aria-busy','true');form.querySelector('[data-sales-error]').textContent='접수증을 저장하는 중입니다.';for(const [input] of controls)input.disabled=true;}
+  if(form){form.setAttribute('aria-busy','true');delete form.querySelector('[data-sales-error]').dataset.state;form.querySelector('[data-sales-error]').textContent='접수증을 저장하는 중입니다.';for(const [input] of controls)input.disabled=true;}
   const controller=new AbortController(),timeout=global.setTimeout(()=>controller.abort(),30000);
   try{
    const response=await global.fetch('/sales-api.php?month='+encodeURIComponent(requestedMonth),{method:body?'POST':'GET',credentials:'same-origin',cache:'no-store',signal:controller.signal,headers:{'Content-Type':'application/json','X-CSRF-Token':live().csrf},...(body?{body:JSON.stringify(body)}:{})});

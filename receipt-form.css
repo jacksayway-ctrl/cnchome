@@ -1,7 +1,7 @@
 #tm-preview #tm-dialog.receipt-dialog{width:min(900px,calc(100vw - 24px));max-width:none;max-height:calc(100dvh - 24px);padding:0;border:0;border-radius:0;background:#fff;color:#173966;overflow:auto}
 #tm-preview #tm-dialog.receipt-dialog>.row{display:none}
 #tm-preview .receipt-form{margin:0;font-size:14px}
-#tm-preview .receipt-header{padding:20px 32px;background:#203963;color:#fff}
+#tm-preview .receipt-header{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;padding:20px 32px;background:#203963;color:#fff}
 #tm-preview .receipt-header h2{margin:0 0 5px;font-size:30px;letter-spacing:.04em;color:inherit}
 #tm-preview .receipt-header p{margin:0;color:#e9effb;font-size:14px}
 #tm-preview .receipt-grid{display:grid;grid-template-columns:125px minmax(0,1fr) 125px minmax(0,1fr);margin:24px 26px 0;border-top:1px solid #a4a9af;border-left:1px solid #a4a9af}
@@ -12,8 +12,10 @@
 #tm-preview .receipt-form .receipt-value input[type=date],#tm-preview .receipt-form .receipt-value select{border-color:#bcc2ca;padding:3px}
 #tm-preview .receipt-form .receipt-value input::placeholder,#tm-preview .receipt-form .receipt-value textarea::placeholder{color:#858e9e}
 #tm-preview .receipt-form .receipt-date{gap:10px;flex-wrap:wrap}
-#tm-preview .receipt-form .receipt-date input{width:55px;border-color:#dce0e6;padding:3px}
+#tm-preview .receipt-form .receipt-value.receipt-date input:not([type=radio]):not([type=checkbox]){width:64px;flex:0 0 64px;border-color:#dce0e6;padding:3px;text-align:center}
 #tm-preview .receipt-date small{font-size:12px;color:#8190a5;white-space:nowrap}
+#tm-preview .receipt-date output{display:inline-block;min-width:6ch;color:#173966;font-weight:600;font-variant-numeric:tabular-nums}
+#tm-preview .receipt-date output[data-invalid=true]{color:#a33333}
 #tm-preview .receipt-form .receipt-phone{gap:12px;white-space:nowrap}
 #tm-preview .receipt-form .receipt-phone input{max-width:125px}
 #tm-preview .receipt-gender{gap:28px}
@@ -27,7 +29,7 @@
 #tm-preview .receipt-policy summary{cursor:pointer;padding:4px 0}
 #tm-preview .receipt-policy p{margin:5px 0}
 #tm-preview .receipt-feedback{min-height:18px;margin:5px 26px;font-size:13px;color:#a33333}
-#tm-preview .receipt-form[data-saved] .receipt-feedback{color:#167248}
+#tm-preview .receipt-feedback[data-state=success]{color:#167248}
 #tm-preview .receipt-actions{display:flex;justify-content:flex-end;gap:11px;padding:16px 26px 25px}
 #tm-preview .receipt-actions button{min-width:103px;min-height:37px;margin:0;border-radius:0;padding:8px 18px;font-size:14px;font-weight:600;border:1px solid #203963;box-shadow:none}
 #tm-preview .receipt-actions .receipt-save{background:#203963;color:#fff}
@@ -54,3 +56,6 @@ body.receipt-window #tm-preview #tm-dialog.receipt-dialog::backdrop{background:#
 #tm-preview .receipt-form .receipt-premium label{gap:4px;white-space:nowrap;font-size:12px}
 
 #tm-preview .receipt-form .receipt-counselor{flex-direction:column;align-items:stretch;justify-content:center;gap:4px}
+
+#tm-preview .receipt-header .receipt-input-mode{display:flex;align-items:center;gap:7px;font-size:12px;white-space:nowrap;color:#fff}
+#tm-preview .receipt-header .receipt-input-mode select{margin:0;padding:5px 7px;border:1px solid #dce0e6;border-radius:4px;background:#fff;color:#173966;font-size:13px}

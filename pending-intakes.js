@@ -149,6 +149,8 @@ document.addEventListener('compositionstart',e=>{if(e.target.closest('[data-pend
 document.addEventListener('compositionend',e=>{if(e.target===composingInput)composingInput=null;if(e.target.matches('[data-pending-filter="query"]'))capture(e);});
 document.addEventListener('submit',e=>{const f=e.target.closest('[data-pending-edit-id],[data-pending-id]');if(!f)return;e.preventDefault();if(posting||!f.reportValidity())return;if(f.dataset.pendingEditId){const draft=captureEdit(f);load({id:f.dataset.pendingEditId,revision:draft.revision,action:'edit',...draft.fields});return;}const r=rows.find(r=>r.id===f.dataset.pendingId),action=e.submitter?.value||'memo';if(!r||(admin&&action!=='memo'))return;load({id:r.id,revision:r.revision,action,memo:f.elements.memo.value,carrier:f.elements.carrier?.value||''});});
 function mount(){const el=document.querySelector('[data-pending-list]');if(el&&!el.dataset.loaded){el.dataset.loaded='1';render();load();}}
+window.addEventListener('cnc:sales-changed',()=>{if(document.querySelector('[data-pending-panel]'))load();});
+window.addEventListener('storage',e=>{if(e.key==='cnchome.sales.changed'&&document.querySelector('[data-pending-panel]'))load();});
 const observer=new MutationObserver(mount);const main=document.getElementById('tm-main');if(main)observer.observe(main,{childList:true,subtree:true});window.PolicySync?.subscribe(()=>render());mount();setInterval(()=>{if(!document.hidden&&document.querySelector('[data-pending-panel]'))load();},15000);
 })();
 document.addEventListener('toggle',e=>{if(e.target.matches?.('.region-map-disclosure')&&e.target.open)window.dispatchEvent(new Event('resize'));},true);

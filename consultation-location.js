@@ -63,7 +63,7 @@
  function attach(form){
   const input=form?.querySelector('[name="consultationPlace"],[data-personnel-address]'),list=form?.querySelector('[data-place-options]'),status=form?.querySelector('[data-place-status]');
   if(!input||!list||input.dataset.placeReady)return;
-  input.dataset.placeReady='true';const roots=buildIndex(global.KoreaRegionCatalog);let options=[],active=-1,composing=false;
+  input.dataset.placeReady='true';const roots=buildIndex(global.KoreaRegionCatalog),initialStatus=status.textContent;let options=[],active=-1,composing=false;
   function hide(){list.hidden=true;input.setAttribute('aria-expanded','false');input.removeAttribute('aria-activedescendant');active=-1;}
   function highlight(index){active=index;for(const [i,node] of [...list.children].entries())node.setAttribute('aria-selected',String(i===index));if(index>=0){input.setAttribute('aria-activedescendant',list.children[index].id);list.children[index].scrollIntoView?.({block:'nearest'});}}
   function choose(index){const item=options[index];if(!item)return;input.value=item.label+' ';input.focus();input.setSelectionRange(input.value.length,input.value.length);input.dispatchEvent(new global.Event('input',{bubbles:true}));}
@@ -77,6 +77,7 @@
    status.textContent=options.length?(found.length>options.length?'지역 '+found.length+'개 중 '+options.length+'개 표시 · 글자를 더 입력하면 좁혀집니다.':'지역 '+options.length+'개 · 읍·면·동·리도 첫 글자나 초성으로 선택하세요.'):'상세 주소나 건물·카페 이름을 이어서 입력할 수 있습니다.';
   }
   input.addEventListener('input',render);input.addEventListener('focus',render);
+  form.addEventListener('reset',()=>{hide();options=[];list.replaceChildren();status.textContent=initialStatus;});
   input.addEventListener('compositionstart',()=>{composing=true;});input.addEventListener('compositionend',()=>{composing=false;render();});
   input.addEventListener('blur',()=>global.setTimeout(()=>{if(global.document.activeElement!==input)hide();},0));
   input.addEventListener('keydown',event=>{
