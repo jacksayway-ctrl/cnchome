@@ -2,10 +2,25 @@
  'use strict';
  const initials='ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ';
  const compact=value=>String(value||'').normalize('NFC').replace(/[ᄀ-ᄒ]/g,c=>initials[c.charCodeAt(0)-0x1100]).replace(/\s+/gu,'');
- const treeCache=new WeakMap(),flatCache=new WeakMap();
- function startsWith(value,query){
-  const text=compact(value),search=compact(query);
+ const treeCache=new WeakMap(),flatCache=new WeakMap(),searchCache=new WeakMap();
+ function prefixMatches(text,search){
   return [...search].every((letter,i)=>{const code=text.charCodeAt(i)-0xac00;return letter===text[i]||(initials.includes(letter)&&code>=0&&code<11172&&initials[Math.floor(code/588)]===letter);});
+ }
+ function startsWith(value,query){return prefixMatches(compact(value),compact(query));}
+ function searchIndex(roots){
+  if(searchCache.has(roots))return searchCache.get(roots);
+  const entries=[],byLabel=new Map(),firstLetter=new Map(),firstInitial=new Map();
+  function collect(nodes,ancestors,province){for(const node of nodes){
+   const entry={node,ancestors,province:province||node,aliases:[...new Set(node.aliases.map(compact).filter(Boolean))]};
+   entries.push(entry);byLabel.set(node.label,entry);collect(node.children,[...ancestors,entry],entry.province);
+  }}
+  collect(roots,[],null);entries.sort((a,b)=>a.ancestors.length-b.ancestors.length||a.node.label.localeCompare(b.node.label,'ko'));
+  function add(index,key,entry){if(!index.has(key))index.set(key,new Set());index.get(key).add(entry);}
+  for(const entry of entries)for(const alias of entry.aliases){
+   add(firstLetter,alias[0],entry);const code=alias.charCodeAt(0)-0xac00;
+   if(code>=0&&code<11172)add(firstInitial,initials[Math.floor(code/588)],entry);
+  }
+  const result={entries,byLabel,firstLetter,firstInitial};searchCache.set(roots,result);return result;
  }
  function buildIndex(catalog,localities=global.KoreaLocalities){
   if(!catalog)return [];
@@ -30,33 +45,47 @@
    }}
   }
   function sort(nodes){for(const node of nodes){node.children.sort((a,b)=>a.name.localeCompare(b.name,'ko'));sort(node.children);}}sort(roots);
-  const flat=[];function flatten(nodes,depth){for(const node of nodes){flat.push({node,depth});flatten(node.children,depth+1);}}flatten(roots,0);
-  flatCache.set(roots,flat.filter(x=>x.depth>0).sort((a,b)=>a.depth-b.depth||a.node.label.localeCompare(b.node.label,'ko')).map(x=>x.node));
+  flatCache.set(roots,searchIndex(roots).entries.filter(entry=>entry.ancestors.length).map(entry=>entry.node));
   treeCache.set(catalog,{localities,roots});
   return roots;
  }
  function suggestions(value,roots){
   let remaining=compact(value),scope=roots,scoped=false,province=null;
-  const parts=String(value||'').trim().split(/\s+/u).filter(Boolean),trailingSpace=/\s$/u.test(String(value||''));
+  const parts=String(value||'').trim().split(/\s+/u).filter(Boolean).map(compact),trailingSpace=/\s$/u.test(String(value||'')),index=searchIndex(roots);
   function descendants(nodes){return nodes.flatMap(node=>[...node.children,...descendants(node.children)]);}
   const unique=nodes=>[...new Map(nodes.map(node=>[node.id,node])).values()];
   // This spelling alias suggests the catalog address; it never changes entered text.
   const aliases=(node,root)=>root?.id==='대전'&&node.label==='대전광역시 서구 탄방동'?[...node.aliases,'탐방동']:node.aliases;
-  const complete=(node,query,root)=>aliases(node,root).some(alias=>compact(alias).length===compact(query).length&&startsWith(alias,query));
-  const nextOptions=node=>node.children.length?node.children:trailingSpace?[]:[node];
-  // Separate province initials from locality initials, allowing omitted address levels.
-  // Every later segment searches only descendants of the already matched branch.
-  if(parts.length>1){
-   const provinces=roots.filter(node=>node.aliases.some(alias=>startsWith(alias,parts[0])));
-   if(provinces.length){
-    let branches=provinces.map(node=>({node,root:node}));
-    for(let i=1;i<parts.length;i++){
-     const matches=branches.flatMap(({node,root})=>descendants([node]).filter(child=>aliases(child,root).some(alias=>startsWith(alias,parts[i]))).map(child=>({node:child,root})));
-     if(i===parts.length-1&&matches.length)return unique(matches.flatMap(({node,root})=>complete(node,parts[i],root)?nextOptions(node):[node]));
-     branches=matches;
+  const nextOptions=node=>node.children.length?node.children:[node];
+  // Selecting a full catalog address adds a space: continue into children or close at a leaf.
+  const selected=trailingSpace?index.byLabel.get(String(value||'').trim()):null;
+  if(selected)return selected.node.children;
+  // Spaced tokens may start at any address level. Match them in ancestor order;
+  // short initials such as ㅅ must not force 서울/세종 and hide 설성면 or other towns.
+  if(parts.length&&(parts.length>1||trailingSpace)){
+   const explicitProvince=roots.find(node=>node.aliases.some(alias=>compact(alias)===parts[0]));
+   if(parts.length===1&&explicitProvince)return explicitProvince.children;
+   const last=parts[parts.length-1],candidates=new Set((initials.includes(last[0])?index.firstInitial:index.firstLetter).get(last[0])||[]);
+   const daejeon=roots.find(node=>node.id==='대전'),allowTypo=parts.length>1&&daejeon?.aliases.some(alias=>startsWith(alias,parts[0]));
+   const typoEntry=allowTypo?index.byLabel.get('대전광역시 서구 탄방동'):null;
+   if(typoEntry&&prefixMatches('탐방동',last))candidates.add(typoEntry);
+   const matches=[];
+   for(const entry of candidates){
+    if(explicitProvince&&entry.province!==explicitProvince)continue;
+    if(!entry.aliases.some(alias=>prefixMatches(alias,last))&&!(entry===typoEntry&&prefixMatches('탐방동',last)))continue;
+    let offset=0,matched=true;
+    for(const part of parts.slice(0,-1)){
+     while(offset<entry.ancestors.length&&!entry.ancestors[offset].aliases.some(alias=>prefixMatches(alias,part)))offset++;
+     if(offset===entry.ancestors.length){matched=false;break;}offset++;
     }
-    // A segment may itself contain several compact levels, such as 서구탄방동.
-    remaining=parts.slice(1).map(compact).join('');scope=provinces.flatMap(node=>node.children);scoped=true;province=provinces.length===1?provinces[0]:null;
+    if(matched)matches.push(entry.node);
+   }
+   if(matches.length)return unique(matches);
+   if(parts.length===1)return [];
+   // A segment can itself contain compact levels, such as 대전 서구탄방동.
+   const provinces=explicitProvince?[explicitProvince]:roots.filter(node=>node.aliases.some(alias=>startsWith(alias,parts[0])));
+   if(provinces.length){
+    remaining=parts.slice(1).join('');scope=provinces.flatMap(node=>node.children);scoped=true;province=provinces.length===1?provinces[0]:null;
    }
   }
   const direct=()=>(flatCache.get(roots)||descendants(roots)).filter(node=>node.aliases.some(alias=>startsWith(alias,value)));
