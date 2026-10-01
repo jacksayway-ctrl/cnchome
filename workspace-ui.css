@@ -157,7 +157,8 @@
   #tm-preview .team-calendar-stack {gap:14px}
   #tm-preview .sales-page-toolbar {padding:10px 12px;margin-bottom:12px;border:1px solid var(--cnc-line);border-radius:8px;background:#f8fafd}
   #tm-preview .sales-page-toolbar button,#tm-preview .sales-page-toolbar [data-sales-month-input] {height:36px;font-size:13px}
-  #tm-preview .sales-month-controls {grid-template-columns:max-content minmax(130px,1fr) max-content;gap:8px}
+  #tm-preview .sales-month-controls {grid-template-columns:repeat(3,max-content);gap:8px;flex:0 0 auto;min-width:0;max-width:100%}
+  #tm-preview .sales-page-toolbar [data-sales-month-input] {width:auto;field-sizing:content}
   #tm-preview .team-performance-calendar .day,#tm-preview .sales-live-day {min-height:100px}
   #tm-preview .attendance-heading {flex-wrap:wrap;gap:8px 16px}
   #tm-preview .attendance-date,#tm-preview .attendance-empty {min-height:90px;padding:8px}
@@ -236,7 +237,6 @@
   #tm-preview .aw-heading>.row {justify-content:flex-start}
   #tm-preview .work.employee-compact-header>header {padding:8px 12px}
   #tm-preview .work.employee-compact-header>header .header-grades {min-height:38px;padding:8px 10px}
-  #tm-preview .sales-month-controls {min-width:0;grid-template-columns:max-content minmax(0,1fr) max-content}
   #tm-preview .attendance-calendar {grid-template-columns:repeat(7,minmax(76px,1fr));overflow-x:auto;scrollbar-width:thin}
   #tm-preview .attendance-date strong small {display:block;margin-left:0}
   .nf-popup-shell>.nf-main {padding:12px}

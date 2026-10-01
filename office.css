@@ -517,6 +517,7 @@ body.policy-window #tm-preview{max-width:none}
 #tm-preview .sales-place-options[hidden]{display:none}
 #tm-preview .sales-place-options button{display:block;width:100%;padding:10px 12px;border:0;border-bottom:1px solid #edf1f7;background:#fff;text-align:left;color:#243449;line-height:1.5;white-space:normal}
 #tm-preview .sales-place-options button:hover,#tm-preview .sales-place-options button[aria-selected=true]{background:#eaf3ff;color:#164f99}
+#tm-preview .sales-place-options .sales-address-detail{display:block;margin-top:2px;color:#61758f;font-size:11px;line-height:1.5;text-align:left}
 #tm-preview .sales-place-field small{color:#64748b;font-size:12px;line-height:1.5}
 
 #tm-preview .sales-birth-fields{display:grid;grid-template-columns:minmax(0,2.5fr) minmax(65px,1fr) minmax(70px,1fr);gap:10px;align-items:end}

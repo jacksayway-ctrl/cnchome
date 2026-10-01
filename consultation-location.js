@@ -114,51 +114,77 @@
  function attach(form){
   const input=form?.querySelector('[name="consultationPlace"],[data-personnel-address]'),list=form?.querySelector('[data-place-options]'),status=form?.querySelector('[data-place-status]');
   if(!input||!list||input.dataset.placeReady)return;
-  input.dataset.placeReady='true';const roots=buildIndex(global.KoreaRegionCatalog),initialStatus=status.textContent;let options=[],active=-1,composing=false,choosing=false,suppressAutoInput=false,autoTimer=0;
+  input.dataset.placeReady='true';const roots=buildIndex(global.KoreaRegionCatalog),initialStatus=status.textContent;let options=[],active=-1,composing=false,choosing=false,suppressAutoInput=false,autoTimer=0,searchTimer=0,searchVersion=0,searchController=null,autoAllowed=true,autoIntent=0,selectedAddress='';
   function cancelAutoChoose(){global.clearTimeout(autoTimer);autoTimer=0;}
-  function hide(){cancelAutoChoose();list.hidden=true;input.setAttribute('aria-expanded','false');input.removeAttribute('aria-activedescendant');active=-1;}
+  function cancelSearch(){global.clearTimeout(searchTimer);searchTimer=0;searchVersion++;searchController?.abort();searchController=null;}
+  function hide(){cancelAutoChoose();cancelSearch();list.hidden=true;input.setAttribute('aria-expanded','false');input.removeAttribute('aria-activedescendant');active=-1;}
   function highlight(index){active=index;for(const [i,node] of [...list.children].entries())node.setAttribute('aria-selected',String(i===index));if(index>=0){input.setAttribute('aria-activedescendant',list.children[index].id);list.children[index].scrollIntoView?.({block:'nearest'});}}
   function choose(index){
-   cancelAutoChoose();const item=options[index];if(!item)return;
+   cancelAutoChoose();cancelSearch();const item=options[index];if(!item)return;
+   selectedAddress=item.kind?item.label:'';
    choosing=true;
    try{input.value=item.label+' ';input.focus();input.setSelectionRange(input.value.length,input.value.length);input.dispatchEvent(new global.Event('input',{bubbles:true}));}
    finally{choosing=false;}
   }
   function scheduleAutoChoose(){
    cancelAutoChoose();
-   if(choosing||composing||options.length!==1||!input.value.trim()||global.document.activeElement!==input||input.disabled||input.readOnly||input.selectionStart!==input.value.length||input.selectionEnd!==input.value.length)return;
+   if(choosing||composing||!autoAllowed||options.length!==1||!input.value.trim()||global.document.activeElement!==input||input.disabled||input.readOnly||input.selectionStart!==input.value.length||input.selectionEnd!==input.value.length)return;
    const value=input.value,item=options[0];
    autoTimer=global.setTimeout(()=>{
     autoTimer=0;
-    if(choosing||composing||!input.isConnected||global.document.activeElement!==input||input.disabled||input.readOnly||input.value!==value||input.selectionStart!==value.length||input.selectionEnd!==value.length||list.hidden||options.length!==1||options[0]!==item)return;
+    if(choosing||composing||!autoAllowed||!input.isConnected||global.document.activeElement!==input||input.disabled||input.readOnly||input.value!==value||input.selectionStart!==value.length||input.selectionEnd!==value.length||list.hidden||options.length!==1||options[0]!==item)return;
     choose(0);
    },350);
   }
-  function render(){
-   const found=suggestions(input.value,roots);options=found.slice(0,100);active=-1;input.removeAttribute('aria-activedescendant');list.replaceChildren();
+  function display(found,total=found.length,address=false){
+   options=found.slice(0,100);autoAllowed=total===1&&options.length===1;active=-1;input.removeAttribute('aria-activedescendant');list.replaceChildren();
    for(const [index,item] of options.entries()){
     const row=global.document.createElement('button');row.type='button';row.tabIndex=-1;row.id=list.id+'-'+index;row.setAttribute('role','option');row.setAttribute('aria-selected','false');row.textContent=item.label;row.dataset.placeIndex=String(index);
+    if(item.secondary){const detail=global.document.createElement('small');detail.className='sales-address-detail';detail.textContent=item.secondary;row.append(detail);}
     row.addEventListener('pointerdown',event=>event.preventDefault());row.addEventListener('mousedown',event=>event.preventDefault());row.addEventListener('click',()=>choose(index));list.append(row);
    }
    list.hidden=!options.length;input.setAttribute('aria-expanded',String(!!options.length));list.scrollTop=0;
-   status.textContent=options.length?(found.length>options.length?'지역 '+found.length+'개 중 '+options.length+'개 표시 · 글자를 더 입력하면 좁혀집니다.':'지역 '+options.length+'개 · 읍·면·동·리도 첫 글자나 초성으로 선택하세요.'):'상세 주소나 건물·카페 이름을 이어서 입력할 수 있습니다.';
+   status.textContent=address?(options.length?'주소 '+total+'개'+(total>options.length?' 중 '+options.length+'개 표시':'')+' · 도로명·지번 함께 검색 · 제공: Postcodify':'일치하는 주소가 없습니다. 동·리와 번지 또는 도로명과 건물번호를 확인해 주세요.'):(options.length?(found.length>options.length?'지역 '+found.length+'개 중 '+options.length+'개 표시 · 글자를 더 입력하면 좁혀집니다.':'지역 '+options.length+'개 · 읍·면·동·리도 첫 글자나 초성으로 선택하세요.'):'상세 주소나 건물·카페 이름을 이어서 입력할 수 있습니다.');
+  }
+  function render(allowAuto=false){
+   cancelSearch();const found=suggestions(input.value,roots);display(found);
+   const provider=global.RoadAddress,value=input.value,query=value.trim();
+   if(selectedAddress&&query!==selectedAddress&&!query.startsWith(selectedAddress+' '))selectedAddress='';
+   if(choosing||composing||found.length||selectedAddress||!input.dataset.addressSearch||!provider?.shouldSearch(query)||global.document.activeElement!==input||input.disabled||input.readOnly)return;
+   const version=searchVersion,requestKey=form.dataset.requestKey,intent=autoIntent;
+   status.textContent='도로명·지번 주소를 검색합니다…';
+   searchTimer=global.setTimeout(async()=>{
+    searchTimer=0;
+    const current=()=>version===searchVersion&&input.isConnected&&input.value===value&&form.dataset.requestKey===requestKey&&global.document.activeElement===input&&!input.disabled&&!input.readOnly&&!composing&&!form.hasAttribute('data-saved');
+    if(!current())return;
+    const controller=new global.AbortController();searchController=controller;
+    try{
+     const result=await provider.search(query,{signal:controller.signal});
+     if(!current())return;
+     display(result.items,result.count,true);if(allowAuto&&intent===autoIntent)scheduleAutoChoose();
+    }catch(error){
+     if(!current()||controller.signal.aborted)return;
+     display([]);status.textContent=typeof error?.message==='string'&&error.message.startsWith('주소 검색')?error.message:'주소 검색에 연결하지 못했습니다. 잠시 후 다시 입력하거나 주소를 직접 입력해 주세요.';
+    }finally{if(searchController===controller)searchController=null;}
+   },700);
   }
   input.addEventListener('input',event=>{
-   cancelAutoChoose();render();
-   if(!event.isComposing&&!suppressAutoInput&&event.inputType?.startsWith('insert'))scheduleAutoChoose();
-  });input.addEventListener('focus',render);
-  form.addEventListener('reset',()=>{hide();suppressAutoInput=false;options=[];list.replaceChildren();status.textContent=initialStatus;});
-  input.addEventListener('compositionstart',()=>{cancelAutoChoose();composing=true;});input.addEventListener('compositionend',()=>{composing=false;render();scheduleAutoChoose();});
-  for(const event of ['pointerdown','mousedown'])input.addEventListener(event,cancelAutoChoose);
+   const allowAuto=!event.isComposing&&!suppressAutoInput&&!!event.inputType?.startsWith('insert');
+   cancelAutoChoose();render(allowAuto);if(allowAuto)scheduleAutoChoose();
+  });input.addEventListener('focus',()=>render());
+  form.addEventListener('reset',()=>{hide();selectedAddress='';suppressAutoInput=false;options=[];list.replaceChildren();status.textContent=initialStatus;});
+  form.addEventListener('submit',hide,true);form.closest('dialog')?.addEventListener('close',hide);
+  input.addEventListener('compositionstart',()=>{cancelAutoChoose();cancelSearch();composing=true;});input.addEventListener('compositionend',()=>{composing=false;render(true);scheduleAutoChoose();});
+  for(const event of ['pointerdown','mousedown'])input.addEventListener(event,()=>{autoIntent++;cancelAutoChoose();});
   input.addEventListener('blur',()=>{cancelAutoChoose();suppressAutoInput=false;global.setTimeout(()=>{if(global.document.activeElement!==input)hide();},0);});
   // Run before the Korean helper emits its synchronous input from keydown.
   input.addEventListener('keydown',event=>{
-   cancelAutoChoose();suppressAutoInput=event.key==='Backspace'||event.key==='Delete'||((event.ctrlKey||event.metaKey)&&/^[zy]$/i.test(event.key));
+   autoIntent++;cancelAutoChoose();suppressAutoInput=event.key==='Backspace'||event.key==='Delete'||((event.ctrlKey||event.metaKey)&&/^[zy]$/i.test(event.key));
   },true);
   input.addEventListener('keyup',()=>{suppressAutoInput=false;});
   input.addEventListener('keydown',event=>{
    if(composing||event.isComposing||event.keyCode===229)return;
-   if(event.key==='Escape'&&!list.hidden){event.preventDefault();event.stopPropagation();hide();return;}
+   if(event.key==='Escape'&&(!list.hidden||searchTimer||searchController)){event.preventDefault();event.stopPropagation();hide();return;}
    if(event.key==='ArrowDown'||event.key==='ArrowUp'){
     if(list.hidden)render();if(!options.length)return;event.preventDefault();highlight(active<0?(event.key==='ArrowDown'?0:options.length-1):(active+(event.key==='ArrowDown'?1:-1)+options.length)%options.length);
    }else if(event.key==='Enter'&&!list.hidden&&options.length){event.preventDefault();choose(active<0?0:active);}
