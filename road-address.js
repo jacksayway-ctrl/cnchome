@@ -30,14 +30,14 @@
   for(const entry of data.results.slice(0,50)){
    if(!plain(entry))throw failed();
    const common=field(entry.ko_common,160,true),parcel=field(entry.ko_jibeon,180,true),road=field(entry.ko_doro,180);
-   const building=field(entry.building_name,200),buildingId=field(entry.building_id,80),addressId=field(entry.address_id,80);
+   const building=(field(entry.building_name,200)||field(entry.other_addresses,10000)).slice(0,160),buildingId=field(entry.building_id,80),addressId=field(entry.address_id,80);
    // Policy matching consumes the leading province/city and legal locality.
    // Keep those from the parcel address even when the query uses a road name.
    const parcelAddress=common+' '+parcel,label=parcelAddress+(road&&road!==parcel?' · '+road:'');
    if(label.length>500)throw failed();
    const id='address:'+(buildingId||addressId||label);
    if(seen.has(id))continue;seen.add(id);
-   const secondary=[road?'도로명 '+common+' '+road:'','지번 '+parcelAddress,building].filter(Boolean).join(' / ');
+   const secondary=building;
    items.push({id,label,secondary,kind});
   }
   if(data.count>0&&!items.length)throw failed();
