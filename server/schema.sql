@@ -64,6 +64,18 @@ CREATE TABLE IF NOT EXISTS hr_payroll (
  UNIQUE KEY employee_month(employee_id,month),
  FOREIGN KEY (employee_id) REFERENCES hr_employees(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS hr_personnel_events (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+ employee_id BIGINT UNSIGNED NOT NULL,
+ actor_id BIGINT UNSIGNED NOT NULL,
+ event VARCHAR(32) NOT NULL,
+ revision INT UNSIGNED NOT NULL,
+ snapshot JSON NOT NULL,
+ created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+ INDEX employee_history(employee_id,id),
+ FOREIGN KEY (employee_id) REFERENCES hr_employees(id),
+ FOREIGN KEY (actor_id) REFERENCES app_users(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 CREATE TABLE IF NOT EXISTS hr_payroll_events (
  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
  payroll_id BIGINT UNSIGNED NOT NULL,

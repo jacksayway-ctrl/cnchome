@@ -127,6 +127,9 @@ function hr_mutate(array $user,array $in): ?int {
         if($uid){$q=$d->prepare("UPDATE app_users SET display_name=?,department=? WHERE id=? AND role='employee'");$q->execute([$p['name'],$p['team'],$uid]);}
         if($existing){$q=$d->prepare('UPDATE hr_employees SET user_id=?,profile=?,revision=revision+1 WHERE id=?');$q->execute([$uid,hr_json($p),$id]);}
         else {$q=$d->prepare('INSERT INTO hr_employees(employee_no,user_id,profile) VALUES(?,?,?)');$q->execute([$no,$uid,hr_json($p)]);$id=(int)$d->lastInsertId();}
+        require_once __DIR__.'/personnel-history.php';
+        $q=$d->prepare('SELECT id,employee_no,profile,revision FROM hr_employees WHERE id=?');$q->execute([$id]);
+        personnel_history_append($user,$existing,$q->fetch(),$existing?'confirm':'created');
         $staffSavedId=$id;
     }else{
         $id=hr_int($in['id']??0);$row=null;

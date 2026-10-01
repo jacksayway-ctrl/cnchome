@@ -4,6 +4,7 @@ require __DIR__.'/_runtime.php';
 require_once CNC_RUNTIME_DIR.'/hr.php';
 require_once CNC_RUNTIME_DIR.'/native.php';
 require_once CNC_RUNTIME_DIR.'/personnel.php';
+require_once CNC_RUNTIME_DIR.'/personnel-history.php';
 try {
     session_boot();$user=current_user();
     if(!$user){header('Location: /login.php?role='.session_role());exit;}
@@ -15,9 +16,21 @@ try {
     $isNew=$admin&&($_GET['new']??'')==='1';
     if($admin&&$id&&!$record)throw new HRForbidden('직원을 찾을 수 없습니다.');
     $editing=$admin&&($isNew||($_GET['edit']??'')==='1');
+    $historyId=personnel_natural($_GET['history']??0);$restoreId=personnel_natural($_GET['restore']??0);$historyEntry=null;$restoreEntry=null;$historyEntries=[];
+    if($historyId||$restoreId){
+        personnel_history_admin($user);hr_assert((bool)$record&&!$isNew,'직원 인사기록을 선택해 주세요.');
+        hr_assert(!$historyId||(!$editing&&!$restoreId),'수정이력은 조회 화면에서 확인해 주세요.');
+        hr_assert(!$restoreId||$editing,'과거 내용은 수정 화면에서 불러와 주세요.');
+    }
     $profile=$record['profile']??personnel_default_profile();if(($profile['payday']??'')==='')$profile['payday']='15';$formRevision=(int)($record['revision']??0);
+    if($restoreId){$restoreEntry=personnel_history_get($user,$id,$restoreId);$profile=$restoreEntry['snapshot']['profile'];}
+    if($historyId){
+        $historyEntry=personnel_history_get($user,$id,$historyId);$popup=true;
+        $record=array_replace($record,['profile'=>$historyEntry['snapshot']['profile'],'employee_no'=>$historyEntry['snapshot']['employeeNo'],'revision'=>(int)$historyEntry['revision']]);
+    }
     if(($_SERVER['REQUEST_METHOD']??'GET')==='POST'){
         if(!$admin)throw new HRForbidden('인사정보 변경은 관리자만 할 수 있습니다.');
+        if($historyId)throw new HRForbidden('수정이력 조회 화면에서는 저장할 수 없습니다.');
         if(!is_string($_POST['csrf']??null)||!csrf_ok($_POST['csrf']))throw new HRForbidden('세션이 변경되었습니다. 새로고침 후 다시 저장해 주세요.');
         try {
             if(($_POST['action']??'')==='sessionSettings'){
@@ -42,7 +55,8 @@ try {
     $accounts=[];
     if($editing&&empty($record['user_id']))$accounts=db()->query("SELECT id,username,display_name FROM app_users WHERE role='employee' AND active=1 AND id NOT IN (SELECT user_id FROM hr_employees WHERE user_id IS NOT NULL) ORDER BY display_name")->fetchAll();
     $employeeNumber=$record['employee_no']??($isNew?personnel_next_number():'');
-    native_start($admin?'인사기록카드':'내 정보 · 인사기록카드',$user,$admin?($isNew?'adminStaffRegister':'adminStaff'):'myInfo',['personnel.css'],$popup);
+    if($admin&&$record&&!$editing&&!$historyEntry)$historyEntries=personnel_history_list($user,$id);
+    native_start($historyEntry?'인사기록카드 · 수정이력':($admin?'인사기록카드':'내 정보 · 인사기록카드'),$user,$admin?($isNew?'adminStaffRegister':'adminStaff'):'myInfo',['personnel.css'],$popup);
     require view_root().'/personnel.php';
     native_end();
 }catch(HRForbidden $e){

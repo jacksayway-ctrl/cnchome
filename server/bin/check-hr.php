@@ -16,6 +16,7 @@ $d=db();$d->exec("PRAGMA foreign_keys=ON;
 CREATE TABLE app_users(id INTEGER PRIMARY KEY AUTOINCREMENT,username TEXT UNIQUE,display_name TEXT,password_hash TEXT,role TEXT,department TEXT,active INTEGER DEFAULT 1);
 CREATE TABLE hr_employee_sequences(day TEXT PRIMARY KEY,serial INTEGER);
 CREATE TABLE hr_employees(id INTEGER PRIMARY KEY AUTOINCREMENT,employee_no TEXT UNIQUE,user_id INTEGER UNIQUE REFERENCES app_users(id),profile TEXT,revision INTEGER DEFAULT 1,created_at TEXT DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE hr_personnel_events(id INTEGER PRIMARY KEY AUTOINCREMENT,employee_id INTEGER REFERENCES hr_employees(id),actor_id INTEGER REFERENCES app_users(id),event TEXT,revision INTEGER,snapshot TEXT,created_at TEXT DEFAULT CURRENT_TIMESTAMP);
 CREATE TABLE hr_payroll(id INTEGER PRIMARY KEY AUTOINCREMENT,employee_id INTEGER REFERENCES hr_employees(id),month TEXT,status TEXT DEFAULT 'draft',revision INTEGER DEFAULT 1,calculation TEXT,published_snapshot TEXT,published_at TEXT,confirmed_at TEXT,UNIQUE(employee_id,month));
 CREATE TABLE hr_payroll_events(id INTEGER PRIMARY KEY AUTOINCREMENT,payroll_id INTEGER REFERENCES hr_payroll(id),actor_id INTEGER REFERENCES app_users(id),event TEXT,note TEXT,snapshot TEXT,created_at TEXT DEFAULT CURRENT_TIMESTAMP);
 INSERT INTO app_users(id,username,display_name,role,department) VALUES(1,'admin','관리자','admin','insurance'),(2,'one','첫째','employee','insurance'),(3,'two','둘째','employee','insurance');");

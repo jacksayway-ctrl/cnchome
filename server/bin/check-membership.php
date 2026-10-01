@@ -19,6 +19,7 @@ CREATE TABLE app_users(id INTEGER PRIMARY KEY AUTOINCREMENT,username TEXT UNIQUE
 CREATE TABLE employee_memberships(user_id INTEGER PRIMARY KEY REFERENCES app_users(id),status TEXT,phone TEXT,revision INTEGER DEFAULT 0,approved_by INTEGER REFERENCES app_users(id),approved_at TEXT,profile_completed INTEGER DEFAULT 0,profile_completed_at TEXT,created_at TEXT DEFAULT CURRENT_TIMESTAMP);
 CREATE TABLE hr_employee_sequences(day TEXT PRIMARY KEY,serial INTEGER);
 CREATE TABLE hr_employees(id INTEGER PRIMARY KEY AUTOINCREMENT,employee_no TEXT UNIQUE,user_id INTEGER UNIQUE REFERENCES app_users(id),profile TEXT,revision INTEGER DEFAULT 0,created_at TEXT DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE hr_personnel_events(id INTEGER PRIMARY KEY AUTOINCREMENT,employee_id INTEGER REFERENCES hr_employees(id),actor_id INTEGER REFERENCES app_users(id),event TEXT,revision INTEGER,snapshot TEXT,created_at TEXT DEFAULT CURRENT_TIMESTAMP);
 CREATE TABLE employee_membership_events(id INTEGER PRIMARY KEY AUTOINCREMENT,user_id INTEGER REFERENCES app_users(id),actor_id INTEGER REFERENCES app_users(id),event TEXT,payload TEXT,created_at TEXT DEFAULT CURRENT_TIMESTAMP);
 INSERT INTO app_users(username,display_name,password_hash,role,department) VALUES('admin','관리자','unused','admin','insurance');");
 $admin=['id'=>1,'role'=>'admin'];$pass='Membership!23456';$base=['username'=>'JoinOne','name'=>'직원 <예시>','phone'=>'010-1234-5678','password'=>$pass,'passwordConfirm'=>$pass];
@@ -58,9 +59,11 @@ $in=['revision'=>'0','name'=>'본인 이름','phone'=>'010-2222-3333','birthDate
 membership_save_profile($employee,$in);$record=$d->query('SELECT * FROM hr_employees WHERE user_id='.$id)->fetch();$saved=json_decode($record['profile'],true);
 check($saved['name']==='본인 이름'&&$saved['accountNumber']==='1234567890'&&membership_record($id)['profile_completed'],'personal fields saved and onboarding completed');
 foreach(['payAmount','team','role','startDate','contractType','workDays'] as $key)check($saved[$key]===$original[$key],'employee cannot change administrator field: '.$key);
+check((int)$d->query('SELECT COUNT(*) FROM hr_personnel_events WHERE employee_id='.(int)$record['id'])->fetchColumn()===2,'employee onboarding preserves baseline and edited information in personnel history');
 check(membership_record($second)['status']==='pending'&&!membership_record($second)['profile_completed'],'posted foreign owner ignored');
 rejects(fn()=>membership_save_profile($employee,$in),'stale profile rejected');
 rejects(fn()=>membership_save_profile($admin,$in),'administrator cannot use employee self-service route');
+rejects(fn()=>personnel_history_list($employee,(int)$record['id']),'employee cannot read personnel audit history or private administrator notes');
 check(count(membership_list($admin))===5&&membership_notification($admin)['pendingCount']===1,'administrator list and current notification counts match');
 $memberships=membership_list($admin);$_SESSION=['csrf'=>'FIXTURE'];ob_start();require view_root().'/partials/membership-list.php';$html=ob_get_clean();
 check(str_contains($html,'직원 &lt;예시&gt;')&&!str_contains($html,'직원 <예시>'),'application names escaped');

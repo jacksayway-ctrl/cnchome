@@ -18,14 +18,16 @@ function db(): PDO {
     return $database;
 }
 function h(string $value): string {return htmlspecialchars($value,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');}
+function entries_for(array $user): array {return [];}
 function personnel_check(bool $condition,string $message): void {if(!$condition)throw new RuntimeException($message);}
 function personnel_rejects(callable $operation,string $message): void {
-    try{$operation();}catch(InvalidArgumentException|HRForbidden $e){return;}
+    try{$operation();}catch(InvalidArgumentException|HRForbidden|PDOException $e){return;}
     throw new RuntimeException('Unexpected acceptance: '.$message);
 }
 function personnel_fixture(array $user,array $record,bool $editing=false,bool $new=false): string {
     $admin=$user['role']==='admin';$role=$user['role'];$records=[$record];$profile=$record['profile'];
     $isNew=$new;$employeeNumber=$record['employee_no'];$id=$record['id'];$formRevision=$record['revision'];$error='';$saved=false;$accounts=[];
+    $historyEntries=$admin&&!$editing?personnel_history_list($user,$id):[];
     ob_start();native_start('인사기록카드',$user,$admin?'adminStaff':'myInfo',['personnel.css'],$new);
     require __DIR__.'/../views/personnel.php';native_end();return ob_get_clean();
 }
@@ -33,6 +35,7 @@ $database=db();$database->exec("PRAGMA foreign_keys=ON;
 CREATE TABLE app_users(id INTEGER PRIMARY KEY,username TEXT UNIQUE,display_name TEXT,password_hash TEXT,role TEXT,department TEXT,active INTEGER DEFAULT 1);
 CREATE TABLE hr_employee_sequences(day TEXT PRIMARY KEY,serial INTEGER);
 CREATE TABLE hr_employees(id INTEGER PRIMARY KEY AUTOINCREMENT,employee_no TEXT UNIQUE,user_id INTEGER UNIQUE REFERENCES app_users(id),profile TEXT,revision INTEGER DEFAULT 1,created_at TEXT DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE hr_personnel_events(id INTEGER PRIMARY KEY AUTOINCREMENT,employee_id INTEGER REFERENCES hr_employees(id),actor_id INTEGER REFERENCES app_users(id),event TEXT,revision INTEGER,snapshot TEXT,created_at TEXT DEFAULT CURRENT_TIMESTAMP);
 INSERT INTO app_users(id,username,display_name,role,department) VALUES(1,'fixture-admin','관리자','admin','insurance'),(2,'fixture-one','직원 1','employee','insurance'),(3,'fixture-two','직원 2','employee','insurance');");
 $_SESSION=['csrf'=>'fixture-csrf-token'];
 $admin=['id'=>1,'role'=>'admin','display_name'=>'관리자'];$employee=['id'=>2,'role'=>'employee','display_name'=>'직원 1'];
@@ -67,4 +70,22 @@ $newProfile=personnel_default_profile();personnel_check($newProfile['payday']===
 $newRecord=['id'=>0,'revision'=>0,'profile'=>$newProfile,'user_id'=>null,'employee_no'=>personnel_next_number()];
 file_put_contents($build.'/personnel-new.html',personnel_fixture($admin,$newRecord,true,true));
 personnel_check(str_starts_with($newRecord['employee_no'],'cnc'.str_replace('-','',hr_today())),'auto number includes registration date');
+// Every successful write is immutable and scoped to its employee; stale writes add nothing.
+$history=personnel_history_list($admin,1);personnel_check(count($history)===2,'registration and confirmation retained without duplicate stale history');
+$first=personnel_history_get($admin,1,(int)$history[1]['id']);$latest=personnel_history_get($admin,1,(int)$history[0]['id']);
+personnel_check($first['snapshot']['profile']['phone']==='010-0000-0000'&&$latest['snapshot']['profile']['phone']==='010-1111-1111','history shows exact prior and confirmed values');
+personnel_rejects(fn()=>personnel_history_get($admin,2,(int)$history[0]['id']),'history cannot be applied to another employee');
+personnel_rejects(fn()=>personnel_history_get($employee,1,(int)$history[0]['id']),'employee cannot access administrator history');
+personnel_check(str_contains($adminHtml,'data-personnel-history-window')&&str_contains($editHtml,'수정 확정')&&!str_contains($employeeHtml,'인사기록 수정이력'),'history popup and confirm are administrator-only');
+hr_mutate($admin,['action'=>'saveStaff','id'=>1,'revision'=>2,'profile'=>$first['snapshot']['profile']]);
+$restored=personnel_records($employee)[0];personnel_check($restored['profile']['phone']==='010-0000-0000'&&count(personnel_history_list($admin,1))===3,'applying a historical profile creates another confirmation and preserves later history');
+personnel_check(personnel_history_get($admin,1,(int)$history[0]['id'])['snapshot']['profile']['phone']==='010-1111-1111','restore does not rewrite existing history');
+personnel_rejects(fn()=>hr_mutate(['id'=>999,'role'=>'admin'],['action'=>'saveStaff','id'=>1,'revision'=>3,'profile'=>['phone'=>'010-9999-9999']]),'failed history insert rolls back profile write');
+personnel_check(personnel_records($employee)[0]['revision']===3&&count(personnel_history_list($admin,1))===3,'profile and history rollback together');
+// Existing records from before this feature retain a baseline on the first edit.
+$q=$database->prepare('INSERT INTO hr_employees(employee_no,profile) VALUES(?,?)');$q->execute(['legacy-history-fixture',hr_json(hr_profile($profile))]);$legacyId=(int)$database->lastInsertId();
+hr_mutate($admin,['action'=>'saveStaff','id'=>$legacyId,'revision'=>1,'profile'=>['phone'=>'010-3333-3333']]);
+$legacyHistory=personnel_history_list($admin,$legacyId);personnel_check(count($legacyHistory)===2&&$legacyHistory[1]['event']==='baseline','legacy first edit captures original input before confirmation');
+personnel_check(personnel_history_get($admin,$legacyId,(int)$legacyHistory[1]['id'])['snapshot']['profile']['phone']===$profile['phone'],'legacy baseline is faithful to original profile');
+personnel_check(personnel_history_date('2026-10-01 01:00:00')==='2026-10-01 10:00:00','personnel history displayed in Korean time');
 echo "PASS: personnel ownership, legacy field preservation, stale writes, date validation, escaped cards, admin memo privacy and 12,500 + 2,500 = 15,000 wage display.\n";

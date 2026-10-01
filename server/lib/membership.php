@@ -64,6 +64,8 @@ function membership_save_profile(array $user,array $in): void {
         foreach(['name','phone','birthDate','address','bank','accountNumber','accountHolder'] as $key)hr_assert(($profile[$key]??'')!=='','이름·연락처·생년월일·주소·급여계좌 정보를 입력해 주세요.');
         $profile=hr_profile($profile);
         $q=$d->prepare('UPDATE hr_employees SET profile=?,revision=revision+1 WHERE id=?');$q->execute([hr_json($profile),$row['id']]);
+        require_once __DIR__.'/personnel-history.php';
+        personnel_history_append($user,$row,array_replace($row,['profile'=>hr_json($profile),'revision'=>(int)$row['revision']+1]),'profile');
         $q=$d->prepare("UPDATE app_users SET display_name=? WHERE id=? AND role='employee'");$q->execute([$profile['name'],$user['id']]);
         $q=$d->prepare('UPDATE employee_memberships SET phone=?,profile_completed=1,profile_completed_at=CURRENT_TIMESTAMP,revision=revision+1 WHERE user_id=?');$q->execute([$profile['phone'],$user['id']]);
         $q=$d->prepare('INSERT INTO employee_membership_events(user_id,actor_id,event,payload) VALUES(?,?,?,?)');$q->execute([$user['id'],$user['id'],'profile',hr_json(['employeeId'=>(int)$row['id'],'changedFields'=>array_keys(array_diff_assoc(array_filter($profile,'is_scalar'),array_filter($before,'is_scalar')))])]);$d->commit();

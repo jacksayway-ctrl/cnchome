@@ -16,6 +16,7 @@ php server/bin/check-views.php
 php server/bin/check-intake-management.php
 php server/bin/check-attendance.php
 php server/bin/check-membership.php
+php server/bin/check-personnel.php
 php server/bin/check-business-calendar.php
 php server/bin/check-pay-statements.php
 php server/bin/check-grade-ledger.php

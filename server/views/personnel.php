@@ -1,20 +1,25 @@
-<?php declare(strict_types=1);$popup=$popup??false;$employeeNumber=$employeeNumber??($record['employee_no']??''); ?>
-<?php if($saved): ?><p class="nf-alert" role="status">인사정보를 저장했습니다.</p><?php endif; ?>
+<?php declare(strict_types=1);$popup=$popup??false;$employeeNumber=$employeeNumber??($record['employee_no']??'');$historyEntry=$historyEntry??null;$restoreEntry=$restoreEntry??null;$historyEntries=$historyEntries??[]; ?>
+<?php if($saved): ?><p class="nf-alert" role="status"><?= $admin?'인사정보를 확정하고 수정이력을 저장했습니다.':'기본정보를 저장했습니다.' ?></p><?php endif; ?>
 <?php if($error): ?><p class="nf-alert nf-error" role="alert"><?= h($error) ?></p><?php endif; ?>
 <div class="nf-actions personnel-no-print">
-<?php if($admin): ?>
+<?php if($historyEntry): ?>
+<a class="nf-button primary" href="/personnel.php?role=admin&amp;id=<?= $record['id'] ?>&amp;edit=1&amp;restore=<?= (int)$historyEntry['id'] ?>&amp;popup=1">이 내용으로 수정</a>
+<a class="nf-button" href="/personnel.php?role=admin&amp;id=<?= $record['id'] ?>&amp;popup=1">현재 인사기록</a>
+<?php elseif($admin): ?>
 <a class="nf-button" href="/personnel.php?role=admin">직원 목록</a>
 <a class="nf-button" href="/personnel.php?role=admin&amp;new=1&amp;popup=1" target="_blank" rel="noopener" data-personnel-window>직원 등록</a>
 <?php if($record&&!$editing): ?><a class="nf-button" href="/personnel.php?role=admin&amp;id=<?= $record['id'] ?>&amp;edit=1<?= $popup?'&amp;popup=1':'' ?>">인사정보 수정</a><?php endif; ?>
 <?php endif; ?>
-<?php if(!$editing): ?><a class="nf-button<?= $admin?'':' nf-contract-open' ?>" href="/contracts.php?role=<?= h($role) ?><?= $admin?'':'&amp;document=1' ?>"<?= $admin?'':' target="_blank" rel="noopener"' ?>>근로계약서</a><?php endif; ?>
-<?php if(!empty($canSelfEdit)): ?><a class="nf-button" href="/profile-entry.php?role=employee">본인 정보 수정</a><?php endif; ?>
+<?php if(!empty($canSelfEdit)): ?><a class="nf-button primary" href="/profile-entry.php?role=employee">정보수정</a><?php endif; ?>
+<?php if(!$editing&&!$historyEntry): ?><a class="nf-button<?= $admin?'':' nf-contract-open' ?>" href="/contracts.php?role=<?= h($role) ?><?= $admin?'':'&amp;document=1' ?>"<?= $admin?'':' target="_blank" rel="noopener"' ?>>근로계약서</a><?php endif; ?>
 <?php if($record&&!$editing): ?><button type="button" data-print>인사기록카드 인쇄</button><?php endif; ?>
 </div>
 <?php if($admin&&!$editing&&!$popup): ?><details class="nf-card"><summary>로그인 세션 유지시간 설정</summary><form method="post"><?= native_csrf() ?><input type="hidden" name="action" value="sessionSettings"><label>페이지를 닫은 뒤 유지시간 (분) <input type="number" name="timeoutMinutes" min="5" max="1440" required value="<?= session_timeout_minutes() ?>"></label><button>설정 저장</button><p>페이지가 열려 있는 동안 1분마다 세션을 갱신합니다. 브라우저 종료·절전이나 통신 중단 시에는 설정한 시간이 적용됩니다.</p><?php if(isset($_GET['sessionSaved'])): ?><p role="status">저장했습니다.</p><?php endif ?></form></details><?php endif ?>
 <?php if(!empty($record['loginName'])): ?><p>직원 로그인 아이디: <strong><?= h($record['loginName']) ?></strong></p><?php endif ?>
+<?php if($historyEntry): ?><p class="nf-alert personnel-history-context"><strong><?= h(personnel_history_date($historyEntry['created_at'])) ?></strong> · <?= h(personnel_history_label($historyEntry['event'])) ?> · <?= h($historyEntry['actor_name']) ?><br>아래는 해당 기록에 저장된 내용입니다.</p><?php endif; ?>
+<?php if($restoreEntry): ?><p class="nf-alert"><strong><?= h(personnel_history_date($restoreEntry['created_at'])) ?></strong> 기록의 내용을 불러왔습니다. 내용을 확인한 뒤 수정 확정을 누르면 반영됩니다.</p><?php endif; ?>
 <?php if($editing): ?>
-<form class="personnel-form" method="post" action="/personnel.php?role=admin<?= $isNew?'&amp;new=1':'&amp;id='.$id.'&amp;edit=1' ?><?= $popup?'&amp;popup=1':'' ?>">
+<form class="personnel-form" method="post" action="/personnel.php?role=admin<?= $isNew?'&amp;new=1':'&amp;id='.$id.'&amp;edit=1' ?><?= $popup?'&amp;popup=1':'' ?><?= $restoreEntry?'&amp;restore='.(int)$restoreEntry['id']:'' ?>">
 <?= native_csrf() ?><input type="hidden" name="id" value="<?= $isNew?0:$id ?>"><input type="hidden" name="revision" value="<?= $formRevision ?>">
 <section class="nf-card personnel-section"><h2><?= $isNew?'직원 등록':'인사기록 수정' ?></h2><p class="personnel-note">* 필수 입력 · 작성 내용을 실제 근로조건 및 계약서와 일치하도록 관리해 주세요.</p>
 <p class="personnel-number">사번 <input aria-label="자동 사번" value="<?= h($employeeNumber) ?>" readonly><small><?= $isNew?'저장 시 자동 확정':'자동 발급 번호' ?></small></p><fieldset><legend>기본 인적사항</legend><div class="personnel-grid">
@@ -85,14 +90,14 @@ personnel_field($profile,'accountNumber','급여 계좌번호','text',40,false,'
 <?php endif; ?>
 <?php personnel_textarea($profile,'memo','관리자 메모 (직원 화면에는 표시하지 않음)',1000); ?>
 </div></fieldset></section>
-<div class="nf-actions"><button class="nf-button" type="submit">인사정보 저장</button><button type="button" data-print>등록 양식 인쇄</button><a href="/personnel.php?role=admin<?= $record?'&amp;id='.$record['id']:'' ?>">취소</a></div>
+<div class="nf-actions"><button class="nf-button primary" type="submit"><?= $isNew?'등록 확정':'수정 확정' ?></button><button type="button" data-print>등록 양식 인쇄</button><a href="/personnel.php?role=admin<?= $record?'&amp;id='.$record['id']:'' ?><?= $popup?'&amp;popup=1':'' ?>">취소</a></div>
 </form>
 <?php elseif($record): $p=$record['profile']; ?>
 <?php if($admin): $missing=[];foreach(['gender'=>'성별','birthDate'=>'생년월일','address'=>'주소','career'=>'이력','jobType'=>'직종','startDate'=>'고용일','duties'=>'종사 업무'] as $key=>$label)if(trim((string)($p[$key]??''))==='')$missing[]=$label; ?>
 <?php if($missing): ?><p class="nf-alert personnel-no-print">근로자명부 확인 항목 중 미입력: <?= h(implode(', ',$missing)) ?>. 인사정보 수정에서 실제 내용을 작성해 주세요.</p><?php endif; ?>
 <?php endif; ?>
 <article class="nf-card personnel-card">
-<h2>인사기록카드</h2><div class="personnel-meta"><span>사번 <?= h($record['employee_no']) ?></span><span>기준일 <?= h(hr_today()) ?> · 기록 버전 <?= (int)$record['revision'] ?></span></div>
+<h2>인사기록카드</h2><div class="personnel-meta"><span>사번 <?= h($record['employee_no']) ?></span><span><?= $historyEntry?'기록일 '.h(personnel_history_date($historyEntry['created_at'])):'기준일 '.h(hr_today()) ?> · 기록 버전 <?= (int)$record['revision'] ?></span></div>
 <h3>1. 기본 인적사항</h3><table class="personnel-table"><tbody>
 <?php
 personnel_cells('성명',$p['name']??'','성별',$p['gender']??'');
@@ -130,8 +135,15 @@ personnel_cells('임금 적용일',$p['wageEffective']??'','급여일',($p['payd
 <?php else: ?><div class="personnel-pay"><span>월 기본급<strong><?= h(native_money((int)($p['payAmount']??0))) ?></strong></span></div><?php endif; ?>
 <table class="personnel-table"><tbody><?php personnel_cells('은행',$p['bank']??'','예금주',$p['accountHolder']??''); ?><tr><th>급여 계좌번호</th><td colspan="3"><?= h(personnel_text($p['accountNumber']??'')) ?></td></tr></tbody></table>
 <?php if($admin&&!empty($p['memo'])): ?><h3 class="personnel-no-print">관리자 메모</h3><p class="personnel-note personnel-no-print"><?= nl2br(h($p['memo'])) ?></p><?php endif; ?>
-<p class="personnel-note">미입력 항목은 ‘—’로 표시합니다. 정보가 다르면 관리자에게 정정을 요청해 주세요.</p>
+<p class="personnel-note">미입력 항목은 ‘—’로 표시합니다. <?= !empty($canSelfEdit)?'이름·연락처·주소·급여계좌 등은 상단 정보수정에서 입력할 수 있습니다. 근로조건이 다르면 관리자에게 정정을 요청해 주세요.':'정보가 다르면 관리자에게 정정을 요청해 주세요.' ?></p>
 </article>
+<?php if($admin&&!$historyEntry): ?>
+<details class="nf-card personnel-record-list personnel-history-list personnel-no-print"><summary><span>인사기록 수정이력</span><small><?= count($historyEntries) ?>건 · 펼쳐보기</small></summary>
+<?php if($historyEntries): ?><div class="nf-table-wrap"><table class="nf-table"><thead><tr><th>수정 날짜 · 시간</th><th>기록</th><th>수정자</th><th>버전</th></tr></thead><tbody>
+<?php foreach($historyEntries as $entry): ?><tr><td><a class="personnel-history-date" href="/personnel.php?role=admin&amp;id=<?= $record['id'] ?>&amp;history=<?= (int)$entry['id'] ?>&amp;popup=1" target="_blank" rel="noopener" data-personnel-history-window><?= h(personnel_history_date($entry['created_at'])) ?></a></td><td><?= h(personnel_history_label($entry['event'])) ?></td><td><?= h($entry['actor_name']) ?></td><td><?= (int)$entry['revision'] ?></td></tr><?php endforeach; ?>
+</tbody></table></div><?php else: ?><p class="personnel-note">수정·확정하면 날짜별로 기록됩니다. 처음 수정할 때 기존 입력 내용도 함께 보관합니다.</p><?php endif; ?>
+</details>
+<?php endif; ?>
 <?php elseif($admin): ?>
 <details class="nf-card personnel-record-list"><summary><span>직원 인사기록</span><small><?= count($records) ?>명 · 펼쳐보기</small></summary><p class="personnel-note">인사기록과 근로계약은 별도로 관리합니다. 개인정보는 인사·급여 업무 목적으로 확인해 주세요.</p>
 <div class="nf-table-wrap"><table class="nf-table personnel-list"><thead><tr><th>사번</th><th>성명</th><th>소속·직책</th><th>입사일</th><th>상태</th><th>인사기록</th></tr></thead><tbody>
