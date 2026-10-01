@@ -31,6 +31,7 @@ function native_start(string $title,array $user,string $active,array $extraStyle
     header('Content-Type: text/html; charset=utf-8');
     if($GLOBALS['native_notice_bar'])$extraStyles[]='session-navigation.css';
     if($role==='admin'&&!in_array('membership.css',$extraStyles,true))$extraStyles[]='membership.css';
+    if($role==='admin')$extraStyles[]='admin-save-confirm.css';
     $GLOBALS['membership_admin_context']=$role==='admin'?['user'=>['id'=>(int)($user['id']??0),'role'=>'admin'],'csrf'=>(string)($_SESSION['csrf']??'')]:null;
     $extraCss='';foreach($extraStyles as $file)$extraCss.='<link rel="stylesheet" href="'.view_h(asset_url($file)).'">';
     echo '<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow,noarchive"><title>'.view_h($title).' · 씨앤씨</title><link rel="icon" href="/cnc-mark.svg"><link rel="stylesheet" href="'.view_h(asset_url('ui-icons.css')).'"><link rel="stylesheet" href="'.view_h(asset_url('native.css')).'">'.$extraCss.'<link rel="stylesheet" href="'.view_h(asset_url('workspace-ui.css')).'"><link rel="stylesheet" href="'.view_h(asset_url('company-ui.css')).'"></head><body class="nf-body" data-page="'.view_h($active).'">';
@@ -58,4 +59,9 @@ function native_start(string $title,array $user,string $active,array $extraStyle
     }
     echo '<div class="nf-page-heading"><h1>'.view_h($title).'</h1>'.$headingExtra.'<span>'.(new DateTimeImmutable('now',new DateTimeZone('Asia/Seoul')))->format('Y.m.d').'</span></div>';
 }
-function native_end(): void {if(!empty($GLOBALS['membership_admin_context']))echo '<script type="application/json" id="membership-admin-context">'.view_json($GLOBALS['membership_admin_context']).'</script><script src="'.view_h(asset_url('membership-notification.js')).'" defer></script>';echo '</main></div><script src="'.view_h(asset_url('session-keepalive.js')).'" defer></script>';if(!empty($GLOBALS['native_notice_bar']))echo '<script src="'.view_h(asset_url('notice-ticker.js')).'" defer></script>';echo '<script src="'.view_h(asset_url('native-ui.js')).'" defer></script></body></html>';}
+function native_end(): void {
+    if(!empty($GLOBALS['membership_admin_context']))echo '<script type="application/json" id="membership-admin-context">'.view_json($GLOBALS['membership_admin_context']).'</script><script src="'.view_h(asset_url('admin-save-confirm.js')).'" defer></script><script src="'.view_h(asset_url('membership-notification.js')).'" defer></script>';
+    echo '</main></div><script src="'.view_h(asset_url('session-keepalive.js')).'" defer></script>';
+    if(!empty($GLOBALS['native_notice_bar']))echo '<script src="'.view_h(asset_url('notice-ticker.js')).'" defer></script>';
+    echo '<script src="'.view_h(asset_url('native-ui.js')).'" defer></script></body></html>';
+}

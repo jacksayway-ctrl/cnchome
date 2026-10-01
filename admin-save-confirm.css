@@ -1,0 +1,10 @@
+dialog.cnc-admin-save-confirm{box-sizing:border-box;width:min(420px,calc(100vw - 32px));max-height:calc(100dvh - 32px);overflow:auto;margin:auto;padding:22px;border:1px solid #cbd8e7;border-radius:12px;background:#fff;color:#2c4058;box-shadow:0 16px 54px #15314e2b;font:14px/1.6 "Malgun Gothic","Noto Sans KR",Arial,sans-serif}
+dialog.cnc-admin-save-confirm::backdrop{background:#18324f88}
+dialog.cnc-admin-save-confirm h2{margin:0 0 12px;font-size:18px;line-height:1.4;color:#304c69}
+dialog.cnc-admin-save-confirm p{margin:0 0 20px;white-space:normal;overflow-wrap:anywhere}
+dialog.cnc-admin-save-confirm .cnc-admin-save-confirm-actions{display:flex;justify-content:flex-end;gap:9px}
+dialog.cnc-admin-save-confirm button{min-height:36px;min-width:74px;padding:7px 16px;border:1px solid #cfdbe8;border-radius:7px;background:#fff;color:#426080;font:600 13px/1.5 "Malgun Gothic",Arial,sans-serif;cursor:pointer}
+dialog.cnc-admin-save-confirm button.primary{background:#2c609b;border-color:#2c609b;color:#fff}
+dialog.cnc-admin-save-confirm button:hover{filter:brightness(.96)}
+dialog.cnc-admin-save-confirm button:focus-visible{outline:2px solid #6594c5;outline-offset:3px}
+@media print{dialog.cnc-admin-save-confirm{display:none!important}}

@@ -32,3 +32,10 @@
 .nf-body>.cnc-session-bar{flex:none}
 
 @media screen{.nf-body>.nf-popup-shell{flex:1;min-height:0;height:auto}}
+
+/* Keep the employee card and profile editor inside the resized viewport. */
+@media screen{
+ .nf-body[data-page=myInfo]>.nf-shell{flex:1 1 0;grid-template-rows:minmax(0,1fr);min-height:0}
+ .nf-body[data-page=myInfo]>.nf-shell>.nf-main{min-height:0;height:100%;max-height:100%;overflow:auto;scrollbar-gutter:stable}
+ .nf-body[data-page=myInfo]>.nf-shell>.nf-nav{min-height:0;max-height:100%;overflow-y:auto}
+}

@@ -12,6 +12,7 @@
 <script src="<?= view_h(asset_url('native-navigation.js')) ?>"></script>
 <script src="<?= view_h(asset_url('notice-ticker.js')) ?>" defer></script>
 <script src="<?= view_h(asset_url('session-navigation.js')) ?>" defer></script>
+<?php if(!$preview&&$role==='admin'): ?><link rel="stylesheet" href="<?= view_h(asset_url('admin-save-confirm.css')) ?>"><script src="<?= view_h(asset_url('admin-save-confirm.js')) ?>" defer></script><?php endif; ?>
 <?php if (!$preview): ?><script src="<?= view_h(asset_url('session-keepalive.js')) ?>" defer></script><script src="<?= view_h(asset_url('test-workspace.js')) ?>" defer></script><?php endif; ?>
 
 <?php if (is_array($user) && isset($user['role'], $_SESSION['csrf'])): ?>
