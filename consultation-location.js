@@ -36,27 +36,49 @@
   return roots;
  }
  function suggestions(value,roots){
-  let remaining=compact(value),scope=roots,scoped=false;
+  let remaining=compact(value),scope=roots,scoped=false,province=null;
+  const parts=String(value||'').trim().split(/\s+/u).filter(Boolean),trailingSpace=/\s$/u.test(String(value||''));
   function descendants(nodes){return nodes.flatMap(node=>[...node.children,...descendants(node.children)]);}
+  const unique=nodes=>[...new Map(nodes.map(node=>[node.id,node])).values()];
+  // This spelling alias suggests the catalog address; it never changes entered text.
+  const aliases=(node,root)=>root?.id==='대전'&&node.label==='대전광역시 서구 탄방동'?[...node.aliases,'탐방동']:node.aliases;
+  const complete=(node,query,root)=>aliases(node,root).some(alias=>compact(alias).length===compact(query).length&&startsWith(alias,query));
+  const nextOptions=node=>node.children.length?node.children:trailingSpace?[]:[node];
+  // Separate province initials from locality initials, allowing omitted address levels.
+  // Every later segment searches only descendants of the already matched branch.
+  if(parts.length>1){
+   const provinces=roots.filter(node=>node.aliases.some(alias=>startsWith(alias,parts[0])));
+   if(provinces.length){
+    let branches=provinces.map(node=>({node,root:node}));
+    for(let i=1;i<parts.length;i++){
+     const matches=branches.flatMap(({node,root})=>descendants([node]).filter(child=>aliases(child,root).some(alias=>startsWith(alias,parts[i]))).map(child=>({node:child,root})));
+     if(i===parts.length-1&&matches.length)return unique(matches.flatMap(({node,root})=>complete(node,parts[i],root)?nextOptions(node):[node]));
+     branches=matches;
+    }
+    // A segment may itself contain several compact levels, such as 서구탄방동.
+    remaining=parts.slice(1).map(compact).join('');scope=provinces.flatMap(node=>node.children);scoped=true;province=provinces.length===1?provinces[0]:null;
+   }
+  }
   const direct=()=>(flatCache.get(roots)||descendants(roots)).filter(node=>node.aliases.some(alias=>startsWith(alias,value)));
-  // Resolve complete province/city aliases first, then filter only their children.
+  // Compact queries also stay inside the resolved province, with optional skipped levels.
   while(remaining){
    let match=null;
-   for(const node of scope)for(const alias of node.aliases){const name=compact(alias);if(name&&remaining.startsWith(name)&&(!match||name.length>match.name.length))match={node,name};}
+   for(const node of scoped?[...scope,...descendants(scope)]:scope)for(const alias of aliases(node,province)){const name=compact(alias);if(name&&remaining.startsWith(name)&&(!match||name.length>match.name.length))match={node,name};}
    if(!match)break;
+   if(!scoped)province=match.node;
    remaining=remaining.slice(match.name.length);scope=match.node.children;scoped=true;
-   if(!scope.length)return [];
+   if(!scope.length)return remaining?[]:nextOptions(match.node);
   }
   if(!remaining)return scope;
-  const matches=scope.filter(node=>node.aliases.some(alias=>startsWith(alias,remaining)));
+  const candidates=scoped?[...scope,...descendants(scope)]:scope;
+  const matches=candidates.filter(node=>aliases(node,province).some(alias=>startsWith(alias,remaining)));
   // One initial per successive address level: ㄱㅇㅅ -> 경기도 / 이천시 / 설성면.
   const compound=[];
   if(remaining.length>=2&&[...remaining].every(letter=>initials.includes(letter))){
    function walk(nodes,offset){for(const node of nodes){if(!startsWith(node.name,remaining[offset]))continue;if(offset===remaining.length-1)compound.push(node);else walk(node.children,offset+1);}}
    walk(scope,0);
   }
-  const unique=nodes=>[...new Map(nodes.map(node=>[node.id,node])).values()];
-  if(scoped)return unique([...(matches.length?matches:compound.length?[]:direct()),...compound]);
+  if(scoped)return unique([...matches,...compound]);
   // Also allow direct city/district searches; full paths distinguish identical names.
   return unique([...(matches.length?[...matches,...roots.flatMap(node=>node.children).filter(node=>node.aliases.some(alias=>startsWith(alias,value)))]:direct()),...compound]);
  }
