@@ -84,7 +84,7 @@
   if(!form)return;cleanup();
   const fields=form.elements,panel=form.querySelector('[data-intake-eligibility]'),summary=form.querySelector('[data-intake-decision]'),list=form.querySelector('[data-intake-options]');
   const labels={possible:'가능',partial:'일부 가능 · 상세 확인',review:'확인 필요',blocked:'불가'};
-  const chooser=form.querySelector('[data-carrier-choice]');let preferred='',index=null;
+  const chooser=form.querySelector('[data-carrier-choice]'),carrierSelection=!!form.querySelector('[data-receipt-carrier]'),product=form.querySelector('[data-receipt-product]');let preferred='',index=null;
   const birthNames=['birthYear','birthMonth','birthDay'],lengths=Object.fromEntries(birthNames.map(name=>[name,fields[name].value.length]));
   const birthPickers=form.querySelectorAll?.('[data-birth-picker]')||[];
   function updateAge(){
@@ -103,17 +103,27 @@
    return info;
   }
   function update(){
-   const info=updateAge(),team=options.team();
+   const info=updateAge(),team=options.team(),snapshot=global.PolicySync?.snapshot;
+   const selectedRadio=carrierSelection?form.querySelector('[data-receipt-carrier]:checked'):null;
+   const requested=selectedRadio?.dataset.receiptCarrier||'',registered=snapshot?.codes.find(code=>code.id===requested),selectedLabel=registered?.label||selectedRadio?.value||'';
+   // The chosen insurer is independent of policy availability; never replace it with another insurer.
+   if(carrierSelection)fields.carrier.value=selectedLabel;
+   if(product)product.textContent=team!=='insurance'?(team?'보험 상품 구분 적용 대상이 아닙니다.':'담당 직원을 선택해 주세요.'):info.error||(!info.birthDate?'생년월일 입력 시 일반·실버 자동 구분':!info.kind?'접수 가능 연령 초과 · '+info.age+'세':selectedLabel?[selectedLabel,info.kind==='silver'?'실버':'일반',info.age+'세'].join(' · '):'접수 코드를 선택해 주세요.');
    let result;
    if(team!=='insurance')result={state:'review',text:team?'보험 접수 정책 적용 대상이 아닙니다.':'담당 직원을 선택하면 해당 부서의 접수 기준을 확인합니다.',items:[]};
-   else if(info.error||info.age===null)result={state:'review',text:info.error||'생년월일을 입력하면 나이에 맞는 접수 정책을 확인합니다.',items:[]};
+   else if(info.error||!info.birthDate)result={state:'review',text:info.error||'생년월일을 입력하면 나이에 맞는 접수 정책을 확인합니다.',items:[]};
    else if(!info.kind)result={state:'blocked',text:'접수 불가 · 보험 접수는 세는나이 70세까지 가능합니다.',items:[]};
+   else if(carrierSelection&&!requested)result={state:'review',text:'접수 코드를 선택해 주세요.',items:[]};
    else if(global.PolicySync?.error)result={state:'review',text:'정책 조회 실패 · 연결을 확인한 뒤 다시 확인해 주세요.',items:[]};
-   else {try{index=index||placeIndex(global.KoreaRegionCatalog);result=assess(global.PolicySync?.snapshot,global.PolicyRegionRules,resolveLocation(fields.consultationPlace.value,index),info.kind,'');}catch(error){result={state:'review',text:'지역 정책을 확인할 수 없습니다. 잠시 후 다시 확인해 주세요.',items:[]};}}
-   const available=availableCodes(result.items);if(!available.some(code=>code.id===preferred))preferred='';
-   const selected=available.find(code=>code.id===preferred)||available[0];fields.carrier.value=selected?.label||'';
-   if(chooser){chooser.replaceChildren();const empty=global.document.createElement('option');empty.value='';empty.textContent=available.length?'가능 코드 자동 선택':'선택 가능한 코드 없음';chooser.append(empty);for(const code of available){const option=global.document.createElement('option');option.value=code.id;option.textContent=code.label;chooser.append(option);}chooser.value=selected?.id||'';chooser.disabled=!available.length;}
-   if(selected)result={...result,text:result.text+' · '+selected.label+' '+(preferred?'선택':'자동 선택')};
+   else {try{index=index||placeIndex(global.KoreaRegionCatalog);result=assess(snapshot,global.PolicyRegionRules,resolveLocation(fields.consultationPlace.value,index),info.kind,requested);}catch(error){result={state:'review',text:'지역 정책을 확인할 수 없습니다. 잠시 후 다시 확인해 주세요.',items:[]};}}
+   if(carrierSelection){
+    if(team==='insurance'&&selectedLabel&&info.birthDate&&!info.error&&info.kind)result={...result,text:result.text+' · '+selectedLabel+' '+(info.kind==='silver'?'실버':'일반')};
+   }else{
+    const available=availableCodes(result.items);if(!available.some(code=>code.id===preferred))preferred='';
+    const selected=available.find(code=>code.id===preferred)||available[0];fields.carrier.value=selected?.label||'';
+    if(chooser){chooser.replaceChildren();const empty=global.document.createElement('option');empty.value='';empty.textContent=available.length?'가능 코드 자동 선택':'선택 가능한 코드 없음';chooser.append(empty);for(const code of available){const option=global.document.createElement('option');option.value=code.id;option.textContent=code.label;chooser.append(option);}chooser.value=selected?.id||'';chooser.disabled=!available.length;}
+    if(selected)result={...result,text:result.text+' · '+selected.label+' '+(preferred?'선택':'자동 선택')};
+   }
    panel.dataset.state=result.state;summary.textContent=result.text;list.replaceChildren();
    for(const item of result.items){const badge=global.document.createElement('span');badge.dataset.state=item.state;badge.textContent=item.label+' '+labels[item.state]+(item.quantity!==null&&item.quantity!==undefined?' '+item.quantity+'건':'');badge.title=item.reason;list.append(badge);}
   }

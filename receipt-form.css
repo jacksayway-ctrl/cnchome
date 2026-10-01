@@ -23,6 +23,7 @@
 #tm-preview .receipt-form .receipt-gender input,#tm-preview .receipt-form .receipt-premium input,#tm-preview .receipt-form .receipt-note input{width:14px;height:14px;margin:0;padding:0;flex:none;accent-color:#203963}
 #tm-preview .receipt-form .receipt-note{gap:14px;flex-wrap:wrap}
 #tm-preview .receipt-form .receipt-note label{gap:5px;white-space:nowrap}
+#tm-preview .receipt-form .receipt-note output{flex-basis:100%;font-size:12px;color:#61758f}
 #tm-preview .receipt-grid>.receipt-region{grid-column:span 3;display:block;position:relative}
 #tm-preview .receipt-region .sales-place-control{position:relative;width:100%}
 #tm-preview .receipt-region [data-place-status]{display:block;font-size:11px;line-height:1.5;text-align:right;color:#0b9275}
