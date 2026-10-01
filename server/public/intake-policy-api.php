@@ -6,7 +6,10 @@ header('Content-Type: application/json; charset=utf-8');
 function intake_policy_reply(int $status,array $data): never {http_response_code($status);echo json_encode($data,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);exit;}
 try{
  session_boot();$user=current_user();if(!$user)intake_policy_reply(401,['error'=>'다시 로그인해 주세요.']);
- if($_SERVER['REQUEST_METHOD']==='GET')intake_policy_reply(200,intake_policy_snapshot());
+ if($_SERVER['REQUEST_METHOD']==='GET'){
+  if(isset($_GET['history']))intake_policy_reply(200,intake_policy_history($user,max(0,(int)($_GET['id']??0)),max(0,(int)($_GET['before']??0))));
+  intake_policy_reply(200,intake_policy_snapshot($user));
+ }
  if($_SERVER['REQUEST_METHOD']!=='POST')intake_policy_reply(405,['error'=>'허용되지 않은 요청입니다.']);
  if($user['role']!=='admin')intake_policy_reply(403,['error'=>'관리자만 정책을 저장할 수 있습니다.']);
  if(!csrf_ok($_SERVER['HTTP_X_CSRF_TOKEN']??''))intake_policy_reply(403,['error'=>'새로고침 후 다시 시도해 주세요.']);

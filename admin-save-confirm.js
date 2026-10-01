@@ -29,10 +29,10 @@
    if(resolve)resolve(dialog.returnValue==='save');
   });
  }
- function request(label){
+ function request(label,note=''){
   if(busy)return Promise.resolve(false);
   setupDialog();busy=true;
-  dialog.querySelector('p').textContent=normalize(label)?normalize(label)+' 내용을 저장하시겠습니까?':'변경한 내용을 저장하시겠습니까?';
+  dialog.querySelector('p').textContent=(note?note+'\n\n':'')+(normalize(label)?normalize(label)+' 내용을 저장하시겠습니까?':'변경한 내용을 저장하시겠습니까?');
   dialog.returnValue='';
   return new Promise(resolve=>{resolveConfirmation=resolve;dialog.showModal();});
  }
@@ -41,6 +41,7 @@
  function mutatingButton(button){
   if(button.closest('.cnc-admin-save-confirm')||button.disabled)return false;
   if(button.matches('[data-page],[data-aw-page],[data-aw-section],[data-print],[data-window-close],[data-grade-history-view],[data-grade-load],[data-grade-cancel],[data-grade-back]'))return false;
+  if(button.matches('[data-checkin-late]'))return false;
   if(button.matches('[data-grade-save-period],[data-grade-confirm]'))return true;
   const action=button.dataset.action||'';
   if(['staff-add','intake','close','notice','notice-detail','policy-client-edit','intake-code-edit'].includes(action))return false;
@@ -74,7 +75,10 @@
   const label=normalize(submitter?.textContent||submitter?.value||form.querySelector('button[type=submit],input[type=submit]')?.textContent);
   if(form.method.toLowerCase()!=='post'&&!mutationLabel(label))return;
   event.preventDefault();event.stopImmediatePropagation();
-  request(label).then(save=>{
+  const contract=form.querySelector('[name="profile[contractType]"]');
+  if(contract&&!contract.value){window.alert('계약 구분이 선택되지 않았습니다. 계약 구분을 선택해 주세요.');contract.focus();return;}
+  const note=contract?.value==='무기계약'?'기간의 정함 없음으로 저장됩니다. 계약 종료일이 없는 계약인지 확인해 주세요.':'';
+  request(label,note).then(save=>{
    if(!save||!form.isConnected||(submitter&&(!submitter.isConnected||submitter.disabled)))return;
    approvedForms.add(form);
    try{form.requestSubmit(submitter||undefined);}finally{approvedForms.delete(form);}

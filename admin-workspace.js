@@ -2,7 +2,7 @@
   'use strict';
   const pages = {
     adminStaff: ['직원 관리', '전체 직원과 등록 누락 항목을 확인하고 인사 정보를 관리합니다.'],
-    adminStaffRegister: ['직원 등록', '직원 등록 버튼을 누르면 기본 양식이 팝업으로 열립니다.'],
+    adminStaffRegister: ['직원 등록 수정', '직원 등록 요청과 인사정보를 수정·승인합니다.'],
     adminBank: ['지급 계좌·지급용 엑셀', '직원별 계좌를 확인하고 확정된 미지급 급여만 선택해 내보냅니다.'],
     adminPayroll: ['급여·지급 관리', '공제 확인부터 확정·명세서 공개·지급까지 순서대로 검토합니다.'],
     adminDaily: ['TM 일 그레이드', '매일 0건부터 별도 집계합니다. 급여·주휴수당에 합산하거나 차감하지 않습니다.'],
@@ -22,7 +22,7 @@
     {label:'관리자 홈',icon:'dashboard',items:[['adminHome','업무 현황'],['adminIntakeAlerts','가접수 알림'],['adminNotifications','알림'],['adminChecklist','운영 점검']]},
     {label:'접수관리',icon:'document',items:[['adminIntake','접수 목록'],['adminPending','가접수 현황'],['adminIntakeRegister','접수 등록']]},
     {label:'영업관리(정책)',icon:'chart',items:[['adminPolicy','정책 등록'],['adminPerformance','실적'],['adminAs','A/S']]},
-    {label:'인사·출결',icon:'users',items:[['adminStaff','직원 목록'],['adminStaffRegister','직원 등록'],['adminAttendance','출결 승인'],['adminBusinessCalendar','영업일 달력'],['adminLeave','연차·휴가'],['adminContracts','근로계약'],['adminMemberships','직원 등록 승인']]},
+    {label:'인사·출결',icon:'users',items:[['adminStaff','직원 목록'],['adminStaffRegister','직원 등록 수정'],['adminAttendance','출결 승인'],['adminBusinessCalendar','영업일 달력'],['adminLeave','연차·휴가'],['adminContracts','근로계약'],['adminMemberships','직원 등록 승인']]},
     {label:'그레이드',icon:'star',items:[['adminGrade','기준표'],['adminDaily','오늘 TM 일 그레이드'],['adminDailyHistory','일 그레이드 지급 내역']]},
     {label:'급여·정산',icon:'wallet',items:[['adminPayroll','급여·지급'],['adminBank','계좌·지급 엑셀'],['adminCorrections','정정·별도 정산']]},
     {label:'운영 관리',icon:'settings',items:[['adminSettings','운영 설정'],['adminPermissions','계정·권한'],['adminAudit','변경 이력']]}

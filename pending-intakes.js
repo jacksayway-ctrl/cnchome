@@ -6,7 +6,7 @@ let rows=[],busy=false,posting=false,queued=null,index,feedback='',loadError='',
 let listScope=null,listPage=1;
 const pageSize=10,scopeLabels={all:'전체 가접수',today:'오늘 재접수 가능',waiting:'관리자 확인 대기'};
 const expanded=new Set(),drafts=new Map(),editDrafts=new Map(),formBases=new Map(),filters={employee:'',scope:'all',query:''};
-const editFields=['customer','phone','birthDate','birthYear','carrier','consultationTime','consultationPlace','premiumBand'];
+const editFields=['customer','phone','birthDate','birthYear','carrier','consultationTime','consultationPlace','premiumBand','gender','callAvailability','visitSchedule'];
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fieldValues=r=>Object.fromEntries(editFields.map(key=>[key,String(r[key]??'')]));
 const sameFields=(a,b)=>editFields.every(key=>a[key]===b[key]);
@@ -57,6 +57,9 @@ function editForm(r,i){
  <label>접수 코드<input name="carrier" maxlength="100" value="${esc(values.carrier)}" list="pending-carriers-${i}" autocomplete="off"><datalist id="pending-carriers-${i}">${carrierOptions.map(c=>`<option value="${esc(c)}"></option>`).join('')}</datalist></label>
  <label>상담 시간<input name="consultationTime" type="time" value="${esc(values.consultationTime)}"></label>
  <label>현재 납부 보험료<select name="premiumBand">${[['','미입력'],['100000','10만 원 이상'],['200000','20만 원 이상'],['300000','30만 원 이상']].map(([value,label])=>`<option value="${value}" ${values.premiumBand===value?'selected':''}>${label}</option>`).join('')}</select></label>
+ <label>성별<select name="gender">${[['','미입력'],['남','남'],['여','여']].map(([value,label])=>`<option value="${value}" ${values.gender===value?'selected':''}>${label}</option>`).join('')}</select></label>
+ <label>통화 가능시간<input name="callAvailability" maxlength="200" value="${esc(values.callAvailability)}" placeholder="예: 오후 2시~5시"></label>
+ <label>방문 일정·장소<input name="visitSchedule" maxlength="500" value="${esc(values.visitSchedule)}"></label>
  <label>현재 나이·구분<output data-pending-age>${esc(ageLabel(values,r.team))}</output></label>
  <label class="pending-intake-wide">상담 장소·지역<input name="consultationPlace" maxlength="500" value="${esc(values.consultationPlace)}" placeholder="시·도, 시·군·구와 상세 상담 장소" autocomplete="off"></label>
  <div class="pending-intake-wide pending-intake-actions"><button type="submit" ${busy?'disabled':''}>수정내용 적용</button><button type="button" class="secondary" data-pending-edit-reset="${esc(r.id)}" ${busy?'disabled':''}>저장내용으로 되돌리기</button><span class="pending-intake-edit-state" data-pending-edit-state>${draft?(revision!==r.revision?'다른 화면에서 내용이 변경되었습니다. 저장내용으로 되돌린 뒤 수정해 주세요.':'수정 중 · 적용하면 저장됩니다.'):r.lastEditAt?'마지막 수정 '+esc(minute(r.lastEditAt)):''}</span></div>
@@ -79,7 +82,7 @@ function countMarkup(all,possible,policyReady){
  ];
  return '<div class="pending-intake-counts" aria-label="가접수 집계">'+cards.map(([scope,count,hint])=>{
   const tag=admin?'div':'button',attributes=admin?'':' type="button" data-pending-scope="'+scope+'" aria-expanded="'+(listScope===scope)+'" aria-controls="pending-intake-results" title="'+scopeLabels[scope]+' 목록 '+(listScope===scope?'닫기':'펼치기')+'"'+(posting?' disabled':'');
-  return '<'+tag+attributes+(scope==='today'?' class="pending-intake-today"':'')+'><span>'+scopeLabels[scope]+'</span><strong>'+count+'</strong><small>'+hint+'</small></'+tag+'>';
+  return '<'+tag+attributes+(scope==='today'?' class="pending-intake-today"':'')+'><span>'+scopeLabels[scope]+'</span><strong>'+count+'</strong>'+(admin?'<small>'+hint+'</small>':'')+'</'+tag+'>';
  }).join('')+'</div>';
 }
 function pageMarkup(count,pageCount){

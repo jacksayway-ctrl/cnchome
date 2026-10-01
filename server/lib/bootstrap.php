@@ -41,7 +41,8 @@ function current_user(): ?array {
         if($membership&&$membership['status']!=='approved')return null;
         $allowed=['/profile-entry.php','/login.php','/logout.php','/session-api.php'];
         if($membership&&!$membership['profile_completed']&&!in_array(parse_url($_SERVER['REQUEST_URI']??'',PHP_URL_PATH),$allowed,true)){
-            header('Location: /profile-entry.php?role=employee');exit;
+            $q=db()->prepare('SELECT profile FROM hr_employees WHERE user_id=?');$q->execute([$user['id']]);$profile=json_decode($q->fetchColumn()?:'{}',true);
+            if(empty($profile['selfEditLocked'])){header('Location: /profile-entry.php?role=employee');exit;}
         }
     }
     return $user;
@@ -49,12 +50,18 @@ function current_user(): ?array {
 function csrf_ok(string $value): bool { return hash_equals($_SESSION['csrf'], $value); }
 function h(string $s): string { return htmlspecialchars($s, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'); }
 function entries_for(array $user): array {
+    require_once __DIR__.'/views.php';
     require_once __DIR__.'/policy.php';
     require_once __DIR__.'/grade-departments.php';
-    $sql='SELECT id,department,effective_date,saved_at,policy,actor_name FROM grade_versions';
-    $q=db()->prepare($sql.($user['role']==='admin'?'':' WHERE department=?').' ORDER BY id');
+    $sql='SELECT g.id,g.department,g.effective_date,g.saved_at,g.policy,g.actor_name,u.department AS actor_department,u.role AS actor_role FROM grade_versions g LEFT JOIN app_users u ON u.id=g.actor_id';
+    $q=db()->prepare($sql.($user['role']==='admin'?'':' WHERE g.department=?').' ORDER BY g.id');
     $q->execute($user['role']==='admin'?[]:[$user['department']]);
-    $groups=[];foreach($q->fetchAll() as $r){if(!grade_department_owns($r['department'],json_decode($r['policy'],true,512,JSON_THROW_ON_ERROR)))continue;$groups[$r['department']][]=['id'=>(int)$r['id'],'department'=>$r['department'],'date'=>$r['effective_date'],'savedAt'=>str_replace(' ','T',$r['saved_at']).'Z','savedBy'=>$r['actor_name'],'policy'=>json_decode($r['policy'],true,512,JSON_THROW_ON_ERROR)];}
+    $groups=[];foreach($q->fetchAll() as $r){
+        $policy=json_decode($r['policy'],true,512,JSON_THROW_ON_ERROR);if(!grade_department_owns($r['department'],$policy))continue;
+        $actor=$policy['savedActor']??['department'=>$r['actor_department'],'position'=>$r['actor_role']==='admin'?'관리자':($r['actor_role']?'직원':'')];
+        $affiliation=implode(' · ',array_filter([!empty($actor['department'])?department_label($actor['department']):'', $actor['position']??'']));
+        $groups[$r['department']][]=['id'=>(int)$r['id'],'department'=>$r['department'],'date'=>$r['effective_date'],'savedAt'=>str_replace(' ','T',$r['saved_at']).'Z','savedBy'=>$r['actor_name'],'savedAffiliation'=>$affiliation?:'기록 없음','affiliationBasis'=>isset($policy['savedActor'])?'saved':'current','policy'=>$policy];
+    }
     $entries=[];foreach($groups as $department=>$group)$entries=array_merge($entries,grade_resolve_entries($group,$department==='insurance'?null:grade_department_empty($department)));usort($entries,fn($a,$b)=>$a['id']<=>$b['id']);return $entries;
 }
 function snapshot(array $user): array {

@@ -14,6 +14,7 @@ function grade_save_settings(array $user,array $input): array {
         $policy=$period==='all'?normalize_policy($input['policy']):grade_merge_period($base,$input['policy'],$period);
         $policy=grade_department_fields($policy,$input['department']);
         $stored=$policy+['savedPeriod'=>$period,'departmentScope'=>$input['department'],'departmentScopeVersion'=>1];
+        $stored['savedActor']=['department'=>$user['department']??'','role'=>$user['role'],'position'=>$user['position']??($user['role']==='admin'?'관리자':'직원')];
         $q=$d->prepare('INSERT INTO grade_versions(department,effective_date,actor_id,actor_name,policy) VALUES(?,?,?,?,?)');$q->execute([$input['department'],$input['date'],$user['id'],$user['display_name'],hr_json($stored)]);
         $d->exec('UPDATE grade_revision SET revision=revision+1 WHERE id=1');$d->commit();
         return ['department'=>$input['department'],'date'=>$input['date'],'period'=>$period,'policy'=>$policy];

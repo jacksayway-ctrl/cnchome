@@ -8,12 +8,14 @@ require_once CNC_RUNTIME_DIR.'/personnel-history.php';
 try {
     session_boot();$user=current_user();
     if(!$user){header('Location: /login.php?role='.session_role());exit;}
-    $canSelfEdit=!($user['role']==='admin')&&db()->query('SELECT COUNT(*) FROM employee_memberships WHERE user_id='.(int)$user['id']." AND status='approved'")->fetchColumn()>0;
+    $canSelfEdit=$user['role']==='employee';
     $popup=($_GET['popup']??'')==='1';$admin=$user['role']==='admin';$role=$user['role'];$error='';$saved=false;
     $records=personnel_records($user);$record=null;
     $id=$admin?personnel_natural($_GET['id']??0):(int)($records[0]['id']??0);
     foreach($records as $item)if($item['id']===$id){$record=$item;break;}
+    $canSelfEdit=$canSelfEdit&&$record&&empty($record['profile']['selfEditLocked']);
     $isNew=$admin&&($_GET['new']??'')==='1';
+    $registerHub=$admin&&($_GET['register']??'')==='1';
     if($admin&&$id&&!$record)throw new HRForbidden('직원을 찾을 수 없습니다.');
     $editing=$admin&&($isNew||($_GET['edit']??'')==='1');
     $historyId=personnel_natural($_GET['history']??0);$restoreId=personnel_natural($_GET['restore']??0);$historyEntry=null;$restoreEntry=null;$historyEntries=[];
@@ -42,6 +44,10 @@ try {
             $postId=personnel_natural($_POST['id']??0);
             hr_assert($postId===($isNew?0:$id),'직원 정보가 변경되었습니다. 다시 열어 주세요.');
             $formRevision=personnel_natural($_POST['revision']??0);
+            if(in_array($_POST['action']??'',['unlockStaff','lockStaff','suspendStaff','resumeStaff'],true)){
+                hr_mutate($user,['action'=>$_POST['action'],'id'=>$postId,'revision'=>$formRevision]);
+                header('Location: /personnel.php?role=admin'.(($_GET['returnList']??'')==='1'?'':'&id='.$postId).($popup?'&popup=1':'').'&permissionSaved=1',true,303);exit;
+            }
             $profile=personnel_post_profile($_POST,$record['profile']??[]);
             $password=$_POST['password']??'';hr_assert(is_string($password),'계정 입력을 확인해 주세요.');
             $input=['action'=>'saveStaff','id'=>$postId,'revision'=>$formRevision,'profile'=>$profile,'accountId'=>personnel_natural($_POST['accountId']??0),'password'=>$password,'username'=>$_POST['username']??''];
@@ -56,8 +62,10 @@ try {
     if($editing&&empty($record['user_id']))$accounts=db()->query("SELECT id,username,display_name FROM app_users WHERE role='employee' AND active=1 AND id NOT IN (SELECT user_id FROM hr_employees WHERE user_id IS NOT NULL) ORDER BY display_name")->fetchAll();
     $employeeNumber=$record['employee_no']??($isNew?personnel_next_number():'');
     if($admin&&$record&&!$editing&&!$historyEntry)$historyEntries=personnel_history_list($user,$id);
-    native_start($historyEntry?'인사기록카드 · 수정이력':($admin?'인사기록카드':'내 정보 · 인사기록카드'),$user,$admin?($isNew?'adminStaffRegister':'adminStaff'):'myInfo',['personnel.css'],$popup);
+    native_start($historyEntry?'인사기록카드 · 수정이력':($registerHub?'직원 등록 수정':($admin?'인사기록카드':'내 정보 · 인사기록카드')),$user,$admin?(($isNew||$registerHub)?'adminStaffRegister':'adminStaff'):'myInfo',['personnel.css'],$popup);
     require view_root().'/personnel.php';
+    if($registerHub){require_once CNC_RUNTIME_DIR.'/membership.php';$memberships=membership_list($user);require view_root().'/partials/membership-list.php';}
+    if($editing)personnel_scripts();
     native_end();
 }catch(HRForbidden $e){
     if(http_response_code()!==405)http_response_code(403);

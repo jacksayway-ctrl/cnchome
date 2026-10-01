@@ -8,3 +8,4 @@ dialog.cnc-admin-save-confirm button.primary{background:#2c609b;border-color:#2c
 dialog.cnc-admin-save-confirm button:hover{filter:brightness(.96)}
 dialog.cnc-admin-save-confirm button:focus-visible{outline:2px solid #6594c5;outline-offset:3px}
 @media print{dialog.cnc-admin-save-confirm{display:none!important}}
+.cnc-admin-save-confirm>p{white-space:pre-line}

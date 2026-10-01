@@ -80,7 +80,6 @@ function grade_employee_context(array $employee,string $month): array {
     $q=$d->prepare('SELECT state FROM test_employee_data WHERE user_id=?');$q->execute([$uid]);$raw=$q->fetchColumn();if($raw&&$test){$state=json_decode($raw,true,512,JSON_THROW_ON_ERROR);foreach($state['sales']??[] as $s)if($s['status']==='정상'&&$s['date']>=$from&&$s['date']<=$through)$counts[$s['date']]=($counts[$s['date']]??0)+1;foreach($state['attendance']??[] as $a)if($a['out']&&$a['date']>=$from&&$a['date']<=$through){$start=strtotime($a['date'].' '.$a['in']);$end=strtotime($a['date'].' '.$a['out']);$hours[$a['date']]=max(0,($end-$start)/3600-1);}}
     $rows=[];for($date=$from;$date<=$through;$date=(new DateTimeImmutable($date))->modify('+1 day')->format('Y-m-d'))if((int)(new DateTimeImmutable($date))->format('N')<=5)$rows[]=['date'=>$date,'count'=>$counts[$date]??0,'hours'=>$hours[$date]??0];
     $history=grade_history($p['team']);
-    if($test){$current=null;foreach($history as $entry)if($entry['date']<=hr_today())$current=$entry;if($current)$history=[array_replace($current,['date'=>$month.'-01'])];}
     $result=grade_ledger($month,$rows,$history,$p,business_calendar_rules($month));$q=$d->prepare('SELECT COALESCE(SUM(amount),0) FROM daily_grade_receipts WHERE employee_id=? AND performance_date>=? AND performance_date<=?');$q->execute([$uid,$month.'-01',(new DateTimeImmutable($month.'-01'))->format('Y-m-t')]);
     $result['dailyConfirmedReceipts']=(int)$q->fetchColumn();
     $result['dailySettlement']='automatic';$result['dailyReceived']=$result['daily'];$result['dailyOutstanding']=0;$result['asOf']=hr_today();return $result;
@@ -105,7 +104,9 @@ function grade_payroll_input(array $input,array $grade): array {
     $input['gradeSnapshot']=$grade;$input['prepaidDaily']=$dailyPaid;$input['dailyGradeSettlement']=$automatic?'cash-auto':'cash';return $input;
 }
 function grade_personal_totals(array $employee,string $month): array {
-    return grade_personal_totals_from_ledger(grade_employee_context($employee,$month),$employee['profile']);
+    $d=db();$owns=!$d->inTransaction();if($owns)$d->beginTransaction();
+    try{$result=grade_personal_totals_from_ledger(grade_employee_context($employee,$month),$employee['profile']);if($owns)$d->commit();return $result;}
+    catch(Throwable $e){if($owns&&$d->inTransaction())$d->rollBack();throw $e;}
 }
 function grade_personal_totals_from_ledger(array $grade,array $profile): array {
     $month=$grade['month'];$contractRate=(int)($profile['payAmount']??15000);
@@ -113,5 +114,7 @@ function grade_personal_totals_from_ledger(array $grade,array $profile): array {
     $rate=count($rates)===1?$rates[0]:null;
     $base=($profile['payType']??'시급제')==='월급제'?$contractRate:$grade['base'];
     $payday=$base+$grade['weekly']+$grade['monthly'];
-    return ['month'=>$month,'asOf'=>$grade['asOf'],'count'=>$grade['count'],'hours'=>$grade['hours'],'rate'=>$rate,'contractRate'=>$contractRate,'payType'=>$profile['payType']??'시급제','workDetails'=>$grade['parts'],'workPay'=>$base,'daily'=>$grade['daily'],'weekly'=>$grade['weekly'],'monthly'=>$grade['monthly'],'dailyPaid'=>$grade['dailyReceived'],'dailyPending'=>$grade['dailyOutstanding'],'total'=>$payday+$grade['daily'],'payday'=>$payday,'dailyDetails'=>$grade['dailyDetails'],'weeklyDetails'=>array_values(array_filter($grade['weeks'],fn($week)=>$week['start']<=$grade['asOf']))];
+    $weeks=array_values(array_filter($grade['weeks'],fn($week)=>$week['start']<=$grade['asOf']));
+    $weeklyAccrued=array_sum(array_column(array_filter($weeks,fn($week)=>$week['payrollMonth']===$month),'bonus'));
+    return ['month'=>$month,'asOf'=>$grade['asOf'],'count'=>$grade['count'],'hours'=>$grade['hours'],'rate'=>$rate,'contractRate'=>$contractRate,'payType'=>$profile['payType']??'시급제','workDetails'=>$grade['parts'],'workPay'=>$base,'daily'=>$grade['daily'],'weekly'=>$grade['weekly'],'weeklyAccrued'=>$weeklyAccrued,'gradeTotal'=>$grade['daily']+$weeklyAccrued+$grade['monthly'],'monthly'=>$grade['monthly'],'dailyPaid'=>$grade['dailyReceived'],'dailyPending'=>$grade['dailyOutstanding'],'total'=>$payday+$grade['daily'],'payday'=>$payday,'dailyDetails'=>$grade['dailyDetails'],'weeklyDetails'=>$weeks];
 }

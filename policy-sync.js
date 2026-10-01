@@ -15,7 +15,7 @@
   }finally{clearTimeout(timer)}
  }
  function announce(){notify();for(const fn of subscribers)fn();}
- function accept(data){if(revision!==null&&data.revision<revision)return;const changed=revision!==data.revision,hadError=!!error;error='';if(changed){apply(data);snapshot=data;revision=data.revision;}if(changed||hadError)announce();}
+ function accept(data){if(revision!==null&&data.revision<revision)return;const changed=revision!==data.revision||snapshot?.date!==data.date,hadError=!!error;error='';if(changed){apply(data);snapshot=data;revision=data.revision;}if(changed||hadError)announce();}
  async function load(){
   if(!context||loading||saving)return false;loading=true;
   try{accept(await request());return true}catch(e){error=e.name==='AbortError'?'정책 조회 시간이 초과됐습니다. 다시 시도해 주세요.':e.message;announce();return false}finally{loading=false;}

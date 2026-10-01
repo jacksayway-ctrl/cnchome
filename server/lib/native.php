@@ -8,7 +8,7 @@ function native_routes(): array {
 }
 function native_url(string $page,string $role): string {
     $route=native_routes()[$page]??null;
-    return '/'.($route??'office.php').'?role='.($role==='admin'?'admin':'employee').($route?(in_array($page,['adminStaffRegister','adminIntakeRegister'],true)?'&new=1'.($page==='adminStaffRegister'?'&popup=1':''):''):'&page='.rawurlencode($page));
+    return '/'.($route??'office.php').'?role='.($role==='admin'?'admin':'employee').($route?($page==='adminStaffRegister'?'&register=1':($page==='adminIntakeRegister'?'&new=1':'')):'&page='.rawurlencode($page));
 }
 function native_csrf(): string {return '<input type="hidden" name="csrf" value="'.view_h((string)($_SESSION['csrf']??'')).'">';}
 function native_money(int|float $amount): string {return number_format($amount).'원';}
@@ -21,7 +21,7 @@ function native_notice_bar(array $user): void {
         $rows=$notices[$key];$item=$key==='company'?($rows[0]??null):($rows?end($rows):null);$text=$item?$item['title'].' · '.$item['body']:$empty;
         echo '<section class="cnc-notice-channel"><strong class="cnc-notice-label">'.$label.'</strong><button type="button" class="cnc-notice-viewport" aria-label="'.$label.' 전체 보기"><span class="cnc-notice-text" style="animation:none">'.view_h($text).'</span></button></section>';
     }
-    echo '</div><div class="cnc-session-account"><span>'.view_h($user['display_name']).'</span><form method="post" action="/logout.php?role='.$role.'">'.native_csrf().'<button type="submit">로그아웃</button></form></div></header>';
+    echo '</div><div class="cnc-session-account"><span>'.view_h($user['username']??$user['display_name']).'</span><form method="post" action="/logout.php?role='.$role.'">'.native_csrf().'<button type="submit">로그아웃</button></form></div></header>';
     echo '<script type="application/json" id="native-session-data">'.view_json(['user'=>['id'=>(int)($user['id']??0),'role'=>$role,'display_name'=>$user['display_name']],'csrf'=>(string)($_SESSION['csrf']??''),'notices'=>$notices]).'</script>';
 }
 function native_start(string $title,array $user,string $active,array $extraStyles=[],bool $popup=false,string $headingExtra=''): void {
@@ -34,7 +34,7 @@ function native_start(string $title,array $user,string $active,array $extraStyle
     if($role==='admin')$extraStyles[]='admin-save-confirm.css';
     $GLOBALS['membership_admin_context']=$role==='admin'?['user'=>['id'=>(int)($user['id']??0),'role'=>'admin'],'csrf'=>(string)($_SESSION['csrf']??'')]:null;
     $extraCss='';foreach($extraStyles as $file)$extraCss.='<link rel="stylesheet" href="'.view_h(asset_url($file)).'">';
-    echo '<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow,noarchive"><title>'.view_h($title).' · 씨앤씨</title><link rel="icon" href="/cnc-mark.svg"><link rel="stylesheet" href="'.view_h(asset_url('ui-icons.css')).'"><link rel="stylesheet" href="'.view_h(asset_url('native.css')).'">'.$extraCss.'<link rel="stylesheet" href="'.view_h(asset_url('workspace-ui.css')).'"><link rel="stylesheet" href="'.view_h(asset_url('company-ui.css')).'"></head><body class="nf-body" data-page="'.view_h($active).'">';
+    echo '<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow,noarchive"><title>'.view_h($title).' · 씨앤씨</title><link rel="icon" href="/cnc-mark.svg"><link rel="stylesheet" href="'.view_h(asset_url('ui-icons.css')).'"><link rel="stylesheet" href="'.view_h(asset_url('native.css')).'">'.$extraCss.'<link rel="stylesheet" href="'.view_h(asset_url('workspace-ui.css')).'"><link rel="stylesheet" href="'.view_h(asset_url('company-ui.css')).'"><script src="'.view_h(asset_url('page-navigation.js')).'"></script></head><body class="nf-body'.($popup?' nf-popup':'').'" data-page="'.view_h($active).'">';
     native_notice_bar($user);
     if($popup){echo '<div class="nf-popup-shell"><main class="nf-main"><div class="nf-page-heading"><h1>'.view_h($title).'</h1><button type="button" data-window-close>창 닫기</button></div>';return;}
     echo '<div class="nf-shell"><aside class="nf-nav"><div class="nf-sidebar-brand"><img src="/cnc-mark.svg" alt="C&amp;C" width="12" height="8"><strong>씨앤씨</strong></div><div class="nf-team">'.view_h(department_label($user['department']??'')).' · '.($role==='admin'?'관리자':'직원').'</div><nav aria-label="'.($role==='admin'?'관리자':'직원').' 메뉴">';

@@ -2,7 +2,7 @@
 <?php if($error): ?><p class="nf-alert" role="alert"><?=view_h($error)?></p><?php endif; ?>
 <?php if($saved): ?><p class="bc-saved" role="status">영업일 달력을 저장했습니다. 영업일 수와 그레이드 계산에 반영됩니다.</p><?php endif; ?>
 <section class="nf-card bc-panel">
- <div class="bc-toolbar"><a href="?role=admin&amp;month=<?=view_h($previous)?>">이전 달</a><form method="get"><input type="hidden" name="role" value="admin"><label>조회 월 <input type="month" name="month" value="<?=view_h($month)?>" min="2000-01" max="2099-12" required></label><button type="submit">이동</button></form><a href="?role=admin&amp;month=<?=view_h($next)?>">다음 달</a></div>
+ <div class="bc-toolbar"><form method="get"><input type="hidden" name="role" value="admin"><label>조회 월 <input type="month" name="month" value="<?=view_h($month)?>" min="2000-01" max="2099-12" required></label><button type="submit">이동</button></form><a href="?role=admin&amp;month=<?=view_h($previous)?>">이전 달</a><a href="?role=admin&amp;month=<?=view_h($next)?>">다음 달</a></div>
  <p>날짜를 누르면 <strong>영업일 ↔ 휴일</strong>로 바뀝니다. 선택을 마친 뒤 저장해 주세요.</p>
  <form method="post" action="?role=admin&amp;month=<?=view_h($month)?>">
   <?=native_csrf()?><input type="hidden" name="month" value="<?=view_h($month)?>"><input type="hidden" name="revision" value="<?=$data['revision']?>">

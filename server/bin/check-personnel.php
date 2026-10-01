@@ -58,7 +58,7 @@ foreach([['birthDate'=>'2026-02-30'],['birthDate'=>(new DateTimeImmutable(hr_tod
 $employeeHtml=personnel_fixture($employee,$record);$adminHtml=personnel_fixture($admin,$record);$editHtml=personnel_fixture($admin,$record,true);
 foreach([$employeeHtml,$adminHtml,$editHtml] as $html){
     personnel_check(!str_contains($html,$payload)&&!str_contains($html,$career),'dangerous personnel HTML escaped');
-    personnel_check(str_contains($html,h($payload))&&str_contains($html,h($career)),'escaped personnel text visible');
+    personnel_check(str_contains($html,h($payload))&&!str_contains($html,h($career)),'escaped personnel text visible');
 }
 personnel_check(!str_contains($employeeHtml,$memo)&&str_contains($adminHtml,$memo),'admin memo omitted from employee view');
 personnel_check(!str_contains($employeeHtml,'인사정보 수정'),'employee cannot edit personnel');
@@ -69,6 +69,9 @@ $build=dirname(__DIR__,2).'/.build';if(!is_dir($build))mkdir($build,0700,true);
 file_put_contents($build.'/personnel-employee.html',$employeeHtml);file_put_contents($build.'/personnel-admin.html',$adminHtml);file_put_contents($build.'/personnel-edit.html',$editHtml);
 
 $newProfile=personnel_default_profile();personnel_check($newProfile['payday']==='15','new personnel payday defaults to 15');
+personnel_check($newProfile['weeklyHoliday']==='토,일'&&$newProfile['paydayTiming']==='next','Saturday/Sunday and following-month payday');
+foreach(['직종','사망일','사망 사유','이력·주요 경력','자격·면허'] as $label)personnel_check(!str_contains($editHtml,$label)&&!str_contains($employeeHtml,$label),'removed personnel field is not rendered: '.$label);
+personnel_check(str_contains($editHtml,'은행 선택')&&str_contains($editHtml,'계좌번호 입력')&&str_contains($editHtml,'익월 15일'),'bank and payment controls');
 $newRecord=['id'=>0,'revision'=>0,'profile'=>$newProfile,'user_id'=>null,'employee_no'=>personnel_next_number()];
 file_put_contents($build.'/personnel-new.html',personnel_fixture($admin,$newRecord,true,true));
 personnel_check(str_starts_with($newRecord['employee_no'],'cnc'.str_replace('-','',hr_today())),'auto number includes registration date');

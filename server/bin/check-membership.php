@@ -67,6 +67,29 @@ rejects(fn()=>personnel_history_list($employee,(int)$record['id']),'employee can
 check(count(membership_list($admin))===5&&membership_notification($admin)['pendingCount']===1,'administrator list and current notification counts match');
 $memberships=membership_list($admin);$_SESSION=['csrf'=>'FIXTURE'];ob_start();require view_root().'/partials/membership-list.php';$html=ob_get_clean();
 check(str_contains($html,'직원 &lt;예시&gt;')&&!str_contains($html,'직원 <예시>'),'application names escaped');
-check(str_contains($html,'name="action" value="approve"')&&str_contains($html,'name="csrf"'),'approval controls carry CSRF and explicit action');
+check(str_contains($html,'data-membership-row')&&str_contains($html,'data-membership-window'),'approval rows open a management popup');
+$member=$memberships[0];ob_start();require view_root().'/partials/membership-manage.php';$manageHtml=ob_get_clean();check(str_contains($manageHtml,'name="action" value="approve"')&&str_contains($manageHtml,'name="csrf"'),'popup approval form carries CSRF and explicit action');
 check(native_routes()['adminMemberships']==='memberships.php','membership submenu enters protected native page');
+// Confirmation locks server writes, including stale forms and forged unlock fields.
+$staff=personnel_records($employee)[0];
+hr_mutate($admin,['action'=>'saveStaff','id'=>$staff['id'],'revision'=>$staff['revision'],'profile'=>['name'=>'관리자 확정 이름']]);
+$locked=personnel_records($employee)[0];check($locked['profile']['selfEditLocked']===true,'admin confirmation locks self editing');
+$retry=array_replace($in,['revision'=>(string)$locked['revision'],'selfEditLocked'=>false]);
+rejects(fn()=>membership_save_profile($employee,$retry),'employee cannot bypass confirmation with forged unlock flag');
+rejects(fn()=>hr_mutate($employee,['action'=>'unlockStaff','id'=>$locked['id'],'revision'=>$locked['revision']]),'employee cannot unlock own record');
+rejects(fn()=>hr_mutate($admin,['action'=>'unlockStaff','id'=>$locked['id'],'revision'=>$locked['revision']-1]),'stale administrator unlock rejected');
+hr_mutate($admin,['action'=>'unlockStaff','id'=>$locked['id'],'revision'=>$locked['revision']]);
+$unlocked=personnel_records($employee)[0];check($unlocked['profile']['selfEditLocked']===false,'administrator can reopen editing');
+membership_save_profile($employee,array_replace($in,['revision'=>(string)$unlocked['revision']]));
+check(personnel_records($employee)[0]['profile']['name']==='본인 이름','unlocked employee can save again');
+hr_mutate($admin,['action'=>'lockStaff','id'=>$unlocked['id'],'revision'=>$unlocked['revision']+1]);
+check(personnel_history_list($admin,$unlocked['id'])[0]['event']==='lock','permission confirmation recorded in immutable history');
 echo "PASS: pending signup, hashed credentials, admin-only atomic approval, notifications, rejection, profile ownership and immutable wage/contract fields.\n";
+
+$before=personnel_records($employee)[0];
+rejects(fn()=>hr_mutate($employee,['action'=>'suspendStaff','id'=>$before['id'],'revision'=>$before['revision']]),'employee cannot suspend accounts');
+hr_mutate($admin,['action'=>'suspendStaff','id'=>$before['id'],'revision'=>$before['revision']]);
+check((int)$d->query('SELECT active FROM app_users WHERE id='.$id)->fetchColumn()===0,'suspension disables login while retaining personnel');
+check(personnel_records($employee)[0]['employee_no']===$before['employee_no'],'suspension retains personnel identity');
+hr_mutate($admin,['action'=>'resumeStaff','id'=>$before['id'],'revision'=>$before['revision']+1]);
+check((int)$d->query('SELECT active FROM app_users WHERE id='.$id)->fetchColumn()===1,'administrator can resume existing account');

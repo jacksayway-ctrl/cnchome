@@ -16,6 +16,7 @@ function rejects(callable $operation,string $message): void {try{$operation();}c
 $d=db();$d->exec("PRAGMA foreign_keys=ON;
 CREATE TABLE app_users(id INTEGER PRIMARY KEY,username TEXT,display_name TEXT,role TEXT,department TEXT,active INTEGER DEFAULT 1);
 CREATE TABLE employee_checkins(user_id INTEGER REFERENCES app_users(id),work_date TEXT,check_in_at TEXT,created_at TEXT DEFAULT CURRENT_TIMESTAMP,PRIMARY KEY(user_id,work_date));
+CREATE TABLE employee_checkin_approvals(user_id INTEGER,work_date TEXT,actor_id INTEGER REFERENCES app_users(id),approval_mode TEXT,recorded_check_in_at TEXT,approved_at TEXT DEFAULT CURRENT_TIMESTAMP,PRIMARY KEY(user_id,work_date));
 INSERT INTO app_users VALUES(1,'admin','관리자','admin','insurance',1),(2,'one','직원 <1>','employee','insurance',1),(3,'two','직원 2','employee','cosmetics',1),(4,'inactive','비활성 직원','employee','insurance',0),(5,'user1','테스트 직원','employee','insurance',1);");
 $admin=['id'=>1,'role'=>'admin'];$one=['id'=>2,'role'=>'employee'];$two=['id'=>3,'role'=>'employee'];
 $at=fn(string $time)=>new DateTimeImmutable($time,new DateTimeZone('Asia/Seoul'));
@@ -49,3 +50,12 @@ $safe=attendance_test_public_state($sample);check($safe['sales']===$sample['sale
 check($sample['attendance'][0]['in']==='08:30','public projection leaves payroll fixture source unchanged');
 check(!$d->inTransaction()&&(int)$d->query('SELECT count(*) FROM employee_checkins')->fetchColumn()===4,'invalid requests leave no pending transaction or extra records');
 echo "PASS: 10:00 floor, late and exact-boundary check-in, Seoul work date, duplicate preservation, owner/role isolation, timestamp privacy, admin history and legacy test redaction.\n";
+
+check(attendance_approve($admin,['action'=>'approveAll','date'=>'2026-09-30'])===1,'bulk approval includes only on-time check-ins');
+$records=array_column(attendance_snapshot($admin,'2026-09-30')['records'],null,'employeeId');
+check($records[2]['approved']&&!$records[3]['approved']&&$records[3]['late'],'late arrival waits for individual review');
+check(attendance_approve($admin,['action'=>'approveAll','date'=>'2026-09-30'])===0,'bulk approval is idempotent');
+rejects(fn()=>attendance_approve($one,['action'=>'approveOne','date'=>'2026-09-30','employeeId'=>3]),'employees cannot approve attendance');
+rejects(fn()=>attendance_approve($admin,['action'=>'approveOne','date'=>'2026-09-30','employeeId'=>5]),'no approval without an actual check-in');
+check(attendance_approve($admin,['action'=>'approveOne','date'=>'2026-09-30','employeeId'=>3])===1,'late check-in approved individually');
+check($d->query('SELECT approval_mode FROM employee_checkin_approvals WHERE user_id=3')->fetchColumn()==='individual','individual approval is audited');

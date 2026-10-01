@@ -1,5 +1,6 @@
 <?php declare(strict_types=1);$popup=$popup??false;$employeeNumber=$employeeNumber??($record['employee_no']??'');$historyEntry=$historyEntry??null;$restoreEntry=$restoreEntry??null;$historyEntries=$historyEntries??[]; ?>
 <?php if($saved): ?><p class="nf-alert" role="status"><?= $admin?'인사정보를 확정하고 수정이력을 저장했습니다.':'기본정보를 저장했습니다.' ?></p><?php endif; ?>
+<?php if(isset($_GET['permissionSaved'])): ?><p class="nf-alert" role="status">직원 관리 설정을 저장했습니다.</p><?php endif; ?>
 <?php if($error): ?><p class="nf-alert nf-error" role="alert"><?= h($error) ?></p><?php endif; ?>
 <div class="nf-actions personnel-no-print">
 <?php if($historyEntry): ?>
@@ -11,7 +12,11 @@
 <?php if($record&&!$editing): ?><a class="nf-button" href="/personnel.php?role=admin&amp;id=<?= $record['id'] ?>&amp;edit=1<?= $popup?'&amp;popup=1':'' ?>">인사정보 수정</a><?php endif; ?>
 <?php endif; ?>
 <?php if(!empty($canSelfEdit)): ?><a class="nf-button primary" href="/profile-entry.php?role=employee">정보수정</a><?php endif; ?>
-<?php if(!$editing&&!$historyEntry): ?><a class="nf-button<?= $admin?'':' nf-contract-open' ?>" href="/contracts.php?role=<?= h($role) ?><?= $admin?'':'&amp;document=1' ?>"<?= $admin?'':' target="_blank" rel="noopener"' ?>>근로계약서</a><?php endif; ?>
+<?php if(!$editing&&!$historyEntry): ?><a class="nf-button<?= $admin?' nf-contract-manage-open':' nf-contract-open' ?>" href="/contracts.php?role=<?= h($role) ?><?= $admin?'':'&amp;document=1' ?>" target="_blank" rel="noopener">근로계약서</a><?php endif; ?>
+<?php if($record&&!$editing&&!$historyEntry): ?>
+<?php if($admin): ?><form method="post" class="personnel-permission-form"><?= native_csrf() ?><input type="hidden" name="id" value="<?= $record['id'] ?>"><input type="hidden" name="revision" value="<?= $record['revision'] ?>"><button type="submit" name="action" value="<?= empty($record['profile']['selfEditLocked'])?'lockStaff':'unlockStaff' ?>"><?= empty($record['profile']['selfEditLocked'])?'입력내용 확정 · 수정 잠금':'직원 수정권한 해제' ?></button></form><?php endif; ?>
+<span class="personnel-edit-status"><?= empty($record['profile']['selfEditLocked'])?'기본정보 수정 가능':'관리자 확정 · 직원 수정 잠금' ?></span>
+<?php endif; ?>
 <?php if($record&&!$editing): ?><button type="button" data-print>인사기록카드 인쇄</button><?php endif; ?>
 </div>
 <?php if($admin&&!$editing&&!$popup): ?><details class="nf-card"><summary>로그인 세션 유지시간 설정</summary><form method="post"><?= native_csrf() ?><input type="hidden" name="action" value="sessionSettings"><label>페이지를 닫은 뒤 유지시간 (분) <input type="number" name="timeoutMinutes" min="5" max="1440" required value="<?= session_timeout_minutes() ?>"></label><button>설정 저장</button><p>페이지가 열려 있는 동안 1분마다 세션을 갱신합니다. 브라우저 종료·절전이나 통신 중단 시에는 설정한 시간이 적용됩니다.</p><?php if(isset($_GET['sessionSaved'])): ?><p role="status">저장했습니다.</p><?php endif ?></form></details><?php endif ?>
@@ -41,30 +46,25 @@ personnel_field($profile,'addressDetail','상세주소','text',240);
 <?php
 personnel_select($profile,'team','소속',['insurance'=>'보험팀','cosmetics'=>'화장품팀','health'=>'건강보조식품팀']);
 personnel_select($profile,'role','직책',['상담원'=>'상담원','팀장'=>'팀장','관리자'=>'관리자']);
-personnel_field($profile,'jobType','직종','text',80);
 personnel_select($profile,'employment','재직 상태',['재직'=>'재직','휴직'=>'휴직','퇴사'=>'퇴사']);
 personnel_field($profile,'startDate','고용·입사일','date',10,true);
 personnel_field($profile,'renewalDate','고용 갱신일','date',10);
 personnel_field($profile,'endDate','퇴직·해고일','date',10);
 personnel_field($profile,'retirementReason','퇴직·해고 사유','text',240);
-personnel_field($profile,'deathDate','사망일 (해당 시)','date',10);
-personnel_field($profile,'deathReason','사망 사유 (해당 시)','text',240,false,'personnel-wide');
 personnel_field($profile,'workplace','근무 장소','text',240,false,'personnel-wide');
 personnel_field($profile,'duties','종사 업무','text',240,false,'personnel-wide');
-personnel_textarea($profile,'career','이력·주요 경력 (기간 / 소속 / 업무)',2000);
-personnel_textarea($profile,'qualification','자격·면허 (해당 시)',500);
 ?>
 </div></fieldset></section>
 <section class="nf-card personnel-section"><fieldset><legend>근로조건·계약 기간</legend><div class="personnel-grid">
 <div class="nf-field personnel-wide"><span>소정근로요일 *</span><div class="personnel-days"><?php foreach(['월','화','수','목','금'] as $day): ?><label><input type="checkbox" name="profile[workDays][]" value="<?= $day ?>"<?= in_array($day,$profile['workDays']??[],true)?' checked':'' ?>><?= $day ?></label><?php endforeach; ?></div></div>
 <?php
-personnel_select($profile,'weeklyHoliday','주휴일',['토'=>'토요일','일'=>'일요일']);
-personnel_field($profile,'payday','매월 급여일 (1~31일)','text',2);
+echo '<label class="nf-field">주휴일<input value="토,일" readonly><input type="hidden" name="profile[weeklyHoliday]" value="토,일"></label>';
+echo '<label class="nf-field">급여일<input value="익월 15일" readonly><input type="hidden" name="profile[payday]" value="15"></label>';
 personnel_field($profile,'workStart','근로 시작','time',5);
 personnel_field($profile,'workEnd','근로 종료','time',5);
 personnel_field($profile,'breakStart','휴게 시작','time',5);
 personnel_field($profile,'breakEnd','휴게 종료','time',5);
-personnel_select($profile,'contractType','계약 구분',['무기계약'=>'기간의 정함 없음','기간제'=>'기간제']);
+personnel_select($profile,'contractType','계약 구분',[''=>'계약 구분 선택','무기계약'=>'기간의 정함 없음','기간제'=>'기간제']);
 personnel_field($profile,'contractStart','계약 개시일','date',10);
 personnel_field($profile,'contractEnd','계약 종료일 (기간제)','date',10);
 personnel_field($profile,'wageEffective','임금 적용일','date',10);
@@ -74,12 +74,12 @@ personnel_field($profile,'wageEffective','임금 적용일','date',10);
 <section class="nf-card personnel-section"><fieldset><legend>급여 기준·지급 계좌</legend><div class="personnel-grid">
 <?php
 personnel_select($profile,'payType','급여 방식',['시급제'=>'시급제','월급제'=>'월급제']);
-personnel_field($profile,'payAmount','시간당 합산 기준 / 월 기본급 (원)','number',10,true);
-personnel_field($profile,'bank','은행','text',50);
+personnel_field($profile,'payAmount','시급 + 주휴수당 합계 / 월 기본급 (원)','number',10,true);
+personnel_select($profile,'bank','은행 선택',personnel_banks((string)($profile['bank']??'')));
+personnel_field($profile,'accountNumber','계좌번호 입력','text',40);
 personnel_field($profile,'accountHolder','예금주','text',60);
-personnel_field($profile,'accountNumber','급여 계좌번호','text',40,false,'personnel-wide');
 ?>
-<p class="personnel-note personnel-full">시급제 15,000원 = 기본 12,500원 + 주휴·회사 지원금 환산 2,500원. 월급제는 월 기본급을 입력합니다.</p>
+<p class="personnel-note personnel-full" data-personnel-pay-split aria-live="polite"></p>
 </div></fieldset></section>
 <section class="nf-card personnel-section"><fieldset><legend>계정 연결·관리 메모</legend><div class="personnel-grid">
 <?php if(!empty($record['user_id'])): ?><p class="personnel-note personnel-full">직원 로그인 계정이 연결되어 있습니다. 직책 변경으로 로그인 권한이 바뀌지는 않습니다.</p>
@@ -93,7 +93,7 @@ personnel_field($profile,'accountNumber','급여 계좌번호','text',40,false,'
 <div class="nf-actions"><button class="nf-button primary" type="submit"><?= $isNew?'등록 확정':'수정 확정' ?></button><button type="button" data-print>등록 양식 인쇄</button><a href="/personnel.php?role=admin<?= $record?'&amp;id='.$record['id']:'' ?><?= $popup?'&amp;popup=1':'' ?>">취소</a></div>
 </form>
 <?php elseif($record): $p=$record['profile']; ?>
-<?php if($admin): $missing=[];foreach(['gender'=>'성별','birthDate'=>'생년월일','address'=>'주소','career'=>'이력','jobType'=>'직종','startDate'=>'고용일','duties'=>'종사 업무'] as $key=>$label)if(trim((string)($p[$key]??''))==='')$missing[]=$label; ?>
+<?php if($admin): $missing=[];foreach(['gender'=>'성별','birthDate'=>'생년월일','address'=>'주소','startDate'=>'고용일','duties'=>'종사 업무'] as $key=>$label)if(trim((string)($p[$key]??''))==='')$missing[]=$label; ?>
 <?php if($missing): ?><p class="nf-alert personnel-no-print">근로자명부 확인 항목 중 미입력: <?= h(implode(', ',$missing)) ?>. 인사정보 수정에서 실제 내용을 작성해 주세요.</p><?php endif; ?>
 <?php endif; ?>
 <article class="nf-card personnel-card">
@@ -109,29 +109,26 @@ personnel_cells('주소',trim(($p['postcode']??'').' '.($p['address']??'').' '.(
 <h3>2. 고용·인사 사항</h3><table class="personnel-table"><tbody>
 <?php
 personnel_cells('소속',department_label($p['team']??''),'직책',$p['role']??'');
-personnel_cells('직종',$p['jobType']??'','재직 상태',$p['employment']??'');
+echo '<tr><th>재직 상태</th><td colspan="3">'.h(personnel_text($p['employment']??'')).'</td></tr>';
 personnel_cells('고용·입사일',$p['startDate']??'','고용 갱신일',$p['renewalDate']??'');
 personnel_cells('근무 장소',$p['workplace']??'','종사 업무',$p['duties']??'');
 personnel_cells('퇴직·해고일',$p['endDate']??'','퇴직·해고 사유',$p['retirementReason']??'');
-personnel_cells('사망일',$p['deathDate']??'','사망 사유',$p['deathReason']??'');
 ?>
-<tr><th>이력·주요 경력</th><td colspan="3"><?= nl2br(h(personnel_text($p['career']??''))) ?></td></tr>
-<tr><th>자격·면허</th><td colspan="3"><?= nl2br(h(personnel_text($p['qualification']??''))) ?></td></tr>
 </tbody></table>
 <h3>3. 근로조건</h3><table class="personnel-table"><tbody>
 <?php
 $workTime=($p['workStart']??'')&&($p['workEnd']??'')?$p['workStart'].' ~ '.$p['workEnd']:'';
 $breakTime=($p['breakStart']??'')&&($p['breakEnd']??'')?$p['breakStart'].' ~ '.$p['breakEnd']:'';
-personnel_cells('소정근로요일',implode(' · ',$p['workDays']??[]),'주휴일',($p['weeklyHoliday']??'')?($p['weeklyHoliday'].'요일'):'');
+personnel_cells('소정근로요일',implode(' · ',$p['workDays']??[]),'주휴일',($p['weeklyHoliday']??'')?str_replace(',', '·', $p['weeklyHoliday']).'요일':'');
 personnel_cells('근로시간',$workTime,'휴게시간',$breakTime);
 personnel_cells('계약 구분',$p['contractType']??'','계약 기간',($p['contractStart']??'').' ~ '.(($p['contractType']??'')==='무기계약'?'기간의 정함 없음':($p['contractEnd']??'')));
-personnel_cells('임금 적용일',$p['wageEffective']??'','급여일',($p['payday']??'')?'매월 '.$p['payday'].'일':'');
+personnel_cells('임금 적용일',$p['wageEffective']??'','급여일',($p['payday']??'')?((($p['paydayTiming']??'current')==='next'?'익월 ':'매월 ').$p['payday'].'일'):'');
 ?>
 </tbody></table>
 <h3>4. 급여 기준·지급 계좌</h3>
 <?php if(($p['payType']??'')==='시급제'): $combined=(int)($p['payAmount']??0);$base=$combined/1.2;$holiday=$combined-$base; ?>
-<div class="personnel-pay"><span>기본시급<strong><?= h(personnel_hourly_rate($base)) ?></strong></span><span>주휴수당·회사 지원금 환산<strong><?= h(personnel_hourly_rate($holiday)) ?></strong></span><span>시간당 합산<strong><?= h(native_money($combined)) ?></strong></span></div>
-<p class="personnel-note">주휴수당·회사 지원금 환산액은 기본시급의 20% 기준입니다. 주별 지급 내역은 명세서에서 확인하며, 실제 근로조건·주휴수당 적용은 교부된 근로계약서를 함께 확인해 주세요.</p>
+<div class="personnel-pay"><span>시급<strong><?= h(personnel_hourly_rate($base)) ?></strong></span><span>주휴수당<strong><?= h(personnel_hourly_rate($holiday)) ?></strong></span><span>시급 + 주휴수당<strong><?= h(native_money($combined)) ?></strong></span></div>
+<p class="personnel-note">시급에 주휴수당 20%를 더한 시간당 합계입니다. 주별 지급 내역은 급여명세서에서 확인할 수 있습니다.</p>
 <?php else: ?><div class="personnel-pay"><span>월 기본급<strong><?= h(native_money((int)($p['payAmount']??0))) ?></strong></span></div><?php endif; ?>
 <table class="personnel-table"><tbody><?php personnel_cells('은행',$p['bank']??'','예금주',$p['accountHolder']??''); ?><tr><th>급여 계좌번호</th><td colspan="3"><?= h(personnel_text($p['accountNumber']??'')) ?></td></tr></tbody></table>
 <?php if($admin&&!empty($p['memo'])): ?><h3 class="personnel-no-print">관리자 메모</h3><p class="personnel-note personnel-no-print"><?= nl2br(h($p['memo'])) ?></p><?php endif; ?>
@@ -147,7 +144,7 @@ personnel_cells('임금 적용일',$p['wageEffective']??'','급여일',($p['payd
 <?php elseif($admin): ?>
 <details class="nf-card personnel-record-list"><summary><span>직원 인사기록</span><small><?= count($records) ?>명 · 펼쳐보기</small></summary><p class="personnel-note">인사기록과 근로계약은 별도로 관리합니다. 개인정보는 인사·급여 업무 목적으로 확인해 주세요.</p>
 <div class="nf-table-wrap"><table class="nf-table personnel-list"><thead><tr><th>사번</th><th>성명</th><th>소속·직책</th><th>입사일</th><th>상태</th><th>인사기록</th></tr></thead><tbody>
-<?php foreach($records as $item): $p=$item['profile']; ?><tr><td><?= h($item['employee_no']) ?></td><td><?= h($p['name']??'') ?></td><td><?= h(department_label($p['team']??'').' · '.($p['role']??'')) ?></td><td><?= h($p['startDate']??'') ?></td><td><?= h($p['employment']??'') ?></td><td><a href="/personnel.php?role=admin&amp;id=<?= $item['id'] ?>">보기</a> · <a href="/personnel.php?role=admin&amp;id=<?= $item['id'] ?>&amp;edit=1">수정</a></td></tr><?php endforeach; ?>
+<?php foreach($records as $item): $p=$item['profile']; ?><tr><td><?= h($item['employee_no']) ?></td><td><?= h($p['name']??'') ?></td><td><?= h(department_label($p['team']??'').' · '.($p['role']??'')) ?></td><td><?= h($p['startDate']??'') ?></td><td><?= h($p['employment']??'') ?></td><td><a href="/personnel.php?role=admin&amp;id=<?= $item['id'] ?>&amp;popup=1" target="_blank" rel="noopener" data-personnel-window>보기</a> · <a href="/personnel.php?role=admin&amp;id=<?= $item['id'] ?>&amp;edit=1&amp;popup=1" target="_blank" rel="noopener" data-personnel-window>수정</a><?php if(!empty($item['user_id'])): ?> <form class="personnel-account-action" method="post" action="/personnel.php?role=admin&amp;id=<?= $item['id'] ?>&amp;returnList=1"><?= native_csrf() ?><input type="hidden" name="id" value="<?= $item['id'] ?>"><input type="hidden" name="revision" value="<?= $item['revision'] ?>"><button type="submit" name="action" value="<?= $item['accountActive']?'suspendStaff':'resumeStaff' ?>"><?= $item['accountActive']?'사용중지':'사용 재개' ?></button></form><?php endif; ?></td></tr><?php endforeach; ?>
 <?php if(!$records): ?><tr><td colspan="6" class="personnel-empty">등록된 직원이 없습니다. 직원 등록에서 인사기록을 작성해 주세요.</td></tr><?php endif; ?>
 </tbody></table></div></details>
 <?php else: ?><section class="nf-card personnel-empty">아직 연결된 인사기록이 없습니다. 관리자에게 직원 계정 연결을 요청해 주세요.</section><?php endif; ?>

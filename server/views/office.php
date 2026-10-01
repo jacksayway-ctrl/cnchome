@@ -2,7 +2,7 @@
 <html lang="ko"<?= $preview ? '' : ' data-cnc-role="'.view_h($role).'"' ?>>
 <head>
 <?php require __DIR__.'/partials/head.php'; ?>
-<?php if($role==='admin'): ?><link rel="stylesheet" href="<?= view_h(asset_url('membership.css')) ?>"><?php endif; ?></head><body<?= ($page==='regions' && ($_GET['policyWindow']??'')==='1') ? ' class="policy-window"' : '' ?>>
+<?php if($role==='admin'): ?><link rel="stylesheet" href="<?= view_h(asset_url('membership.css')) ?>"><?php endif; ?></head><body<?= ($page==='regions' && ($_GET['policyWindow']??'')==='1') ? ' class="policy-window'.(($_GET['intakeWindow']??'')==='1'?' receipt-window':'').'"' : '' ?>>
 <div id="tm-preview">
 <noscript><p class="notice">메뉴·지도·계산 기능을 사용하려면 브라우저의 JavaScript를 켜 주세요.</p></noscript>
 <div class="shell">
@@ -12,7 +12,7 @@
 </div>
 <dialog id="tm-dialog" aria-labelledby="tm-dialog-title"><div class="row"><h2 id="tm-dialog-title">접수 등록</h2><button class="secondary" data-action="close" aria-label="창 닫기">닫기</button></div><div id="tm-dialog-body"></div></dialog>
 
-<?php foreach (['korea-regions.js','korea-localities.js','intake-codes.js','region-rules.js','admin-xlsx.js','admin-workspace.js','holiday-pay.js','hr-workspace.js','grade-numbers.js','grade-calendar.js','grade-calendar-preview.js','policy-dates.js','policy-input.js','policy-sync.js','consultation-location.js','intake-details.js','sales-workspace.js','daily-grade-workspace.js','attendance-workspace.js','office.js','grade-header.js','pending-intakes.js'] as $file): ?>
+<?php foreach (['korea-regions.js','korea-localities.js','intake-codes.js','region-rules.js','admin-xlsx.js','admin-workspace.js','holiday-pay.js','hr-workspace.js','grade-numbers.js','grade-calendar.js','grade-calendar-preview.js','policy-dates.js','policy-input.js','policy-sync.js','policy-history.js','consultation-location.js','intake-details.js','receipt-form.js','sales-workspace.js','daily-grade-workspace.js','attendance-workspace.js','office.js','grade-header.js','pending-intakes.js'] as $file): ?>
 <script src="<?= view_h(asset_url($file)) ?>"></script>
 <?php endforeach; ?>
 </div>

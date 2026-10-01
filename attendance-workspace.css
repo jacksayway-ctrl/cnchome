@@ -38,3 +38,4 @@
 #tm-preview .test-attendance-body .scroll{max-height:none;overflow:visible}
 #tm-preview .test-attendance-body table{width:100%;min-width:0;table-layout:fixed}
 #tm-preview .test-attendance-body th,#tm-preview .test-attendance-body td{white-space:normal;overflow-wrap:anywhere}
+.checkin-approval-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:12px 0}.checkin-approval-actions [aria-pressed=true]{background:#edf4ff;border-color:#3172bf;color:#225797}

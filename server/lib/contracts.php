@@ -40,7 +40,7 @@ function contract_default_terms(array $employee,array $company): array {
         'periodPreset'=>($p['contractEnd']??'')?'custom':'tenMonths','contractType'=>'기간제','contractStart'=>$start,'contractEnd'=>$end,
         'signedDate'=>hr_today(),'wageEffective'=>hr_today(),'workplace'=>($p['workplace']??'')?:(($company['employerName']??'')?:'씨앤씨'),'duties'=>($p['duties']??'')?:'전화상담',
         'baseHourly'=>$p['payType']==='시급제'?$base:12500,'supportHourly'=>$p['payType']==='시급제'?$rate-$base:2500,
-        'paymentDay'=>($p['payday']??'')?:($company['paymentDay']??15),'weeklyHoliday'=>$p['weeklyHoliday']??'일','holidayDetail'=>'','leaveDetail'=>'','schedule'=>$schedule,'existingWageAgreement'=>false,'insurancePension'=>'확인 필요','insuranceHealth'=>'확인 필요','insuranceEmployment'=>'확인 필요','insuranceAccident'=>'적용','insuranceException'=>'',
+        'paymentDay'=>($p['payday']??'')?:($company['paymentDay']??15),'weeklyHoliday'=>in_array($p['weeklyHoliday']??'',['토','일'],true)?$p['weeklyHoliday']:($p['paidWeeklyHoliday']??'일'),'holidayDetail'=>'','leaveDetail'=>'','schedule'=>$schedule,'existingWageAgreement'=>false,'insurancePension'=>'확인 필요','insuranceHealth'=>'확인 필요','insuranceEmployment'=>'확인 필요','insuranceAccident'=>'적용','insuranceException'=>'',
     ]);
     unset($terms['template']);
     foreach($terms as $key=>$value)if(is_string($value))$terms[$key]=preg_replace('/\s+/u',' ',trim($value));

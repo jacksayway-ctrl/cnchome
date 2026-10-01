@@ -61,7 +61,7 @@
   return unique([...(matches.length?[...matches,...roots.flatMap(node=>node.children).filter(node=>node.aliases.some(alias=>startsWith(alias,value)))]:direct()),...compound]);
  }
  function attach(form){
-  const input=form?.querySelector('[name="consultationPlace"]'),list=form?.querySelector('[data-place-options]'),status=form?.querySelector('[data-place-status]');
+  const input=form?.querySelector('[name="consultationPlace"],[data-personnel-address]'),list=form?.querySelector('[data-place-options]'),status=form?.querySelector('[data-place-status]');
   if(!input||!list||input.dataset.placeReady)return;
   input.dataset.placeReady='true';const roots=buildIndex(global.KoreaRegionCatalog);let options=[],active=-1,composing=false;
   function hide(){list.hidden=true;input.setAttribute('aria-expanded','false');input.removeAttribute('aria-activedescendant');active=-1;}

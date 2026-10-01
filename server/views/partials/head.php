@@ -8,7 +8,9 @@
 <?php foreach (['ui-icons.css','admin-workspace.css','hr-workspace.css','office.css','session-navigation.css','compact.css','workspace-ui.css','pending-intakes.css','attendance-workspace.css','company-ui.css'] as $file): ?>
 <link rel="stylesheet" href="<?= view_h(asset_url($file)) ?>">
 <?php endforeach; ?>
+<link rel="stylesheet" href="<?= view_h(asset_url('receipt-form.css')) ?>">
 <?php require __DIR__.'/boot.php'; ?>
+<script src="<?= view_h(asset_url('page-navigation.js')) ?>"></script>
 <script src="<?= view_h(asset_url('native-navigation.js')) ?>"></script>
 <script src="<?= view_h(asset_url('notice-ticker.js')) ?>" defer></script>
 <script src="<?= view_h(asset_url('session-navigation.js')) ?>" defer></script>

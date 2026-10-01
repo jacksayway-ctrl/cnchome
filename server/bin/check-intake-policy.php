@@ -7,8 +7,9 @@ class IntakeTestDB extends PDO {
 function db(): PDO {static $d;if(!$d)$d=new IntakeTestDB('sqlite::memory:',null,null,[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION,PDO::ATTR_DEFAULT_FETCH_MODE=>PDO::FETCH_ASSOC]);return $d;}
 function check(bool $ok,string $message):void{if(!$ok)throw new Exception($message);}
 function rejects(callable $fn,string $type):void{try{$fn();}catch(Throwable $e){if($e instanceof $type)return;throw $e;}throw new Exception('Expected '.$type);}
-$d=db();$d->exec("CREATE TABLE intake_policy_state(id INTEGER PRIMARY KEY,revision INTEGER,state TEXT,updated_at TEXT);INSERT INTO intake_policy_state VALUES(1,0,'{}',NULL);CREATE TABLE intake_policy_history(id INTEGER PRIMARY KEY,revision INTEGER UNIQUE,actor_id INTEGER,action TEXT,payload TEXT);");
+$d=db();$d->exec("CREATE TABLE intake_policy_state(id INTEGER PRIMARY KEY,revision INTEGER,state TEXT,updated_at TEXT);INSERT INTO intake_policy_state VALUES(1,0,'{}',NULL);CREATE TABLE intake_policy_history(id INTEGER PRIMARY KEY,revision INTEGER UNIQUE,actor_id INTEGER,action TEXT,payload TEXT,created_at TEXT DEFAULT CURRENT_TIMESTAMP);");
 $d->exec("CREATE TABLE office_notices(id INTEGER PRIMARY KEY AUTOINCREMENT,channel TEXT,department TEXT,title TEXT,body TEXT,actor_id INTEGER,source_key TEXT UNIQUE,active INTEGER DEFAULT 1,created_at TEXT DEFAULT CURRENT_TIMESTAMP);");
+$d->exec("CREATE TABLE app_users(id INTEGER PRIMARY KEY,display_name TEXT);INSERT INTO app_users VALUES(1,'정책 관리자');");
 $admin=['id'=>1,'role'=>'admin','display_name'=>'테스트 관리자'];$employee=['id'=>2,'role'=>'employee'];
 $start=intake_policy_snapshot();check($start['revision']===0&&count((array)$start['policies'])===0,'empty DB, no example policies');
 $rows=[['지역','수량','제외지역'],['수도권','4','서울특별시 강남구']];
@@ -55,3 +56,14 @@ check(count(notice_snapshot(['role'=>'employee','department'=>'insurance'])['com
 rejects(fn()=>notice_mutate($employee,['action'=>'archive','id'=>$noticeId]),NoticeForbidden::class);notice_mutate($admin,['action'=>'archive','id'=>$noticeId]);check(count(notice_snapshot(['role'=>'employee','department'=>'insurance'])['company'])===0,'archived notices leave the active ticker');
 $duplicates=notice_policy_rows([['지역','수량'],['서울','4'],['서울','2']]);check(array_values($duplicates)[0]['quantity']===null,'duplicate scope quantities are not guessed');
 echo "PASS: reduction-only events, zero closure, unchanged/increased/unknown quantities, idempotent writes, company notices, archival and team isolation.\n";
+
+// Employee visibility follows Korea's date, while administrator history retains old versions.
+$before=intake_policy_snapshot();$state=$before;$state['policies']=(array)$state['policies'];
+$state['policies']['hanwha:general']['savedAt']=(new DateTimeImmutable('yesterday',new DateTimeZone('Asia/Seoul')))->format(DATE_ATOM);
+$state['policies']['ga:general']=['client'=>'legacy','carrier'=>'ga','kind'=>'general','rows'=>$rows,'savedAt'=>gmdate('c')];
+$q=$d->prepare('UPDATE intake_policy_state SET state=? WHERE id=1');$q->execute([json_encode($state,JSON_UNESCAPED_UNICODE)]);
+$visible=(array)intake_policy_snapshot($employee)['policies'];check(!isset($visible['hanwha:general'])&&isset($visible['ga:general']),'old policy hidden while one current carrier remains available');
+check(isset(((array)intake_policy_snapshot($admin)['policies'])['hanwha:general']),'old policy remains in administrator management');
+rejects(fn()=>intake_policy_history($employee),IntakePolicyForbidden::class);
+$history=intake_policy_history($admin);check(count($history['history'])===11,'all successful changes listed with their immutable versions');
+check(isset(intake_policy_history($admin,1)['state']['policies']['hanwha:general']),'historical upload rows remain readable');

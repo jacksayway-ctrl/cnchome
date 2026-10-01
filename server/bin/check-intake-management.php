@@ -147,16 +147,17 @@ echo "PASS: administrator all-month pending feed, employee ownership isolation, 
 // Inline pending edits use the same owner/revision guard for native and legacy records.
 $pendingRow=fn(array $user,string $id)=>array_column(pending_intake_snapshot($user)['records'],null,'id')[$id];
 $before=$pendingRow($one,(string)$legacyId);$birth=((int)substr($before['date'],0,4)-60).'-05-06';
-$editPending=['action'=>'edit','id'=>(string)$legacyId,'revision'=>$before['revision'],'customer'=>'정정 고객 <script>','phone'=>'010-1234-9876','birthDate'=>$birth,'birthYear'=>'1999','carrier'=>'신한','consultationTime'=>'16:25','consultationPlace'=>'경기도 이천시 부발읍','premiumBand'=>'300000','memo'=>'접수정보 정정 사유','employeeId'=>3,'date'=>$today,'status'=>'normal','note'=>'덮어쓰면 안 됨'];
+$editPending=['action'=>'edit','id'=>(string)$legacyId,'revision'=>$before['revision'],'customer'=>'정정 고객 <script>','phone'=>'010-1234-9876','birthDate'=>$birth,'birthYear'=>'1999','carrier'=>'신한','consultationTime'=>'16:25','consultationPlace'=>'경기도 이천시 부발읍','premiumBand'=>'300000','memo'=>'접수정보 정정 사유','gender'=>'남','callAvailability'=>'퇴근 후 6시~8시','visitSchedule'=>'다음 주 월요일 자택','employeeId'=>3,'date'=>$today,'status'=>'normal','note'=>'덮어쓰면 안 됨'];
 $forbidden(fn()=>pending_intake_update($two,$editPending),'another employee must not edit a real pending receipt');
 pending_intake_update($one,$editPending);$after=$pendingRow($one,(string)$legacyId);
 check($after['customer']===$editPending['customer']&&$after['phone']===$editPending['phone']&&$after['consultationPlace']===$editPending['consultationPlace']&&$after['consultationTime']==='16:25'&&$after['premiumBand']==='300000','employee receipt changes persist, including missing consultation detail insertion');
+check($after['gender']==='남'&&$after['callAvailability']==='퇴근 후 6시~8시'&&$after['visitSchedule']==='다음 주 월요일 자택','receipt additions survive employee edits and reload');
 check($after['birthDate']===$birth&&$after['birthYear']===(int)substr($birth,0,4)&&$after['kind']==='silver','full date controls birth year and age classification');
 foreach(['employeeId','date','status','note','address'] as $key)check($after[$key]===$before[$key],'inline edit preserves '.$key);
 check($after['revision']===$before['revision']+1&&$after['lastEditAt']!==''&&$after['recallPending'],'edit is audited once and preserves outstanding recall');
 rejects(fn()=>pending_intake_update($one,$editPending),'stale pending revision rejected');
 $same=array_replace($editPending,['revision'=>$after['revision'],'memo'=>'']);rejects(fn()=>pending_intake_update($one,$same),'unchanged fields cannot create an edit');
-foreach(['phone'=>'invalid','birthDate'=>'1990-02-30','consultationTime'=>'25:10','premiumBand'=>'50000','customer'=>'','consultationPlace'=>str_repeat('가',501)] as $key=>$value)rejects(fn()=>pending_intake_update($one,array_replace($same,[$key=>$value])),'invalid inline field rejected: '.$key);
+foreach(['phone'=>'invalid','birthDate'=>'1990-02-30','consultationTime'=>'25:10','premiumBand'=>'50000','customer'=>'','consultationPlace'=>str_repeat('가',501),'gender'=>'기타','callAvailability'=>str_repeat('가',201),'visitSchedule'=>str_repeat('가',501)] as $key=>$value)rejects(fn()=>pending_intake_update($one,array_replace($same,[$key=>$value])),'invalid inline field rejected: '.$key);
 check($pendingRow($one,(string)$legacyId)===$after,'invalid and stale edits leave every field, revision and history intact');
 pending_intake_update($admin,['action'=>'edit','id'=>(string)$legacyId,'revision'=>$after['revision'],'consultationTime'=>'17:40']);
 $afterAdmin=$pendingRow($one,(string)$legacyId);check($afterAdmin['consultationTime']==='17:40'&&$afterAdmin['customer']===$after['customer'],'administrator may edit one field while retaining all omitted fields');

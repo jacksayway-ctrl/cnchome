@@ -21,9 +21,9 @@ $sections=[
         ['postcode','우편번호','text',10,false,'postal-code',''],
     ]],
     ['급여 지급 계좌',[
-        ['bank','은행','text',50,true,'','은행명'],
+        ['bank','은행 선택','bank',50,true,'',''],
+        ['accountNumber','계좌번호 입력','text',40,true,'','숫자 또는 하이픈으로 입력'],
         ['accountHolder','예금주','text',60,true,'','예금주 이름'],
-        ['accountNumber','계좌번호','text',40,true,'','숫자 또는 하이픈으로 입력'],
     ]],
     ['비상 연락처 · 선택',[
         ['emergencyName','성명·관계','text',60,false,'','이름과 관계'],
@@ -34,7 +34,9 @@ foreach($sections as [$title,$fields]): ?>
 <fieldset class="membership-profile-section"><legend><?= view_h($title) ?></legend><div class="membership-profile-grid">
 <?php foreach($fields as [$key,$label,$type,$max,$required,$autocomplete,$placeholder]): ?>
 <label><span><?= view_h($label) ?><?= $required?' *':'' ?></span>
-<?php if($type==='select'): ?>
+<?php if($type==='bank'): ?>
+<select name="bank" required><?php foreach(personnel_banks((string)($profile['bank']??'')) as $value=>$text): ?><option value="<?= view_h($value) ?>"<?= ($profile['bank']??'')===$value?' selected':'' ?>><?= view_h($text) ?></option><?php endforeach; ?></select>
+<?php elseif($type==='select'): ?>
 <select name="<?= view_h($key) ?>" autocomplete="<?= view_h($autocomplete) ?>"><?php foreach([''=>'선택','남'=>'남','여'=>'여','기타'=>'기타'] as $value=>$text): ?><option value="<?= view_h($value) ?>"<?= ($profile[$key]??'')===$value?' selected':'' ?>><?= view_h($text) ?></option><?php endforeach; ?></select>
 <?php else: ?>
 <input name="<?= view_h($key) ?>" type="<?= view_h($type) ?>" maxlength="<?= $max ?>" value="<?= view_h($profile[$key]??'') ?>"<?= $required?' required':'' ?><?= $autocomplete?' autocomplete="'.view_h($autocomplete).'"':'' ?><?= $placeholder?' placeholder="'.view_h($placeholder).'"':'' ?><?= $type==='date'?' max="'.hr_today().'"':'' ?><?= in_array($key,['accountNumber','postcode'],true)?' inputmode="numeric"':'' ?>>

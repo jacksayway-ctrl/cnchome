@@ -25,14 +25,18 @@ function membership_record(int $id): ?array {
 }
 function membership_admin(array $user): void {if(($user['role']??'')!=='admin')throw new HRForbidden('직원 등록 요청 관리는 관리자만 사용할 수 있습니다.');}
 function membership_list(array $user): array {
-    membership_admin($user);return db()->query("SELECT m.*,u.username,u.display_name,u.department,u.active,e.id AS employee_id FROM employee_memberships m JOIN app_users u ON u.id=m.user_id LEFT JOIN hr_employees e ON e.user_id=m.user_id ORDER BY CASE m.status WHEN 'pending' THEN 0 WHEN 'approved' THEN 1 ELSE 2 END,m.created_at,m.user_id")->fetchAll();
+    membership_admin($user); $rows=db()->query("SELECT m.*,u.username,u.display_name,u.department,u.active,e.id AS employee_id FROM employee_memberships m JOIN app_users u ON u.id=m.user_id LEFT JOIN hr_employees e ON e.user_id=m.user_id ORDER BY CASE m.status WHEN 'pending' THEN 0 WHEN 'approved' THEN 1 ELSE 2 END,m.created_at,m.user_id")->fetchAll();
+    foreach($rows as &$row){$q=db()->prepare("SELECT payload FROM employee_membership_events WHERE user_id=? AND event='saveApplicant' ORDER BY id DESC LIMIT 1");$q->execute([$row['user_id']]);$input=json_decode($q->fetchColumn()?:'{}',true);$row['start_date']=$input['startDate']??hr_today();}unset($row);return $rows;
 }
-function membership_approve(array $user,int $id,int $revision,string $team,string $startDate,string $action='approve'): void {
-    membership_admin($user);hr_assert(in_array($action,['approve','reject'],true),'승인 작업을 확인해 주세요.');
+function membership_approve(array $user,int $id,int $revision,string $team,string $startDate,string $action='approve',array $basic=[]): void {
+    membership_admin($user);hr_assert(in_array($action,['approve','reject','saveApplicant'],true),'승인 작업을 확인해 주세요.');
     hr_assert(in_array($team,['insurance','cosmetics','health'],true)&&hr_day($startDate),'부서와 입사일을 확인해 주세요.');$d=db();$d->beginTransaction();
     try {
         $q=$d->prepare('SELECT m.*,u.display_name,u.role FROM employee_memberships m JOIN app_users u ON u.id=m.user_id WHERE m.user_id=? FOR UPDATE');$q->execute([$id]);$row=$q->fetch();
-        hr_assert($row&&$row['role']==='employee'&&$row['status']==='pending'&&(int)$row['revision']===$revision,'이미 처리되었거나 변경된 직원 등록 요청입니다. 새로고침해 주세요.');
+        hr_assert($row&&$row['role']==='employee'&&in_array($row['status'],['pending','rejected'],true)&&(int)$row['revision']===$revision,'이미 처리되었거나 변경된 직원 등록 요청입니다. 새로고침해 주세요.');
+        $name=membership_text($basic['name']??$row['display_name'],60);$phone=membership_text($basic['phone']??$row['phone'],20);
+        hr_assert($name!==''&&preg_match('/^0[0-9 -]{8,14}$/D',$phone)===1,'이름과 연락처를 입력해 주세요.');
+        $q=$d->prepare('UPDATE app_users SET display_name=?,department=? WHERE id=?');$q->execute([$name,$team,$id]);$row['display_name']=$name;$row['phone']=$phone;
         if($action==='approve'){
             $q=$d->prepare('SELECT id FROM hr_employees WHERE user_id=?');$q->execute([$id]);
             if(!$q->fetch()){
@@ -43,20 +47,22 @@ function membership_approve(array $user,int $id,int $revision,string $team,strin
             }
             $q=$d->prepare("UPDATE app_users SET active=1,department=? WHERE id=? AND role='employee'");$q->execute([$team,$id]);
         }
-        $status=$action==='approve'?'approved':'rejected';
-        $q=$d->prepare('UPDATE employee_memberships SET status=?,approved_by=?,approved_at=CURRENT_TIMESTAMP,revision=revision+1 WHERE user_id=?');$q->execute([$status,$user['id'],$id]);
-        $q=$d->prepare('INSERT INTO employee_membership_events(user_id,actor_id,event,payload) VALUES(?,?,?,?)');$q->execute([$id,$user['id'],$action,hr_json(['before'=>'pending','status'=>$status,'team'=>$team,'startDate'=>$startDate])]);$d->commit();
+        $status=$action==='approve'?'approved':($action==='reject'?'rejected':$row['status']);
+        if($action==='saveApplicant'){$q=$d->prepare('UPDATE employee_memberships SET phone=?,revision=revision+1 WHERE user_id=?');$q->execute([$phone,$id]);}
+        else{$q=$d->prepare('UPDATE employee_memberships SET status=?,phone=?,approved_by=?,approved_at=CURRENT_TIMESTAMP,revision=revision+1 WHERE user_id=?');$q->execute([$status,$phone,$user['id'],$id]);}
+        $q=$d->prepare('INSERT INTO employee_membership_events(user_id,actor_id,event,payload) VALUES(?,?,?,?)');$q->execute([$id,$user['id'],$action,hr_json(['before'=>$row['status'],'status'=>$status,'team'=>$team,'startDate'=>$startDate])]);$d->commit();
     }catch(Throwable $e){if($d->inTransaction())$d->rollBack();throw $e;}
 }
 function membership_save_profile(array $user,array $in): void {
     if(($user['role']??'')!=='employee')throw new HRForbidden('직원 본인 정보만 입력할 수 있습니다.');
     $d=db();$d->beginTransaction();
     try {
-        $q=$d->prepare("SELECT m.status,u.active FROM employee_memberships m JOIN app_users u ON u.id=m.user_id WHERE m.user_id=? FOR UPDATE");$q->execute([$user['id']]);$member=$q->fetch();
-        if(!$member||$member['status']!=='approved'||!$member['active'])throw new HRForbidden('로그인 승인 후 본인 정보를 입력할 수 있습니다.');
+        $q=$d->prepare("SELECT m.status,u.active FROM app_users u LEFT JOIN employee_memberships m ON m.user_id=u.id WHERE u.id=? AND u.role='employee' FOR UPDATE");$q->execute([$user['id']]);$member=$q->fetch();
+        if(!$member||($member['status']!==null&&$member['status']!=='approved')||!$member['active'])throw new HRForbidden('로그인 승인 후 본인 정보를 입력할 수 있습니다.');
         $q=$d->prepare('SELECT * FROM hr_employees WHERE user_id=? FOR UPDATE');$q->execute([$user['id']]);$row=$q->fetch();hr_assert((bool)$row,'연결된 인사정보가 없습니다. 관리자에게 문의해 주세요.');
         hr_assert(ctype_digit((string)($in['revision']??''))&&(int)$in['revision']===(int)$row['revision'],'다른 화면에서 정보가 변경되었습니다. 새로고침 후 다시 입력해 주세요.');
         $profile=json_decode($row['profile'],true,512,JSON_THROW_ON_ERROR);$before=$profile;
+        if(!empty($profile['selfEditLocked']))throw new HRForbidden('관리자가 인사정보를 확정하여 수정이 잠겼습니다. 관리자에게 수정권한 해제를 요청해 주세요.');
         // Strict allowlist: employment, wages, dates, role, owner and permissions remain administrator controlled.
         foreach(['name'=>60,'phone'=>20,'email'=>120,'birthDate'=>10,'address'=>240,'addressDetail'=>240,'postcode'=>10,'gender'=>10,'nationality'=>60,'bank'=>50,'accountNumber'=>40,'accountHolder'=>60,'emergencyName'=>60,'emergencyPhone'=>20,'career'=>2000,'qualification'=>500] as $key=>$max){
             if(array_key_exists($key,$in))$profile[$key]=membership_text($in[$key],$max);

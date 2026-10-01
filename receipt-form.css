@@ -1,0 +1,40 @@
+#tm-preview #tm-dialog.receipt-dialog{width:min(900px,calc(100vw - 24px));max-width:none;max-height:calc(100dvh - 24px);padding:0;border:0;border-radius:0;background:#fff;color:#173966;overflow:auto}
+#tm-preview #tm-dialog.receipt-dialog>.row{display:none}
+#tm-preview .receipt-form{margin:0;font-size:14px}
+#tm-preview .receipt-header{padding:20px 32px;background:#203963;color:#fff}
+#tm-preview .receipt-header h2{margin:0 0 5px;font-size:30px;letter-spacing:.04em;color:inherit}
+#tm-preview .receipt-header p{margin:0;color:#e9effb;font-size:14px}
+#tm-preview .receipt-grid{display:grid;grid-template-columns:125px minmax(0,1fr) 125px minmax(0,1fr);margin:24px 26px 0;border-top:1px solid #a4a9af;border-left:1px solid #a4a9af}
+#tm-preview .receipt-grid>.receipt-label,#tm-preview .receipt-grid>.receipt-value{min-width:0;min-height:65px;margin:0;padding:10px 12px;border-right:1px solid #a4a9af;border-bottom:1px solid #a4a9af;display:flex;align-items:center;box-sizing:border-box}
+#tm-preview .receipt-grid>.receipt-label{justify-content:center;background:#f0f5fd;text-align:center;font-weight:700;font-size:14px;color:#173966}
+#tm-preview .receipt-form .receipt-value input:not([type=radio]),#tm-preview .receipt-form .receipt-value select,#tm-preview .receipt-form .receipt-value textarea{width:100%;min-width:0;margin:0;padding:7px 2px;border:1px solid transparent;border-radius:0;background:#fff;box-shadow:none;color:#173966;font:inherit}
+#tm-preview .receipt-form .receipt-value input:focus,#tm-preview .receipt-form .receipt-value textarea:focus{outline:0;border-bottom-color:#1f70cb;background:#f7faff}
+#tm-preview .receipt-form .receipt-value input[type=date],#tm-preview .receipt-form .receipt-value select{border-color:#bcc2ca;padding:3px}
+#tm-preview .receipt-form .receipt-value input::placeholder,#tm-preview .receipt-form .receipt-value textarea::placeholder{color:#858e9e}
+#tm-preview .receipt-form .receipt-date{gap:10px;flex-wrap:wrap}
+#tm-preview .receipt-form .receipt-date input{width:55px;border-color:#dce0e6;padding:3px}
+#tm-preview .receipt-date small{font-size:12px;color:#8190a5;white-space:nowrap}
+#tm-preview .receipt-form .receipt-phone{gap:12px;white-space:nowrap}
+#tm-preview .receipt-form .receipt-phone input{max-width:125px}
+#tm-preview .receipt-gender{gap:28px}
+#tm-preview .receipt-form .receipt-gender label{display:flex;align-items:center;gap:8px;margin:0;font-weight:400}
+#tm-preview .receipt-form .receipt-gender input{width:14px;height:14px;margin:0;accent-color:#203963}
+#tm-preview .receipt-grid>.receipt-region{grid-column:span 3;display:block;position:relative}
+#tm-preview .receipt-region .sales-place-control{position:relative;width:100%}
+#tm-preview .receipt-region [data-place-status]{display:block;font-size:11px;line-height:1.5;text-align:right;color:#0b9275}
+#tm-preview .receipt-region .sales-place-options{z-index:5;text-align:left}
+#tm-preview .receipt-policy{margin:10px 26px 0;font-size:12px;color:#61758f}
+#tm-preview .receipt-policy summary{cursor:pointer;padding:4px 0}
+#tm-preview .receipt-policy p{margin:5px 0}
+#tm-preview .receipt-feedback{min-height:18px;margin:5px 26px;font-size:13px;color:#a33333}
+#tm-preview .receipt-form[data-saved] .receipt-feedback{color:#167248}
+#tm-preview .receipt-actions{display:flex;justify-content:flex-end;gap:11px;padding:16px 26px 25px}
+#tm-preview .receipt-actions button{min-width:103px;min-height:37px;margin:0;border-radius:0;padding:8px 18px;font-size:14px;font-weight:600;border:1px solid #203963;box-shadow:none}
+#tm-preview .receipt-actions .receipt-save{background:#203963;color:#fff}
+#tm-preview .receipt-actions .receipt-reset{background:#fff;color:#173966}
+#tm-preview .receipt-actions .receipt-close{background:#6c757e;color:#fff;border-color:#6c757e}
+#tm-preview .receipt-form [hidden]{display:none!important}
+body.receipt-window #tm-preview>.shell{visibility:hidden}
+body.receipt-window #tm-preview #tm-dialog.receipt-dialog{width:100vw;max-height:100dvh;margin:0;min-height:100dvh}
+body.receipt-window #tm-preview #tm-dialog.receipt-dialog::backdrop{background:#fff}
+@media(max-width:680px){#tm-preview .receipt-grid{grid-template-columns:100px minmax(0,1fr);margin:18px 14px 0}#tm-preview .receipt-grid>.receipt-region{grid-column:span 1}#tm-preview .receipt-header{padding:18px 20px}#tm-preview .receipt-policy,#tm-preview .receipt-feedback{margin-left:14px;margin-right:14px}#tm-preview .receipt-actions{padding:12px 14px 20px;gap:8px}#tm-preview .receipt-actions button{min-width:80px}}

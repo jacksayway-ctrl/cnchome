@@ -174,3 +174,10 @@ foreach($shifted['monthlyReference'] as $i=>$row){$min=$i?$shifted['monthlyRefer
 $lower=grade_ledger('2026-09',grade_forecast_records('2026-09',$shifted['monthlyReference'][7]['example']),[['date'=>'2000-01-01','policy'=>$shifted]]);
 $upper=grade_ledger('2026-09',grade_forecast_records('2026-09',$shifted['monthlyReference'][8]['example']),[['date'=>'2000-01-01','policy'=>$shifted]]);
 gl_check($lower['base']===2244000&&$upper['base']===2376000,'141-150 tier at 17k differs from 151-plus tier at 18k for 132 hours');
+
+$accruedPolicy=grade_zero_policy();$accruedPolicy['weekly'][0]['achievement']=30000;
+$ongoing=grade_ledger('2026-10',[['date'=>'2026-10-01','count'=>10,'hours'=>6]],[['date'=>'2020-01-01','policy'=>$accruedPolicy]],['payAmount'=>15000]);
+$ongoing+=['asOf'=>'2026-10-01','dailyReceived'=>0,'dailyOutstanding'=>0];
+$totals=grade_personal_totals_from_ledger($ongoing,['payAmount'=>15000]);
+gl_check($totals['weekly']===0&&$totals['weeklyAccrued']===30000,'ongoing performance accrual is separate from closed-week payroll');
+gl_check($totals['gradeTotal']===$totals['daily']+$totals['weeklyAccrued']+$totals['monthly'],'personal grade total sums actual calculated components once');

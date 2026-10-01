@@ -53,3 +53,6 @@ foreach($samples['samples'] as $sample){$n=$sample['perDay'];$daily=($n-5)*5000*
 $prorated=grade_sample_estimates('2026-09',grade_history('insurance'))['samples'][0];
 check($prorated['daily']===605000&&$prorated['monthly']===180000&&$prorated['weekly']===160000,'effective September 16 prorates daily and monthly without changing weekly');
 echo "PASS: separate DB saves, selected-field isolation, immutable history, independent future dates, revision conflicts, rollback and six 10–15 case forecasts.\n";
+
+$actor=json_decode($d->query('SELECT policy FROM grade_versions ORDER BY id DESC LIMIT 1')->fetchColumn(),true)['savedActor'];
+check($actor['role']==='admin'&&$actor['position']==='관리자','changer affiliation and role are snapshotted at save time');

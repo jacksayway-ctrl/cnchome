@@ -17,11 +17,21 @@ function intake_policy_decode(string $raw): array {
  $state=json_decode($raw,true,64,JSON_THROW_ON_ERROR);
  return array_replace(intake_policy_defaults(),$state);
 }
-function intake_policy_snapshot(): array {
+function intake_policy_snapshot(?array $user=null): array {
  $row=db()->query('SELECT revision,state FROM intake_policy_state WHERE id=1')->fetch();
  if(!$row)throw new RuntimeException('Policy migration required');
- $state=intake_policy_decode($row['state']);$state['policies']=(object)$state['policies'];
- return $state+['revision'=>(int)$row['revision']];
+ $state=intake_policy_decode($row['state']);$today=(new DateTimeImmutable('now',new DateTimeZone('Asia/Seoul')))->format('Y-m-d');
+ if(($user['role']??'')==='employee')$state['policies']=array_filter($state['policies'],static function($policy)use($today){
+  try{return !empty($policy['savedAt'])&&(new DateTimeImmutable($policy['savedAt']))->setTimezone(new DateTimeZone('Asia/Seoul'))->format('Y-m-d')===$today;}catch(Throwable $e){return false;}
+ });
+ $state['policies']=(object)$state['policies'];
+ return array_replace($state,['revision'=>(int)$row['revision'],'date'=>$today]);
+}
+function intake_policy_history(array $user,int $id=0,int $before=0): array {
+ if(($user['role']??'')!=='admin')throw new IntakePolicyForbidden('정책 변경 이력은 관리자만 확인할 수 있습니다.');
+ if($id){$q=db()->prepare('SELECT payload FROM intake_policy_history WHERE id=?');$q->execute([$id]);$raw=$q->fetchColumn();intake_policy_check((bool)$raw,'정책 이력을 찾을 수 없습니다.');return ['state'=>intake_policy_decode($raw)];}
+ $q=db()->prepare('SELECT h.id,h.revision,h.action,h.created_at,u.display_name AS actor FROM intake_policy_history h LEFT JOIN app_users u ON u.id=h.actor_id'.($before?' WHERE h.id<?':'').' ORDER BY h.id DESC LIMIT 100');$q->execute($before?[$before]:[]);$rows=$q->fetchAll();
+ return ['history'=>$rows,'next'=>count($rows)===100?(int)end($rows)['id']:null];
 }
 function intake_policy_rows(mixed $rows,string $kind): array {
  intake_policy_check(is_array($rows)&&array_is_list($rows)&&count($rows)>=2&&count($rows)<=1000,'정책표는 제목을 포함해 2~1000행이어야 합니다.');

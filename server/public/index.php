@@ -1,3 +1,1 @@
-<?php
-declare(strict_types=1);
-require __DIR__.'/office.php';
+<!doctype html><html lang="ko"><meta charset="utf-8"><meta name="robots" content="noindex"><meta name="viewport" content="width=device-width,initial-scale=1"><title>씨앤씨</title><body data-cnc-destination="office.php"><p><a href="/office.php">씨앤씨 업무 화면 열기</a></p><script src="/legacy-redirect.js"></script></body></html>

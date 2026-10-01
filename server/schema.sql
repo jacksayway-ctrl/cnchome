@@ -38,6 +38,17 @@ CREATE TABLE IF NOT EXISTS grade_versions (
  INDEX dept_date (department,effective_date),
  FOREIGN KEY (actor_id) REFERENCES app_users(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS employee_checkin_approvals (
+ user_id BIGINT UNSIGNED NOT NULL,
+ work_date DATE NOT NULL,
+ actor_id BIGINT UNSIGNED NOT NULL,
+ approval_mode VARCHAR(16) NOT NULL,
+ recorded_check_in_at DATETIME(6) NOT NULL,
+ approved_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+ PRIMARY KEY(user_id,work_date),
+ FOREIGN KEY(user_id,work_date) REFERENCES employee_checkins(user_id,work_date),
+ FOREIGN KEY(actor_id) REFERENCES app_users(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS hr_employee_sequences (
  day CHAR(8) PRIMARY KEY, serial INT UNSIGNED NOT NULL
@@ -67,7 +78,7 @@ CREATE TABLE IF NOT EXISTS hr_payroll (
 CREATE TABLE IF NOT EXISTS hr_personnel_events (
  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
  employee_id BIGINT UNSIGNED NOT NULL,
- actor_id BIGINT UNSIGNED NOT NULL,
+ actor_id BIGINT UNSIGNED NULL,
  event VARCHAR(32) NOT NULL,
  revision INT UNSIGNED NOT NULL,
  snapshot JSON NOT NULL,
@@ -132,6 +143,15 @@ CREATE TABLE IF NOT EXISTS sales_consultation_details (
  consultation_time VARCHAR(5) NOT NULL DEFAULT '',
  consultation_place VARCHAR(500) NOT NULL DEFAULT '',
  premium_band VARCHAR(6) NOT NULL DEFAULT '',
+ FOREIGN KEY (sale_id) REFERENCES sales_records(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS sales_receipt_details (
+ sale_id BIGINT UNSIGNED PRIMARY KEY,
+ gender VARCHAR(4) NOT NULL DEFAULT '',
+ call_availability VARCHAR(200) NOT NULL DEFAULT '',
+ visit_schedule VARCHAR(500) NOT NULL DEFAULT '',
+ created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
  FOREIGN KEY (sale_id) REFERENCES sales_records(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 

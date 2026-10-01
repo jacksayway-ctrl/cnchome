@@ -14,7 +14,7 @@ if($documentOnly): ?>
 <!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title><?= view_h($documentLabel.($terms['employeeName']?' · '.$terms['employeeName']:'')) ?></title>
 <?php if($download): $cssPath=(defined('CNC_ASSET_ROOT')?CNC_ASSET_ROOT:dirname(__DIR__,2)).'/contract.css'; ?>
 <style><?= is_file($cssPath)?file_get_contents($cssPath):'' ?></style>
-<?php else: ?><link rel="stylesheet" href="<?= view_h(asset_url('contract.css')) ?>"><?php endif; ?></head><body class="contract-document-page">
+<?php else: ?><link rel="stylesheet" href="<?= view_h(asset_url('contract.css')) ?>"><?php endif; ?><script src="<?= view_h(asset_url('page-navigation.js')) ?>"></script></head><body class="contract-document-page">
 <div class="contract-print-tools"><strong>A4 · 세로 · 배율 100%</strong><span>브라우저의 머리글·바닥글은 끄고 인쇄하세요.</span><?php if(!$download): ?><button type="button" data-contract-print>인쇄 / PDF 저장</button><a href="/contracts.php?role=<?= $role ?>&amp;<?= $documentQuery ?>&amp;download=1"><?= $isBasicForm?'기본 양식 저장':'계약서 사본 저장' ?></a><?php else: ?><span>Ctrl+P (Mac: ⌘P)로 인쇄할 수 있습니다.</span><?php endif; ?></div>
 <?php endif; ?>
 <article class="contract-sheet contract-form-v2" aria-label="<?= view_h($documentLabel) ?>">

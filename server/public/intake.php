@@ -17,8 +17,8 @@ try{
     if($id&&!$selected){http_response_code(404);$error='선택한 월에서 접수 내역을 찾을 수 없습니다.';}
     if(($_GET['export']??'')==='csv'){
         header('Content-Type: text/csv; charset=UTF-8');header('Content-Disposition: attachment; filename="intake-'.$filters['month'].'.csv"');$out=fopen('php://output','w');fwrite($out,"\xEF\xBB\xBF");
-        fputcsv($out,['접수번호','접수일','담당자','부서','고객명','전화번호','생년월일/출생연도','접수 코드','상담 시간','상담 장소','상태','자료 구분'],',','"','');
-        foreach($rows as $r)fputcsv($out,array_map('intake_csv_cell',[$r['id'],$r['date'],$r['employee'],department_label($r['team']),$r['customer'],$r['phone']??'',($r['birthDate']??'')?:($r['birthYear']??''),$r['carrier']??'',$r['consultationTime']??'',$r['consultationPlace']??'',intake_status($r['status']),$r['isTest']?'테스트':'운영']),',','"','');fclose($out);exit;
+        fputcsv($out,['접수번호','접수일','담당자','부서','고객명','전화번호','생년월일/출생연도','접수 코드','상담 시간','지역(동)','성별','통화 가능시간','방문 일정·장소','월보험료','메모','상태','자료 구분'],',','"','');
+        foreach($rows as $r)fputcsv($out,array_map('intake_csv_cell',[$r['id'],$r['date'],$r['employee'],department_label($r['team']),$r['customer'],$r['phone']??'',($r['birthDate']??'')?:($r['birthYear']??''),$r['carrier']??'',$r['consultationTime']??'',$r['consultationPlace']??'',$r['gender']??'',$r['callAvailability']??'',$r['visitSchedule']??'',$r['premiumBand']??'',$r['note']??'',intake_status($r['status']),$r['isTest']?'테스트':'운영']),',','"','');fclose($out);exit;
     }
     $history=$selected?intake_history($user,$id):[];$recallQueue=$mode==='list'&&!$popup?intake_recall_queue($user,$filters):[];$counts=['pending'=>0,'normal'=>0,'as'=>0];$summaryRows=intake_filtered($snapshot['records'],array_replace($filters,['status'=>'']));foreach($summaryRows as $r)$counts[$r['status']]++;
     $testCount=count(array_filter($snapshot['records'],fn($r)=>$r['isTest']&&str_starts_with($r['date'],$filters['month'])));

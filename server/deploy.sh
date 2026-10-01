@@ -21,6 +21,9 @@ php server/bin/check-business-calendar.php
 php server/bin/check-pay-statements.php
 php server/bin/check-grade-ledger.php
 php server/bin/check-grade-departments.php
+php server/bin/check-grade-summary.php
+php server/bin/check-grade-settings.php
+php server/bin/check-intake-policy.php
 nginx -t
 backup="/var/backups/cnchome/$(date +%Y%m%d-%H%M%S)"
 install -d -m 700 "$backup"
@@ -37,6 +40,7 @@ php server/bin/seed-test-normal-range.php
 php server/bin/seed-test-inspection-refresh.php
 php server/bin/seed-test-pending-cards.php
 php server/bin/refresh-test-full-attendance.php
+php server/bin/update-personnel-schedule.php
 install -d -m 755 /opt/cnchome-runtime /opt/cnchome-runtime/views/partials /opt/cnchome-runtime/config /opt/cnchome-runtime/docs
 install -m 644 server/lib/*.php /opt/cnchome-runtime/
 install -m 644 server/views/*.php /opt/cnchome-runtime/views/

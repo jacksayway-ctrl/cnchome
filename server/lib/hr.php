@@ -43,7 +43,11 @@ function hr_profile(array $in): array {
     $p['payAmount']=hr_int($in['payAmount']??15000);hr_assert($p['payAmount']>0,'기본 급여액은 0원보다 커야 합니다.');
     $p['workDays']=$in['workDays']??[];
     hr_assert(is_array($p['workDays'])&&count($p['workDays'])>0&&count(array_diff($p['workDays'],['월','화','수','목','금']))===0,'근무요일을 선택해 주세요.');
-    hr_assert(in_array($p['weeklyHoliday'],['토','일'],true),'주휴일을 선택해 주세요.');
+    hr_assert(in_array($p['weeklyHoliday'],['토','일','토,일'],true),'주휴일을 선택해 주세요.');
+    $p['paydayTiming']=($in['paydayTiming']??'next')==='next'?'next':'current';
+    $p['selfEditLocked']=($in['selfEditLocked']??false)===true;
+    $p['personnelScheduleVersion']=(int)($in['personnelScheduleVersion']??0);
+    $p['paidWeeklyHoliday']=in_array($in['paidWeeklyHoliday']??'',['토','일'],true)?$in['paidWeeklyHoliday']:(in_array($p['weeklyHoliday'],['토','일'],true)?$p['weeklyHoliday']:'일');
     hr_assert($p['accountNumber']===''||preg_match('/^[0-9 -]{6,40}$/D',$p['accountNumber'])===1,'계좌번호를 확인해 주세요.');
     hr_assert(in_array($p['contractType'],['기간제','무기계약'],true),'계약 구분을 확인해 주세요.');
     if($p['contractTerm']){$p['contractEnd']=hr_contract_end($p['contractStart'],$p['contractTerm']);$p['contractType']='기간제';}
@@ -95,14 +99,27 @@ function hr_snapshot(array $u): array {
 class HRForbidden extends RuntimeException {}
 function hr_mutate(array $user,array $in): ?int {
     $action=$in['action']??'';$admin=$user['role']==='admin';
-    if(!in_array($action,$admin?['saveStaff','savePayroll','publish']:['confirm','request'],true))throw new HRForbidden('처리 권한이 없습니다.');
+    if(!in_array($action,$admin?['saveStaff','unlockStaff','lockStaff','suspendStaff','resumeStaff','savePayroll','publish']:['confirm','request'],true))throw new HRForbidden('처리 권한이 없습니다.');
     try {
     $d=db();$d->beginTransaction();$staffSavedId=null;
-    if($action==='saveStaff'){
+    if(in_array($action,['unlockStaff','lockStaff','suspendStaff','resumeStaff'],true)){
+        $id=hr_int($in['id']??0);$q=$d->prepare('SELECT * FROM hr_employees WHERE id=? FOR UPDATE');$q->execute([$id]);$row=$q->fetch();
+        hr_assert((bool)$row&&(int)$row['revision']===($in['revision']??null),'인사정보가 변경되었습니다. 새로고침해 주세요.');
+        $profile=json_decode($row['profile'],true,512,JSON_THROW_ON_ERROR);
+        if(in_array($action,['suspendStaff','resumeStaff'],true)){
+            hr_assert(!empty($row['user_id'])&&(int)$row['user_id']!==(int)$user['id'],'연결된 직원 계정을 확인해 주세요.');
+            $q=$d->prepare("UPDATE app_users SET active=? WHERE id=? AND role='employee'");$q->execute([$action==='resumeStaff'?1:0,$row['user_id']]);
+        }else $profile['selfEditLocked']=$action==='lockStaff';
+        $q=$d->prepare('UPDATE hr_employees SET profile=?,revision=revision+1 WHERE id=?');$q->execute([hr_json($profile),$id]);
+        require_once __DIR__.'/personnel-history.php';
+        personnel_history_append($user,$row,array_replace($row,['profile'=>hr_json($profile),'revision'=>(int)$row['revision']+1]),['lockStaff'=>'lock','unlockStaff'=>'unlock','suspendStaff'=>'suspend','resumeStaff'=>'resume'][$action]);
+        $staffSavedId=$id;
+    }elseif($action==='saveStaff'){
         $id=hr_int($in['id']??0);$existing=null;
         if($id){$q=$d->prepare('SELECT * FROM hr_employees WHERE id=? FOR UPDATE');$q->execute([$id]);$existing=$q->fetch();hr_assert((bool)$existing,'직원을 찾을 수 없습니다.');hr_assert((int)$existing['revision']===($in['revision']??null),'다른 창에서 변경했습니다. 새로고침해 주세요.');}
         $prior=$existing?json_decode($existing['profile'],true,512,JSON_THROW_ON_ERROR):[];
         $p=hr_profile(array_replace($prior,$in['profile']??[]));
+        $p['selfEditLocked']=true;
         $uid=$existing['user_id']??null;
         if(!$existing){
             $day=str_replace('-','',hr_today());

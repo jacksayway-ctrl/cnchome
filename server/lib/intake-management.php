@@ -105,11 +105,15 @@ function intake_update(array $user,array $in): void {
                 $time=intake_text($in['consultationTime']??'',5);$place=intake_text($in['consultationPlace']??'',500);$band=intake_text($in['premiumBand']??'',6);
                 hr_assert($time===''||preg_match('/^(?:[01]\d|2[0-3]):[0-5]\d$/D',$time),'상담 시간을 확인해 주세요.');hr_assert(in_array($band,['','100000','200000','300000'],true),'보험료 구분을 확인해 주세요.');
                 $q=$d->prepare('SELECT consultation_time,consultation_place,premium_band FROM sales_consultation_details WHERE sale_id=?');$q->execute([(int)$id]);$details=$q->fetch();
-                $before=array_intersect_key($row,$next)+($details?:['consultation_time'=>'','consultation_place'=>'','premium_band'=>'']);
-                $after=$next+['consultation_time'=>$time,'consultation_place'=>$place,'premium_band'=>$band];hr_assert($before!==$after,'변경된 내용이 없습니다.');
+                $q=$d->prepare('SELECT gender,call_availability AS callAvailability,visit_schedule AS visitSchedule FROM sales_receipt_details WHERE sale_id=?');$q->execute([(int)$id]);$receiptRow=$q->fetch();$receipt=sales_receipt_fields($in,$receiptRow?:[]);
+                $beforeReceipt=sales_receipt_fields([],$receiptRow?:[]);
+                $before=array_intersect_key($row,$next)+$beforeReceipt+($details?:['consultation_time'=>'','consultation_place'=>'','premium_band'=>'']);
+                $after=$next+$receipt+['consultation_time'=>$time,'consultation_place'=>$place,'premium_band'=>$band];hr_assert($before!==$after,'변경된 내용이 없습니다.');
                 $q=$d->prepare('UPDATE sales_records SET customer_name=?,phone=?,carrier=?,note=?,revision=revision+1,updated_at=UTC_TIMESTAMP(6) WHERE id=?');$q->execute([$next['customer_name'],$next['phone'],$next['carrier'],$next['note'],(int)$id]);
                 if($details){$q=$d->prepare('UPDATE sales_consultation_details SET consultation_time=?,consultation_place=?,premium_band=? WHERE sale_id=?');$q->execute([$time,$place,$band,(int)$id]);}
                 else{$q=$d->prepare('INSERT INTO sales_consultation_details(sale_id,consultation_time,consultation_place,premium_band) VALUES(?,?,?,?)');$q->execute([(int)$id,$time,$place,$band]);}
+                if($receiptRow){$q=$d->prepare('UPDATE sales_receipt_details SET gender=?,call_availability=?,visit_schedule=? WHERE sale_id=?');$q->execute([$receipt['gender'],$receipt['callAvailability'],$receipt['visitSchedule'],(int)$id]);}
+                else{$q=$d->prepare('INSERT INTO sales_receipt_details(sale_id,gender,call_availability,visit_schedule) VALUES(?,?,?,?)');$q->execute([(int)$id,$receipt['gender'],$receipt['callAvailability'],$receipt['visitSchedule']]);}
                 intake_audit($id,$user,'edit',$before,$after,$reason);
             }
         }
@@ -118,7 +122,7 @@ function intake_update(array $user,array $in): void {
 }
 function intake_create(array $user,array $post): array {
     intake_admin($user);$in=['action'=>'create','employeeId'=>intake_number($post['employeeId']??0)];
-    foreach(['date'=>10,'customer'=>100,'phone'=>20,'birthDate'=>10,'carrier'=>100,'note'=>1000,'consultationTime'=>5,'consultationPlace'=>500,'premiumBand'=>6,'requestKey'=>36] as $key=>$max)$in[$key]=intake_text($post[$key]??'',$max);
+    foreach(['date'=>10,'customer'=>100,'phone'=>20,'birthDate'=>10,'carrier'=>100,'note'=>1000,'consultationTime'=>5,'consultationPlace'=>500,'premiumBand'=>6,'requestKey'=>36,'gender'=>4,'callAvailability'=>200,'visitSchedule'=>500] as $key=>$max)$in[$key]=intake_text($post[$key]??'',$max);
     hr_assert(hr_day($in['birthDate']),'생년월일을 입력해 주세요.');[$in['birthYear'],$in['birthMonth'],$in['birthDay']]=explode('-',$in['birthDate']);
     sales_mutate($user,$in);$q=db()->prepare('SELECT id,is_test FROM sales_records WHERE request_key=?');$q->execute([$in['requestKey']]);return $q->fetch();
 }

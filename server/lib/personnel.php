@@ -2,7 +2,7 @@
 declare(strict_types=1);
 /** Native personnel cards use hr_employees as the single source of staff data. */
 function personnel_default_profile(): array {
-    return ['name'=>'','phone'=>'','team'=>'insurance','role'=>'상담원','startDate'=>hr_today(),'employment'=>'재직','payType'=>'시급제','payAmount'=>15000,'workDays'=>['월','화','수','목','금'],'weeklyHoliday'=>'일','contractStart'=>hr_today(),'contractType'=>'무기계약','contractTerm'=>'','payday'=>'15','workStart'=>'10:00','workEnd'=>'17:00','breakStart'=>'12:00','breakEnd'=>'13:00','workplace'=>'씨앤씨','duties'=>'전화상담'];
+    return ['name'=>'','phone'=>'','team'=>'insurance','role'=>'상담원','startDate'=>hr_today(),'employment'=>'재직','payType'=>'시급제','payAmount'=>15000,'workDays'=>['월','화','수','목','금'],'weeklyHoliday'=>'토,일','contractStart'=>hr_today(),'contractType'=>'무기계약','contractTerm'=>'','payday'=>'15','paydayTiming'=>'next','personnelScheduleVersion'=>1,'workStart'=>'10:00','workEnd'=>'17:00','breakStart'=>'12:00','breakEnd'=>'13:00','workplace'=>'씨앤씨','duties'=>'전화상담'];
 }
 function personnel_records(array $user): array {
     $admin=$user['role']==='admin';
@@ -11,7 +11,7 @@ function personnel_records(array $user): array {
     return array_map(function(array $row): array {
         $row['id']=(int)$row['id'];$row['revision']=(int)$row['revision'];
         $row['profile']=json_decode($row['profile'],true,512,JSON_THROW_ON_ERROR);
-        $row['loginName']='';if($row['user_id']){$q=db()->prepare('SELECT username FROM app_users WHERE id=?');$q->execute([$row['user_id']]);$row['loginName']=$q->fetchColumn()?:'';}
+        $row['loginName']='';$row['accountActive']=false;if($row['user_id']){$q=db()->prepare('SELECT username,active FROM app_users WHERE id=?');$q->execute([$row['user_id']]);$account=$q->fetch();$row['loginName']=$account['username']??'';$row['accountActive']=!empty($account['active']);}
         return $row;
     },$q->fetchAll());
 }
@@ -38,7 +38,16 @@ function personnel_post_profile(array $post,array $existing=[]): array {
     $profile['workDays']=array_values(array_unique($days));
     // This form explicitly edits end dates. Do not let an old quick-term overwrite them.
     $profile['contractTerm']='';
+    $profile['weeklyHoliday']='토,일';$profile['payday']='15';$profile['paydayTiming']='next';$profile['personnelScheduleVersion']=1;
     return $profile;
+}
+function personnel_banks(string $selected=''): array {
+    $names=['KB국민은행','신한은행','하나은행','우리은행','NH농협은행','IBK기업은행','SC제일은행','한국씨티은행','Sh수협은행','KDB산업은행','iM뱅크','부산은행','경남은행','광주은행','전북은행','제주은행','케이뱅크','카카오뱅크','토스뱅크','우체국','새마을금고','신협','산림조합','저축은행'];
+    if($selected!==''&&!in_array($selected,$names,true))$names[]=$selected;
+    return [''=>'은행 선택']+array_combine($names,$names);
+}
+function personnel_scripts(): void {
+    foreach(['korea-regions.js','korea-localities.js','consultation-location.js','personnel-form.js'] as $file)echo '<script src="'.h(asset_url($file)).'" defer></script>';
 }
 function personnel_field(array $profile,string $key,string $label,string $type='text',int $max=240,bool $required=false,string $class=''): void {
     $value=(string)($profile[$key]??'');
