@@ -47,8 +47,14 @@ function window_session_refresh_cookie(int $timeout): void {
 function window_session_start(string $id,string $role,int $timeout): void {
     window_session_cookie_capacity($id,$role,$_COOKIE);
     window_session_configure($id,$role,$timeout);
-    // A previous session may have been closed by the fork endpoint.
-    session_id('');
+    // session_id('') leaves a non-null empty ID in PHP, which skips automatic
+    // cookie import. Resume only this window's HttpOnly cookie explicitly.
+    $cookie=$_COOKIE[session_name()]??'';
+    if(!is_string($cookie)||($cookie!==''&&preg_match('/^[a-zA-Z0-9,-]{1,256}$/D',$cookie)!==1)){
+        setcookie(session_name(),'', ['expires'=>time()-3600,'path'=>'/','secure'=>true,'httponly'=>true,'samesite'=>'Lax']);
+        throw new WindowSessionError(401,'이 창에서 다시 로그인해 주세요.');
+    }
+    session_id($cookie);
     if(!session_start())throw new RuntimeException('Unable to open the window session.');
     if($_SESSION&&(!isset($_SESSION['cnc_window'],$_SESSION['cnc_role'])||$_SESSION['cnc_window']!==$id||$_SESSION['cnc_role']!==$role)){
         // A copied/misbound cookie must never alter the other window's session.

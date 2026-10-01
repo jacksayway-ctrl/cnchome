@@ -4,13 +4,15 @@ declare(strict_types=1);
 require_once __DIR__.'/../lib/window-session.php';
 
 if(($argv[1]??'')==='--worker'){
+    $diagnostic=150;
     try{
         $in=json_decode(base64_decode($argv[2]??'',true)?:'',true,32,JSON_THROW_ON_ERROR);
         if(!is_array($in)||!is_dir($in['directory']??''))throw new RuntimeException('Missing fixture directory.');
-        session_save_path($in['directory']);ini_set('session.gc_probability','0');ini_set('session.cache_limiter','');
+        $diagnostic=151;session_save_path($in['directory']);ini_set('session.gc_probability','0');ini_set('session.cache_limiter','');
         $_COOKIE=$in['cookies']??[];$_GET=[];$_POST=[];
         $id=$in['window'];$role=$in['role']??'employee';$timeout=5;
-        window_session_start($id,$role,$timeout);
+        $diagnostic=152;window_session_start($id,$role,$timeout);
+        $diagnostic=['login'=>153,'expire'=>154,'logout'=>155,'fork'=>156,'read'=>157][$in['operation']]??158;
         switch($in['operation']){
             case 'login':
                 if(!session_regenerate_id(true))throw new RuntimeException('Fixture regeneration failed.');
@@ -21,24 +23,51 @@ if(($argv[1]??'')==='--worker'){
             case 'read':break;
             default:throw new RuntimeException('Unknown fixture operation.');
         }
-        $out=['name'=>session_name(),'id'=>session_id(),'state'=>$_SESSION??[],'context'=>window_session_current_context(),'cookieParams'=>session_get_cookie_params()];
+        $diagnostic=159;$out=['name'=>session_name(),'id'=>session_id(),'state'=>$_SESSION??[],'context'=>window_session_current_context(),'cookieParams'=>session_get_cookie_params()];
         if(session_status()===PHP_SESSION_ACTIVE)session_write_close();
         echo json_encode($out,JSON_THROW_ON_ERROR);
-    }catch(Throwable $e){if(session_status()===PHP_SESSION_ACTIVE)session_abort();echo json_encode(['error'=>get_class($e),'status'=>$e instanceof WindowSessionError?$e->status:500,'message'=>$e->getMessage()],JSON_THROW_ON_ERROR);}
+    }catch(Throwable $e){if(session_status()===PHP_SESSION_ACTIVE)session_abort();echo json_encode(['error'=>get_class($e),'status'=>$e instanceof WindowSessionError?$e->status:500,'diagnostic'=>$e instanceof WindowSessionError?0:$diagnostic],JSON_THROW_ON_ERROR);}
     exit;
 }
-function ws_assert(bool $condition,string $message): void {if(!$condition)throw new RuntimeException($message);}
+// Only these fixed numbers reach deployment-status.json; never fixture cookies,
+// exception strings, session IDs, or user data. Every failed assertion still stops deployment.
+final class WindowSessionGateFailure extends RuntimeException {
+    public function __construct(public readonly int $diagnostic) {parent::__construct('Window session gate failed.');}
+}
+set_exception_handler(static function(Throwable $error):never{
+    $code=$error instanceof WindowSessionGateFailure?$error->diagnostic:149;
+    if($code<61||$code>179)$code=149;
+    fwrite(STDERR,'Window session gate failed: diagnostic '.$code."\n");exit($code);
+});
+function ws_assert(bool $condition,string $message): void {
+    if($condition)return;
+    $messages=[
+        'Missing selector did not remain missing.','Matching selectors failed.','Unexpected rejection status.',
+        'Document bootstrap unavailable.','API would receive an HTML bootstrap.','POST would bypass a missing selector.','A document cannot bootstrap a fresh window.',
+        'Window A fixture login failed.','Window B did not receive its own session.','Logging in B changed A.','Logging in B replaced A CSRF.','Cookie protection/expiry changed.',
+        'B authentication did not rotate its session ID.','B regeneration altered A.','Fork failed.','Child did not receive independent credentials.',
+        'Fork copied unrelated state or changed the parent.','Fork changed parent authentication.','Existing child cookie was overwritten.','Fork reused its parent context.',
+        'Logging out B affected A.','An anonymous window could fork a login.','Expiration was not isolated.','A session cookie was accepted for another window.',
+        'Rejecting a copied cookie destroyed its owner.','A cookie crossed role boundaries.','Relative redirect lost route/hash.','Redirect retained another window selector.',
+        'Same-origin redirect lost context.','Context leaked into an external/unsafe redirect.','Invalid session fixture response.'
+    ];
+    $index=array_search($message,$messages,true);throw new WindowSessionGateFailure($index===false?149:61+$index);
+}
 function ws_error(callable $fn,int $status): void {
     try{$fn();}catch(WindowSessionError $e){ws_assert($e->status===$status,'Unexpected rejection status.');return;}
-    throw new RuntimeException('A prohibited window request was accepted.');
+    throw new WindowSessionGateFailure(140);
 }
 function ws_request(string $directory,array $input): array {
     $payload=base64_encode(json_encode(['directory'=>$directory]+$input,JSON_THROW_ON_ERROR));
+    if(!function_exists('proc_open'))throw new WindowSessionGateFailure(141);
     $process=proc_open([PHP_BINARY,__FILE__,'--worker',$payload],[0=>['pipe','r'],1=>['pipe','w'],2=>['pipe','w']],$pipes);
-    if(!is_resource($process))throw new RuntimeException('Could not start isolated session fixture.');
+    if(!is_resource($process))throw new WindowSessionGateFailure(142);
     fclose($pipes[0]);$raw=stream_get_contents($pipes[1]);$errors=stream_get_contents($pipes[2]);fclose($pipes[1]);fclose($pipes[2]);
-    $exit=proc_close($process);ws_assert($exit===0&&$errors==='','The isolated session fixture emitted an error.');
-    $out=json_decode($raw,true,32,JSON_THROW_ON_ERROR);ws_assert(is_array($out),'Invalid session fixture response.');return $out;
+    $exit=proc_close($process);if($exit!==0)throw new WindowSessionGateFailure(143);if($errors!=='')throw new WindowSessionGateFailure(144);
+    try{$out=json_decode($raw,true,32,JSON_THROW_ON_ERROR);}catch(JsonException $e){throw new WindowSessionGateFailure(145);}
+    ws_assert(is_array($out),'Invalid session fixture response.');
+    if(($out['status']??0)===500){$code=$out['diagnostic']??149;throw new WindowSessionGateFailure(is_int($code)&&$code>=150&&$code<=159?$code:149);}
+    return $out;
 }
 function ws_run(string $directory,string $window,string $operation,array &$jar,array $extra=[]): array {
     $out=ws_request($directory,['window'=>$window,'operation'=>$operation,'cookies'=>$jar]+$extra);
@@ -50,7 +79,7 @@ function ws_run(string $directory,string $window,string $operation,array &$jar,a
 }
 
 $directory=sys_get_temp_dir().'/cnc-window-session-'.bin2hex(random_bytes(12));
-if(!mkdir($directory,0700))throw new RuntimeException('Could not create private fixture directory.');
+if(!mkdir($directory,0700))throw new WindowSessionGateFailure(146);
 register_shutdown_function(static function()use($directory):void{foreach(glob($directory.'/*')?:[] as $file)if(is_file($file))unlink($file);rmdir($directory);});
 $a=str_repeat('a',32);$b=str_repeat('b',32);$c=str_repeat('c',32);$d=str_repeat('d',32);$jar=[];
 
