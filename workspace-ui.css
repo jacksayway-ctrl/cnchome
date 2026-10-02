@@ -288,3 +288,8 @@
 .nf-department-tabs a:hover,#tm-preview .aw-department-tabs a:hover,#tm-preview .aw-department-tabs button:hover{background:#edf3fb;border-color:#b7c9df;color:#334155;box-shadow:0 2px 5px #173b6420}
 .nf-department-tabs a.active:hover,#tm-preview .aw-department-tabs .active:hover{background:#173b64;border-color:#173b64;color:#fff}
 @media(max-width:600px){.nf-department-tabs>a,#tm-preview .aw-department-tabs>a,#tm-preview .aw-department-tabs>button{flex:1 0 auto;padding:8px 10px;font-size:13px}}
+
+#tm-preview .grade-visibility-options{display:flex;align-items:center;flex-wrap:wrap;gap:10px}
+#tm-preview .grade-visibility-options label{display:flex;align-items:center;gap:8px;padding:9px 12px;border:1px solid #cbd7e6;border-radius:7px;background:#f8fafc;cursor:pointer}
+#tm-preview .grade-visibility-options input{width:18px;height:18px;margin:0;accent-color:#173b64}
+#tm-preview .grade-visibility-options [data-visibility-label]{font-size:12px;color:#64748b}

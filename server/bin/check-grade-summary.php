@@ -6,6 +6,7 @@ function db(): PDO {static $d;return $d??=new PDO('sqlite::memory:',null,null,[P
 function check(bool $ok,string $message): void {if(!$ok)throw new RuntimeException($message);}
 $accounts=db();$accounts->exec("CREATE TABLE app_users(id INTEGER PRIMARY KEY,username TEXT,display_name TEXT,role TEXT,department TEXT);INSERT INTO app_users VALUES(1,'one','직원','employee','insurance'),(2,'two','다른 직원','employee','insurance'),(3,'user1','테스트 직원','employee','insurance');");
 $d=db();$d->exec('CREATE TABLE hr_employees(user_id INTEGER,profile TEXT);CREATE TABLE business_calendar(month TEXT PRIMARY KEY,days TEXT);CREATE TABLE grade_versions(id INTEGER PRIMARY KEY,department TEXT,effective_date TEXT,policy TEXT,saved_at TEXT DEFAULT CURRENT_TIMESTAMP);CREATE TABLE sales_records(employee_id INTEGER,department TEXT,first_date TEXT,status TEXT,is_test INTEGER);CREATE TABLE test_employee_data(user_id INTEGER,state TEXT);CREATE TABLE daily_grade_receipts(employee_id INTEGER,performance_date TEXT,milestone INTEGER,amount INTEGER,department TEXT,confirmed_at TEXT DEFAULT CURRENT_TIMESTAMP,PRIMARY KEY(employee_id,performance_date,milestone));');
+require __DIR__.'/grade-visibility-fixture.php';
 $profile=['startDate'=>'2026-09-01','endDate'=>'','workDays'=>['월','화','수','목','금'],'role'=>'상담원'];
 $policy=grade_zero_policy();$policy['dailyCash']=['start'=>6,'perCase'=>5000];
 $row=$policy['weekly'][0];$policy['weekly']=[array_replace($row,['max'=>8])];
@@ -79,3 +80,9 @@ $r=grade_summary_snapshot($test,'2026-09-25');check($r['weekly']['amount']===560
 $ledger=grade_employee_context(['userId'=>1,'profile'=>$profile+['team'=>'insurance']],'2026-09');
 check($ledger['count']===2&&$ledger['hours']===0,'ordinary employee totals exclude stale fixture receipts and fixture attendance');
 echo "PASS: cumulative daily grades and automatic receipt-independent prepayment, combined own normal records, five-day weekly average, effective-date proration, personal isolation and boundaries.\n";
+
+$before=grade_summary_snapshot($user,'2026-09-29');
+$d->exec("UPDATE grade_visibility SET daily=0,monthly=0 WHERE department='insurance'");
+$after=grade_summary_snapshot($user,'2026-09-29');
+check(!$after['gradeVisibility']['daily']&&$after['gradeVisibility']['weekly']&&!$after['gradeVisibility']['monthly'],'live employee summary carries per-period visibility');
+foreach(['daily','weekly','monthly'] as $period)check($before[$period]===$after[$period],'hiding a grade leaves calculation unchanged');

@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__.'/grade-ledger.php';
+require_once __DIR__.'/grade-visibility.php';
 
 // Match the same single-tier rules used by the grade calculator.
 function grade_target_tiers(array $rows,float $value,bool $exclusive=false,bool $reference=false): array {
@@ -63,7 +64,7 @@ function grade_summary_snapshot(array $user,?string $today=null): array {
         $date=new DateTimeImmutable($today);$week=$date->modify('-'.((int)$date->format('N')-1).' days')->format('Y-m-d');$from=min(substr($today,0,7).'-01',$week);
         $test=cnc_test_user($user);
         $counts=sales_performance_counts((int)$user['id'],$user['department'],$test,$from,$today);
-        $calendar=business_calendar_rules(substr($today,0,7));$result=grade_progress($profile,$counts,$policy,$today,$calendar)+['gradeAvailable'=>$user['department']==='insurance'||$entry!==null,'department'=>$user['department'],'isTest'=>$test,'policyDate'=>$entry['date']??null,'fetchedAt'=>gmdate('c')];
+        $calendar=business_calendar_rules(substr($today,0,7));$result=grade_progress($profile,$counts,$policy,$today,$calendar)+['gradeAvailable'=>$user['department']==='insurance'||$entry!==null,'gradeVisibility'=>grade_visibility_for($user)[$user['department']]??['daily'=>true,'weekly'=>true,'monthly'=>true],'department'=>$user['department'],'isTest'=>$test,'policyDate'=>$entry['date']??null,'fetchedAt'=>gmdate('c')];
         // Use the same effective-date and five-day proration as payroll, with all own normal records.
         $records=[];foreach($result['weekly']['dates'] as $day)if($day['scheduled']&&$day['completed'])$records[]=['date'=>$day['date'],'count'=>$day['count'],'hours'=>0];
         $weekProfile=$profile;if(!$result['scheduleRegistered'])$weekProfile['workDays']=[];

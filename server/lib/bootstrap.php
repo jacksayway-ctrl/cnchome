@@ -63,11 +63,12 @@ function entries_for(array $user): array {
     $entries=[];foreach($groups as $department=>$group)$entries=array_merge($entries,grade_resolve_entries($group,$department==='insurance'?null:grade_department_empty($department)));usort($entries,fn($a,$b)=>$a['id']<=>$b['id']);return $entries;
 }
 function snapshot(array $user): array {
+    require_once __DIR__.'/grade-visibility.php';
     // One consistent snapshot prevents a new revision paired with older entries.
     $d=db(); $d->beginTransaction();
     try {
         $revision=(int)$d->query('SELECT revision FROM grade_revision WHERE id=1')->fetchColumn();
-        $entries=entries_for($user); $d->commit();
-        return ['revision'=>$revision,'entries'=>$entries];
+        $entries=entries_for($user); $visibility=grade_visibility_for($user); $d->commit();
+        return ['revision'=>$revision,'entries'=>$entries,'gradeVisibility'=>$visibility];
     } catch(Throwable $e) { $d->rollBack(); throw $e; }
 }

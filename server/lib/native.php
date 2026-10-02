@@ -89,9 +89,9 @@ function native_start(string $title,array $user,string $active,array $extraStyle
     if($selectedGroup){
         echo '<section class="nf-subpages nf-no-print">';
         if($role==='admin'&&$selectedGroup['items'][0][0]==='adminIntake'){
-            $team=$_GET['team']??'insurance';if(!in_array($team,['insurance','cosmetics','health'],true))$team='insurance';
-            echo '<nav class="nf-department-tabs" aria-label="접수 부서">';
-            foreach(['insurance'=>'보험','cosmetics'=>'화장품','health'=>'건강보조식품'] as $key=>$label)echo '<a href="'.view_h(native_department_tab_url($key)).'"'.($team===$key?' class="active" aria-current="page"':'').'>'.view_h($label).'</a>';
+            $liveIntake=basename($_SERVER['SCRIPT_NAME']??'')==='intake-live.php';$team=$_GET['team']??'insurance';if(!in_array($team,['insurance','cosmetics','health'],true))$team='insurance';
+            echo '<nav class="nf-department-tabs" aria-label="접수 부서"><a href="/intake-live.php?role=admin"'.($liveIntake?' class="active" aria-current="page"':'').'>전체 접수 관리</a>';
+            foreach(['insurance'=>'보험','cosmetics'=>'화장품','health'=>'건강보조식품'] as $key=>$label)echo '<a href="'.view_h(native_department_tab_url($key)).'"'.(!$liveIntake&&$team===$key?' class="active" aria-current="page"':'').'>'.view_h($label).'</a>';
             echo '</nav>';
         }
         if($role==='admin'&&in_array($selectedGroup['items'][0][0],['adminPolicy','adminGrade','adminPayroll'],true)){

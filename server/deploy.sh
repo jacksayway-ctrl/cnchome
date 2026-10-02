@@ -32,6 +32,7 @@ publish_deployment_status running
 while IFS= read -r -d '' file; do php -l "$file" >/dev/null; done < <(find server -name '*.php' -type f -print0)
 run_deploy_step server/bin/check-views.php
 run_deploy_step server/bin/check-intake-management.php
+run_deploy_step server/bin/check-intake-live.php
 run_deploy_step server/bin/check-receipt-identity.php
 run_deploy_step server/bin/check-receipt-identity-repair.php
 run_deploy_step server/bin/check-account-transfer.php
@@ -46,6 +47,7 @@ run_deploy_step server/bin/check-grade-ledger.php
 run_deploy_step server/bin/check-grade-departments.php
 run_deploy_step server/bin/check-grade-summary.php
 run_deploy_step server/bin/check-grade-settings.php
+run_deploy_step server/bin/check-grade-visibility.php
 run_deploy_step server/bin/check-intake-policy.php
 run_deploy_step server/bin/check-performance-reset.php
 run_deploy_step server/bin/check-user1-cleanup.php

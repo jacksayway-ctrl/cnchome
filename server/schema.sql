@@ -346,3 +346,16 @@ CREATE TABLE IF NOT EXISTS address_search_cache (
  INDEX address_cache_expiry(stale_until),
  INDEX address_cache_recent(cached_at,query_hash)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Display preferences only; grade_versions and payroll amounts remain unchanged.
+CREATE TABLE IF NOT EXISTS grade_visibility (
+ department ENUM('insurance','cosmetics','health') PRIMARY KEY,
+ daily BOOLEAN NOT NULL DEFAULT 1,
+ weekly BOOLEAN NOT NULL DEFAULT 1,
+ monthly BOOLEAN NOT NULL DEFAULT 1,
+ revision INT UNSIGNED NOT NULL DEFAULT 0,
+ actor_id BIGINT UNSIGNED NULL,
+ updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+ FOREIGN KEY(actor_id) REFERENCES app_users(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+INSERT IGNORE INTO grade_visibility(department) VALUES('insurance'),('cosmetics'),('health');

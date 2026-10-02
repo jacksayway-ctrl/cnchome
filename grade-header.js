@@ -9,7 +9,7 @@
   const root=global.document.querySelector('.header-grades');if(!root)return;
   if(!data){for(const name of names)set(name,error?'조회 실패':'불러오는 중',error);root.dataset.state=error?'error':'loading';return;}
   root.dataset.state='ready';
-  for(const name of ['daily','weekly','monthly']){const item=global.document.getElementById('tm-head-'+name)?.closest('.header-grade-item');if(item)item.style.display=data.gradeAvailable===false?'none':'';}
+  for(const name of ['daily','weekly','monthly']){const item=global.document.getElementById('tm-head-'+name)?.closest('.header-grade-item');if(item)item.style.display=data.gradeAvailable===false||data.gradeVisibility?.[name]===false?'none':'';}
   const prefix=data.isTest?'테스트 계정의 가상 DB 실적 · ':'';
   root.setAttribute('aria-label',(data.isTest?'테스트 실적 · ':'본인 실적 · ')+data.date+' 영업일 및 그레이드 현황');
   set('workdays',data.workdays.total+'일 / '+data.workdays.elapsed+'일','이번 달 전체 최대 영업일 / 오늘까지 진행된 영업일 · 관리자 영업일 달력 기준 · 입사일과 무관');
@@ -26,7 +26,7 @@
  }
  async function load(){
   if(loading)return;loading=true;
-  try{const response=await global.fetch('/grade-summary-api.php',{credentials:'same-origin',cache:'no-store'});const result=await response.json();if(!response.ok)throw Error(result.error||'조회 실패');if(!result.daily||!result.weekly||!result.monthly||!result.workdays)throw Error('조회 결과를 확인해 주세요.');if(result.isTest&&!testAccount)throw Error('본인 실적 정보를 다시 확인해 주세요.');data=result;error='';}
+  try{const response=await global.fetch('/grade-summary-api.php',{credentials:'same-origin',cache:'no-store'});const result=await response.json();if(!response.ok)throw Error(result.error||'조회 실패');if(!result.daily||!result.weekly||!result.monthly||!result.workdays)throw Error('조회 결과를 확인해 주세요.');if(result.isTest&&!testAccount)throw Error('본인 실적 정보를 다시 확인해 주세요.');const before=JSON.stringify(live.gradeVisibility?.[live.user.department]);data=result;error='';if(result.gradeVisibility){live.gradeVisibility={...live.gradeVisibility,[live.user.department]:result.gradeVisibility};if(before!==JSON.stringify(result.gradeVisibility))global.dispatchEvent(new global.Event('cnc:grade-visibility-updated'));}}
   catch(e){data=null;error=e.message;}finally{loading=false;render();global.dispatchEvent(new global.Event('cnc:grade-summary-updated'));}
  }
  global.GradeHeader={render,load,getState:()=>({data,error})};render();load();
