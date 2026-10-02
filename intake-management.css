@@ -52,3 +52,13 @@
 @media(max-width:700px){.intake-list [data-intake-detail]>td{padding:8px}.intake-list .intake-detail-card{padding:12px}.intake-detail-card .nf-grid-3{grid-template-columns:repeat(2,minmax(0,1fr))}}
 
 body.nf-body:not(.nf-popup):is([data-page="adminIntake"],[data-page="adminIntakeRegister"]) .nf-main>.nf-page-heading{display:none}
+
+.intake-overview-row{display:flex;align-items:center;justify-content:space-between;gap:10px 18px;flex-wrap:wrap;margin:8px 0}
+.intake-overview-row .intake-summary{margin:0;gap:6px}
+.intake-overview-row .intake-summary a{padding:6px 10px}
+.intake-quick-search{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0}
+.intake-quick-search label{font-size:12px;color:#52677f;white-space:nowrap}
+.intake-quick-search input[name=q]{width:240px;max-width:100%;min-width:140px;padding:6px 9px}
+.intake-quick-search button{padding:6px 12px}
+.intake-quick-search a{font-size:12px;white-space:nowrap}
+@media(max-width:700px){.intake-quick-search{width:100%}.intake-quick-search input[name=q]{flex:1;width:150px}.intake-quick-search label{width:100%}}
