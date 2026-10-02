@@ -22,7 +22,6 @@ $receiptFields=function(array $v)use($field,$eh,$user,$mode,$snapshot){
 <?php endif ?>
 <?php if($error): ?><p class="nf-alert nf-error" role="alert"><?= $eh($error) ?></p><?php endif ?>
 <?php if($notice): ?><p class="nf-alert nf-success" role="status"><?= $eh($notice) ?></p><?php endif ?>
-<?php if(!$popup): ?><div class="nf-actions"><a class="nf-button" href="<?= $eh(intake_url($filters,['status'=>'','p'=>1])) ?>">접수 목록</a><a class="nf-button" href="<?= $eh(intake_url($filters)) ?>#recall-confirmations">정상접수 확인표</a><a class="nf-button primary" href="<?= $eh(intake_url([],['new'=>1])) ?>">접수 등록</a><a href="<?= $eh(intake_url($filters,$selected?['id'=>$selected['id']]:[])) ?>">새로고침</a></div><?php endif ?>
 <?php if($mode==='new'): ?>
 <section class="nf-card admin-intake-register-card"><h2>새 접수 등록</h2><p class="nf-muted">담당 직원을 선택하고 접수증을 입력해 주세요. 저장한 접수는 해당 직원의 가접수로 등록됩니다.</p>
 <script type="application/json" id="admin-intake-register-data"><?= view_json($registrationData) ?></script>

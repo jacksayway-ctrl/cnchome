@@ -50,3 +50,5 @@
 .intake-recall-card>summary{cursor:pointer;color:#2a568a;font-weight:700;font-size:16px}
 .intake-search-result{color:#285d98;font-weight:600}
 @media(max-width:700px){.intake-list [data-intake-detail]>td{padding:8px}.intake-list .intake-detail-card{padding:12px}.intake-detail-card .nf-grid-3{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+body.nf-body:not(.nf-popup):is([data-page="adminIntake"],[data-page="adminIntakeRegister"]) .nf-main>.nf-page-heading{display:none}
