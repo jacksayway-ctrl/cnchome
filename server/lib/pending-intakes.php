@@ -86,6 +86,7 @@ function pending_intake_update(array $user,array $in): void {
         }
         if($legacy){$q=$d->prepare('UPDATE test_employee_data SET state=?,revision=revision+1 WHERE user_id=?');$q->execute([hr_json($state),$owner]);}
         else{$q=$d->prepare('UPDATE sales_records SET revision=revision+1,updated_at=UTC_TIMESTAMP(6) WHERE id=?');$q->execute([$id]);}
+        if($admin&&$action==='edit'&&array_key_exists('statusChangedAt',$in)){$before['statusChangedAt']=intake_status_changed_at($id);$after['statusChangedAt']=intake_status_datetime($in['statusChangedAt']);}
         intake_audit($id,$user,$action,$before,$after,$memo);$d->commit();
     }catch(Throwable $e){if($d->inTransaction())$d->rollBack();throw $e;}
 }
@@ -108,14 +109,15 @@ function pending_intake_snapshot(array $user,bool $includeAll=false): array {
         }
     }
     }
-    foreach($rows as &$row){$row['originalMemoAt']='';$row['lastEditAt']='';}unset($row);
+    foreach($rows as &$row){$row['originalMemoAt']='';$row['lastEditAt']='';$row['statusChangedAt']='';}unset($row);
     // Read history only for the authorized records and bound placeholder counts for large lists.
     foreach(array_chunk(array_keys($rows),400) as $ids){
         $realIds=array_values(array_filter($ids,fn($id)=>ctype_digit((string)$id)));
         if($realIds){$q=$d->prepare("SELECT sale_id,MIN(created_at) AS created_at FROM sales_events WHERE old_status='' AND sale_id IN (".implode(',',array_fill(0,count($realIds),'?')).') GROUP BY sale_id');$q->execute($realIds);foreach($q->fetchAll() as $event)if($event['created_at'])$rows[$event['sale_id']]['originalMemoAt']=intake_time($event['created_at']);}
-        $q=$d->prepare("SELECT e.record_key,e.action,e.after_data,e.reason,e.created_at,u.display_name AS actor FROM intake_management_events e JOIN app_users u ON u.id=e.actor_id WHERE e.record_key IN (".implode(',',array_fill(0,count($ids),'?')).') ORDER BY e.id ASC');$q->execute($ids);
+        $q=$d->prepare("SELECT e.record_key,e.action,e.before_data,e.after_data,e.reason,e.created_at,u.display_name AS actor FROM intake_management_events e JOIN app_users u ON u.id=e.actor_id WHERE e.record_key IN (".implode(',',array_fill(0,count($ids),'?')).') ORDER BY e.id ASC');$q->execute($ids);
         foreach($q->fetchAll() as $event){
             $id=$event['record_key'];$at=$event['created_at']!==''?intake_time($event['created_at']):'';
+            if(in_array($event['action'],['edit','status'],true)){$statusAfter=json_decode($event['after_data'],true,512,JSON_THROW_ON_ERROR);$statusBefore=json_decode($event['before_data'],true,512,JSON_THROW_ON_ERROR);if(isset($statusAfter['statusChangedAt']))$rows[$id]['statusChangedAt']=$statusAfter['statusChangedAt'];elseif(isset($statusBefore['status'],$statusAfter['status'])&&$statusBefore['status']!==$statusAfter['status'])$rows[$id]['statusChangedAt']=substr($at,0,16);}
             if($event['action']==='edit'){$rows[$id]['lastEditAt']=$at;$after=json_decode($event['after_data'],true,512,JSON_THROW_ON_ERROR);if(array_key_exists('note',$after)&&$after['note']===$rows[$id]['note'])$rows[$id]['originalMemoAt']=$at;}
             if($event['reason']!=='')$rows[$id]['memoHistory'][]=['action'=>$event['action'],'memo'=>$event['reason'],'at'=>$at,'actor'=>$event['actor']];
         }

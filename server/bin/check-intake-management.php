@@ -328,6 +328,11 @@ echo "PASS: admin side search, name/phone matching, month independence, literal 
 $memoEdit=$edit;$memoEdit['revision']=(int)$d->query('SELECT revision FROM sales_records WHERE id=1')->fetchColumn();$memoEdit['premiumMemo']='';$memoEdit['receiptMemo']='';intake_update($admin,$memoEdit);
 check(intake_premium_memo('1','receiptMemo')==='','receipt memo can be cleared');
 check(intake_premium_memo('1')==='','explicitly cleared premium memo does not revive old value');
+$datedEdit=$memoEdit;$datedEdit['revision']=(int)$d->query('SELECT revision FROM sales_records WHERE id=1')->fetchColumn();$datedEdit['statusChangedAt']='2026-10-02T14:35';
+intake_update($admin,$datedEdit);check(intake_status_changed_at('1')==='2026-10-02 14:35','editable status time persists independently from actual audit time');
+$datedEdit['revision']=(int)$d->query('SELECT revision FROM sales_records WHERE id=1')->fetchColumn();
+rejects(fn()=>intake_update($admin,array_replace($datedEdit,['statusChangedAt'=>'2026-02-30T12:00'])),'invalid calendar time rejected');
+check(intake_status_changed_at('1')==='2026-10-02 14:35','invalid time does not overwrite stored date');
 $deleteRow=$d->query('SELECT * FROM sales_records WHERE id=1')->fetch();
 $deleteInput=['action'=>'delete','id'=>'1','revision'=>(int)$deleteRow['revision']];
 rejects(fn()=>intake_update($one,$deleteInput),'employee deletion denied');

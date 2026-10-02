@@ -71,9 +71,13 @@
   const status=document.createElement('div');status.className='receipt-status-options';status.setAttribute('role','radiogroup');status.setAttribute('aria-label','접수 상태');
   const savedStatus=hidden(form,'status',record.status||'pending');
   for(const [value,label] of [['normal','정상 접수'],['pending','가접수'],['as','A/S']]){const option=document.createElement('label'),input=document.createElement('input');input.type='radio';input.name='receiptStatusChoice';input.value=value;input.checked=input.defaultChecked=value===(record.status||'pending');option.append(input,' '+label);status.append(option);}
-  status.addEventListener('change',event=>{if(event.target.matches('input[name=receiptStatusChoice]:checked'))savedStatus.value=event.target.value;});
+  const currentStatusTime=()=>new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(new Date()).replace(' ','T');
+  const statusTime=document.createElement('input');statusTime.type='datetime-local';statusTime.name='statusChangedAt';statusTime.required=true;statusTime.step='60';statusTime.value=String(record.statusChangedAt||currentStatusTime()).replace(' ','T');statusTime.defaultValue=statusTime.value;
+  let timeEdited=false;statusTime.addEventListener('input',()=>{timeEdited=true;});
+  status.addEventListener('change',event=>{if(event.target.matches('input[name=receiptStatusChoice]:checked')){savedStatus.value=event.target.value;if(!timeEdited)statusTime.value=event.target.value===record.status&&record.statusChangedAt?record.statusChangedAt.replace(' ','T'):currentStatusTime();}});
+
   const reason=document.createElement('input');reason.name='reason';reason.maxLength=500;reason.value=record.reason;reason.defaultValue=reason.value;reason.placeholder='수정 사유 (선택)';
-  const statusField=document.createElement('div');statusField.className='receipt-admin-field';const statusTitle=document.createElement('span');statusTitle.textContent='접수 상태';statusField.append(statusTitle,status);adminFields.append(statusField);if(!options.submit)adminFields.append(field('수정 사유 (선택)',reason));form.querySelector('.receipt-grid').after(adminFields);
+  const statusField=document.createElement('div');statusField.className='receipt-admin-field';const statusTitle=document.createElement('span');statusTitle.textContent='접수 상태';statusField.append(statusTitle,status,field('상태 변경일시 (한국시간)',statusTime));adminFields.append(statusField);if(!options.submit)adminFields.append(field('수정 사유 (선택)',reason));form.querySelector('.receipt-grid').after(adminFields);
   form.querySelector('.receipt-save').textContent='변경 내용 저장';form.querySelector('.receipt-save').dataset.receiptPointerSave='';
   const lastEdit=document.createElement('small');lastEdit.className='receipt-last-edit';lastEdit.setAttribute('role','status');
   lastEdit.textContent=record.lastEdit?'마지막 변경: '+record.lastEdit.actor+' · '+record.lastEdit.at:'변경 이력 없음';

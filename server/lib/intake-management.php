@@ -38,7 +38,19 @@ function intake_filtered(array $records,array $f): array {
 function intake_url(array $filters=[],array $extra=[]): string {return '/intake.php?'.http_build_query(array_replace(['role'=>'admin'],$filters,$extra));}
 function intake_status(string $status): string {return ['pending'=>'가접수','normal'=>'정상접수','as'=>'A/S'][$status]??$status;}
 function intake_time(string $value): string {return (new DateTimeImmutable($value,new DateTimeZone('UTC')))->setTimezone(new DateTimeZone('Asia/Seoul'))->format('Y-m-d H:i:s');}
+function intake_status_datetime(mixed $value): string {
+    $value=intake_text($value,16);$value=str_replace('T',' ',$value);
+    $date=DateTimeImmutable::createFromFormat('!Y-m-d H:i',$value,new DateTimeZone('Asia/Seoul'));
+    hr_assert($date!==false&&$date->format('Y-m-d H:i')===$value,'상태 변경 날짜·시간을 올바르게 입력해 주세요.');
+    return $value;
+}
+function intake_status_changed_at(string $id): string {
+    $q=db()->prepare("SELECT before_data,after_data,created_at FROM intake_management_events WHERE record_key=? AND action IN ('edit','status') ORDER BY id DESC");$q->execute([$id]);
+    foreach($q->fetchAll() as $event){$after=json_decode($event['after_data'],true,512,JSON_THROW_ON_ERROR);if(isset($after['statusChangedAt']))return (string)$after['statusChangedAt'];$before=json_decode($event['before_data'],true,512,JSON_THROW_ON_ERROR);if(isset($after['status'],$before['status'])&&$after['status']!==$before['status'])return substr(intake_time($event['created_at']),0,16);}
+    return '';
+}
 function intake_audit(string $id,array $user,string $action,array $before,array $after,string $reason): void {
+    if(isset($before['status'],$after['status'])&&$before['status']!==$after['status']&&!isset($after['statusChangedAt'])){$before['statusChangedAt']=intake_status_changed_at($id);$after['statusChangedAt']=(new DateTimeImmutable('now',new DateTimeZone('Asia/Seoul')))->format('Y-m-d H:i');}
     $q=db()->prepare('INSERT INTO intake_management_events(record_key,actor_id,action,before_data,after_data,reason) VALUES(?,?,?,?,?,?)');$q->execute([$id,$user['id'],$action,hr_json($before),hr_json($after),$reason]);
 }
 // The memo is versioned with the receipt edit, so its value and author/time commit together.
@@ -152,6 +164,7 @@ function intake_update(array $user,array $in): void {
                 $after=$next+$receipt+$afterBirth+['employee_id'=>(int)$employee['id'],'department'=>$employee['department'],'consultation_time'=>$time,'consultation_place'=>$place,'premium_band'=>$band,'status'=>$status];
                 $before['premiumMemo']=intake_premium_memo($id);$after['premiumMemo']=intake_text($in['premiumMemo']??$before['premiumMemo'],500);
                 $before['receiptMemo']=intake_premium_memo($id,'receiptMemo');$after['receiptMemo']=intake_text($in['receiptMemo']??$before['receiptMemo'],500);
+                if(array_key_exists('statusChangedAt',$in)){$before['statusChangedAt']=intake_status_changed_at($id);$after['statusChangedAt']=intake_status_datetime($in['statusChangedAt']);}
                 hr_assert($before!==$after,'변경된 내용이 없습니다.');
                 $q=$d->prepare('UPDATE sales_records SET employee_id=?,department=?,customer_name=?,phone=?,carrier=?,note=?,birth_year=?,insurance_kind=?,status=?,revision=revision+1,updated_at=UTC_TIMESTAMP(6) WHERE id=?');$q->execute([(int)$employee['id'],$employee['department'],$next['customer_name'],$next['phone'],$next['carrier'],$next['note'],$afterBirth['birth_year'],$afterBirth['insurance_kind'],$status,(int)$id]);
                 if($afterBirth['birth_date']!==$beforeBirth['birth_date']){
@@ -164,7 +177,7 @@ function intake_update(array $user,array $in): void {
                 sales_save_counselor((int)$id,$receipt['counselorName']);
                 intake_audit($id,$user,'edit',$before,$after,$reason);
                 // A status change here must close outstanding requests just like the status-only action.
-                if($row['status']!==$status)intake_audit($id,$user,'status',['status'=>$row['status']],['status'=>$status],$reason);
+                if($row['status']!==$status)intake_audit($id,$user,'status',['status'=>$row['status']],['status'=>$status]+(isset($after['statusChangedAt'])?['statusChangedAt'=>$after['statusChangedAt']]:[]),$reason);
             }
         }
         $d->commit();
