@@ -53,8 +53,10 @@
   // Use the same live birthday classification as the registration receipt.
   hidden(form,'insuranceKindMode','age');
   const adminFields=document.createElement('div');adminFields.className='receipt-admin-controls';
-  const status=document.createElement('select');status.name='status';
-  for(const [value,label] of [['pending','접수 전환'],['normal','정상 접수'],['as','A/S']])status.add(new Option(label,value,value===record.status,value===record.status));
+  const status=document.createElement('select');status.name='receiptStatusChoice';
+  const savedStatus=hidden(form,'status',record.status||'pending');
+  for(const [value,label] of [['','접수상태 선택'],['pending','가접수'],['normal','접수 전환 (정상접수)'],['as','A/S']])status.add(new Option(label,value,value==='',value===''));
+  status.addEventListener('change',()=>{savedStatus.value=status.value||record.status||'pending';});
   const reason=document.createElement('input');reason.name='reason';reason.maxLength=500;reason.value=record.reason;reason.defaultValue=reason.value;reason.placeholder='수정 사유 (선택)';
   adminFields.append(field('접수 상태',status));if(!options.submit)adminFields.append(field('수정 사유 (선택)',reason));form.querySelector('.receipt-grid').after(adminFields);
   form.querySelector('.receipt-save').textContent='변경 내용 저장';form.querySelector('.receipt-save').dataset.receiptPointerSave='';
