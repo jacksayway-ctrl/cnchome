@@ -8,12 +8,14 @@ function personnel_records(array $user): array {
     $admin=$user['role']==='admin';
     $q=db()->prepare('SELECT id,employee_no,user_id,profile,revision,created_at FROM hr_employees'.($admin?'':' WHERE user_id=?').' ORDER BY id DESC');
     $q->execute($admin?[]:[(int)$user['id']]);
-    return array_map(function(array $row): array {
+    $records=array_map(function(array $row): array {
         $row['id']=(int)$row['id'];$row['revision']=(int)$row['revision'];
         $row['profile']=json_decode($row['profile'],true,512,JSON_THROW_ON_ERROR);
         $row['loginName']='';$row['accountActive']=false;if($row['user_id']){$q=db()->prepare('SELECT username,active FROM app_users WHERE id=?');$q->execute([$row['user_id']]);$account=$q->fetch();$row['loginName']=$account['username']??'';$row['accountActive']=!empty($account['active']);}
         return $row;
     },$q->fetchAll());
+    if($admin)usort($records,fn(array $a,array $b):int=>((int)(!empty($a['user_id'])&&!$a['accountActive'])<=>(int)(!empty($b['user_id'])&&!$b['accountActive']))?:($b['id']<=>$a['id']));
+    return $records;
 }
 function personnel_natural(mixed $value): int {
     hr_assert(is_string($value)||is_int($value),'직원 선택 값을 확인해 주세요.');
