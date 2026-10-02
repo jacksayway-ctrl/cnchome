@@ -53,6 +53,12 @@
   }
   if(!radioValue(form,'gender',record.gender))extraRadio(form.querySelector('.receipt-gender'),'gender','','미입력').tabIndex=-1;
   if(!radioValue(form,'premiumBand',record.premiumBand))extraRadio(form.querySelector('.receipt-premium'),'premiumBand','','미입력');
+  if(!options.submit){
+   const memoLabel=document.createElement('label');memoLabel.className='receipt-premium-memo';
+   const caption=document.createElement('span');caption.textContent='메모';
+   const memo=document.createElement('input');memo.name='premiumMemo';memo.maxLength=500;memo.placeholder='메모 입력';memo.setAttribute('aria-label','월보험료 메모');memo.value=memo.defaultValue=String(record.premiumMemo??'');
+   memoLabel.append(caption,memo);form.querySelector('.receipt-premium').append(memoLabel);
+  }
   const call=form.querySelector('[data-receipt-calltime]'),callMatch=/^(오전|오후)(?:\s+(.*))?$/.exec(record.callAvailability);
   radioValue(form,'receiptPeriod',callMatch?.[1]||'');call.value=callMatch?.[2]||(!callMatch?record.callAvailability:'');call.defaultValue=call.value;
   // Preserve saved insurer and old free-text memos until the user chooses a replacement.

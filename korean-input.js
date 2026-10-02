@@ -3,7 +3,7 @@
  const attached=new WeakMap();
  const keys={q:'ㅂ',w:'ㅈ',e:'ㄷ',r:'ㄱ',t:'ㅅ',y:'ㅛ',u:'ㅕ',i:'ㅑ',o:'ㅐ',p:'ㅔ',a:'ㅁ',s:'ㄴ',d:'ㅇ',f:'ㄹ',g:'ㅎ',h:'ㅗ',j:'ㅓ',k:'ㅏ',l:'ㅣ',z:'ㅋ',x:'ㅌ',c:'ㅊ',v:'ㅍ',b:'ㅠ',n:'ㅜ',m:'ㅡ'};
  const shifted={q:'ㅃ',w:'ㅉ',e:'ㄸ',r:'ㄲ',t:'ㅆ',o:'ㅒ',p:'ㅖ'};
- const selector='input[name="counselorName"],input[name="customer"],input[name="consultationPlace"],input[name="visitSchedule"],textarea[name="note"],input[data-receipt-calltime]';
+ const selector='input[name="counselorName"],input[name="customer"],input[name="consultationPlace"],input[name="visitSchedule"],input[name="premiumMemo"],textarea[name="note"],input[data-receipt-calltime]';
 
  function inputEvent(type,text,inputType,cancelable=false){
   try{return new global.InputEvent(type,{bubbles:true,cancelable,data:text||null,inputType});}

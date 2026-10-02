@@ -194,3 +194,6 @@ body.receipt-window :is(#tm-preview,.receipt-host) #tm-dialog.receipt-dialog::ba
 :is(#tm-preview,.receipt-host) .receipt-actions .receipt-delete,.receipt-delete-dialog .receipt-delete{background:#a32e39;color:#fff;border:1px solid #a32e39}
 .receipt-delete-dialog{max-width:420px;width:calc(100vw - 40px);box-sizing:border-box;border:1px solid #d9e1eb;border-radius:8px;padding:20px;color:#173966}
 .receipt-delete-dialog::backdrop{background:#0006}.receipt-delete-dialog h3{margin:0 0 12px}.receipt-delete-dialog p{line-height:1.6;overflow-wrap:anywhere}.receipt-delete-dialog button{padding:7px 18px;margin-right:8px;cursor:pointer}
+
+:is(#tm-preview,.receipt-host) .receipt-form .receipt-premium .receipt-premium-memo{display:flex;align-items:center;flex:1 1 130px;min-width:120px;gap:5px}
+:is(#tm-preview,.receipt-host) .receipt-form .receipt-premium-memo input[name=premiumMemo]{flex:1;width:100%;min-width:0;border:1px solid #c6d4e5;padding:4px 6px}
