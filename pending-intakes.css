@@ -106,3 +106,9 @@
 [data-pending-list] .pending-intake-counts-inline>div>span,[data-pending-list] .pending-intake-counts-inline>div>strong,[data-pending-list] .pending-intake-counts-inline>div>small{display:inline;margin:0;line-height:1.5}
 [data-pending-list] .pending-intake-counts-inline>div>strong{font-size:16px}
 [data-pending-list] .pending-intake-counts-inline>div>small{font-size:11px}
+
+[data-pending-list] .intake-status-tabs{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
+[data-pending-list] .intake-status-tabs button{display:flex;align-items:center;justify-content:space-between;gap:12px;min-width:125px;min-height:36px;padding:7px 12px;background:#fff;border:1px solid #c6d4e5;border-radius:6px;color:#315879;font-size:13px;cursor:pointer}
+[data-pending-list] .intake-status-tabs button[aria-pressed=true]{background:#203963;border-color:#203963;color:#fff}
+[data-pending-list] .intake-status-tabs button:focus-visible{outline:2px solid #4285d4;outline-offset:2px}
+@media(max-width:600px){[data-pending-list] .intake-status-tabs button{flex:1 1 calc(50% - 8px);min-width:0}}

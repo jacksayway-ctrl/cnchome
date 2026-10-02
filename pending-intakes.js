@@ -6,7 +6,7 @@ let rows=[],busy=false,posting=false,queued=null,refreshQueued=false,index,feedb
 let listScope=null,listPage=1,staff=[],counselorNames=[],filterTimer=0;
 const sharedEditors=new Map(),lockedControls=new Map();
 const pageSize=10,scopeLabels={all:admin?'전체 접수':'전체 가접수',today:'오늘 재접수 가능',waiting:'관리자 확인 대기'};
-const expanded=new Set(),drafts=new Map(),editDrafts=new Map(),formBases=new Map(),filters={employee:'',scope:'real',query:''};
+const expanded=new Set(),drafts=new Map(),editDrafts=new Map(),formBases=new Map(),filters={employee:'',scope:'real',query:'',status:''};
 const editFields=['customer','phone','birthDate','birthYear','carrier','consultationTime','consultationPlace','premiumBand','gender','callAvailability','visitSchedule','employeeId'];
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fieldValues=r=>Object.fromEntries(editFields.map(key=>[key,String(r[key]??'')]));
@@ -25,15 +25,21 @@ function evaluatedRows(){
   return {r,result,kind,codes:core?core.availableCodes(result.items):[],todayCodes};
  }).sort((a,b)=>Number(b.todayCodes.length>0)-Number(a.todayCodes.length>0)||Number(b.codes.length>0)-Number(a.codes.length>0)||a.r.date.localeCompare(b.r.date)||a.r.id.localeCompare(b.r.id,undefined,{numeric:true}));
 }
-function filteredRows(evaluated){
+function filteredRows(evaluated,ignoreStatus=false){
  if(!admin)return evaluated;
  const words=filters.query.trim().toLocaleLowerCase('ko-KR').split(/\s+/).filter(Boolean),phoneOnly=/^[0-9 -]+$/.test(filters.query.trim()),digits=filters.query.replace(/\D/g,'');
  return evaluated.filter(({r})=>{
+  if(!ignoreStatus&&filters.status&&r.status!==filters.status)return false;
   if(filters.employee&&String(r.employeeId)!==filters.employee)return false;
   if(filters.scope!=='all'&&Boolean(r.isTest)!==(filters.scope==='test'))return false;
   const text=[r.customer,r.phone,r.consultationPlace,r.employee,r.carrier,teams[r.team]||r.team].join(' ').toLocaleLowerCase('ko-KR');
   return words.every(word=>text.includes(word))||(phoneOnly&&digits!==''&&String(r.phone||'').replace(/\D/g,'').includes(digits));
  });
+}
+function statusMarkup(items){
+ if(!admin)return '';
+ const choices=[['','접수(전체)'],['normal','정상접수'],['pending','가접수'],['as','A/S']];
+ return '<div class="intake-status-tabs" role="group" aria-label="접수 상태별 조회">'+choices.map(([value,label])=>'<button type="button" data-pending-status="'+value+'" aria-pressed="'+(filters.status===value)+'"><span>'+label+'</span><strong>'+(loaded&&!loadError?(value?items.filter(x=>x.r.status===value).length:items.length)+'건':'—')+'</strong></button>').join('')+'</div>';
 }
 function filterMarkup(){
  if(!admin)return '';
@@ -135,7 +141,7 @@ function render(force=false){
   const guidance='';
   results=admin?guidance+(loaded?'<div class="pending-intake-meta"><span>현재 조회 '+picked.length+'건</span><span>조회 결과 중 오늘 재접수 가능 '+(policyReady?picked.filter(x=>x.todayCodes.length>0).length+'건':'조회 중')+'</span></div>':'')+table:'<div class="pending-intake-list-heading"><h4>'+scopeLabels[listScope]+' · '+(selectedReady?picked.length+'건':'조회 중')+'</h4>'+pageMarkup(picked.length,pageCount)+'</div>'+guidance+table;
  }
- const rendered=countMarkup(evaluated,possible,policyReady)+filterMarkup()+'<p class="pending-intake-feedback" role="status">'+esc(feedback)+'</p>'+(loadError?'<p class="pending-intake-error" role="alert">'+esc(loadError)+'</p>':'')+(admin?results:'<section id="pending-intake-results" class="pending-intake-results" aria-label="'+(scopeLabels[listScope]||'가접수 목록')+'" '+(listScope?'':'hidden')+'>'+results+'</section>');
+ const rendered=countMarkup(evaluated,possible,policyReady)+filterMarkup()+statusMarkup(filteredRows(all,true))+'<p class="pending-intake-feedback" role="status">'+esc(feedback)+'</p>'+(loadError?'<p class="pending-intake-error" role="alert">'+esc(loadError)+'</p>':'')+(admin?results:'<section id="pending-intake-results" class="pending-intake-results" aria-label="'+(scopeLabels[listScope]||'가접수 목록')+'" '+(listScope?'':'hidden')+'>'+results+'</section>');
  const existingFilters=el.querySelector('.pending-intake-filters');
  if(existingFilters){
   const next=document.createElement('div');next.innerHTML=rendered;
@@ -164,11 +170,12 @@ async function load(body){
  catch(e){loadError=e.name==='AbortError'?'가접수 조회 시간이 초과됐습니다. 새로고침을 눌러 주세요.':e.message;}finally{clearTimeout(timer);busy=false;if(queued){const next=queued;queued=null;load(next);}else{posting=false;for(const [control,disabled] of lockedControls)control.disabled=disabled;lockedControls.clear();render(!!body);if(body&&loadError){const message=sharedEditors.get(body.id)?.host.querySelector('[data-sales-error]');if(message){message.textContent=loadError;message.dataset.state='error';}}if(refreshQueued){refreshQueued=false;load();}}}
 }
 document.addEventListener('click',e=>{
+ const statusButton=e.target.closest('[data-pending-status]');if(admin&&statusButton){const value=statusButton.dataset.pendingStatus;if(!['','normal','pending','as'].includes(value))return;filters.status=value;render(true);document.querySelector('[data-pending-status=\"'+value+'\"]')?.focus({preventScroll:true});return;}
  if(e.target.closest('[data-pending-refresh]')){load();return;}
  const scope=e.target.closest('[data-pending-scope]');if(scope&&!admin){if(posting||!Object.hasOwn(scopeLabels,scope.dataset.pendingScope))return;listScope=listScope===scope.dataset.pendingScope?null:scope.dataset.pendingScope;listPage=1;expanded.clear();render(true);return;}
  const pageButton=e.target.closest('[data-pending-page]');if(pageButton&&!admin){if(posting)return;listPage=Math.max(1,listPage+Number(pageButton.dataset.pendingPage));expanded.clear();render(true);return;}
  const reset=e.target.closest('[data-pending-edit-reset]');if(reset){editDrafts.delete(reset.dataset.pendingEditReset);feedback='저장된 접수내용을 다시 불러왔습니다.';render(true);load();return;}
- if(admin&&e.target.closest('[data-pending-filter-reset]')){clearTimeout(filterTimer);Object.assign(filters,{employee:'',scope:'real',query:''});document.querySelectorAll('[data-pending-filter]').forEach(input=>{input.value=filters[input.dataset.pendingFilter];});render(true);return;}
+ if(admin&&e.target.closest('[data-pending-filter-reset]')){clearTimeout(filterTimer);Object.assign(filters,{employee:'',scope:'real',query:'',status:''});document.querySelectorAll('[data-pending-filter]').forEach(input=>{input.value=filters[input.dataset.pendingFilter];});render(true);return;}
  const row=e.target.closest('[data-pending-toggle]');if(!row)return;
  if(admin){
   const record=rows.find(r=>r.id===row.dataset.pendingToggle);if(!record)return;
