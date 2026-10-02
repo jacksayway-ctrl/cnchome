@@ -137,6 +137,7 @@ function intake_update(array $user,array $in): void {
                 $employee=sales_edit_employee($user,$in,(int)$row['employee_id'],(bool)$row['is_test']);$in['counselorName']=$employee['display_name'];
                 $fields=['customer_name'=>['customer',100],'phone'=>['phone',20],'carrier'=>['carrier',100],'note'=>['note',1000]];$next=[];
                 foreach($fields as $column=>[$key,$max])$next[$column]=intake_text($in[$key]??'',$max);
+                $next['carrier']=sales_receipt_carrier($next['carrier'],$next['note']);
                 hr_assert($next['customer_name']!==''&&preg_match('/^[0-9-]{9,15}$/D',$next['phone']),'고객명과 전화번호를 확인해 주세요.');
                 $time=intake_text($in['consultationTime']??'',5);$place=intake_text($in['consultationPlace']??'',500);$band=intake_text($in['premiumBand']??'',6);
                 hr_assert($time===''||preg_match('/^(?:[01]\d|2[0-3]):[0-5]\d$/D',$time),'상담 시간을 확인해 주세요.');hr_assert(in_array($band,['','100000','200000','300000'],true),'보험료 구분을 확인해 주세요.');

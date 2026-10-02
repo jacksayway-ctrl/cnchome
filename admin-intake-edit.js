@@ -64,7 +64,7 @@
    const preservedMemo=extraRadio(form.querySelector('.receipt-note'),'note',originalNote,originalNote?'기존 메모 유지':'미입력');
    preservedMemo.dataset.receiptCarrier=insurer(originalCarrier);preservedMemo.dataset.receiptCarrierLabel=originalCarrier;
   }
-  form.dataset.receiptCarrierOriginal=originalCarrier;
+  if(!selectedMemo)form.dataset.receiptCarrierOriginal=originalCarrier;
   // Use the same live birthday classification as the registration receipt.
   hidden(form,'insuranceKindMode','age');
   const adminFields=document.createElement('div');adminFields.className='receipt-admin-controls';

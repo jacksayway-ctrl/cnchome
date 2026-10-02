@@ -3,6 +3,10 @@ declare(strict_types=1);
 require_once __DIR__.'/hr.php';
 require_once __DIR__.'/sales-performance.php';
 
+function sales_receipt_carrier(string $carrier,string $note): string {
+    $key=mb_strtolower(preg_replace('/[\s\/.]+/u','',trim($note)));
+    return ['ga'=>'G/A','한화'=>'한화','hanwha'=>'한화','신한'=>'신한','shinhan'=>'신한'][$key]??$carrier;
+}
 function sales_kind(int $birthYear, string $date): string {
     $age=(int)substr($date,0,4)-$birthYear+1;
     hr_assert($age>=1&&$age<=70,'보험 접수는 세는나이 70세까지 가능합니다.');
@@ -76,7 +80,7 @@ function sales_snapshot(array $user,string $month): array {
     $start=(new DateTimeImmutable($month.'-01'))->modify('-6 days')->format('Y-m-d');
     $next=(new DateTimeImmutable($month.'-01'))->modify('+1 month')->modify('+6 days')->format('Y-m-d');
     $q->execute($admin?[$start,$next]:[$start,$next,$user['id']]);$records=[];
-    foreach($q->fetchAll() as $r)$records[]=['id'=>(string)$r['id'],'date'=>$r['first_date'],'employeeId'=>(int)$r['employee_id'],'employee'=>$r['employee_name'],'employeeUsername'=>$r['employee_username'],'team'=>$r['department'],'customer'=>$r['customer_name'],'carrier'=>$r['carrier'],'kind'=>$r['insurance_kind'],'status'=>$r['status'],'revision'=>(int)$r['revision'],'isTest'=>(bool)$r['is_test'],'phone'=>$r['phone'],'address'=>$r['address'],'birthYear'=>(int)$r['birth_year'],'birthDate'=>$r['birth_date']??'','note'=>$r['note'],'consultationTime'=>$r['consultation_time']??'','consultationPlace'=>$r['consultation_place']??'','premiumBand'=>$r['premium_band']??'','gender'=>$r['gender']??'','callAvailability'=>$r['call_availability']??'','visitSchedule'=>$r['visit_schedule']??'','counselorName'=>$r['employee_name'],'receivedAt'=>$r['receipt_created_at']??''];
+    foreach($q->fetchAll() as $r)$records[]=['id'=>(string)$r['id'],'date'=>$r['first_date'],'employeeId'=>(int)$r['employee_id'],'employee'=>$r['employee_name'],'employeeUsername'=>$r['employee_username'],'team'=>$r['department'],'customer'=>$r['customer_name'],'carrier'=>sales_receipt_carrier($r['carrier'],$r['note']),'kind'=>$r['insurance_kind'],'status'=>$r['status'],'revision'=>(int)$r['revision'],'isTest'=>(bool)$r['is_test'],'phone'=>$r['phone'],'address'=>$r['address'],'birthYear'=>(int)$r['birth_year'],'birthDate'=>$r['birth_date']??'','note'=>$r['note'],'consultationTime'=>$r['consultation_time']??'','consultationPlace'=>$r['consultation_place']??'','premiumBand'=>$r['premium_band']??'','gender'=>$r['gender']??'','callAvailability'=>$r['call_availability']??'','visitSchedule'=>$r['visit_schedule']??'','counselorName'=>$r['employee_name'],'receivedAt'=>$r['receipt_created_at']??''];
     // Fixture rows are available only to dedicated test accounts and administrator management.
     if($admin||$test){
     $q=$d->prepare('SELECT t.state,t.revision,u.id,u.display_name,u.department FROM test_employee_data t JOIN app_users u ON u.id=t.user_id'.($admin?'':' WHERE u.id=?'));
@@ -100,7 +104,7 @@ function sales_mutate(array $user,array $in): void {
             $owner=$user['role']==='admin'?($in['employeeId']??0):$user['id'];
             $employee=sales_employee_account($owner,true);
             $date=(string)($in['date']??hr_today());hr_assert(hr_day($date)&&$date<=hr_today(),'접수일을 확인해 주세요.');
-            $name=trim((string)($in['customer']??''));$phone=trim((string)($in['phone']??''));$address=trim((string)($in['address']??''));$carrier=trim((string)($in['carrier']??''));$note=trim((string)($in['note']??''));
+            $name=trim((string)($in['customer']??''));$phone=trim((string)($in['phone']??''));$address=trim((string)($in['address']??''));$carrier=trim((string)($in['carrier']??''));$note=trim((string)($in['note']??''));$carrier=sales_receipt_carrier($carrier,$note);
             $consultationTime=trim((string)($in['consultationTime']??''));$consultationPlace=trim((string)($in['consultationPlace']??''));$premiumBand=(string)($in['premiumBand']??'');$receipt=sales_receipt_fields(array_replace($in,['counselorName'=>$employee['display_name']]));
             hr_assert($consultationTime===''||(bool)preg_match('/^(?:[01]\d|2[0-3]):[0-5]\d$/D',$consultationTime),'상담 시간을 확인해 주세요.');
             hr_assert(mb_strlen($consultationPlace)<=500,'상담 장소는 500자 이내로 입력해 주세요.');

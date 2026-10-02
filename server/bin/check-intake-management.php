@@ -345,3 +345,6 @@ check((int)$archive['sales_records'][0]['id']===1&&$archive['sales_records'][0][
 foreach(['sales_events','sales_consultation_details','sales_receipt_details','sales_birth_details','sales_counselor_details'] as $table)check((int)$d->query('SELECT COUNT(*) FROM '.$table.' WHERE sale_id=1')->fetchColumn()===0,'deleted receipt child removed');
 rejects(fn()=>intake_update($admin,$deleteInput),'repeat deletion rejected');
 echo "PASS: administrator receipt deletion, revision guard and DB archive.\n";
+
+foreach(['G/A'=>'G/A','GA'=>'G/A','신한'=>'신한','한화'=>'한화'] as $note=>$expected)check(sales_receipt_carrier('', $note)===$expected&&sales_receipt_carrier('한화',$note)===$expected,'selected insurer consistently determines receipt code');
+check(sales_receipt_carrier('기존 코드','상담 메모')==='기존 코드','legacy free text does not overwrite receipt code');
