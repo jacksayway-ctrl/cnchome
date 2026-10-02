@@ -84,3 +84,5 @@ body.receipt-window :is(#tm-preview,.receipt-host) #tm-dialog.receipt-dialog::ba
 :is(#tm-preview,.receipt-host) .receipt-form .receipt-value.receipt-date input.receipt-stored-time{width:110px;flex:0 0 110px;font-size:12px}
 :is(#tm-preview,.receipt-host) .receipt-form .receipt-legacy-note{flex-basis:100%;width:100%;min-height:56px;text-align:left}
 @media(max-width:680px){.receipt-host .receipt-admin-controls{grid-template-columns:1fr;margin:12px 14px}.admin-intake-staff-summary{padding:12px 14px}}
+
+:is(#tm-preview,.receipt-host) .receipt-form .receipt-kind-options{display:flex;flex-basis:100%;gap:16px;align-items:center;padding-top:4px}

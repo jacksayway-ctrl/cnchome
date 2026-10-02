@@ -58,3 +58,13 @@ try{intake_update($admin,array_replace($birthEditInput(),['birthDate'=>'1960-02-
 $d->exec('DROP TRIGGER fail_birth_status_audit');
 check($birthEditState()===$rollbackBefore&&!$d->inTransaction(),'second audit failure rolls back birthday, year, kind, counselor, status, revision and earlier audit');
 echo "PASS: administrator birth-only edits, full date validation, immutable owner/date, historical age classification, year-only compatibility, audit details, stale/no-op guards and atomic birth-detail rollback.\n";
+
+// Explicit administrator product choice survives later edits with no radio selected.
+intake_update($admin,$birthEditInput()+['insuranceKind'=>'silver']);
+check($birthEditRecord()['kind']==='silver','administrator can select silver without changing birthday');
+intake_update($admin,array_replace($birthEditInput(),['birthDate'=>$birthEditRecord()['birthDate'],'note'=>'분류 유지 확인']));
+check($birthEditRecord()['kind']==='silver','unselected product keeps stored classification on subsequent edits');
+rejects(fn()=>intake_update($admin,$birthEditInput()+['insuranceKind'=>'other']),'invalid manual product rejected');
+intake_update($admin,$birthEditInput()+['insuranceKind'=>'general']);
+check($birthEditRecord()['kind']==='general','administrator can select general explicitly');
+echo "PASS: explicit product selection, omitted-choice preservation and invalid product rejection.\n";

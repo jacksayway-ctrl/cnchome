@@ -1,7 +1,7 @@
 (function(global){
  'use strict';
  const active=new WeakMap();
- const knownCarrier=value=>({ga:'ga',한화:'hanwha',hanwha:'hanwha',신한:'shinhan',shinhan:'shinhan'})[String(value||'').replace(/[^a-z가-힣]/gi,'').toLowerCase()]||'';
+
  function inputValue(form,name,value){const input=form.elements.namedItem(name);if(input&&'value' in input){input.value=String(value??'');if('defaultValue' in input)input.defaultValue=input.value;}}
  function radioValue(form,name,value){
   const inputs=[...form.querySelectorAll('input[type="radio"]')].filter(input=>input.name===name);
@@ -22,7 +22,7 @@
   const action=new URL(host.dataset.intakeEditUrl,global.CNCPageUrl||location.href);if(action.origin!==location.origin||action.pathname!=='/intake.php')return;
   active.get(host)?.();
   target.innerHTML=global.ReceiptForm.markup({admin:true,editing:true,idPrefix:'receipt-edit-'+record.id,staff:[],user:{display_name:record.counselorName},counselorNames:payload.counselorNames||[]});
-  const form=target.querySelector('form');form.method='post';form.action=action.href;form.classList.add('intake-form');form.dataset.intakeEditForm='';if(options.submit)form.removeAttribute('data-sales-form');form.dataset.receiptCarrierOriginal=record.carrier;
+  const form=target.querySelector('form');form.method='post';form.action=action.href;form.classList.add('intake-form');form.dataset.intakeEditForm='';if(options.submit)form.removeAttribute('data-sales-form');
   form.append(nativeHidden.content.cloneNode(true));
   for(const name of ['customer','consultationTime','consultationPlace','visitSchedule','carrier','callAvailability'])inputValue(form,name,record[name]);
   const counselor=form.elements.counselorName;
@@ -46,15 +46,13 @@
   if(!radioValue(form,'premiumBand',record.premiumBand))extraRadio(form.querySelector('.receipt-premium'),'premiumBand','','미입력');
   const call=form.querySelector('[data-receipt-calltime]'),callMatch=/^(오전|오후)(?:\s+(.*))?$/.exec(record.callAvailability);
   radioValue(form,'receiptPeriod',callMatch?.[1]||'');call.value=callMatch?.[2]||(!callMatch?record.callAvailability:'');call.defaultValue=call.value;
-  const originalCarrier=knownCarrier(record.carrier),normalNote=radioValue(form,'note',record.note);
-  const selectedNote=form.querySelector('input[name="note"]:checked');
-  if(!normalNote||!originalCarrier||selectedNote?.dataset.receiptCarrier!==originalCarrier){
-   radioValue(form,'note','__existing_receipt_note__');
-   const legacy=extraRadio(form.querySelector('.receipt-note'),'note',record.note,'기존 메모');legacy.dataset.receiptCarrier=originalCarrier||'legacy';legacy.dataset.receiptCarrierLabel=record.carrier;
-   const memo=document.createElement('textarea');memo.className='receipt-legacy-note';memo.value=record.note;memo.defaultValue=memo.value;memo.rows=2;memo.maxLength=1000;memo.setAttribute('aria-label','기존 접수 메모');memo.placeholder='기존 메모';
-   form.querySelector('.receipt-note').append(memo);
-   memo.addEventListener('input',()=>{legacy.value=memo.value;legacy.checked=true;legacy.dispatchEvent(new Event('change',{bubbles:true}));});
+  radioValue(form,'note','한화');
+  const kinds=document.createElement('div');kinds.className='receipt-kind-options';kinds.setAttribute('role','radiogroup');kinds.setAttribute('aria-label','일반 또는 실버 선택');
+  for(const [value,label] of [['general','일반'],['silver','실버']]){
+   const choice=document.createElement('label'),input=document.createElement('input');input.type='radio';input.name='insuranceKind';input.value=value;choice.append(input,' '+label);kinds.append(choice);
   }
+  form.querySelector('[data-receipt-product]').replaceWith(kinds);
+  form.querySelector('.receipt-note').removeAttribute('aria-describedby');
   const adminFields=document.createElement('div');adminFields.className='receipt-admin-controls';
   const status=document.createElement('select');status.name='status';
   for(const [value,label] of [['pending','접수 전환'],['normal','정상 접수'],['as','A/S']])status.add(new Option(label,value,value===record.status,value===record.status));

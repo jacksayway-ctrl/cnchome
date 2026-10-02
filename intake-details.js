@@ -109,9 +109,10 @@
    const team=options.team(),snapshot=global.PolicySync?.snapshot;
    const selectedRadio=carrierSelection?form.querySelector('[data-receipt-carrier]:checked'):null;
    const preserveCarrier=Object.prototype.hasOwnProperty.call(form.dataset,'receiptCarrierOriginal');
-   const signature=JSON.stringify([team,fields.date.value,...birthNames.map(name=>fields[name].value),fields.consultationPlace.value,preferred,selectedRadio?.dataset.receiptCarrier,selectedRadio?.dataset.receiptCarrierLabel,selectedRadio?.value,preserveCarrier,form.dataset.receiptCarrierOriginal,form.dataset.requestKey,global.PolicySync?.error,snapshot?.revision,snapshot?.date]);
+   const manualKind=form.querySelector('input[name=insuranceKind]:checked')?.value||'';
+   const signature=JSON.stringify([manualKind,team,fields.date.value,...birthNames.map(name=>fields[name].value),fields.consultationPlace.value,preferred,selectedRadio?.dataset.receiptCarrier,selectedRadio?.dataset.receiptCarrierLabel,selectedRadio?.value,preserveCarrier,form.dataset.receiptCarrierOriginal,form.dataset.requestKey,global.PolicySync?.error,snapshot?.revision,snapshot?.date]);
    if(signature===lastSignature&&snapshot===lastSnapshot)return;
-   lastSignature=signature;lastSnapshot=snapshot;const info=updateAge();
+   lastSignature=signature;lastSnapshot=snapshot;const info=updateAge();if(manualKind&&info.kind)info.kind=manualKind;
    const requested=preserveCarrier?form.dataset.receiptCarrierOriginal:(selectedRadio?.dataset.receiptCarrier||''),registered=snapshot?.codes.find(code=>code.id===requested);
    const selectedLabel=preserveCarrier?form.dataset.receiptCarrierOriginal:(selectedRadio?.dataset.receiptCarrierLabel??registered?.label??selectedRadio?.value??'');
    // The chosen insurer is independent of policy availability; never replace it with another insurer.

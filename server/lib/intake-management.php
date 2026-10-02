@@ -120,6 +120,9 @@ function intake_update(array $user,array $in): void {
                         $afterBirth=['birth_date'=>$birthDate,'birth_year'=>$birthYear,'insurance_kind'=>$row['department']==='insurance'?sales_kind($birthYear,$row['first_date']):''];
                     }
                 }
+                $manualKind=intake_text($in['insuranceKind']??'',10);hr_assert(in_array($manualKind,['','general','silver'],true),'일반 또는 실버를 선택해 주세요.');
+                if($manualKind!==''){hr_assert($row['department']==='insurance','보험팀 접수에서만 상품 구분을 변경할 수 있습니다.');$afterBirth['insurance_kind']=$manualKind;}
+                elseif($afterBirth['birth_date']===$beforeBirth['birth_date'])$afterBirth['insurance_kind']=$beforeBirth['insurance_kind'];
                 $before=[];foreach(array_keys($next) as $column)$before[$column]=(string)$row[$column];
                 $before+=$beforeReceipt+$beforeBirth+['consultation_time'=>(string)($details['consultation_time']??''),'consultation_place'=>(string)($details['consultation_place']??''),'premium_band'=>(string)($details['premium_band']??''),'status'=>$row['status']];
                 $after=$next+$receipt+$afterBirth+['consultation_time'=>$time,'consultation_place'=>$place,'premium_band'=>$band,'status'=>$status];hr_assert($before!==$after,'변경된 내용이 없습니다.');
