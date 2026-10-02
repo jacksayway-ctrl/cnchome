@@ -34,6 +34,7 @@ function membership_approve(array $user,int $id,int $revision,string $team,strin
     try {
         $q=$d->prepare('SELECT m.*,u.display_name,u.role FROM employee_memberships m JOIN app_users u ON u.id=m.user_id WHERE m.user_id=? FOR UPDATE');$q->execute([$id]);$row=$q->fetch();
         hr_assert($row&&$row['role']==='employee'&&in_array($row['status'],['pending','rejected'],true)&&(int)$row['revision']===$revision,'이미 처리되었거나 변경된 직원 등록 요청입니다. 새로고침해 주세요.');
+        if(array_key_exists('username',$basic)||!empty($basic['password']))cnc_update_employee_login($user,$id,$basic);
         $name=membership_text($basic['name']??$row['display_name'],60);$phone=membership_text($basic['phone']??$row['phone'],20);
         hr_assert($name!==''&&preg_match('/^0[0-9 -]{8,14}$/D',$phone)===1,'이름과 연락처를 입력해 주세요.');
         $q=$d->prepare('UPDATE app_users SET display_name=?,department=? WHERE id=?');$q->execute([$name,$team,$id]);$row['display_name']=$name;$row['phone']=$phone;

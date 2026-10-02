@@ -44,6 +44,10 @@ try {
             $postId=personnel_natural($_POST['id']??0);
             hr_assert($postId===($isNew?0:$id),'직원 정보가 변경되었습니다. 다시 열어 주세요.');
             $formRevision=personnel_natural($_POST['revision']??0);
+            if(($_POST['action']??'')==='changeAccount'){
+                hr_mutate($user,['action'=>'changeAccount','id'=>$postId,'revision'=>$formRevision,'username'=>$_POST['username']??'','password'=>$_POST['password']??'','passwordConfirm'=>$_POST['passwordConfirm']??'']);
+                header('Location: /personnel.php?role=admin&id='.$postId.($popup?'&popup=1':'').'&accountSaved=1',true,303);exit;
+            }
             if(in_array($_POST['action']??'',['unlockStaff','lockStaff','suspendStaff','resumeStaff'],true)){
                 hr_mutate($user,['action'=>$_POST['action'],'id'=>$postId,'revision'=>$formRevision]);
                 header('Location: /personnel.php?role=admin'.(($_GET['returnList']??'')==='1'?'':'&id='.$postId).($popup?'&popup=1':'').'&permissionSaved=1',true,303);exit;
@@ -55,7 +59,7 @@ try {
             $_SESSION['personnel_saved']=true;
             header('Location: /personnel.php?role=admin'.($savedId?'&id='.$savedId:'').($popup?'&popup=1':''),true,303);exit;
         }catch(InvalidArgumentException $e){$error=$e->getMessage();$editing=true;http_response_code(422);}
-        catch(PDOException $e){error_log('cnchome personnel save '.$e->getCode());$error=$e->getCode()==='23000'?'이미 연결된 직원 계정입니다. 다른 계정을 선택해 주세요.':'저장에 실패했습니다. 새로고침 후 저장 여부를 확인해 주세요.';$editing=true;http_response_code(409);}
+        catch(PDOException $e){error_log('cnchome personnel save '.$e->getCode());$error=$e->getCode()==='23000'?'이미 사용 중인 아이디 또는 연결된 계정입니다. 다른 값을 입력해 주세요.':'저장에 실패했습니다. 새로고침 후 저장 여부를 확인해 주세요.';$editing=true;http_response_code(409);}
     }elseif(($_SERVER['REQUEST_METHOD']??'GET')!=='GET'){http_response_code(405);header('Allow: GET, POST');throw new HRForbidden('허용되지 않은 요청입니다.');}
     if(isset($_SESSION['personnel_saved'])){$saved=true;unset($_SESSION['personnel_saved']);}
     $accounts=[];

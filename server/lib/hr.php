@@ -99,10 +99,16 @@ function hr_snapshot(array $u): array {
 class HRForbidden extends RuntimeException {}
 function hr_mutate(array $user,array $in): ?int {
     $action=$in['action']??'';$admin=$user['role']==='admin';
-    if(!in_array($action,$admin?['saveStaff','unlockStaff','lockStaff','suspendStaff','resumeStaff','savePayroll','publish']:['confirm','request'],true))throw new HRForbidden('처리 권한이 없습니다.');
+    if(!in_array($action,$admin?['changeAccount','saveStaff','unlockStaff','lockStaff','suspendStaff','resumeStaff','savePayroll','publish']:['confirm','request'],true))throw new HRForbidden('처리 권한이 없습니다.');
     try {
     $d=db();$d->beginTransaction();$staffSavedId=null;
-    if(in_array($action,['unlockStaff','lockStaff','suspendStaff','resumeStaff'],true)){
+    if($action==='changeAccount'){
+        $id=hr_int($in['id']??0);$q=$d->prepare('SELECT * FROM hr_employees WHERE id=? FOR UPDATE');$q->execute([$id]);$row=$q->fetch();
+        hr_assert($row&&!empty($row['user_id'])&&(int)$row['revision']===($in['revision']??null),'직원 정보가 변경되었습니다. 새로고침해 주세요.');
+        require_once __DIR__.'/passwords.php';cnc_update_employee_login($user,(int)$row['user_id'],$in);
+        $q=$d->prepare('UPDATE hr_employees SET revision=revision+1 WHERE id=?');$q->execute([$id]);
+        require_once __DIR__.'/personnel-history.php';personnel_history_append($user,$row,array_replace($row,['revision'=>(int)$row['revision']+1]),'account');$staffSavedId=$id;
+    }elseif(in_array($action,['unlockStaff','lockStaff','suspendStaff','resumeStaff'],true)){
         $id=hr_int($in['id']??0);$q=$d->prepare('SELECT * FROM hr_employees WHERE id=? FOR UPDATE');$q->execute([$id]);$row=$q->fetch();
         hr_assert((bool)$row&&(int)$row['revision']===($in['revision']??null),'인사정보가 변경되었습니다. 새로고침해 주세요.');
         $profile=json_decode($row['profile'],true,512,JSON_THROW_ON_ERROR);

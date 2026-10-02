@@ -8,7 +8,7 @@ try {
     if(($_SERVER['REQUEST_METHOD']??'GET')==='POST'){
         if(!is_string($_POST['csrf']??null)||!csrf_ok($_POST['csrf']))throw new HRForbidden('세션이 변경되었습니다. 새로고침 후 승인해 주세요.');
         try {
-            membership_approve($user,personnel_natural($_POST['userId']??0),personnel_natural($_POST['revision']??0),membership_text($_POST['team']??'',20),membership_text($_POST['startDate']??'',10),membership_text($_POST['action']??'',20),array_intersect_key($_POST,array_flip(['name','phone'])));
+            membership_approve($user,personnel_natural($_POST['userId']??0),personnel_natural($_POST['revision']??0),membership_text($_POST['team']??'',20),membership_text($_POST['startDate']??'',10),membership_text($_POST['action']??'',20),array_intersect_key($_POST,array_flip(['name','phone','username','password','passwordConfirm'])));
             $_SESSION['membership_notice']=($_POST['action']??'')==='approve'?'로그인을 승인했습니다. 직원은 첫 로그인 후 본인 정보를 입력합니다.':(($_POST['action']??'')==='saveApplicant'?'직원 신청 정보를 수정했습니다.':'직원 등록 요청을 반려했습니다.');
             $target=($_POST['returnTo']??'')==='contracts'?'/contracts.php?role=admin':'/memberships.php?role=admin';if(($_GET['popup']??'')==='1')$target='/memberships.php?role=admin&userId='.(int)$_POST['userId'].'&popup=1';header('Location: '.$target,true,303);exit;
         }catch(InvalidArgumentException $e){$error=$e->getMessage();http_response_code(422);}

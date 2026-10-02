@@ -70,6 +70,7 @@ function sales_mutate(array $user,array $in): void {
     try {
         $action=$in['action']??'';
         if($action==='create'){
+            $status=$user['role']==='admin'?($in['status']??'pending'):'pending';hr_assert(in_array($status,['pending','normal','as'],true),'접수 상태를 확인해 주세요.');
             $owner=$user['role']==='admin'?($in['employeeId']??0):$user['id'];
             $q=$d->prepare("SELECT id,username,display_name,role,department FROM app_users WHERE id=? AND active=1 AND role='employee'");$q->execute([$owner]);$employee=$q->fetch();hr_assert((bool)$employee,'담당 직원을 선택해 주세요.');
             $date=(string)($in['date']??hr_today());hr_assert(hr_day($date)&&$date<=hr_today(),'접수일을 확인해 주세요.');
@@ -93,13 +94,13 @@ function sales_mutate(array $user,array $in): void {
             if($existing){hr_assert((int)$existing['employee_id']===(int)$owner,'접수 요청을 확인해 주세요.');if($user['role']!=='admin'&&!cnc_test_user($employee)&&!empty($existing['is_test']))throw new HRForbidden('접수 요청을 확인해 주세요.');$d->commit();return;}
             $duplicates=sales_duplicate_count($employee,$name,$phone);
             if($duplicates){if(($in['duplicateConfirmed']??false)!==true)throw new SalesDuplicate($duplicates);$name=mb_substr(preg_replace('/(?:\s*\(중복\))+\s*$/u','',trim($name)),0,95).' (중복)';}
-            $q=$d->prepare("INSERT INTO sales_records(employee_id,department,first_date,customer_name,phone,address,carrier,insurance_kind,birth_year,note,status,is_test,request_key) VALUES(?,?,?,?,?,?,?,?,?,?,'pending',?,?)");
-            $q->execute([$owner,$employee['department'],$date,$name,$phone,$address,$carrier,$kind,$birth,$note,cnc_test_user($employee)?1:0,$key]);
+            $q=$d->prepare("INSERT INTO sales_records(employee_id,department,first_date,customer_name,phone,address,carrier,insurance_kind,birth_year,note,status,is_test,request_key) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)");
+            $q->execute([$owner,$employee['department'],$date,$name,$phone,$address,$carrier,$kind,$birth,$note,$status,cnc_test_user($employee)?1:0,$key]);
             $id=(int)$d->lastInsertId();sales_save_counselor($id,$receipt['counselorName']);
             $q=$d->prepare('INSERT INTO sales_receipt_details(sale_id,gender,call_availability,visit_schedule) VALUES(?,?,?,?)');$q->execute([$id,$receipt['gender'],$receipt['callAvailability'],$receipt['visitSchedule']]);
             $q=$d->prepare('INSERT INTO sales_consultation_details(sale_id,consultation_time,consultation_place,premium_band) VALUES(?,?,?,?)');$q->execute([$id,$consultationTime,$consultationPlace,$premiumBand]);
             if($birthDate!==''){$q=$d->prepare('INSERT INTO sales_birth_details(sale_id,birth_date) VALUES(?,?)');$q->execute([$id,$birthDate]);}
-            $q=$d->prepare('INSERT INTO sales_events(sale_id,actor_id,old_status,new_status) VALUES(?,?,?,?)');$q->execute([$id,$user['id'],'','pending']);
+            $q=$d->prepare('INSERT INTO sales_events(sale_id,actor_id,old_status,new_status) VALUES(?,?,?,?)');$q->execute([$id,$user['id'],'',$status]);
         }elseif($action==='status'){
             $status=$in['status']??'';hr_assert(in_array($status,['pending','normal','as'],true),'접수 상태를 확인해 주세요.');$id=(string)($in['id']??'');
             if(preg_match('/^test:(\d+):(\d+)$/D',$id,$match)){

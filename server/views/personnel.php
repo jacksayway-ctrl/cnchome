@@ -23,6 +23,15 @@
 <?php if(!empty($record['loginName'])): ?><p>직원 로그인 아이디: <strong><?= h($record['loginName']) ?></strong></p><?php endif ?>
 <?php if($historyEntry): ?><p class="nf-alert personnel-history-context"><strong><?= h(personnel_history_date($historyEntry['created_at'])) ?></strong> · <?= h(personnel_history_label($historyEntry['event'])) ?> · <?= h($historyEntry['actor_name']) ?><br>아래는 해당 기록에 저장된 내용입니다.</p><?php endif; ?>
 <?php if($restoreEntry): ?><p class="nf-alert"><strong><?= h(personnel_history_date($restoreEntry['created_at'])) ?></strong> 기록의 내용을 불러왔습니다. 내용을 확인한 뒤 수정 확정을 누르면 반영됩니다.</p><?php endif; ?>
+<?php if($admin&&!$historyEntry&&!$restoreEntry&&!empty($record['user_id'])): ?>
+<section class="nf-card personnel-no-print"><h2>로그인 아이디·비밀번호 변경</h2>
+<?php if(isset($_GET['accountSaved'])): ?><p class="nf-alert" role="status">로그인 정보를 변경했습니다.</p><?php endif ?>
+<form method="post" action="/personnel.php?role=admin&amp;id=<?= (int)$record['id'] ?><?= $popup?'&amp;popup=1':'' ?>" autocomplete="off">
+<?= native_csrf() ?><input type="hidden" name="action" value="changeAccount"><input type="hidden" name="id" value="<?= (int)$record['id'] ?>"><input type="hidden" name="revision" value="<?= (int)$record['revision'] ?>">
+<div class="personnel-grid"><label class="nf-field">로그인 아이디<input name="username" value="<?= h($record['loginName']??'') ?>" pattern="[a-zA-Z0-9_.-]{3,64}" minlength="3" maxlength="64" required autocomplete="off"></label>
+<label class="nf-field">새 비밀번호<input name="password" type="password" minlength="12" maxlength="72" autocomplete="new-password"></label><label class="nf-field">새 비밀번호 확인<input name="passwordConfirm" type="password" minlength="12" maxlength="72" autocomplete="new-password"></label></div>
+<p>비밀번호 두 칸을 비우면 기존 비밀번호를 유지합니다. 변경 후에는 새 아이디와 비밀번호로 로그인하세요.</p><button type="submit">로그인 정보 변경 저장</button><button type="reset">취소</button></form></section>
+<?php endif ?>
 <?php if($editing): ?>
 <form class="personnel-form" method="post" action="/personnel.php?role=admin<?= $isNew?'&amp;new=1':'&amp;id='.$id.'&amp;edit=1' ?><?= $popup?'&amp;popup=1':'' ?><?= $restoreEntry?'&amp;restore='.(int)$restoreEntry['id']:'' ?>">
 <?= native_csrf() ?><input type="hidden" name="id" value="<?= $isNew?0:$id ?>"><input type="hidden" name="revision" value="<?= $formRevision ?>">

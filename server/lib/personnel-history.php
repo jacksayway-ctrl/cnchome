@@ -8,7 +8,7 @@ function personnel_history_admin(array $user): void {
 /** Called inside the same transaction and employee row lock as the profile write. */
 function personnel_history_append(array $user,?array $before,array $after,string $event): void {
     $d=db();hr_assert($d->inTransaction(),'인사기록 이력은 정보 저장과 함께 처리해야 합니다.');
-    hr_assert(in_array($event,['created','confirm','profile','unlock','lock','settings','suspend','resume'],true),'인사기록 작업을 확인해 주세요.');
+    hr_assert(in_array($event,['account','created','confirm','profile','unlock','lock','settings','suspend','resume'],true),'인사기록 작업을 확인해 주세요.');
     $insert=$d->prepare('INSERT INTO hr_personnel_events(employee_id,actor_id,event,revision,snapshot) VALUES(?,?,?,?,?)');
     if($before){
         $q=$d->prepare('SELECT id FROM hr_personnel_events WHERE employee_id=? LIMIT 1');$q->execute([$after['id']]);
@@ -32,5 +32,5 @@ function personnel_history_date(string $timestamp): string {
     return (new DateTimeImmutable($timestamp,new DateTimeZone('UTC')))->setTimezone(new DateTimeZone('Asia/Seoul'))->format('Y-m-d H:i:s');
 }
 function personnel_history_label(string $event): string {
-    return ['baseline'=>'최초 수정 전 기록','created'=>'등록 확정','confirm'=>'수정 확정','profile'=>'직원 기본정보 수정','unlock'=>'직원 수정권한 해제','lock'=>'인사정보 확정 · 수정 잠금','settings'=>'주휴일·급여일 기본설정 반영','suspend'=>'계정 사용중지','resume'=>'계정 사용 재개'][$event]??'인사정보 수정';
+    return ['account'=>'로그인 계정 변경','baseline'=>'최초 수정 전 기록','created'=>'등록 확정','confirm'=>'수정 확정','profile'=>'직원 기본정보 수정','unlock'=>'직원 수정권한 해제','lock'=>'인사정보 확정 · 수정 잠금','settings'=>'주휴일·급여일 기본설정 반영','suspend'=>'계정 사용중지','resume'=>'계정 사용 재개'][$event]??'인사정보 수정';
 }

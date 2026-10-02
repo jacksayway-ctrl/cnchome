@@ -62,7 +62,7 @@
     }
     if(!response.ok)throw new Error(data.error||'접수증을 저장하지 못했습니다. 입력 내용을 확인해 주세요.');
     global.ReceiptForm.updateCounselors(form,data.counselorNames);rememberSelection();
-    if(form.isConnected&&form.dataset.requestKey===body.requestKey){global.ReceiptForm.saved(form);saved=true;}
+    if(form.isConnected&&form.dataset.requestKey===body.requestKey){global.ReceiptForm.saved(form);feedback.textContent=(body.status==='normal'?'정상 접수':body.status==='as'?'A/S':'가접수')+'로 저장했습니다. 새 접수를 입력해 주세요.';saved=true;}
     global.dispatchEvent(new global.Event('cnc:sales-changed'));try{global.localStorage.setItem('cnchome.sales.changed',String(Date.now()));}catch(_){}
     break;
    }

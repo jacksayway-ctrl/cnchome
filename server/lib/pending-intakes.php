@@ -55,11 +55,12 @@ function pending_intake_update(array $user,array $in): void {
         }
         $before=['status'=>'pending'];$after=['status'=>'pending','carrier'=>$carrier,'date'=>$current['date']];
         if($action==='edit'){
-            $next=pending_intake_fields($in,$current);if($admin){$current['note']=$legacy?($sale['note']??''):($stored['note']??'');$next['note']=intake_text($in['note']??$current['note'],1000);}$before=[];foreach($next as $key=>$value)$before[$key]=$current[$key];$after=$next;
+            $next=pending_intake_fields($in,$current);if($admin){$current['note']=$legacy?($sale['note']??''):($stored['note']??'');$next['note']=intake_text($in['note']??$current['note'],1000);}$nextStatus=$admin?($in['status']??'pending'):'pending';hr_assert(in_array($nextStatus,['pending','normal','as'],true),'접수 상태를 확인해 주세요.');$current['status']='pending';$next['status']=$nextStatus;$before=[];foreach($next as $key=>$value)$before[$key]=$current[$key];$after=$next;
             hr_assert($before!==$after||$memo!=='','변경한 접수내용이 없습니다.');
             if($legacy){
                 foreach(['customer'=>'name','phone'=>'phone','birthDate'=>'birthDate','birthYear'=>'birthYear','carrier'=>'carrier','consultationTime'=>'consultationTime','consultationPlace'=>'consultationPlace','premiumBand'=>'premiumBand','gender'=>'gender','callAvailability'=>'callAvailability','visitSchedule'=>'visitSchedule','counselorName'=>'counselorName'] as $key=>$storedKey)$state['sales'][$found][$storedKey]=$next[$key];
                 if($admin)$state['sales'][$found]['note']=$next['note'];
+                $state['sales'][$found]['status']=['pending'=>'가접수','normal'=>'정상','as'=>'A/S'][$nextStatus];
                 $state['sales'][$found]['kind']=$next['kind']==='silver'?'실버':($next['kind']==='general'?'일반':'');$state['sales'][$found]['editedAt']=gmdate('c');
             }else{
                 $q=$d->prepare('UPDATE sales_records SET customer_name=?,phone=?,birth_year=?,insurance_kind=?,carrier=? WHERE id=?');$q->execute([$next['customer'],$next['phone'],$next['birthYear'],$next['kind'],$next['carrier'],$id]);
@@ -73,6 +74,10 @@ function pending_intake_update(array $user,array $in): void {
                 elseif($birthDate!==false){$q=$d->prepare('UPDATE sales_birth_details SET birth_date=? WHERE sale_id=?');$q->execute([$next['birthDate'],$id]);}
                 else{$q=$d->prepare('INSERT INTO sales_birth_details(sale_id,birth_date) VALUES(?,?)');$q->execute([$id,$next['birthDate']]);}
             }
+        }
+        if($action==='edit'&&$nextStatus!=='pending'){
+            if(!$legacy){$q=$d->prepare('UPDATE sales_records SET status=? WHERE id=?');$q->execute([$nextStatus,$id]);$q=$d->prepare('INSERT INTO sales_events(sale_id,actor_id,old_status,new_status) VALUES(?,?,?,?)');$q->execute([$id,$user['id'],'pending',$nextStatus]);}
+            intake_audit($id,$user,'status',['status'=>'pending'],['status'=>$nextStatus],'접수증에서 상태 전환');
         }
         if($legacy){$q=$d->prepare('UPDATE test_employee_data SET state=?,revision=revision+1 WHERE user_id=?');$q->execute([hr_json($state),$owner]);}
         else{$q=$d->prepare('UPDATE sales_records SET revision=revision+1,updated_at=UTC_TIMESTAMP(6) WHERE id=?');$q->execute([$id]);}
@@ -111,5 +116,5 @@ function pending_intake_snapshot(array $user): array {
         }
         $outstanding=intake_outstanding_recalls($ids);foreach($ids as $id)$rows[$id]['recallPending']=isset($outstanding[$id]);
     }
-    $rows=array_values($rows);usort($rows,fn($a,$b)=>strcmp($a['date'],$b['date'])?:strnatcmp($a['id'],$b['id']));return ['records'=>$rows,'counselorNames'=>$admin?sales_counselor_names($user):[]];
+    $rows=array_values($rows);usort($rows,fn($a,$b)=>strcmp($a['date'],$b['date'])?:strnatcmp($a['id'],$b['id']));return ['records'=>$rows]+($admin?['counselorNames'=>sales_counselor_names($user)]:[]);
 }

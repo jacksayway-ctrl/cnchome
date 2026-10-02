@@ -279,3 +279,19 @@ $afterCounselorOnly=$combinedRecord();
 check($afterCounselorOnly['counselorName']==='보험 직원'&&$afterCounselorOnly['status']==='pending'&&isset(intake_outstanding_recalls([$combinedId])[$combinedId]),'counselor-only edit preserves status and outstanding recall');
 check((int)$d->query("SELECT count(*) FROM intake_management_events WHERE record_key='".$combinedId."' AND action='status'")->fetchColumn()===$statusCount,'unchanged status never emits a false status-handled event');
 echo "PASS: administrator name/phone duplicate search, normalized phones, atomic counselor/status edits, immutable receipt ownership/date, stale and no-op guards, status audit rollback and precise recall handling.\n";
+
+// Pending disclosure saves fields and status atomically, while employee submissions stay pending.
+$transitionRow=$combinedRecord();
+$d->exec("CREATE TRIGGER reject_pending_transition BEFORE INSERT ON intake_management_events WHEN NEW.action='status' AND NEW.record_key='".$combinedId."' BEGIN SELECT RAISE(ABORT,'isolated pending audit failure'); END;");
+try{pending_intake_update($admin,['action'=>'edit','id'=>$combinedId,'revision'=>$transitionRow['revision'],'status'=>'as','counselorName'=>'취소 상담원']);throw new RuntimeException('Expected transition audit failure');}catch(PDOException $e){}finally{$d->exec('DROP TRIGGER reject_pending_transition');}
+check($combinedRecord()===$transitionRow&&!$d->inTransaction(),'pending transition audit failure rolls back receipt fields and status');
+pending_intake_update($admin,['action'=>'edit','id'=>$combinedId,'revision'=>$transitionRow['revision'],'status'=>'normal','note'=>'한화','counselorName'=>'관리자 선택 상담원']);
+$transitioned=$combinedRecord();check($transitioned['status']==='normal'&&$transitioned['counselorName']==='관리자 선택 상담원','pending disclosure applies selected status and counselor together');
+check(!in_array($combinedId,array_column(pending_intake_snapshot($admin)['records'],'id'),true),'normal transition disappears from pending feed');
+check(!isset(intake_outstanding_recalls([$combinedId])[$combinedId]),'pending status transition resolves recall waiting state');
+foreach(['normal','as'] as $createdStatus){
+ $key=$createdStatus==='normal'?'65656565-aaaa-bbbb-cccc-000000000001':'65656565-aaaa-bbbb-cccc-000000000002';
+ sales_mutate($admin,array_replace($create,['employeeId'=>2,'status'=>$createdStatus,'requestKey'=>$key,'customer'=>'관리자 상태 선택 '.$createdStatus]));
+ $q=$d->prepare('SELECT status FROM sales_records WHERE request_key=?');$q->execute([$key]);check($q->fetchColumn()===$createdStatus,'admin registration persists selected status');
+}
+echo "PASS: pending receipt transitions and administrator registration status selection.\n";

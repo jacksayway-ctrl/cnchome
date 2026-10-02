@@ -37,7 +37,7 @@
   const birthInputs=['year','month','day'].map((part,index)=>{const input=form.querySelector('[data-receipt-birth-'+part+']');input.value=parts[index];input.defaultValue=input.value;input.required=!!birthday;return input;});
   const birthDate=hidden(form,'birthDate',record.birthDate);birthDate.disabled=!birthday;
   function syncBirth(){
-   const values=['birthYear','birthMonth','birthDay'].map(name=>form.elements[name].value),changed=birthInputs.some((input,index)=>input.value!==parts[index]);
+   const values=['birthYear','birthMonth','birthDay'].map(name=>form.elements[name].value),changed=birthInputs.some((input,index)=>input.value!==String(parts[index]));
    const complete=values.every(Boolean),needed=!!birthday||changed;
    for(const input of birthInputs)input.required=needed;
    birthDate.disabled=!needed&&!complete;birthDate.value=complete?values[0]+'-'+values[1].padStart(2,'0')+'-'+values[2].padStart(2,'0'):'';
@@ -57,9 +57,9 @@
   }
   const adminFields=document.createElement('div');adminFields.className='receipt-admin-controls';
   const status=document.createElement('select');status.name='status';
-  for(const [value,label] of [['pending','가접수'],['normal','정상접수 (승인)'],['as','A/S']])status.add(new Option(label,value,value===record.status,value===record.status));
+  for(const [value,label] of [['pending','접수 전환'],['normal','정상 접수'],['as','A/S']])status.add(new Option(label,value,value===record.status,value===record.status));
   const reason=document.createElement('input');reason.name='reason';reason.maxLength=500;reason.value=record.reason;reason.defaultValue=reason.value;reason.placeholder='수정 사유 (선택)';
-  if(!options.submit){adminFields.append(field('승인 상태',status),field('수정 사유 (선택)',reason));form.querySelector('.receipt-grid').after(adminFields);}
+  adminFields.append(field('접수 상태',status));if(!options.submit)adminFields.append(field('수정 사유 (선택)',reason));form.querySelector('.receipt-grid').after(adminFields);
   form.querySelector('.receipt-save').textContent='변경 내용 저장';form.querySelector('.receipt-save').dataset.receiptPointerSave='';
   const reset=form.querySelector('.receipt-reset');reset.type='button';reset.textContent='되돌리기';reset.addEventListener('click',()=>options.reset?options.reset():mount(host,true,options));
   function close(){if(options.close){options.close();return;}const row=host.closest('[data-intake-detail]');const toggle=row?.previousElementSibling?.querySelector('[data-intake-toggle]');if(toggle)toggle.click();else host.closest('details')?.removeAttribute('open');}

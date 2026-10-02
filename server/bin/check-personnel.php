@@ -94,3 +94,22 @@ $legacyHistory=personnel_history_list($admin,$legacyId);personnel_check(count($l
 personnel_check(personnel_history_get($admin,$legacyId,(int)$legacyHistory[1]['id'])['snapshot']['profile']['phone']===$profile['phone'],'legacy baseline is faithful to original profile');
 personnel_check(personnel_history_date('2026-10-01 01:00:00')==='2026-10-01 10:00:00','personnel history displayed in Korean time');
 echo "PASS: personnel ownership, legacy field preservation, stale writes, date validation, escaped cards, admin memo privacy and 12,500 + 2,500 = 15,000 wage display.\n";
+
+// Account changes preserve ownership, require administrator access, and never store secrets in history.
+$accountChange=['action'=>'changeAccount','id'=>1,'revision'=>3,'username'=>'renamed-staff','password'=>'fixture-password-2026','passwordConfirm'=>'fixture-password-2026'];
+personnel_rejects(fn()=>hr_mutate($employee,$accountChange),'employee cannot change a login account');
+personnel_rejects(fn()=>hr_mutate($admin,array_replace($accountChange,['username'=>'fixture-two'])),'duplicate username rejected');
+personnel_rejects(fn()=>hr_mutate($admin,array_replace($accountChange,['passwordConfirm'=>'mismatch'])),'password confirmation required');
+hr_mutate($admin,$accountChange);
+$login=$database->query('SELECT username,password_hash FROM app_users WHERE id=2')->fetch();
+personnel_check($login['username']==='renamed-staff'&&cnc_password_verify('fixture-password-2026',$login['password_hash']),'new username and hashed password saved');
+personnel_check(personnel_records($employee)[0]['user_id']===2,'account rename preserves employee ownership');
+personnel_rejects(fn()=>hr_mutate($admin,$accountChange),'stale account form rejected');
+hr_mutate($admin,array_replace($accountChange,['revision'=>4,'username'=>'renamed-again','password'=>'','passwordConfirm'=>'']));
+personnel_check($database->query('SELECT password_hash FROM app_users WHERE id=2')->fetchColumn()===$login['password_hash'],'blank password preserves existing hash');
+$beforeLogin=$database->query('SELECT username,password_hash FROM app_users WHERE id=2')->fetch();
+personnel_rejects(fn()=>hr_mutate(['id'=>999,'role'=>'admin'],array_replace($accountChange,['revision'=>5,'username'=>'rollback-name'])),'failed audit rejects account update');
+personnel_check($database->query('SELECT username,password_hash FROM app_users WHERE id=2')->fetch()===$beforeLogin,'account update and audit roll back together');
+$historyJson=$database->query('SELECT snapshot FROM hr_personnel_events WHERE employee_id=1')->fetchAll(PDO::FETCH_COLUMN);
+personnel_check(!str_contains(implode('',$historyJson),'fixture-password-2026')&&!str_contains(implode('',$historyJson),$login['password_hash']),'history contains neither password nor hash');
+echo "PASS: administrator account rename, password reset, blank preservation, duplicates, stale writes and audit rollback.\n";
