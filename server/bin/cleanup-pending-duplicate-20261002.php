@@ -22,15 +22,20 @@ if(in_array('--check',$argv,true)){
     if(requested_duplicate_ids($rows)!==[2]||requested_duplicate_ids(array_slice($rows,1))!==[])throw new RuntimeException('cleanup selection check failed');
     echo "PASS: exact matching normal receipt, status, phone, scope and request cutoff.\n";exit;
 }
+function cleanup_public_result(array $result): void {
+    $path='/var/www/html/maintenance-result-20261002.json';
+    $data=hr_json(array_intersect_key($result,array_flip(['state','reason','deletedCount'])));
+    if(file_put_contents($path.'.new',$data,LOCK_EX)===false||!chmod($path.'.new',0644)||!rename($path.'.new',$path))throw new RuntimeException('result_report_failed');
+}
 $batch='pending-duplicate-cleanup-20261002-045127-v1';$d=db();
 try{
     $d->beginTransaction();
     $q=$d->prepare('SELECT manifest FROM test_fixture_batches WHERE batch=? FOR UPDATE');$q->execute([$batch]);
-    if($q->fetchColumn()!==false){$d->commit();echo "Authorized duplicate cleanup already completed.\n";exit;}
+    if(($existing=$q->fetchColumn())!==false){$d->commit();cleanup_public_result(json_decode($existing,true,512,JSON_THROW_ON_ERROR));echo "Authorized duplicate cleanup already reviewed.\n";exit;}
     // Lock matching receipts in a stable order; new or subsequently edited pending rows are excluded.
     $q=$d->query("SELECT * FROM sales_records WHERE is_test=0 AND customer_name LIKE '%백%석%구%' AND status IN ('pending','normal') ORDER BY id FOR UPDATE");
     $rows=$q->fetchAll();$ids=requested_duplicate_ids($rows);
-    if(!$ids)throw new RuntimeException('No unchanged authorized pending duplicate found; no records deleted.');
+    if(!$ids){$result=['state'=>'blocked','reason'=>'no_matching_unchanged_pending_duplicate','deletedCount'=>0];$q=$d->prepare('INSERT INTO test_fixture_batches(batch,manifest) VALUES(?,?)');$q->execute([$batch,hr_json($result)]);$d->commit();cleanup_public_result($result);echo "No matching unchanged duplicate; no deletions.\n";exit;}
     $snapshot=user1_cleanup_receipt_snapshot($d,$ids,[]);
     $backup=receipt_identity_repair_backup('/var/backups/cnchome/pending-duplicate-cleanup',['batch'=>$batch,'matchedReceipts'=>$rows,'deletedReceiptData'=>$snapshot]);
     $marks=implode(',',array_fill(0,count($ids),'?'));
@@ -40,5 +45,5 @@ try{
     if($q->rowCount()!==count($ids))throw new RuntimeException('Deletion count mismatch.');
     $q=$d->prepare('INSERT INTO test_fixture_batches(batch,manifest) VALUES(?,?)');
     $q->execute([$batch,hr_json(['state'=>'complete','deletedIds'=>$ids,'deletedCount'=>count($ids),'backup'=>$backup,'completedAt'=>gmdate('c')])]);
-    $d->commit();echo 'Authorized pending duplicate cleanup complete: '.count($ids)." deleted; normal receipts preserved.\n";
+    $d->commit();cleanup_public_result(['state'=>'complete','deletedCount'=>count($ids)]);echo 'Authorized pending duplicate cleanup complete: '.count($ids)." deleted; normal receipts preserved.\n";
 }catch(Throwable $e){if($d->inTransaction())$d->rollBack();fwrite(STDERR,"Authorized duplicate cleanup stopped; transaction rolled back.\n");exit(1);}
