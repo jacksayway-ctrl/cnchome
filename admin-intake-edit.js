@@ -50,12 +50,8 @@
   const call=form.querySelector('[data-receipt-calltime]'),callMatch=/^(오전|오후)(?:\s+(.*))?$/.exec(record.callAvailability);
   radioValue(form,'receiptPeriod',callMatch?.[1]||'');call.value=callMatch?.[2]||(!callMatch?record.callAvailability:'');call.defaultValue=call.value;
   radioValue(form,'note','한화');
-  const kinds=document.createElement('div');kinds.className='receipt-kind-options';kinds.setAttribute('role','radiogroup');kinds.setAttribute('aria-label','일반 또는 실버 선택');
-  for(const [value,label] of [['general','일반'],['silver','실버']]){
-   const choice=document.createElement('label'),input=document.createElement('input');input.type='radio';input.name='insuranceKind';input.value=value;choice.append(input,' '+label);kinds.append(choice);
-  }
-  form.querySelector('[data-receipt-product]').replaceWith(kinds);
-  form.querySelector('.receipt-note').removeAttribute('aria-describedby');
+  // Use the same live birthday classification as the registration receipt.
+  hidden(form,'insuranceKindMode','age');
   const adminFields=document.createElement('div');adminFields.className='receipt-admin-controls';
   const status=document.createElement('select');status.name='status';
   for(const [value,label] of [['pending','접수 전환'],['normal','정상 접수'],['as','A/S']])status.add(new Option(label,value,value===record.status,value===record.status));

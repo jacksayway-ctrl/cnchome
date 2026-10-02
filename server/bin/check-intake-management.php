@@ -151,6 +151,9 @@ check($allById['test:4:42']['employee']==='테스트 직원'&&$allById['test:4:4
 check(!isset($allById['1'])&&count(array_filter($allPending,fn($r)=>$r['status']!=='pending'))===0,'administrator pending feed excludes A/S and normal records');
 $d->exec("INSERT INTO app_users VALUES(5,'empty','접수 없는 직원','employee','insurance',1)");
 check(pending_intake_snapshot(['id'=>5,'role'=>'employee'])===['records'=>[]],'employee with no pending records receives an empty feed');
+$filterStaff=pending_intake_snapshot($admin)['staff'];
+check(in_array(5,array_map('intval',array_column($filterStaff,'id')),true),'administrator employee filter includes active staff without pending receipts');
+check(count($filterStaff)===4&&!in_array(1,array_map('intval',array_column($filterStaff,'id')),true),'employee filter contains each employee once and excludes administrators');
 $forbidden=function(callable $fn,string $message):void{try{$fn();}catch(HRForbidden $e){return;}throw new RuntimeException($message);};
 $forbidden(fn()=>pending_intake_snapshot(['id'=>2,'role'=>'manager']),'unknown role must receive forbidden pending access');
 $forbidden(fn()=>pending_intake_authorize($admin,true),'administrator must not submit an employee recall request');
@@ -292,9 +295,9 @@ check(!isset(intake_outstanding_recalls([$combinedId])[$combinedId]),'pending st
 foreach(['normal','as'] as $createdStatus){
  $key=$createdStatus==='normal'?'65656565-aaaa-bbbb-cccc-000000000001':'65656565-aaaa-bbbb-cccc-000000000002';
  sales_mutate($admin,array_replace($create,['employeeId'=>2,'status'=>$createdStatus,'requestKey'=>$key,'customer'=>'관리자 상태 선택 '.$createdStatus]));
- $q=$d->prepare('SELECT status FROM sales_records WHERE request_key=?');$q->execute([$key]);check($q->fetchColumn()===$createdStatus,'admin registration persists selected status');
+ $q=$d->prepare('SELECT status FROM sales_records WHERE request_key=?');$q->execute([$key]);check($q->fetchColumn()==='pending','administrator registration always starts pending even if a different status is posted');
 }
-echo "PASS: pending receipt transitions and administrator registration status selection.\n";
+echo "PASS: pending receipt transitions and administrator registration pending status.\n";
 
 // Read-only side search is administrator-only, spans months, and returns bounded summaries.
 $searchRow=$combinedRecord();$searchResult=intake_live_search($admin,$searchRow['customer'],'real');

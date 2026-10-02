@@ -12,6 +12,7 @@ $receiptFields=function(array $v)use($field,$eh,$user,$mode,$snapshot){
 ?>
 <?php if(!empty($detailFragment)): if($selected): $r=$selected;require __DIR__.'/partials/intake-detail.php';endif;return;endif ?>
 <?php $receiptScripts=['korea-regions.js','korea-localities.js','intake-codes.js','region-rules.js','policy-sync.js','consultation-location.js','intake-details.js','hangul.js','korean-input.js','road-address.js']; ?>
+<script src="<?= $eh(asset_url('intake-receipt-search.js')) ?>" defer></script>
 <?php if($mode==='new'): foreach(array_merge($receiptScripts,['receipt-form.js']) as $script): ?>
 <script src="<?= $eh(asset_url($script)) ?>" defer></script>
 <?php endforeach;else: ?>
@@ -23,7 +24,7 @@ $receiptFields=function(array $v)use($field,$eh,$user,$mode,$snapshot){
 <?php if($error): ?><p class="nf-alert nf-error" role="alert"><?= $eh($error) ?></p><?php endif ?>
 <?php if($notice): ?><p class="nf-alert nf-success" role="status"><?= $eh($notice) ?></p><?php endif ?>
 <?php if($mode==='new'): ?>
-<section class="nf-card admin-intake-register-card"><h2>새 접수 등록</h2><p class="nf-muted">담당 직원을 선택하고 접수증을 입력해 주세요. 저장한 접수는 해당 직원의 가접수로 등록됩니다.</p>
+<section class="nf-card admin-intake-register-card" aria-label="신규 접수증">
 <script type="application/json" id="admin-intake-register-data"><?= view_json($registrationData) ?></script>
 <div id="tm-preview" class="receipt-host admin-intake-register"><div data-admin-receipt><p role="status">접수증을 불러오는 중입니다.</p></div></div>
 <noscript><p class="nf-alert">접수증 입력과 지역 검색을 사용하려면 자바스크립트를 켜 주세요.</p></noscript></section>

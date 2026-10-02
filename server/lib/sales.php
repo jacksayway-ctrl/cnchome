@@ -71,7 +71,7 @@ function sales_mutate(array $user,array $in): void {
     try {
         $action=$in['action']??'';
         if($action==='create'){
-            $status=$user['role']==='admin'?($in['status']??'pending'):'pending';hr_assert(in_array($status,['pending','normal','as'],true),'접수 상태를 확인해 주세요.');
+            $status='pending'; // New receipts always enter review before an explicit status update.
             $owner=$user['role']==='admin'?($in['employeeId']??0):$user['id'];
             $q=$d->prepare("SELECT id,username,display_name,role,department FROM app_users WHERE id=? AND active=1 AND role='employee'");$q->execute([$owner]);$employee=$q->fetch();hr_assert((bool)$employee,'담당 직원을 선택해 주세요.');
             $date=(string)($in['date']??hr_today());hr_assert(hr_day($date)&&$date<=hr_today(),'접수일을 확인해 주세요.');

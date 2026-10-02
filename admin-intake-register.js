@@ -8,6 +8,9 @@
  mount.innerHTML=global.ReceiptForm.markup({admin:true,staff:config.staff,user:config.user,counselorNames:config.counselorNames||[]});
  const form=mount.querySelector('[data-sales-form]'),owner=form.elements.employeeId,counselor=form.elements.counselorName,feedback=form.querySelector('[data-sales-error]');
  form.method='post';form.action='/sales-api.php';global.CNCWindowSession?.decorateForm(form);
+ const search=document.createElement('aside');search.className='intake-header-search';search.dataset.intakeSideSearch='';search.setAttribute('aria-label','접수증 검색');
+ search.innerHTML='<div class="intake-search-group"><label><span>이름 또는 전화번호</span><input type="search" data-intake-search-input maxlength="80" autocomplete="off" placeholder="고객 이름 또는 전화번호 입력" aria-label="접수증 이름 또는 전화번호 검색" aria-expanded="false"></label><button type="button" data-intake-search-submit>조회</button><div class="intake-search-popover" data-intake-search-popover hidden><p data-intake-search-status role="status" aria-live="polite">이름 또는 전화번호를 입력해 주세요.</p><div data-intake-search-results></div></div></div><button type="button" class="intake-search-reset" data-intake-search-reset>초기화</button>';
+ const header=form.querySelector('.receipt-header');header.classList.add('receipt-management-header');header.querySelector('.receipt-input-mode').before(search);
  const summary=document.createElement('section');summary.className='admin-intake-staff-summary';summary.setAttribute('aria-label','선택한 직원 접수 현황');
  const staffName=document.createElement('strong'),staffCounts=document.createElement('p'),staffLink=document.createElement('a');
  staffName.dataset.adminStaffName='';staffCounts.dataset.adminStaffCounts='';staffCounts.setAttribute('aria-live','polite');staffLink.dataset.adminStaffList='';staffLink.className='nf-button';staffLink.textContent='선택 직원 접수 목록 보기';summary.append(staffName,staffCounts,staffLink);form.before(summary);
@@ -43,6 +46,7 @@
  }
  async function save(body){
   if(busy)return;busy=true;
+  search.dispatchEvent(new global.Event('intake:search-cancel'));
   const controls=[...form.querySelectorAll('input,select,textarea,button')].map(control=>[control,control.disabled]);
   form.setAttribute('aria-busy','true');delete feedback.dataset.state;feedback.textContent='접수증을 저장하는 중입니다.';for(const [control] of controls)control.disabled=true;
   let saved=false;
@@ -65,13 +69,32 @@
  }
  global.ReceiptForm.attach(form,{close:()=>global.location.assign(listURL())});
  global.ConsultationLocation?.attach(form);global.IntakeDetails.attach(form,{admin:true,team:()=>selectedStaff()?.team||''});
+ const autofilled=new Map();
+ for(const eventName of ['input','change'])form.addEventListener(eventName,event=>{if(event.isTrusted&&!search.contains(event.target))autofilled.clear();},true);
+ function clearSearchPrefill(){
+  for(const [field,value] of autofilled)if(field.value===value){field.value='';field.dispatchEvent(new global.Event('change',{bubbles:true}));}
+  autofilled.clear();
+ }
+ function fillNewReceipt(query,explicit=false){
+  const phoneQuery=/^[0-9\s()+.\-]+$/.test(query),digits=query.replace(/\D/g,''),phone=phoneQuery?(/^010\d{8}$/.test(digits)?digits.slice(3):/^\d{8}$/.test(digits)?digits:''):'';
+  const field=phoneQuery?form.querySelector('[data-receipt-phone]'):form.elements.customer,value=phoneQuery?phone:query;
+  if(value&&field.value!==value){
+   if(field.value&&(!explicit||!global.confirm('입력한 '+(phoneQuery?'전화번호':'신청자 성함')+'를 검색어로 바꾸시겠습니까?')))return;
+   field.value=value;field.dispatchEvent(new global.Event('change',{bubbles:true}));autofilled.set(field,field.value);
+  }
+  if(explicit){feedback.textContent='신규 가접수입니다. 나머지 내용을 입력한 뒤 저장해 주세요.';form.querySelector('[data-receipt-date]').focus();}
+ }
+ global.IntakeReceiptSearch.attach(mount,{panel:form,formSelector:'[data-sales-form]',scope:()=>selectedStaff()?.isTest?'test':'real',onQuery:clearSearchPrefill,onNew:()=>form.reset(),onEmpty:(query,results,hide)=>{
+  fillNewReceipt(query);
+  const button=document.createElement('button');button.type='button';button.textContent='신규 가접수 입력';button.addEventListener('click',()=>{fillNewReceipt(query,true);hide();});results.append(button);
+ }});
  form.querySelector('[data-receipt-close]').textContent='접수 목록';
- owner.addEventListener('change',()=>{rememberSelection();renderSummary();});
+ owner.addEventListener('change',()=>{rememberSelection();renderSummary();search.dispatchEvent(new global.Event('intake:search-refresh'));});
  form.addEventListener('input',event=>{if(event.target.matches('[data-receipt-date]'))renderSummary();});
  form.addEventListener('reset',()=>global.setTimeout(renderSummary,0));
  form.addEventListener('submit',event=>{
   event.preventDefault();if(busy||!form.reportValidity())return;
-  const values=Object.fromEntries(new FormData(form));rememberSelection();save({...values,employeeId:Number(values.employeeId),birthYear:Number(values.birthYear),action:'create',requestKey:form.dataset.requestKey});
+  const values=Object.fromEntries(new FormData(form));rememberSelection();save({...values,employeeId:Number(values.employeeId),birthYear:Number(values.birthYear),status:'pending',action:'create',requestKey:form.dataset.requestKey});
  });
  if(config.employeeId&&config.staff.some(staff=>String(staff.id)===String(config.employeeId))){owner.value=String(config.employeeId);owner.dispatchEvent(new global.Event('change',{bubbles:true}));}else renderSummary();
 })(window);

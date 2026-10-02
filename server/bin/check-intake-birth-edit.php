@@ -68,3 +68,11 @@ rejects(fn()=>intake_update($admin,$birthEditInput()+['insuranceKind'=>'other'])
 intake_update($admin,$birthEditInput()+['insuranceKind'=>'general']);
 check($birthEditRecord()['kind']==='general','administrator can select general explicitly');
 echo "PASS: explicit product selection, omitted-choice preservation and invalid product rejection.\n";
+
+// The current receipt editor derives the displayed and saved kind from birthday.
+intake_update($admin,$birthEditInput()+['insuranceKind'=>'silver']);
+intake_update($admin,$birthEditInput()+['insuranceKindMode'=>'age','insuranceKind'=>'silver','birthDate'=>'1961-03-01']);
+check($birthEditRecord()['kind']==='general','automatic birthday mode corrects a stale manual class even when birthday is unchanged');
+intake_update($admin,$birthEditInput()+['insuranceKindMode'=>'age','insuranceKind'=>'general','birthDate'=>'1960-02-29']);
+check($birthEditRecord()['kind']==='silver','automatic birthday mode recalculates silver and ignores a conflicting posted class');
+echo "PASS: automatic birthday classification on receipt edits and unchanged-birthday correction.\n";

@@ -3,7 +3,7 @@ const role=window.CNCHOME_LIVE?.user?.role;
 if(!['employee','admin'].includes(role))return;
 const admin=role==='admin',testAccount=window.CNCHOME_LIVE.isTestAccount===true,teams={insurance:'보험팀',cosmetics:'화장품팀',health:'건강보조식품팀'};
 let rows=[],busy=false,posting=false,queued=null,index,feedback='',loadError='',loaded=false,composingInput=null;
-let listScope=null,listPage=1,counselorNames=[],filterTimer=0;
+let listScope=null,listPage=1,staff=[],counselorNames=[],filterTimer=0;
 const sharedEditors=new Map(),lockedControls=new Map();
 const pageSize=10,scopeLabels={all:'전체 가접수',today:'오늘 재접수 가능',waiting:'관리자 확인 대기'};
 const expanded=new Set(),drafts=new Map(),editDrafts=new Map(),formBases=new Map(),filters={employee:'',scope:'real',query:''};
@@ -37,7 +37,7 @@ function filteredRows(evaluated){
 }
 function filterMarkup(){
  if(!admin)return '';
- const employees=[...new Map(rows.map(r=>[String(r.employeeId),{id:String(r.employeeId),name:r.employee||'직원명 미입력',team:teams[r.team]||r.team||''}])).values()].sort((a,b)=>a.name.localeCompare(b.name,'ko')||a.id.localeCompare(b.id,undefined,{numeric:true}));
+ const employees=[...new Map([...rows.map(r=>[String(r.employeeId),{id:String(r.employeeId),name:r.employee||'직원명 미입력',team:teams[r.team]||r.team||''}]),...staff.map(r=>[String(r.id),{id:String(r.id),name:r.name,team:teams[r.team]||r.team||''}])]).values()].sort((a,b)=>a.name.localeCompare(b.name,'ko')||a.id.localeCompare(b.id,undefined,{numeric:true}));
  if(filters.employee&&!employees.some(p=>p.id===filters.employee))employees.push({id:filters.employee,name:'선택한 직원 (현재 가접수 없음)',team:''});
  return `<div class="pending-intake-filters" role="group" aria-label="가접수 조회 조건"><label>담당 직원<select data-pending-filter="employee"><option value="">전체 직원</option>${employees.map(p=>`<option value="${esc(p.id)}" ${filters.employee===p.id?'selected':''}>${esc(p.name)}${p.team?' · '+esc(p.team):''}</option>`).join('')}</select></label><label>자료 구분<select data-pending-filter="scope">${[['all','전체 (테스트 포함)'],['real','운영 자료'],['test','테스트 자료']].map(([value,label])=>`<option value="${value}" ${filters.scope===value?'selected':''}>${label}</option>`).join('')}</select></label><label class="pending-intake-search">고객·연락처·직원·상담 지역<input type="search" maxlength="80" data-pending-filter="query" value="${esc(filters.query)}" placeholder="검색어를 입력해 주세요."></label><button type="button" class="secondary" data-pending-filter-reset>초기화</button></div>`;
 }
@@ -136,6 +136,9 @@ function render(force=false){
  const existingFilters=el.querySelector('.pending-intake-filters');
  if(existingFilters){
   const next=document.createElement('div');next.innerHTML=rendered;
+  // Refresh employee options without replacing the search input or interrupting Korean composition.
+  const currentEmployee=existingFilters.querySelector('[data-pending-filter="employee"]'),nextEmployee=next.querySelector('[data-pending-filter="employee"]');
+  if(currentEmployee&&nextEmployee&&currentEmployee.innerHTML!==nextEmployee.innerHTML){currentEmployee.replaceChildren(...nextEmployee.childNodes);currentEmployee.value=filters.employee;}
   for(const child of [...el.childNodes])if(child!==existingFilters)child.remove();
   let afterFilters=false;
   for(const child of [...next.childNodes]){
@@ -153,7 +156,7 @@ async function load(body){
  const el=document.querySelector('[data-pending-list]');if(body){posting=true;el?.querySelectorAll('[data-pending-receipt] input,[data-pending-receipt] select,[data-pending-receipt] textarea,[data-pending-receipt] button').forEach(control=>{lockedControls.set(control,control.disabled);control.disabled=true;});el?.querySelectorAll('form fieldset,[data-pending-scope],[data-pending-page]').forEach(f=>f.disabled=true);}if(busy){if(body&&!queued)queued=body;return;}busy=true;
  const refresh=document.querySelector('[data-pending-refresh]');if(refresh)refresh.disabled=true;
  const controller=new AbortController(),timer=body?null:setTimeout(()=>controller.abort(),45000);
- try{const response=await fetch('/pending-intakes.php?role='+encodeURIComponent(role),{method:body?'POST':'GET',credentials:'same-origin',cache:'no-store',signal:controller.signal,headers:{'Content-Type':'application/json','X-CSRF-Token':window.CNCHOME_LIVE.csrf},...(body?{body:JSON.stringify(body)}:{})});const data=await response.json();if(!response.ok)throw Error(data.error||(response.status===401?'로그인 상태를 확인한 뒤 다시 접속해 주세요.':'가접수 조회에 실패했습니다.'));if(!Array.isArray(data.records))throw Error('가접수 응답을 확인하지 못했습니다. 다시 조회해 주세요.');rows=data.records.filter(r=>admin||(Number(r.employeeId)===Number(window.CNCHOME_LIVE.user.id)&&Boolean(r.isTest)===testAccount));counselorNames=Array.isArray(data.counselorNames)?data.counselorNames:[];loaded=true;loadError='';if(body?.action==='edit')clearShared(body.id);for(const id of sharedEditors.keys())if(!rows.some(r=>r.id===id))clearShared(id);if(body){if(body.action==='edit')editDrafts.delete(body.id);else drafts.delete(body.id);feedback=body.action==='edit'?(body.status==='normal'?'정상 접수로 전환했습니다.':body.status==='as'?'A/S로 처리했습니다.':''):body.action==='memo'?'작성 날짜·시간과 함께 메모를 추가했습니다.':'재콜 수정 내용을 관리자 정상접수 확인표로 전달했습니다.';}
+ try{const response=await fetch('/pending-intakes.php?role='+encodeURIComponent(role),{method:body?'POST':'GET',credentials:'same-origin',cache:'no-store',signal:controller.signal,headers:{'Content-Type':'application/json','X-CSRF-Token':window.CNCHOME_LIVE.csrf},...(body?{body:JSON.stringify(body)}:{})});const data=await response.json();if(!response.ok)throw Error(data.error||(response.status===401?'로그인 상태를 확인한 뒤 다시 접속해 주세요.':'가접수 조회에 실패했습니다.'));if(!Array.isArray(data.records))throw Error('가접수 응답을 확인하지 못했습니다. 다시 조회해 주세요.');rows=data.records.filter(r=>admin||(Number(r.employeeId)===Number(window.CNCHOME_LIVE.user.id)&&Boolean(r.isTest)===testAccount));counselorNames=Array.isArray(data.counselorNames)?data.counselorNames:[];staff=Array.isArray(data.staff)?data.staff:[];loaded=true;loadError='';if(body?.action==='edit')clearShared(body.id);for(const id of sharedEditors.keys())if(!rows.some(r=>r.id===id))clearShared(id);if(body){if(body.action==='edit')editDrafts.delete(body.id);else drafts.delete(body.id);feedback=body.action==='edit'?(body.status==='normal'?'정상 접수로 전환했습니다.':body.status==='as'?'A/S로 처리했습니다.':''):body.action==='memo'?'작성 날짜·시간과 함께 메모를 추가했습니다.':'재콜 수정 내용을 관리자 정상접수 확인표로 전달했습니다.';}
  for(const r of rows){const draft=editDrafts.get(r.id);if(draft&&sameFields(draft.base,fieldValues(r)))draft.revision=r.revision;}}
  catch(e){loadError=e.name==='AbortError'?'가접수 조회 시간이 초과됐습니다. 새로고침을 눌러 주세요.':e.message;}finally{clearTimeout(timer);busy=false;if(queued){const next=queued;queued=null;load(next);}else{posting=false;for(const [control,disabled] of lockedControls)control.disabled=disabled;lockedControls.clear();render(!!body);if(body&&loadError){const message=sharedEditors.get(body.id)?.host.querySelector('[data-sales-error]');if(message){message.textContent=loadError;message.dataset.state='error';}}}}
 }
