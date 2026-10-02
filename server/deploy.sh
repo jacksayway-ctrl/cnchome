@@ -49,6 +49,7 @@ run_deploy_step server/bin/check-grade-settings.php
 run_deploy_step server/bin/check-intake-policy.php
 run_deploy_step server/bin/check-performance-reset.php
 run_deploy_step server/bin/check-user1-cleanup.php
+run_deploy_step server/bin/check-automatic-sales-cleanup.php
 run_deploy_step server/bin/check-window-session.php
 deployment_stage=web-config
 publish_deployment_status running
@@ -61,15 +62,8 @@ cp -a /var/www/html "$backup/html"
 if [[ -d /opt/cnchome-runtime ]]; then cp -a /opt/cnchome-runtime "$backup/runtime"; fi
 # Existing additive migrations preserve accounts, grade history and payroll records.
 run_deploy_step server/bin/migrate.php
-run_deploy_step server/bin/provision-test-user.php
-run_deploy_step server/bin/seed-test-data.php
-run_deploy_step server/bin/seed-inspection-data.php
-run_deploy_step server/bin/refresh-test-holiday-pay.php
-run_deploy_step server/bin/seed-five-test-staff.php
-run_deploy_step server/bin/seed-test-normal-range.php
-run_deploy_step server/bin/seed-test-inspection-refresh.php
-run_deploy_step server/bin/seed-test-pending-cards.php
-run_deploy_step server/bin/refresh-test-full-attendance.php
+# Live operation: never recreate demo sales, attendance or payroll on deployment.
+run_deploy_step server/bin/cleanup-automatic-sales.php
 run_deploy_step server/bin/update-personnel-schedule.php
 deployment_stage=runtime-install
 publish_deployment_status running
