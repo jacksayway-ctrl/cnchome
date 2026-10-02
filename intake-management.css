@@ -92,3 +92,5 @@ body.nf-body:not(.nf-popup):is([data-page="adminIntake"],[data-page="adminIntake
  .intake-detail-card>:not(.intake-detail-heading):not(.intake-edit){grid-column:2}
 }
 @media(max-width:700px){.intake-search-group>label{flex-wrap:wrap;gap:3px}.intake-search-group>label>span{width:100%}.intake-search-popover [data-intake-search-results]>a{grid-template-columns:1fr}}
+
+.intake-search-popover [data-intake-search-results] .intake-search-counselor{grid-column:1/-1;color:#173966;font-size:12px}

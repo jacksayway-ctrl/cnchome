@@ -26,11 +26,11 @@
      const fragment=document.createDocumentFragment();
      for(const record of data.records){
       if(!/^(?:\d+|test:\d+:\d+)$/.test(record.id)||!/^\d{4}-\d{2}-\d{2}$/.test(record.date))continue;
-      const link=document.createElement('a'),name=document.createElement('strong'),phone=document.createElement('span'),meta=document.createElement('small');
+      const link=document.createElement('a'),counselor=document.createElement('strong'),name=document.createElement('span'),phone=document.createElement('span'),meta=document.createElement('small');
       const target=new URL('/intake.php',location.origin);target.search=new URLSearchParams({role:'admin',month:record.date.slice(0,7),scope:record.isTest?'test':'real',id:record.id,popup:'1'}).toString();
       link.href=window.CNCWindowSession?.url(target.href)||target.href;
-      name.textContent=record.customer;phone.textContent=record.phone||'연락처 미입력';meta.textContent=[record.isTest?'테스트':'','상담원 '+(record.employee||'미입력'),record.date,({pending:'가접수',normal:'정상접수',as:'A/S'})[record.status]||''].filter(Boolean).join(' · ');
-      link.append(name,phone,meta);link.addEventListener('click',confirmNavigation,true);fragment.append(link);
+      counselor.className='intake-search-counselor';counselor.textContent='상담원 '+(record.employee||'미입력');name.textContent='고객명 '+record.customer;phone.textContent=record.phone||'연락처 미입력';meta.textContent=[record.isTest?'테스트':'',record.date,({pending:'가접수',normal:'정상접수',as:'A/S'})[record.status]||''].filter(Boolean).join(' · ');
+      link.append(counselor,name,phone,meta);link.addEventListener('click',confirmNavigation,true);fragment.append(link);
      }
      if(data.records.length&&fragment.childNodes.length!==data.records.length)throw new Error('검색 응답을 확인하지 못했습니다.');
      results.replaceChildren(fragment);status.textContent=data.records.length?(data.hasMore?'검색 결과 20건 · 검색어를 더 입력하면 좁힐 수 있습니다.':'검색 결과 '+data.records.length+'건'):(options.onEmpty?'일치하는 접수가 없습니다. 신규 가접수로 입력해 주세요.':'일치하는 접수가 없습니다.');
