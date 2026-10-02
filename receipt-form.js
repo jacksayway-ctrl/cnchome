@@ -4,10 +4,15 @@
  const today=()=>new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
  const clock=()=>new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Seoul',hour:'2-digit',minute:'2-digit',second:'2-digit',hourCycle:'h23'}).format(new Date());
  const popup=()=>new URL(global.CNCPageUrl||global.location.href).searchParams.get('intakeWindow')==='1';
+ function staffChoices(staff){
+  const rows=[...new Map(staff.filter(row=>/^\d+$/.test(String(row.id))).map(row=>[String(row.id),row])).values()],counts=new Map();
+  for(const row of rows)counts.set(row.name,(counts.get(row.name)||0)+1);
+  return rows.map(row=>({...row,label:row.name+(counts.get(row.name)>1?' ('+(row.username||row.id)+')':'')}));
+ }
  function markup({admin,staff=[],user,counselorNames=[],editing=false,idPrefix=''}){
-  const defaultCounselor=String(user?.display_name||''),names=[...new Set([defaultCounselor,...counselorNames].filter(name=>typeof name==='string'&&name.trim()))];
-  const counselor=admin?'<select id="receipt-counselor" name="counselorName" data-default-counselor="'+esc(defaultCounselor)+'" required aria-label="상담원 이름">'+(defaultCounselor?'':'<option value="" selected>상담원 선택</option>')+names.map(name=>'<option value="'+esc(name)+'"'+(name===defaultCounselor?' selected':'')+'>'+esc(name)+'</option>').join('')+'</select>':'<input id="receipt-counselor" name="counselorName" value="'+esc(defaultCounselor)+'" readonly tabindex="-1" aria-label="상담원 이름">';
-  const date=today(),owner=admin&&!editing?'<select id="receipt-counselor" name="employeeId" required aria-label="상담원 선택"><option value="">상담원 선택</option>'+staff.map(row=>'<option value="'+esc(row.id)+'" data-team="'+esc(row.team)+'" data-counselor-name="'+esc(row.name)+'">'+esc(row.name)+'</option>').join('')+'</select><input type="hidden" name="counselorName" data-receipt-staff-counselor value="">':counselor;
+  const defaultCounselor=String(user?.display_name||'');
+  const counselor='<input id="receipt-counselor" name="counselorName" value="'+esc(defaultCounselor)+'" readonly tabindex="-1" aria-label="상담원 이름">';
+  const date=today(),owner=admin?'<select id="receipt-counselor" name="employeeId" required aria-label="상담원 선택"><option value="">상담원 선택</option>'+staffChoices(staff).map(row=>'<option value="'+esc(row.id)+'" data-team="'+esc(row.team)+'" data-counselor-name="'+esc(row.name)+'">'+esc(row.label)+'</option>').join('')+'</select><input type="hidden" name="counselorName" data-receipt-staff-counselor value="">':counselor;
   const html=`<form class="receipt-form" data-sales-form data-intake-admin="${admin}" data-request-key="${global.crypto.randomUUID()}">
    <div class="receipt-header"><div><h2 id="receipt-title">접수증${editing?' 수정':''}</h2><p>${editing?'접수 내용을 확인하고 수정해 주세요.':'저장하면 가접수로 등록됩니다.'}</p></div><label class="receipt-input-mode">입력 모드<select data-receipt-input-mode aria-label="문자 입력 모드"><option value="ko" selected>한글 자동</option><option value="en">기본 자판</option></select></label></div>
    <input type="hidden" name="date" value="${date}"><input type="hidden" name="consultationTime" value="${clock().slice(0,5)}"><input type="hidden" name="phone"><input type="hidden" name="birthYear"><input type="hidden" name="birthMonth"><input type="hidden" name="birthDay"><input type="hidden" name="carrier"><input type="hidden" name="callAvailability">
@@ -38,6 +43,9 @@
  function attach(form,{close=()=>{},originalDate='',originalCallAvailability=null,autofocus=true,phoneMode='010',callMode='period'}={}){
   const dialog=form.closest('dialog'),fields=form.elements,date=form.querySelector('[data-receipt-date]'),datePreview=form.querySelector('[data-receipt-date-preview]'),phone=form.querySelector('[data-receipt-phone]'),birthYear=form.querySelector('[data-receipt-birth-year]'),birthMonth=form.querySelector('[data-receipt-birth-month]'),birthDay=form.querySelector('[data-receipt-birth-day]'),periods=[...form.querySelectorAll('[data-receipt-period]')],callTime=form.querySelector('[data-receipt-calltime]');
   if(dialog){dialog.classList.add('receipt-dialog');dialog.setAttribute('aria-labelledby',form.querySelector('.receipt-header h2').id);}
+  form.dataset.receiptDirty='false';
+  for(const eventName of ['input','change'])form.addEventListener(eventName,event=>{if((event.isTrusted||global.document.activeElement===event.target)&&!event.target.closest('[data-intake-side-search]')&&!event.target.matches('[data-receipt-input-mode]'))form.dataset.receiptDirty='true';});
+  form.addEventListener('reset',()=>{form.dataset.receiptDirty='false';});
   const birthInsertionAtEnd=new WeakSet(),initialConsultationTime=fields.consultationTime.value;let callEdited=false;
   if(originalDate){date.value=originalDate.slice(5).replace('-','');date.readOnly=true;date.tabIndex=-1;}
   const fullPhone=phoneMode==='full'||form.dataset.receiptFullPhone==='true',staffCounselor=form.querySelector('[data-receipt-staff-counselor]');

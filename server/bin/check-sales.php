@@ -18,7 +18,7 @@ CREATE TABLE sales_events(id INTEGER PRIMARY KEY AUTOINCREMENT,sale_id INTEGER R
 CREATE TABLE test_employee_data(user_id INTEGER PRIMARY KEY REFERENCES app_users(id),state TEXT,revision INTEGER DEFAULT 1);
 INSERT INTO app_users VALUES(1,'admin','관리자','admin','insurance',1),(2,'one','보험 직원','employee','insurance',1),(3,'two','화장품 직원','employee','cosmetics',1),(4,'user1','테스트 직원','employee','insurance',1);");
 $admin=['id'=>1,'role'=>'admin'];$one=['id'=>2,'role'=>'employee'];$two=['id'=>3,'role'=>'employee'];$today=hr_today();$year=(int)substr($today,0,4);$month=substr($today,0,7);
-// Counselor choices use account data and approval state; they never change receipt ownership.
+// Counselor display names come from account identities and approval state.
 check(sales_counselor_names($one)===['보험 직원'],'employee counselor choices omit other departments and test accounts');
 check(sales_counselor_names($admin)===['관리자','보험 직원','화장품 직원'],'administrator counselor choices include real active employees and the login name');
 check(in_array('테스트 직원',sales_counselor_names(['id'=>4,'role'=>'employee']),true),'test login keeps its own default counselor');
@@ -28,11 +28,12 @@ $d->exec('DELETE FROM employee_memberships WHERE user_id IN (51,52,53); DELETE F
 foreach([60=>'general',61=>'silver',62=>'silver',70=>'silver'] as $age=>$kind)check(sales_kind($year-$age+1,$today)===$kind,'counting-age boundary '.$age);
 rejects(fn()=>sales_kind($year-70,$today),'age 71');rejects(fn()=>sales_kind($year+1,$today),'future birth');
 $create=['action'=>'create','duplicateConfirmed'=>true,'counselorName'=>'변경 상담원','date'=>$today,'customer'=>'가상 검증','phone'=>'010-0000-0000','address'=>'검증용 주소','carrier'=>'GA','birthYear'=>$year-60,'requestKey'=>'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa','consultationTime'=>'14:30','consultationPlace'=>'검증용 상담 장소','premiumBand'=>'200000','gender'=>'여','callAvailability'=>'오후 2시~5시','visitSchedule'=>'금요일 3시, 상담실'];
-sales_mutate($one,$create+['employeeId'=>3]);$r=sales_snapshot($one,$month)['records'][0];
+rejects(fn()=>sales_mutate($one,$create+['employeeId'=>3]),'employee cannot forge another receipt owner');
+sales_mutate($one,$create);$r=sales_snapshot($one,$month)['records'][0];
 check($r['employeeId']===2&&$r['kind']==='silver'&&$r['status']==='pending','server owns employee assignment and age classification');
 check($r['consultationTime']==='14:30'&&$r['consultationPlace']==='검증용 상담 장소'&&$r['premiumBand']==='200000','consultation fields round-trip through database');
 check($r['gender']==='여'&&$r['callAvailability']==='오후 2시~5시'&&$r['visitSchedule']==='금요일 3시, 상담실'&&$r['receivedAt']!=='','receipt fields and server timestamp survive database reload');
-check($r['counselorName']==='변경 상담원','editable counselor survives database reload without changing employee ownership');
+check($r['counselorName']==='보험 직원','posted counselor text cannot override the authenticated account identity');
 sales_mutate($one,$create);check(count(sales_snapshot($one,$month)['records'])===1,'retry does not duplicate');
 check((int)$d->query('SELECT count(*) FROM sales_consultation_details')->fetchColumn()===1,'retry does not duplicate consultation details');
 check(count(sales_snapshot($two,$month)['records'])===0,'employee data isolation');

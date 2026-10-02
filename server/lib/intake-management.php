@@ -101,6 +101,7 @@ function intake_update(array $user,array $in): void {
                 $q=$d->prepare('UPDATE sales_records SET status=?,carrier=?,revision=revision+1,updated_at=UTC_TIMESTAMP(6) WHERE id=?');$q->execute([$status,$carrier,(int)$id]);
                 intake_audit($id,$user,$action,$before,$after,$reason);
             }else{
+                $employee=sales_edit_employee($user,$in,(int)$row['employee_id'],(bool)$row['is_test']);$in['counselorName']=$employee['display_name'];
                 $fields=['customer_name'=>['customer',100],'phone'=>['phone',20],'carrier'=>['carrier',100],'note'=>['note',1000]];$next=[];
                 foreach($fields as $column=>[$key,$max])$next[$column]=intake_text($in[$key]??'',$max);
                 hr_assert($next['customer_name']!==''&&preg_match('/^[0-9-]{9,15}$/D',$next['phone']),'고객명과 전화번호를 확인해 주세요.');
@@ -118,17 +119,17 @@ function intake_update(array $user,array $in): void {
                     if($birthDate!==''){
                         hr_assert(hr_day($birthDate)&&$birthDate<=$row['first_date'],'생년월일은 올바른 날짜이며 최초 접수일 이전이어야 합니다.');$birthYear=(int)substr($birthDate,0,4);
                         hr_assert($birthYear>=1900,'출생연도를 확인해 주세요.');
-                        $afterBirth=['birth_date'=>$birthDate,'birth_year'=>$birthYear,'insurance_kind'=>$row['department']==='insurance'?sales_kind($birthYear,$row['first_date']):''];
+                        $afterBirth=['birth_date'=>$birthDate,'birth_year'=>$birthYear,'insurance_kind'=>$employee['department']==='insurance'?sales_kind($birthYear,$row['first_date']):''];
                     }
                 }
                 $manualKind=intake_text($in['insuranceKind']??'',10);hr_assert(in_array($manualKind,['','general','silver'],true),'일반 또는 실버를 선택해 주세요.');
-                if(($in['insuranceKindMode']??'')==='age')$afterBirth['insurance_kind']=$row['department']==='insurance'&&$afterBirth['birth_year']>=1900?sales_kind($afterBirth['birth_year'],$row['first_date']):'';
-                elseif($manualKind!==''){hr_assert($row['department']==='insurance','보험팀 접수에서만 상품 구분을 변경할 수 있습니다.');$afterBirth['insurance_kind']=$manualKind;}
+                if(($in['insuranceKindMode']??'')==='age'||$employee['department']!==$row['department'])$afterBirth['insurance_kind']=$employee['department']==='insurance'&&$afterBirth['birth_year']>=1900?sales_kind($afterBirth['birth_year'],$row['first_date']):'';
+                elseif($manualKind!==''){hr_assert($employee['department']==='insurance','보험팀 접수에서만 상품 구분을 변경할 수 있습니다.');$afterBirth['insurance_kind']=$manualKind;}
                 elseif($afterBirth['birth_date']===$beforeBirth['birth_date'])$afterBirth['insurance_kind']=$beforeBirth['insurance_kind'];
                 $before=[];foreach(array_keys($next) as $column)$before[$column]=(string)$row[$column];
-                $before+=$beforeReceipt+$beforeBirth+['consultation_time'=>(string)($details['consultation_time']??''),'consultation_place'=>(string)($details['consultation_place']??''),'premium_band'=>(string)($details['premium_band']??''),'status'=>$row['status']];
-                $after=$next+$receipt+$afterBirth+['consultation_time'=>$time,'consultation_place'=>$place,'premium_band'=>$band,'status'=>$status];hr_assert($before!==$after,'변경된 내용이 없습니다.');
-                $q=$d->prepare('UPDATE sales_records SET customer_name=?,phone=?,carrier=?,note=?,birth_year=?,insurance_kind=?,status=?,revision=revision+1,updated_at=UTC_TIMESTAMP(6) WHERE id=?');$q->execute([$next['customer_name'],$next['phone'],$next['carrier'],$next['note'],$afterBirth['birth_year'],$afterBirth['insurance_kind'],$status,(int)$id]);
+                $before+=$beforeReceipt+$beforeBirth+['employee_id'=>(int)$row['employee_id'],'department'=>$row['department'],'consultation_time'=>(string)($details['consultation_time']??''),'consultation_place'=>(string)($details['consultation_place']??''),'premium_band'=>(string)($details['premium_band']??''),'status'=>$row['status']];
+                $after=$next+$receipt+$afterBirth+['employee_id'=>(int)$employee['id'],'department'=>$employee['department'],'consultation_time'=>$time,'consultation_place'=>$place,'premium_band'=>$band,'status'=>$status];hr_assert($before!==$after,'변경된 내용이 없습니다.');
+                $q=$d->prepare('UPDATE sales_records SET employee_id=?,department=?,customer_name=?,phone=?,carrier=?,note=?,birth_year=?,insurance_kind=?,status=?,revision=revision+1,updated_at=UTC_TIMESTAMP(6) WHERE id=?');$q->execute([(int)$employee['id'],$employee['department'],$next['customer_name'],$next['phone'],$next['carrier'],$next['note'],$afterBirth['birth_year'],$afterBirth['insurance_kind'],$status,(int)$id]);
                 if($afterBirth['birth_date']!==$beforeBirth['birth_date']){
                     $q=$d->prepare($storedBirth===false?'INSERT INTO sales_birth_details(birth_date,sale_id) VALUES(?,?)':'UPDATE sales_birth_details SET birth_date=? WHERE sale_id=?');$q->execute([$afterBirth['birth_date'],(int)$id]);
                 }
@@ -162,7 +163,7 @@ function intake_live_search(array $user,string $query,string $scope='real'): arr
     $needle=$phoneQuery?$digits:$query;if($needle==='')return ['records'=>[],'hasMore'=>false];
     $pattern='%'.str_replace(['!','%','_'],['!!','!%','!_'],$needle).'%';
     $column=$phoneQuery?"REPLACE(REPLACE(s.phone,'-',''),' ','')":'s.customer_name';
-    $sql="SELECT s.id,s.first_date AS date,s.customer_name AS customer,s.phone,s.status,s.is_test,u.display_name AS employee,COALESCE(cc.counselor_name,'') AS counselorName FROM sales_records s JOIN app_users u ON u.id=s.employee_id LEFT JOIN sales_counselor_details cc ON cc.sale_id=s.id WHERE ".$column." LIKE ? ESCAPE '!'";
+    $sql="SELECT s.id,s.first_date AS date,s.customer_name AS customer,s.phone,s.status,s.is_test,s.employee_id AS employeeId,u.display_name AS employee,u.display_name AS counselorName FROM sales_records s JOIN app_users u ON u.id=s.employee_id WHERE ".$column." LIKE ? ESCAPE '!'";
     $params=[$pattern];if($scope!=='all'){$sql.=' AND s.is_test=?';$params[]=$scope==='test'?1:0;}
     $q=db()->prepare($sql.' ORDER BY s.first_date DESC,s.id DESC LIMIT 21');$q->execute($params);$rows=[];
     foreach($q->fetchAll() as $row){$row['id']=(string)$row['id'];$row['isTest']=(bool)$row['is_test'];unset($row['is_test']);$rows[]=$row;}
@@ -171,7 +172,7 @@ function intake_live_search(array $user,string $query,string $scope='real'): arr
         foreach($q->fetchAll() as $owner)foreach(json_decode($owner['state'],true,512,JSON_THROW_ON_ERROR)['sales']??[] as $sale){
             $value=$phoneQuery?sales_phone_key((string)($sale['phone']??'')):mb_strtolower((string)($sale['name']??''));
             if(!str_contains($value,mb_strtolower($needle)))continue;
-            $rows[]=['id'=>'test:'.$owner['user_id'].':'.$sale['id'],'date'=>$sale['date'],'customer'=>$sale['name'],'phone'=>$sale['phone']??'','status'=>['가접수'=>'pending','정상'=>'normal','A/S'=>'as'][$sale['status']]??'pending','employee'=>$owner['employee'],'counselorName'=>$sale['counselorName']??'','isTest'=>true];
+            $rows[]=['id'=>'test:'.$owner['user_id'].':'.$sale['id'],'date'=>$sale['date'],'customer'=>$sale['name'],'phone'=>$sale['phone']??'','status'=>['가접수'=>'pending','정상'=>'normal','A/S'=>'as'][$sale['status']]??'pending','employee'=>$owner['employee'],'counselorName'=>$owner['employee'],'employeeId'=>(int)$owner['user_id'],'isTest'=>true];
         }
     }
     usort($rows,fn($a,$b)=>strcmp($b['date'],$a['date'])?:strnatcmp($b['id'],$a['id']));

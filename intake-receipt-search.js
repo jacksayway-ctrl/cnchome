@@ -28,7 +28,7 @@
       const link=document.createElement('a'),name=document.createElement('strong'),phone=document.createElement('span'),meta=document.createElement('small');
       const target=new URL('/intake.php',location.origin);target.search=new URLSearchParams({role:'admin',month:record.date.slice(0,7),scope:record.isTest?'test':'real',id:record.id,popup:'1'}).toString();
       link.href=window.CNCWindowSession?.url(target.href)||target.href;
-      name.textContent=record.customer;phone.textContent=record.phone||'연락처 미입력';meta.textContent=[record.isTest?'테스트':'','상담원 '+(record.counselorName||record.employee||'미입력'),record.date,({pending:'가접수',normal:'정상접수',as:'A/S'})[record.status]||''].filter(Boolean).join(' · ');
+      name.textContent=record.customer;phone.textContent=record.phone||'연락처 미입력';meta.textContent=[record.isTest?'테스트':'','상담원 '+(record.employee||'미입력'),record.date,({pending:'가접수',normal:'정상접수',as:'A/S'})[record.status]||''].filter(Boolean).join(' · ');
       link.append(name,phone,meta);link.addEventListener('click',confirmNavigation,true);fragment.append(link);
      }
      if(data.records.length&&fragment.childNodes.length!==data.records.length)throw new Error('검색 응답을 확인하지 못했습니다.');

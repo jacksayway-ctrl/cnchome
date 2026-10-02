@@ -30,7 +30,7 @@ $preserved=$birthEditRecord();check($preserved['birthDate']===''&&$preserved['bi
 $beforeInsert=$birthEditState();
 try{intake_update(['id'=>999,'role'=>'admin'],$birthEditInput()+['birthDate'=>'1960-02-29']);throw new RuntimeException('Expected audit failure');}catch(PDOException $e){}
 check($birthEditState()===$beforeInsert,'audit failure rolls back the new birthday detail, derived kind and revision');
-$birthOnly=$birthEditInput()+['birthDate'=>'1960-02-29','birthYear'=>'2000','employeeId'=>'3','date'=>'2026-10-01'];
+$birthOnly=$birthEditInput()+['birthDate'=>'1960-02-29','birthYear'=>'2000','employeeId'=>'2','date'=>'2026-10-01'];
 rejects(fn()=>intake_update($one,$birthOnly),'employee cannot use administrator birth editing');
 intake_update($admin,$birthOnly);$silver=$birthEditRecord();
 check($silver['birthDate']==='1960-02-29'&&$silver['birthYear']===1960&&$silver['kind']==='silver','valid leap birthday supplies birth year and changes age 60 to age 61 silver');

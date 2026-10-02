@@ -32,6 +32,8 @@ publish_deployment_status running
 while IFS= read -r -d '' file; do php -l "$file" >/dev/null; done < <(find server -name '*.php' -type f -print0)
 run_deploy_step server/bin/check-views.php
 run_deploy_step server/bin/check-intake-management.php
+run_deploy_step server/bin/check-receipt-identity.php
+run_deploy_step server/bin/check-receipt-identity-repair.php
 run_deploy_step server/bin/check-account-transfer.php
 run_deploy_step server/bin/check-intake-birth-edit.php
 run_deploy_step server/bin/check-address-search.php
@@ -109,5 +111,6 @@ printf 'PHP 화면 배포 완료. 백업: %s\n' "$backup"
 run_deploy_step server/bin/clear-hantest-performance.php
 run_deploy_step server/bin/cleanup-user1.php
 run_deploy_step server/bin/transfer-lee001-to-lsh.php
+run_deploy_step server/bin/repair-receipt-identities.php
 deployment_stage=complete
 publish_deployment_status complete

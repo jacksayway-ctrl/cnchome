@@ -62,6 +62,8 @@
   pending.set(panel,task);return task;
  }
  function start(){
+  const saved=document.querySelector('[data-intake-saved]');
+  if(saved&&!saved.dataset.notified){saved.dataset.notified='1';window.dispatchEvent(new Event('cnc:sales-changed'));try{window.localStorage.setItem('cnchome.sales.changed',Date.now()+':'+crypto.randomUUID());}catch(_){}}
   for(const row of document.querySelectorAll('[data-intake-row]')){const {detail}=parts(row);if(detail&&!detail.hidden)load(row);}
   for(const panel of document.querySelectorAll('[data-intake-detail-panel]'))if(!panel.closest('[data-intake-detail]'))loadStandalone(panel);
  }

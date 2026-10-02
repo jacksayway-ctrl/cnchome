@@ -24,13 +24,19 @@
   const search=host.closest('[data-intake-detail-panel]')?.querySelector('[data-intake-side-search]');
   search?.remove();
   active.get(host)?.();
-  target.innerHTML=global.ReceiptForm.markup({admin:true,editing:true,idPrefix:'receipt-edit-'+record.id,staff:[],user:{display_name:record.counselorName},counselorNames:payload.counselorNames||[]});
+  const legacy=String(record.id).startsWith('test:');
+  const staff=(Array.isArray(payload.staff)?payload.staff:[]).filter(row=>String(row.id)===String(record.employeeId)||(!legacy&&Boolean(row.isTest)===Boolean(record.isTest)));
+  if(/^\d+$/.test(String(record.employeeId))&&!staff.some(row=>String(row.id)===String(record.employeeId)))staff.push({id:record.employeeId,name:record.employee||'직원명 미입력',team:record.team,username:record.employeeUsername||'',isTest:record.isTest});
+  target.innerHTML=global.ReceiptForm.markup({admin:true,editing:true,idPrefix:'receipt-edit-'+record.id,staff,user:{display_name:record.employee}});
   const form=target.querySelector('form');form.method='post';form.action=action.href;form.classList.add('intake-form');form.dataset.intakeEditForm='';if(options.submit)form.removeAttribute('data-sales-form');
   form.append(nativeHidden.content.cloneNode(true));
   for(const name of ['customer','consultationTime','consultationPlace','visitSchedule','carrier','callAvailability'])inputValue(form,name,record[name]);
-  const counselor=form.elements.counselorName;
-  if(!record.counselorName){counselor.required=false;counselor.options[0].textContent='미입력';}
-  const owner=document.createElement('small');owner.className='receipt-owner-original';owner.textContent='담당 직원: '+record.employee;form.querySelector('.receipt-counselor').append(owner);
+  const employee=form.elements.employeeId;employee.value=String(record.employeeId??'');
+  for(const option of employee.options)option.defaultSelected=option.value===employee.value;
+  const selectedStaff=()=>staff.find(row=>String(row.id)===employee.value);
+  const owner=document.createElement('small');owner.className='receipt-owner-original';form.querySelector('.receipt-counselor').append(owner);
+  function syncOwner(){const selected=selectedStaff();owner.textContent=selected?'담당 직원: '+selected.name:'담당 직원을 선택해 주세요.';}
+  employee.addEventListener('change',syncOwner);syncOwner();
   const storedTime=document.createElement('input');storedTime.type='time';storedTime.name='consultationTime';storedTime.dataset.receiptClock='';storedTime.className='receipt-stored-time';storedTime.value=record.consultationTime;storedTime.defaultValue=storedTime.value;storedTime.setAttribute('aria-label','상담 시간');form.elements.consultationTime.remove();form.querySelector('[data-receipt-clock]').replaceWith(storedTime);
   const date=form.querySelector('[data-receipt-date]');date.value=record.date.slice(5).replace('-','');date.defaultValue=date.value;date.readOnly=true;date.tabIndex=-1;
   const fullPhone=!/^010-?\d{4}-?\d{4}$/.test(record.phone),phone=form.querySelector('[data-receipt-phone]');
@@ -49,7 +55,17 @@
   if(!radioValue(form,'premiumBand',record.premiumBand))extraRadio(form.querySelector('.receipt-premium'),'premiumBand','','미입력');
   const call=form.querySelector('[data-receipt-calltime]'),callMatch=/^(오전|오후)(?:\s+(.*))?$/.exec(record.callAvailability);
   radioValue(form,'receiptPeriod',callMatch?.[1]||'');call.value=callMatch?.[2]||(!callMatch?record.callAvailability:'');call.defaultValue=call.value;
-  radioValue(form,'note','한화');
+  // Preserve saved insurer and old free-text memos until the user chooses a replacement.
+  const originalNote=String(record.note??''),originalCarrier=String(record.carrier??'');
+  const insurer=value=>({ga:'ga','한화':'hanwha',hanwha:'hanwha','신한':'shinhan',shinhan:'shinhan'})[value.replace(/[\s/.]/g,'').toLowerCase()]||'';
+  const selectedMemo=[...form.querySelectorAll('[data-receipt-carrier]')].find(input=>input.dataset.receiptCarrier===insurer(originalNote));
+  radioValue(form,'note',selectedMemo?.value??'');
+  if(selectedMemo){selectedMemo.value=originalNote;selectedMemo.defaultChecked=true;}
+  else{
+   const preservedMemo=extraRadio(form.querySelector('.receipt-note'),'note',originalNote,originalNote?'기존 메모 유지':'미입력');
+   preservedMemo.dataset.receiptCarrier=insurer(originalCarrier);preservedMemo.dataset.receiptCarrierLabel=originalCarrier;
+  }
+  form.dataset.receiptCarrierOriginal=originalCarrier;
   // Use the same live birthday classification as the registration receipt.
   hidden(form,'insuranceKindMode','age');
   const adminFields=document.createElement('div');adminFields.className='receipt-admin-controls';
@@ -64,7 +80,7 @@
   function close(){if(options.close){options.close();return;}const row=host.closest('[data-intake-detail]');const toggle=row?.previousElementSibling?.querySelector('[data-intake-toggle]');if(toggle)toggle.click();else host.closest('details')?.removeAttribute('open');}
   const detachReceipt=global.ReceiptForm.attach(form,{originalDate:record.date,originalCallAvailability:record.callAvailability,phoneMode:fullPhone?'full':'mobile',autofocus:false,close});
   global.ConsultationLocation?.attach(form);
-  const detachDetails=global.IntakeDetails.attach(form,{team:()=>record.team});
+  const detachDetails=global.IntakeDetails.attach(form,{team:()=>selectedStaff()?.team||record.team});
   form.addEventListener('input',syncBirth);form.addEventListener('change',syncBirth);form.addEventListener('submit',syncBirth);syncBirth();
   if(options.submit)form.addEventListener('submit',event=>{event.preventDefault();event.stopPropagation();syncBirth();if(form.reportValidity())options.submit(form);});
   global.CNCWindowSession?.decorateForm(form);

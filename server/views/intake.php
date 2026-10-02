@@ -2,13 +2,6 @@
 $popup=$popup??false;$recallQueue=$recallQueue??[];
 $teams=[''=>'전체 부서','insurance'=>'보험팀','cosmetics'=>'화장품팀','health'=>'건강보조식품팀'];$statuses=[''=>'전체 상태','pending'=>'가접수','normal'=>'정상접수','as'=>'A/S'];$premium=[''=>'미입력','100000'=>'10만 원 이상','200000'=>'20만 원 이상','300000'=>'30만 원 이상'];
 $eh=fn(mixed $v):string=>view_h((string)$v);
-$field=function(string $name,string $label,mixed $value='',string $type='text',int $max=100,bool $required=false)use($eh){echo '<label class="nf-field">'.$eh($label).'<input type="'.$eh($type).'" name="'.$eh($name).'" value="'.$eh($value).'" maxlength="'.$max.'"'.($required?' required':'').'></label>';};
-$receiptFields=function(array $v)use($field,$eh,$user,$mode,$snapshot){
-    $selected=(string)($v['counselorName']??($mode==='new'?($user['display_name']??''):''));
-    $names=array_values(array_unique(array_merge([$selected],$snapshot['counselorNames']??[])));
-    echo '<label class="nf-field">상담원<select name="counselorName" aria-label="상담원 이름">';
-    foreach($names as $name)echo '<option value="'.$eh($name).'"'.($name===$selected?' selected':'').'>'.$eh($name===''?'미입력':$name).'</option>';
-    echo '</select></label>';echo '<label class="nf-field">성별<select name="gender">';foreach([''=>'미입력','남'=>'남','여'=>'여'] as $value=>$label)echo '<option value="'.$value.'"'.(($v['gender']??'')===$value?' selected':'').'>'.$label.'</option>';echo '</select></label>';$field('callAvailability','통화 가능시간',$v['callAvailability']??'','text',200);$field('visitSchedule','방문 일정·장소',$v['visitSchedule']??'','text',500);};
 ?>
 <?php if(!empty($detailFragment)): if($selected): $r=$selected;require __DIR__.'/partials/intake-detail.php';endif;return;endif ?>
 <?php $receiptScripts=['korea-regions.js','korea-localities.js','intake-codes.js','region-rules.js','policy-sync.js','consultation-location.js','intake-details.js','hangul.js','korean-input.js','road-address.js']; ?>
@@ -22,7 +15,7 @@ $receiptFields=function(array $v)use($field,$eh,$user,$mode,$snapshot){
 <script src="<?= $eh(asset_url('intake-management.js')) ?>" defer></script>
 <?php endif ?>
 <?php if($error): ?><p class="nf-alert nf-error" role="alert"><?= $eh($error) ?></p><?php endif ?>
-<?php if($notice): ?><p class="nf-alert nf-success" role="status"><?= $eh($notice) ?></p><?php endif ?>
+<?php if($notice): ?><p class="nf-alert nf-success" role="status" data-intake-saved><?= $eh($notice) ?></p><?php endif ?>
 <?php if($mode==='new'): ?>
 <section class="nf-card admin-intake-register-card" aria-label="신규 접수증">
 <script type="application/json" id="admin-intake-register-data"><?= view_json($registrationData) ?></script>

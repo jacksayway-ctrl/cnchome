@@ -12,7 +12,7 @@ try {
         $in=json_decode($raw,true,32,JSON_THROW_ON_ERROR);hr_assert(is_array($in),'입력 내용을 확인해 주세요.');sales_mutate($user,$in);
     }elseif($_SERVER['REQUEST_METHOD']!=='GET')sales_reply(405,['error'=>'허용되지 않은 요청입니다.']);
     $result=sales_snapshot($user,$month);
-    if(($in['action']??'')==='create'){$q=db()->prepare('SELECT s.customer_name,cc.counselor_name FROM sales_records s LEFT JOIN sales_counselor_details cc ON cc.sale_id=s.id WHERE s.request_key=?');$q->execute([$in['requestKey']]);$saved=$q->fetch();if($saved)$result['savedReceipt']=['customer'=>$saved['customer_name'],'counselorName'=>$saved['counselor_name']??''];}
+    if(($in['action']??'')==='create'){$q=db()->prepare('SELECT s.customer_name,u.display_name AS counselor_name FROM sales_records s JOIN app_users u ON u.id=s.employee_id WHERE s.request_key=?');$q->execute([$in['requestKey']]);$saved=$q->fetch();if($saved)$result['savedReceipt']=['customer'=>$saved['customer_name'],'counselorName'=>$saved['counselor_name']??''];}
     sales_reply(200,$result);
 }catch(SalesDuplicate $e){sales_reply(409,['duplicate'=>true,'duplicateCount'=>$e->count,'error'=>$e->getMessage()]);}
 catch(HRForbidden $e){sales_reply(403,['error'=>$e->getMessage()]);}

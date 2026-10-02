@@ -38,8 +38,7 @@ try{
     $requestKey=$posted['requestKey']??sprintf('%s-%s-%s-%s-%s',bin2hex(random_bytes(4)),bin2hex(random_bytes(2)),bin2hex(random_bytes(2)),bin2hex(random_bytes(2)),bin2hex(random_bytes(6)));
     $registrationData=null;
     if($mode==='new'){
-        $staffFlags=[];foreach(db()->query("SELECT id,username,display_name,role FROM app_users WHERE role='employee' AND active=1")->fetchAll() as $staffAccount)$staffFlags[(int)$staffAccount['id']]=cnc_test_user($staffAccount);
-        $staff=$snapshot['staff'];foreach($staff as &$person)$person['isTest']=$staffFlags[(int)$person['id']]??false;unset($person);
+        $staff=$snapshot['staff'];
         $registrationData=['user'=>array_intersect_key($user,array_flip(['id','role','display_name','department'])),'csrf'=>(string)($_SESSION['csrf']??''),'staff'=>$staff,'counselorNames'=>$snapshot['counselorNames'],'listUrl'=>intake_url(),'employeeId'=>$filters['employee']];
     }
     native_start('접수관리',$user,$mode==='new'?'adminIntakeRegister':'adminIntake',['intake-management.css','receipt-form.css'],$popup);require view_root().'/intake.php';native_end();
