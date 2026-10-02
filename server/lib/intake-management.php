@@ -43,7 +43,7 @@ function intake_audit(string $id,array $user,string $action,array $before,array 
 }
 // The memo is versioned with the receipt edit, so its value and author/time commit together.
 function intake_premium_memo(string $id): string {
-    $q=db()->prepare("SELECT after_data FROM intake_management_events WHERE record_key=? AND action='edit' ORDER BY id DESC");$q->execute([$id]);
+    $q=db()->prepare("SELECT after_data FROM intake_management_events WHERE record_key=? AND action IN ('edit','create') ORDER BY id DESC");$q->execute([$id]);
     while($json=$q->fetchColumn()){$after=json_decode($json,true,512,JSON_THROW_ON_ERROR);if(array_key_exists('premiumMemo',$after))return (string)$after['premiumMemo'];}
     return '';
 }
@@ -171,7 +171,7 @@ function intake_update(array $user,array $in): void {
 }
 function intake_create(array $user,array $post): array {
     intake_admin($user);$in=['action'=>'create','employeeId'=>intake_number($post['employeeId']??0)];
-    foreach(['date'=>10,'customer'=>100,'phone'=>20,'birthDate'=>10,'carrier'=>100,'note'=>1000,'consultationTime'=>5,'consultationPlace'=>500,'premiumBand'=>6,'requestKey'=>36,'gender'=>4,'callAvailability'=>200,'visitSchedule'=>500,'counselorName'=>100] as $key=>$max)$in[$key]=intake_text($post[$key]??'',$max);
+    foreach(['date'=>10,'customer'=>100,'phone'=>20,'birthDate'=>10,'carrier'=>100,'note'=>1000,'premiumMemo'=>500,'consultationTime'=>5,'consultationPlace'=>500,'premiumBand'=>6,'requestKey'=>36,'gender'=>4,'callAvailability'=>200,'visitSchedule'=>500,'counselorName'=>100] as $key=>$max)$in[$key]=intake_text($post[$key]??'',$max);
     hr_assert(hr_day($in['birthDate']),'생년월일을 입력해 주세요.');[$in['birthYear'],$in['birthMonth'],$in['birthDay']]=explode('-',$in['birthDate']);
     $in['duplicateConfirmed']=($post['duplicateConfirmed']??'')==='1';sales_mutate($user,$in);$q=db()->prepare('SELECT id,is_test FROM sales_records WHERE request_key=?');$q->execute([$in['requestKey']]);return $q->fetch();
 }

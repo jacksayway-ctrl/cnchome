@@ -36,9 +36,10 @@ check(count(array_filter($filtered,fn($r)=>$r['isTest']))===0,'test rows stay ou
 check(count(intake_filtered($snapshot['records'],intake_filters(['month'=>$month,'scope'=>'test'])))>0,'test records remain accessible separately');
 rejects(fn()=>intake_filters(['month'=>$month,'from'=>'2000-01-01']),'date filter cannot silently cross month');
 check(intake_csv_cell('=HYPERLINK("bad")')[0]==="'"&&intake_csv_cell("\t+123")[0]==="'",'CSV export blocks formula injection');
-$created=intake_create($admin,['employeeId'=>'2','date'=>$today,'customer'=>'관리자 접수','phone'=>'010-9999-8888','birthDate'=>'1990-01-01','requestKey'=>'11111111-aaaa-aaaa-aaaa-aaaaaaaaaaaa']);
+$created=intake_create($admin,['premiumMemo'=>'신규 보험료 메모','employeeId'=>'2','date'=>$today,'customer'=>'관리자 접수','phone'=>'010-9999-8888','birthDate'=>'1990-01-01','requestKey'=>'11111111-aaaa-aaaa-aaaa-aaaaaaaaaaaa']);
 $retry=intake_create($admin,['employeeId'=>'2','date'=>$today,'customer'=>'관리자 접수','phone'=>'010-9999-8888','birthDate'=>'1990-01-01','requestKey'=>'11111111-aaaa-aaaa-aaaa-aaaaaaaaaaaa']);
 check($created['id']===$retry['id'],'native registration is retry-safe');
+check(intake_premium_memo((string)$created['id'])==='신규 보험료 메모','registration memo survives reload and retry');
 // Render the actual detail page with untrusted customer text.
 $snapshot=sales_snapshot($admin,$month);$rows=intake_filtered($snapshot['records'],$filters);$list=$rows;$selected=array_values(array_filter($snapshot['records'],fn($r)=>$r['id']==='1'))[0];
 $user=$admin;$mode='list';$error='';$notice='';$posted=[];$total=count($rows);$pages=1;$testCount=1;$counts=['pending'=>0,'normal'=>0,'as'=>1];$history=intake_history($admin,'1');$_SESSION=['csrf'=>'fixture-token'];
