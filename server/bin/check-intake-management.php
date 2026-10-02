@@ -247,6 +247,9 @@ $searchRecords=[
     array_replace($searchBase,['id'=>'search-test','customer'=>'김고객','phone'=>'010-5555-1234','isTest'=>true]),
 ];
 $searchFilters=intake_filters(['month'=>$month,'scope'=>'real']);
+check(intake_filters([])['month']==='all','default intake list includes all months');
+check(count(intake_filtered($searchRecords,intake_filters([])))===5,'all-month list includes prior receipts and preserves real scope');
+check(count(intake_filtered($searchRecords,intake_filters(['month'=>$month])))===4,'explicit month still filters list');
 $matchedNames=array_column(intake_filtered($searchRecords,array_replace($searchFilters,['q'=>'김고객'])),'id');sort($matchedNames);
 check($matchedNames===['search-a','search-b','search-d'],'name search shows every same-name receipt, including stored duplicate labels');
 $matchedPhones=array_column(intake_filtered($searchRecords,array_replace($searchFilters,['q'=>'(010) 5555-1234'])),'id');sort($matchedPhones);

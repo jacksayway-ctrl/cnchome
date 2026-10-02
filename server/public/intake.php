@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-require __DIR__.'/_runtime.php';require_once CNC_RUNTIME_DIR.'/native.php';require_once CNC_RUNTIME_DIR.'/intake-management.php';
+require __DIR__.'/_runtime.php';require_once CNC_RUNTIME_DIR.'/native.php';require_once CNC_RUNTIME_DIR.'/pending-intakes.php';
 $detailFragment=($_GET['detail']??'')==='1';
 try{
     session_boot();$user=current_user();if(!$user){if($detailFragment){http_response_code(401);exit;}header('Location: /login.php?role=admin');exit;}intake_admin($user);
@@ -15,7 +15,7 @@ try{
         }catch(SalesDuplicate $e){http_response_code(409);$error=$e->getMessage();$duplicateCount=$e->count;$posted=array_filter($_POST,'is_string');}
         catch(InvalidArgumentException $e){http_response_code(422);$error=$e->getMessage();$posted=array_filter($_POST,'is_string');}
     }elseif($_SERVER['REQUEST_METHOD']!=='GET'){http_response_code(405);header('Allow: GET, POST');exit;}
-    $snapshot=sales_snapshot($user,$filters['month']);$rows=intake_filtered($snapshot['records'],$filters);$total=count($rows);$pages=max(1,(int)ceil($total/30));$filters['p']=min($filters['p'],$pages);
+    $snapshot=$filters['month']==='all'?pending_intake_snapshot($user,true):sales_snapshot($user,$filters['month']);$rows=intake_filtered($snapshot['records'],$filters);$total=count($rows);$pages=max(1,(int)ceil($total/30));$filters['p']=min($filters['p'],$pages);
     $id=intake_text($_GET['id']??'',60);$selected=null;foreach($snapshot['records'] as $row)if($row['id']===$id)$selected=$row;
     if($id&&!$selected){http_response_code(404);$error='선택한 월에서 접수 내역을 찾을 수 없습니다.';}
     if($detailFragment){
@@ -33,7 +33,7 @@ try{
         foreach($rows as $r)fputcsv($out,array_map('intake_csv_cell',[$r['id'],$r['date'],$r['employee'],$r['counselorName']??'',department_label($r['team']),$r['customer'],$r['phone']??'',($r['birthDate']??'')?:($r['birthYear']??''),$r['carrier']??'',$r['consultationTime']??'',$r['consultationPlace']??'',$r['gender']??'',$r['callAvailability']??'',$r['visitSchedule']??'',$r['premiumBand']??'',$r['note']??'',intake_status($r['status']),$r['isTest']?'테스트':'운영']),',','"','');fclose($out);exit;
     }
     $history=$selected?intake_history($user,$id):[];$recallQueue=$mode==='list'&&!$popup?intake_recall_queue($user,$filters):[];$counts=['pending'=>0,'normal'=>0,'as'=>0];$summaryRows=intake_filtered($snapshot['records'],array_replace($filters,['status'=>'']));foreach($summaryRows as $r)$counts[$r['status']]++;
-    $testCount=count(array_filter($snapshot['records'],fn($r)=>$r['isTest']&&str_starts_with($r['date'],$filters['month'])));
+    $testCount=count(array_filter($snapshot['records'],fn($r)=>$r['isTest']&&($filters['month']==='all'||str_starts_with($r['date'],$filters['month']))));
     $notice=$_SESSION['intake_notice']??'';unset($_SESSION['intake_notice']);
     $requestKey=$posted['requestKey']??sprintf('%s-%s-%s-%s-%s',bin2hex(random_bytes(4)),bin2hex(random_bytes(2)),bin2hex(random_bytes(2)),bin2hex(random_bytes(2)),bin2hex(random_bytes(6)));
     $registrationData=null;

@@ -7,12 +7,12 @@ function intake_text(mixed $value,int $max): string {hr_assert(is_string($value)
 function intake_number(mixed $value): int {hr_assert((is_string($value)&&ctype_digit($value))||is_int($value),'번호를 확인해 주세요.');return hr_int((int)$value,2147483647);}
 function intake_filters(array $query): array {
     $f=[];foreach(['month'=>7,'q'=>80,'region'=>80,'team'=>20,'status'=>10,'scope'=>10,'employee'=>12,'from'=>10,'to'=>10] as $key=>$max)$f[$key]=intake_text($query[$key]??'', $max);
-    $f['month']=$f['month']?:substr(hr_today(),0,7);hr_assert(sales_month($f['month']),'조회 월을 확인해 주세요.');
+    $f['month']=$f['month']?:'all';hr_assert($f['month']==='all'||sales_month($f['month']),'조회 월을 확인해 주세요.');
     hr_assert(in_array($f['team'],['','insurance','cosmetics','health'],true),'부서를 확인해 주세요.');
     hr_assert(in_array($f['status'],['','pending','normal','as'],true),'접수 상태를 확인해 주세요.');
     $f['scope']=$f['scope']?:'real';hr_assert(in_array($f['scope'],['real','test','all'],true),'자료 구분을 확인해 주세요.');
     hr_assert($f['employee']===''||ctype_digit($f['employee']),'담당 직원을 확인해 주세요.');
-    foreach(['from','to'] as $key)hr_assert($f[$key]===''||(hr_day($f[$key])&&substr($f[$key],0,7)===$f['month']),'조회 날짜는 선택한 월 안에서 입력해 주세요.');
+    foreach(['from','to'] as $key)hr_assert($f[$key]===''||(hr_day($f[$key])&&($f['month']==='all'||substr($f[$key],0,7)===$f['month'])),'조회 날짜는 선택한 월 안에서 입력해 주세요.');
     hr_assert(!$f['from']||!$f['to']||$f['from']<=$f['to'],'조회 시작일과 종료일을 확인해 주세요.');
     $f['p']=max(1,intake_number($query['p']??1));return $f;
 }
@@ -20,7 +20,7 @@ function intake_filtered(array $records,array $f): array {
     $q=mb_strtolower($f['q']);$digits=preg_replace('/\D/','',$f['q']);
     $phoneQuery=$digits!==''&&(bool)preg_match('/^[0-9\s()+.\-]+$/uD',$f['q']);
     $rows=array_values(array_filter($records,function($r)use($f,$q,$digits,$phoneQuery){
-        if(!str_starts_with($r['date'],$f['month']))return false;
+        if($f['month']!=='all'&&!str_starts_with($r['date'],$f['month']))return false;
         if($f['scope']!=='all'&&(bool)$r['isTest']!==($f['scope']==='test'))return false;
         if($f['team']!==''&&$r['team']!==$f['team'])return false;
         if($f['status']!==''&&$r['status']!==$f['status'])return false;
