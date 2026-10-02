@@ -22,7 +22,7 @@
  function listURL(staff=selectedStaff()){
   let target;try{target=new URL(config.listUrl||'/intake.php?role=admin',global.location.href);}catch(_){target=new URL('/intake.php?role=admin',global.location.href);}
   if(target.origin!==global.location.origin||target.pathname!=='/intake.php')target=new URL('/intake.php?role=admin',global.location.href);
-  for(const key of ['new','id','detail','popup','export','q','team','from','to','p'])target.searchParams.delete(key);
+  for(const key of ['new','id','detail','popup','export','q','from','to','p'])target.searchParams.delete(key);
   target.searchParams.set('role','admin');target.searchParams.set('month',month());target.searchParams.set('status','');target.searchParams.set('scope',staff?.isTest?'test':'real');
   if(staff)target.searchParams.set('employee',String(staff.id));else target.searchParams.delete('employee');
   return global.CNCWindowSession?.url(target.href)||target.href;
@@ -30,7 +30,7 @@
  function renderSummary(){
   const staff=selectedStaff();staffLink.hidden=!staff;staffLink.href=listURL(staff);
   staffName.textContent=staff?[staff.name,teams[staff.team]||staff.team,staff.isTest?'테스트 직원':''].filter(Boolean).join(' · '):'담당 직원을 선택해 주세요.';
-  staffCounts.textContent=staff?month()+' · 접수 목록에서 이 직원의 가접수·정상접수·A/S 내용을 모두 확인할 수 있습니다.':'직원을 선택하면 해당 직원 명의로 접수를 등록할 수 있습니다.';
+  staffCounts.textContent=staff?month()+' · 접수 목록에서 이 직원의 가접수·접수·A/S 내용을 모두 확인할 수 있습니다.':'직원을 선택하면 해당 직원 명의로 접수를 등록할 수 있습니다.';
  }
  function rememberSelection(){
   const employeeValue=owner.value,counselorValue=counselor.value;
@@ -96,7 +96,7 @@
  form.addEventListener('reset',()=>global.setTimeout(renderSummary,0));
  form.addEventListener('submit',event=>{
   event.preventDefault();if(busy||!form.reportValidity())return;
-  const values=Object.fromEntries(new FormData(form));rememberSelection();save({...values,employeeId:Number(values.employeeId),birthYear:Number(values.birthYear),status:'pending',action:'create',requestKey:form.dataset.requestKey});
+  const values=Object.fromEntries(new FormData(form));rememberSelection();save({...values,employeeId:Number(values.employeeId),birthYear:Number(values.birthYear),scopeTeam:config.team||'',status:'pending',action:'create',requestKey:form.dataset.requestKey});
  });
  if(config.employeeId&&config.staff.some(staff=>String(staff.id)===String(config.employeeId))){owner.value=String(config.employeeId);owner.dispatchEvent(new global.Event('change',{bubbles:true}));}else renderSummary();
 })(window);

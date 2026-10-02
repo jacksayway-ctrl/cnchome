@@ -4,11 +4,44 @@ require_once __DIR__.'/views.php';
 require_once __DIR__.'/grade-departments.php';
 
 function native_routes(): array {
-    return ['adminMemberships'=>'memberships.php','adminBusinessCalendar'=>'business-calendar.php','adminIntakeAlerts'=>'intake-alerts.php','adminIntake'=>'intake.php','adminIntakeRegister'=>'intake.php','adminContracts'=>'contracts.php','contracts'=>'contracts.php','adminStaff'=>'personnel.php','adminStaffRegister'=>'personnel.php','myInfo'=>'personnel.php','adminPayroll'=>'pay-statements.php','payslips'=>'pay-statements.php'];
+    return [
+        'adminMemberships'=>'memberships.php',
+        'adminBusinessCalendar'=>'business-calendar.php',
+        'adminIntakeAlerts'=>'intake-alerts.php',
+        'adminIntake'=>'intake.php',
+        'adminPending'=>'intake.php',
+        'adminIntakeRegister'=>'intake.php',
+        'adminContracts'=>'contracts.php',
+        'contracts'=>'contracts.php',
+        'adminStaff'=>'personnel.php',
+        'adminStaffRegister'=>'personnel.php',
+        'myInfo'=>'personnel.php',
+        'adminPayroll'=>'pay-statements.php',
+        'payslips'=>'pay-statements.php',
+    ];
 }
 function native_url(string $page,string $role): string {
     $route=native_routes()[$page]??null;
-    return '/'.($route??'office.php').'?role='.($role==='admin'?'admin':'employee').($route?($page==='adminStaffRegister'?'&register=1':($page==='adminIntakeRegister'?'&new=1':'')):'&page='.rawurlencode($page));
+    $url='/'.($route??'office.php').'?role='.($role==='admin'?'admin':'employee');
+    if(!$route)return $url.'&page='.rawurlencode($page);
+    if($page==='adminStaffRegister')return $url.'&register=1';
+    if(in_array($page,['adminIntake','adminPending','adminIntakeRegister'],true)){
+        $team=$_GET['team']??'insurance';if(!in_array($team,['insurance','cosmetics','health'],true))$team='insurance';
+        $url.='&team='.$team;
+        if($page==='adminPending')$url.='&status=pending';
+        elseif($page==='adminIntake')$url.='&status=';
+        else $url.='&new=1';
+        return $url;
+    }
+    return $url;
+}
+function native_department_tab_url(string $team): string {
+    if(!in_array($team,['insurance','cosmetics','health'],true))$team='insurance';
+    $query=['role'=>'admin','team'=>$team];
+    foreach(['month','q','region','status','scope','employee','from','to'] as $key){$value=$_GET[$key]??null;if(is_string($value)&&$value!=='')$query[$key]=$value;}
+    if(($_GET['new']??'')==='1')$query['new']='1';
+    if(isset($_GET['p'])&&ctype_digit((string)$_GET['p'])&&(int)$_GET['p']>1)$query['p']=(string)$_GET['p'];
+    return '/intake.php?'.http_build_query($query);
 }
 function native_csrf(): string {return '<input type="hidden" name="csrf" value="'.view_h((string)($_SESSION['csrf']??'')).'">';}
 function native_money(int|float $amount): string {return number_format($amount).'원';}
@@ -52,7 +85,14 @@ function native_start(string $title,array $user,string $active,array $extraStyle
     }
     echo '</nav></aside><main class="nf-main">';
     if($selectedGroup){
-        echo '<section class="nf-subpages nf-no-print"><div class="nf-location"><span>관리자</span><span>/</span><strong>'.view_h($selectedGroup['label']).'</strong><span>/</span><span>'.view_h($selectedLabel).'</span></div><nav class="nf-subpage-links" aria-label="'.view_h($selectedGroup['label']).' 하위 페이지">';
+        echo '<section class="nf-subpages nf-no-print">';
+        if($role==='admin'&&$selectedGroup['items'][0][0]==='adminIntake'){
+            $team=$_GET['team']??'insurance';if(!in_array($team,['insurance','cosmetics','health'],true))$team='insurance';
+            echo '<nav class="nf-department-tabs" aria-label="접수 부서">';
+            foreach(['insurance'=>'보험','cosmetics'=>'화장품','health'=>'건강보조식품'] as $key=>$label)echo '<a href="'.view_h(native_department_tab_url($key)).'"'.($team===$key?' class="active" aria-current="page"':'').'>'.view_h($label).'</a>';
+            echo '</nav>';
+        }
+        echo '<div class="nf-location"><span>관리자</span><span>/</span><strong>'.view_h($selectedGroup['label']).'</strong><span>/</span><span>'.view_h($selectedLabel).'</span></div><nav class="nf-subpage-links" aria-label="'.view_h($selectedGroup['label']).' 하위 페이지">';
         foreach($selectedGroup['items'] as [$page,$label])echo '<a href="'.view_h(native_url($page,$role)).'"'.($page===$active?' class="active" aria-current="page"':'').'>'.view_h($label).'</a>';
         if($selectedGroup['items'][0][0]==='adminPayroll')echo '<a href="/payroll.php?role=admin">급여 계산 검토 <span class="ui-icon ui-icon-external" aria-hidden="true"></span></a>';
         echo '</nav></section>';
