@@ -10,7 +10,7 @@ try{
         if(!is_string($_POST['csrf']??null)||!csrf_ok($_POST['csrf']))throw new HRForbidden('인증 시간이 만료됐습니다. 새로고침해 주세요.');
         try{
             if(($_POST['action']??'')==='create'){$row=intake_create($user,$_POST);$target=intake_url(['month'=>substr($_POST['date'],0,7),'scope'=>$row['is_test']?'test':'real'],['id'=>$row['id']]);}
-            else{intake_update($user,$_POST);$target=intake_url($filters,($_POST['action']??'')==='delete'?[]:['id'=>$_POST['id']]);}
+            else{intake_update($user,$_POST);$target=intake_url($filters,($_POST['action']??'')==='delete'?['new'=>'1']:['id'=>$_POST['id']]);}
             $_SESSION['intake_notice']=($_POST['action']??'')==='delete'?'접수증을 삭제했습니다.':'접수 내용을 저장했습니다.';header('Location: '.$target,true,303);exit;
         }catch(SalesDuplicate $e){http_response_code(409);$error=$e->getMessage();$duplicateCount=$e->count;$posted=array_filter($_POST,'is_string');}
         catch(InvalidArgumentException $e){http_response_code(422);$error=$e->getMessage();$posted=array_filter($_POST,'is_string');}

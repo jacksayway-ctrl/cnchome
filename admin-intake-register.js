@@ -4,6 +4,8 @@
  if(!source||!mount)return;
  let config;try{config=JSON.parse(source.textContent);}catch(_){mount.textContent='접수 입력창을 불러오지 못했습니다. 새로고침해 주세요.';return;}
  if(config.user?.role!=='admin'||!Array.isArray(config.staff)||!global.ReceiptForm||!global.IntakeDetails)return;
+ const savedNotice=document.querySelector('[data-intake-saved]');
+ if(savedNotice&&!savedNotice.dataset.notified){savedNotice.dataset.notified='1';global.dispatchEvent(new global.Event('cnc:sales-changed'));try{global.localStorage.setItem('cnchome.sales.changed',Date.now()+':'+global.crypto.randomUUID());}catch(_){}}
  const teams={insurance:'보험팀',cosmetics:'화장품팀',health:'건강보조식품팀'};
  mount.innerHTML=global.ReceiptForm.markup({admin:true,staff:config.staff,user:config.user,counselorNames:config.counselorNames||[]});
  const form=mount.querySelector('[data-sales-form]'),owner=form.elements.employeeId,counselor=form.elements.counselorName,feedback=form.querySelector('[data-sales-error]');
