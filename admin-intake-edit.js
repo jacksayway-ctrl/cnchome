@@ -34,9 +34,6 @@
   const employee=form.elements.employeeId;employee.value=String(record.employeeId??'');
   for(const option of employee.options)option.defaultSelected=option.value===employee.value;
   const selectedStaff=()=>staff.find(row=>String(row.id)===employee.value);
-  const owner=document.createElement('small');owner.className='receipt-owner-original';form.querySelector('.receipt-counselor').append(owner);
-  function syncOwner(){const selected=selectedStaff();owner.textContent=selected?'담당 직원: '+selected.name:'담당 직원을 선택해 주세요.';}
-  employee.addEventListener('change',syncOwner);syncOwner();
   const storedTime=document.createElement('input');storedTime.type='time';storedTime.name='consultationTime';storedTime.dataset.receiptClock='';storedTime.className='receipt-stored-time';storedTime.value=record.consultationTime;storedTime.defaultValue=storedTime.value;storedTime.setAttribute('aria-label','상담 시간');form.elements.consultationTime.remove();form.querySelector('[data-receipt-clock]').replaceWith(storedTime);
   const date=form.querySelector('[data-receipt-date]');date.value=record.date.slice(5).replace('-','');date.defaultValue=date.value;date.readOnly=true;date.tabIndex=-1;
   const fullPhone=!/^010-?\d{4}-?\d{4}$/.test(record.phone),phone=form.querySelector('[data-receipt-phone]');
