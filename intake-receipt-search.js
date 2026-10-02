@@ -4,6 +4,7 @@
   for(const box of root.querySelectorAll('[data-intake-side-search]')){
    if(box.dataset.ready)continue;box.dataset.ready='1';
    const input=box.querySelector('[data-intake-search-input]'),status=box.querySelector('[data-intake-search-status]'),results=box.querySelector('[data-intake-search-results]'),popover=box.querySelector('[data-intake-search-popover]');
+   window.KoreanInput?.attach(box,{selector:'[data-intake-search-input]',nativeToggle:true});
    const panel=options.panel||box.closest('[data-intake-detail-panel]');let dirty=false;
    for(const eventName of ['input','change'])panel.addEventListener(eventName,event=>{if(event.target.closest(options.formSelector||'form[data-intake-edit-form]')&&!event.target.closest('[data-intake-side-search]')&&!event.target.matches('[data-receipt-input-mode]'))dirty=true;});
    panel.addEventListener('intake:editor-reset',()=>{dirty=false;});

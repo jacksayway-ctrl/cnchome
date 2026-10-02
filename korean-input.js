@@ -10,7 +10,7 @@
   catch(_){return new global.Event(type,{bubbles:true,cancelable});}
  }
 
- function attach(form){
+ function attach(form,options={}){
   if(!form||!global.Hangul)return null;
   if(attached.has(form))return attached.get(form);
   const hangul=global.Hangul,modeSelect=form.querySelector('[data-receipt-input-mode]'),states=[];
@@ -22,7 +22,7 @@
   modeSelect?.addEventListener('change',commitAll);
   form.addEventListener('reset',()=>{commitAll();fallbackMode='ko';});
 
-  for(const field of form.querySelectorAll(selector)){
+  for(const field of form.querySelectorAll(options.selector||selector)){
    const state={active:null,composing:false,writing:false,inputSeen:false,beforeInput:null};
    states.push(state);
    const commit=()=>{state.active=null;};
@@ -67,7 +67,7 @@
     state.active=last?{start:end-1,end,text:last,value:field.value}:null;
    }
 
-   field.addEventListener('compositionstart',()=>{state.composing=true;commit();});
+   field.addEventListener('compositionstart',()=>{state.composing=true;commit();if(options.nativeToggle)controller.setMode('en');});
    field.addEventListener('compositionend',()=>{state.composing=false;commit();});
    field.addEventListener('beforeinput',event=>{
     if(state.writing)state.beforeInput=event;
@@ -80,6 +80,8 @@
    for(const name of ['blur','pointerdown','mousedown','paste','cut','drop'])field.addEventListener(name,commit);
    for(const name of ['select','selectionchange'])field.addEventListener(name,()=>{if(!state.writing)current();});
    field.addEventListener('keydown',event=>{
+    // After an explicit language switch, the operating system owns Korean/English.
+    if(options.nativeToggle&&(event.key==='HangulMode'||event.code==='Lang1'||event.keyCode===21)){controller.setMode('en');return;}
     // Native IMEs, shortcuts, alternate keyboard layouts and mobile composition
     // retain control. Only plain Latin-letter keydowns need the page helper.
     if(event.defaultPrevented||mode()!=='ko'||field.disabled||field.readOnly||state.composing||event.isComposing||event.keyCode===229||event.ctrlKey||event.metaKey||event.altKey||event.getModifierState?.('AltGraph')){
