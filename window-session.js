@@ -89,6 +89,11 @@
   if(!response.ok||result.ok!==true||result.windowId!==childId)throw new Error(result.error||'새 창의 로그인을 준비하지 못했습니다.');
  }
  function popupMessage(child,message){try{child.document.title='씨앤씨';const paragraph=child.document.createElement('p');paragraph.textContent=message;child.document.body.replaceChildren(paragraph);}catch(_){} }
+ function focusPopup(child){
+  try{if(child.closed)return;child.focus();}catch(_){return;}
+  // Some browsers return focus to the opener at the end of the click handler.
+  global.setTimeout(()=>{try{if(!child.closed&&document.hasFocus())child.focus();}catch(_){}},150);
+ }
  function isIntakePopup(destination){return destination.pathname==='/intake.php'&&destination.searchParams.get('role')==='admin'&&destination.searchParams.get('popup')==='1';}
  function intakeKey(destination){
   const id=destination.searchParams.get('id');if(id)return 'receipt:'+id;
@@ -98,15 +103,15 @@
  function reuseIntakeWindow(destination){
   const entry=intakeWindow;if(!entry||entry.child.closed){intakeWindow=null;return null;}
   const child=entry.child;
-  if(entry.preparing){entry.destination=destination;try{child.focus();}catch(_){}return child;}
+  if(entry.preparing){entry.destination=destination;focusPopup(child);return child;}
   try{
    const current=new URL(child.CNCPageUrl||child.location.href);
-   if(current.origin===initialURL.origin&&isIntakePopup(current)&&intakeKey(current)===intakeKey(destination)){child.focus();return child;}
-   if(child.document.querySelector('.receipt-form[data-receipt-dirty="true"]')&&!global.confirm('다른 접수증을 열면 저장하지 않은 변경 내용이 사라집니다. 계속하시겠습니까?')){child.focus();return child;}
+   if(current.origin===initialURL.origin&&isIntakePopup(current)&&intakeKey(current)===intakeKey(destination)){focusPopup(child);return child;}
+   if(child.document.querySelector('.receipt-form[data-receipt-dirty="true"]')&&!global.confirm('다른 접수증을 열면 저장하지 않은 변경 내용이 사라집니다. 계속하시겠습니까?')){focusPopup(child);return child;}
    const childContext=child.CNCWindowSession?.id||child.sessionStorage.getItem(storageKey)||entry.id;
    if(!pattern.test(childContext))throw new Error('접수창의 로그인 상태를 확인하지 못했습니다.');
    entry.id=childContext;entry.destination=destination;
-   child.location.assign(url(destination.href,childContext));child.focus();
+   focusPopup(child);child.location.assign(url(destination.href,childContext));
   }catch(_){try{child.focus();}catch(_){}global.alert('열려 있는 접수창을 확인해 주세요. 다시 열려면 해당 창을 닫은 후 눌러 주세요.');}
   return child;
  }
@@ -120,9 +125,10 @@
   // Only the administrator's receipt popup is reused; other windows keep independent sessions.
   const cleanFeatures=String(features||'').split(',').filter(item=>!/^\s*(?:noopener|noreferrer)(?:\s*=.*)?\s*$/i.test(item)).join(',');
   const child=nativeOpen('about:blank','_blank',cleanFeatures);if(!child)return null;
+  focusPopup(child);
   try{child.sessionStorage.setItem(storageKey,childId);child.sessionStorage.removeItem('cnc.currentPage.v1');child.opener=null;popupMessage(child,'로그인 정보를 준비하고 있습니다.');}catch(_){try{child.close();}catch(_){}return null;}
   const entry=intake?{child,id:childId,destination,preparing:true}:null;if(entry)intakeWindow=entry;
-  fork(childId).then(()=>{if(!child.closed)child.location.replace(url((entry?.destination||destination).href,childId));if(entry)entry.preparing=false;}).catch(error=>{if(entry)entry.preparing=false;popupMessage(child,error.message||'새 창을 열지 못했습니다. 이 창을 닫고 다시 시도해 주세요.');});
+  fork(childId).then(()=>{if(!child.closed){const foreground=document.hasFocus()||child.document.hasFocus();child.location.replace(url((entry?.destination||destination).href,childId));if(foreground)focusPopup(child);}if(entry)entry.preparing=false;}).catch(error=>{if(entry)entry.preparing=false;popupMessage(child,error.message||'새 창을 열지 못했습니다. 이 창을 닫고 다시 시도해 주세요.');});
   return child;
  }
 
