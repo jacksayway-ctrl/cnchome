@@ -302,6 +302,8 @@ echo "PASS: pending receipt transitions and administrator registration pending s
 // Read-only side search is administrator-only, spans months, and returns bounded summaries.
 $searchRow=$combinedRecord();$searchResult=intake_live_search($admin,$searchRow['customer'],'real');
 check(in_array($combinedId,array_column($searchResult['records'],'id'),true),'side search finds a receipt by customer name');
+$savedSearch=array_column($searchResult['records'],null,'id')[$combinedId];
+check($savedSearch['counselorName']===$searchRow['counselorName']&&$savedSearch['counselorName']==='관리자 선택 상담원','side search returns the edited counselor from the saved receipt instead of the original owner');
 $phoneResult=intake_live_search($admin,str_replace('-','',$searchRow['phone']),'real');
 check(in_array($combinedId,array_column($phoneResult['records'],'id'),true),'side search normalizes phone separators');
 $oldResult=intake_live_search($admin,$pendingRow($one,(string)$legacyId)['customer'],'real');

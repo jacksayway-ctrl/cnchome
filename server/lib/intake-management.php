@@ -162,7 +162,7 @@ function intake_live_search(array $user,string $query,string $scope='real'): arr
     $needle=$phoneQuery?$digits:$query;if($needle==='')return ['records'=>[],'hasMore'=>false];
     $pattern='%'.str_replace(['!','%','_'],['!!','!%','!_'],$needle).'%';
     $column=$phoneQuery?"REPLACE(REPLACE(s.phone,'-',''),' ','')":'s.customer_name';
-    $sql="SELECT s.id,s.first_date AS date,s.customer_name AS customer,s.phone,s.status,s.is_test,u.display_name AS employee FROM sales_records s JOIN app_users u ON u.id=s.employee_id WHERE ".$column." LIKE ? ESCAPE '!'";
+    $sql="SELECT s.id,s.first_date AS date,s.customer_name AS customer,s.phone,s.status,s.is_test,u.display_name AS employee,COALESCE(cc.counselor_name,'') AS counselorName FROM sales_records s JOIN app_users u ON u.id=s.employee_id LEFT JOIN sales_counselor_details cc ON cc.sale_id=s.id WHERE ".$column." LIKE ? ESCAPE '!'";
     $params=[$pattern];if($scope!=='all'){$sql.=' AND s.is_test=?';$params[]=$scope==='test'?1:0;}
     $q=db()->prepare($sql.' ORDER BY s.first_date DESC,s.id DESC LIMIT 21');$q->execute($params);$rows=[];
     foreach($q->fetchAll() as $row){$row['id']=(string)$row['id'];$row['isTest']=(bool)$row['is_test'];unset($row['is_test']);$rows[]=$row;}
@@ -171,7 +171,7 @@ function intake_live_search(array $user,string $query,string $scope='real'): arr
         foreach($q->fetchAll() as $owner)foreach(json_decode($owner['state'],true,512,JSON_THROW_ON_ERROR)['sales']??[] as $sale){
             $value=$phoneQuery?sales_phone_key((string)($sale['phone']??'')):mb_strtolower((string)($sale['name']??''));
             if(!str_contains($value,mb_strtolower($needle)))continue;
-            $rows[]=['id'=>'test:'.$owner['user_id'].':'.$sale['id'],'date'=>$sale['date'],'customer'=>$sale['name'],'phone'=>$sale['phone']??'','status'=>['가접수'=>'pending','정상'=>'normal','A/S'=>'as'][$sale['status']]??'pending','employee'=>$owner['employee'],'isTest'=>true];
+            $rows[]=['id'=>'test:'.$owner['user_id'].':'.$sale['id'],'date'=>$sale['date'],'customer'=>$sale['name'],'phone'=>$sale['phone']??'','status'=>['가접수'=>'pending','정상'=>'normal','A/S'=>'as'][$sale['status']]??'pending','employee'=>$owner['employee'],'counselorName'=>$sale['counselorName']??'','isTest'=>true];
         }
     }
     usort($rows,fn($a,$b)=>strcmp($b['date'],$a['date'])?:strnatcmp($b['id'],$a['id']));

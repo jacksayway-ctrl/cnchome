@@ -28,7 +28,7 @@
       const link=document.createElement('a'),name=document.createElement('strong'),phone=document.createElement('span'),meta=document.createElement('small');
       const target=new URL('/intake.php',location.origin);target.search=new URLSearchParams({role:'admin',month:record.date.slice(0,7),scope:record.isTest?'test':'real',id:record.id,popup:'1'}).toString();
       link.href=window.CNCWindowSession?.url(target.href)||target.href;
-      name.textContent=record.customer;phone.textContent=record.phone||'연락처 미입력';meta.textContent=[record.isTest?'테스트':'',record.employee,record.date,({pending:'가접수',normal:'정상접수',as:'A/S'})[record.status]||''].filter(Boolean).join(' · ');
+      name.textContent=record.customer;phone.textContent=record.phone||'연락처 미입력';meta.textContent=[record.isTest?'테스트':'','상담원 '+(record.counselorName||record.employee||'미입력'),record.date,({pending:'가접수',normal:'정상접수',as:'A/S'})[record.status]||''].filter(Boolean).join(' · ');
       link.append(name,phone,meta);link.addEventListener('click',confirmNavigation,true);fragment.append(link);
      }
      if(data.records.length&&fragment.childNodes.length!==data.records.length)throw new Error('검색 응답을 확인하지 못했습니다.');
@@ -42,7 +42,7 @@
    input.addEventListener('compositionstart',()=>{composing=true;cancel();results.replaceChildren();showResults(false);status.textContent='입력 중…';});input.addEventListener('compositionend',()=>{composing=false;schedule();});
    input.addEventListener('input',event=>{if(!event.isComposing)schedule();});
    input.addEventListener('keydown',event=>{if(event.key==='Enter'&&!composing&&!event.isComposing){event.preventDefault();searchNow();}else if(event.key==='Escape'){event.preventDefault();showResults(false);}});
-   input.addEventListener('focus',()=>{if(input.value.trim())showResults(true);});
+   input.addEventListener('focus',()=>{if(input.value.trim())schedule();});
    box.querySelector('[data-intake-search-submit]').addEventListener('click',searchNow);
    box.querySelector('[data-intake-search-reset],[data-intake-new-url]')?.addEventListener('click',event=>{
     if(dirty&&!confirm('수정 중인 내용을 저장하지 않고 새 접수를 입력하시겠습니까?'))return;
