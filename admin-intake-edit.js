@@ -76,6 +76,9 @@
   const reason=document.createElement('input');reason.name='reason';reason.maxLength=500;reason.value=record.reason;reason.defaultValue=reason.value;reason.placeholder='수정 사유 (선택)';
   adminFields.append(field('접수 상태',status));if(!options.submit)adminFields.append(field('수정 사유 (선택)',reason));form.querySelector('.receipt-grid').after(adminFields);
   form.querySelector('.receipt-save').textContent='변경 내용 저장';form.querySelector('.receipt-save').dataset.receiptPointerSave='';
+  const lastEdit=document.createElement('small');lastEdit.className='receipt-last-edit';lastEdit.setAttribute('role','status');
+  lastEdit.textContent=record.lastEdit?'마지막 변경: '+record.lastEdit.actor+' · '+record.lastEdit.at:'변경 이력 없음';
+  form.querySelector('.receipt-save').before(lastEdit);
   const reset=form.querySelector('.receipt-reset');reset.type='button';reset.textContent='되돌리기';reset.addEventListener('click',()=>options.reset?options.reset():mount(host,true,options));
   function close(){if(options.close){options.close();return;}const row=host.closest('[data-intake-detail]');const toggle=row?.previousElementSibling?.querySelector('[data-intake-toggle]');if(toggle)toggle.click();else host.closest('details')?.removeAttribute('open');}
   const detachReceipt=global.ReceiptForm.attach(form,{originalDate:record.date,originalCallAvailability:record.callAvailability,phoneMode:fullPhone?'full':'mobile',autofocus:false,close});

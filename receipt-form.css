@@ -145,3 +145,6 @@ body.receipt-window :is(#tm-preview,.receipt-host) #tm-dialog.receipt-dialog::ba
  :is(#tm-preview,.receipt-host) .receipt-management-header h2{font-size:24px}
  :is(#tm-preview,.receipt-host) .receipt-management-header .intake-header-search{order:3;flex-basis:100%;min-width:0;gap:10px;margin:0}
 }
+
+:is(#tm-preview,.receipt-host) .receipt-actions .receipt-last-edit{align-self:center;margin-right:auto;color:#53687f;font-size:12px;line-height:1.5;overflow-wrap:anywhere}
+@media(max-width:680px){:is(#tm-preview,.receipt-host) .receipt-actions:has(.receipt-last-edit){flex-wrap:wrap}:is(#tm-preview,.receipt-host) .receipt-actions .receipt-last-edit{flex-basis:100%}}

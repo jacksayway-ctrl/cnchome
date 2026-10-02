@@ -10,6 +10,8 @@
 <?php if(!$legacy):
 $editValues=[];foreach(['customer','phone','birthDate','birthYear','carrier','consultationTime','consultationPlace','premiumBand','note','gender','callAvailability','visitSchedule','counselorName','status'] as $key)$editValues[$key]=(string)($v[$key]??$r[$key]??'');
 $editValues+=['employeeId'=>$detailPosted['employeeId']??$r['employeeId'],'isTest'=>(bool)$r['isTest'],'employeeUsername'=>$r['employeeUsername']??'','id'=>$r['id'],'date'=>$r['date'],'employee'=>$r['employee'],'team'=>$r['team'],'reason'=>(string)(($detailPosted['action']??'')==='edit'?($detailPosted['reason']??''):'')];
+$lastEdit=null;foreach($history as $event){if($event['action']==='edit'){$lastEdit=['actor'=>$event['actor'],'at'=>intake_time($event['created_at'])];break;}}
+$editValues['lastEdit']=$lastEdit;
 $editData=['record'=>$editValues,'staff'=>$snapshot['staff']??[],'counselorNames'=>$snapshot['counselorNames']??[]];
 ?><details class="intake-edit" open><summary>상담원·승인 상태·접수 내용 수정</summary>
 <div class="receipt-host" data-intake-edit-host data-intake-edit-url="<?= $eh(intake_url($filters,['id'=>$r['id']])) ?>">
