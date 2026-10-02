@@ -43,6 +43,7 @@
   const fullPhone=phoneMode==='full'||form.dataset.receiptFullPhone==='true',staffCounselor=form.querySelector('[data-receipt-staff-counselor]');
   function sync(event){
    const input=event?.target;
+   if(event?.type==='input'&&input===birthYear){birthMonth.value='';birthDay.value='';}
    if(staffCounselor)staffCounselor.value=fields.employeeId?.selectedOptions[0]?.dataset.counselorName||'';
    // Remember the raw caret before numeric cleanup can move it to the end.
    if(event?.type==='input'&&(input===birthYear||input===birthMonth)&&/^\d+$/.test(input.value)&&input.selectionStart===input.value.length&&input.selectionEnd===input.value.length)birthInsertionAtEnd.add(event);
@@ -71,6 +72,8 @@
   callTime.addEventListener('blur',normalizeCallTime);form.addEventListener('submit',normalizeCallTime,true);
   birthYear.addEventListener('blur',()=>{if(/^\d{2}$/.test(birthYear.value)){birthYear.value='19'+birthYear.value;birthYear.dispatchEvent(new Event('change',{bubbles:true}));}});
   form.addEventListener('input',sync,true);form.addEventListener('change',sync,true);
+  // Tab and automatic field advances must replace stored birthday digits on typing.
+  for(const input of [birthYear,birthMonth,birthDay])input.addEventListener('focus',()=>input.select());
   for(const [input,next,lengths] of [[birthYear,birthMonth,[2,4]],[birthMonth,birthDay,[2]]])input.addEventListener('input',event=>{
    if(!birthInsertionAtEnd.has(event)||!event.inputType?.startsWith('insert')||event.isComposing||global.document.activeElement!==input||!lengths.includes(input.value.length)||input.selectionStart!==input.value.length||input.selectionEnd!==input.value.length)return;
    next.focus();
