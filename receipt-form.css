@@ -86,3 +86,47 @@ body.receipt-window :is(#tm-preview,.receipt-host) #tm-dialog.receipt-dialog::ba
 @media(max-width:680px){.receipt-host .receipt-admin-controls{grid-template-columns:1fr;margin:12px 14px}.admin-intake-staff-summary{padding:12px 14px}}
 
 :is(#tm-preview,.receipt-host) .receipt-form .receipt-kind-options{display:flex;flex-basis:100%;gap:16px;align-items:center;padding-top:4px}
+
+/* Compact desktop receipt popup: all primary fields and actions stay together. */
+@media screen and (min-width:960px){
+ body.nf-popup[data-page=adminIntake] .nf-popup-shell>.nf-main{max-width:none;width:100%;padding:10px 14px}
+ body.nf-popup[data-page=adminIntake] .nf-page-heading{margin:0 0 8px;align-items:center}
+ body.nf-popup[data-page=adminIntake] .nf-page-heading h1{font-size:18px;margin:0}
+ body.nf-popup[data-page=adminIntake] .nf-card{padding:10px;margin:0 0 8px}
+ body.nf-popup[data-page=adminIntake] .intake-toolbar{gap:5px 8px}
+ body.nf-popup[data-page=adminIntake] .intake-toolbar .nf-field{font-size:11px;gap:2px;min-width:90px}
+ body.nf-popup[data-page=adminIntake] .intake-toolbar input,body.nf-popup[data-page=adminIntake] .intake-toolbar select{padding:4px 6px;min-height:29px;font-size:12px}
+ body.nf-popup[data-page=adminIntake] .intake-summary{gap:6px;margin:5px 0}
+ body.nf-popup[data-page=adminIntake] .intake-summary a{padding:3px 9px;font-size:11px}
+ body.nf-popup[data-page=adminIntake] .intake-summary strong{font-size:12px}
+ body.nf-popup[data-page=adminIntake] .intake-detail-card{display:grid;grid-template-columns:minmax(0,1fr) 210px;gap:6px 12px;align-items:start}
+ body.nf-popup[data-page=adminIntake] .intake-detail-card>h2{grid-column:1/-1;font-size:15px;margin:0}
+ body.nf-popup[data-page=adminIntake] .intake-detail-card>.intake-edit{grid-column:1;grid-row:2 / span 8;margin:0;padding:0;border:0;min-width:0}
+ body.nf-popup[data-page=adminIntake] .intake-detail-card>.intake-edit>summary{display:none}
+ body.nf-popup[data-page=adminIntake] .intake-detail-card>:not(h2):not(.intake-edit){grid-column:2;margin:0;font-size:12px}
+ body.nf-popup[data-page=adminIntake] .intake-detail-card>.nf-actions{display:flex;align-items:stretch;flex-direction:column;gap:6px}
+ body.nf-popup[data-page=adminIntake] .intake-detail-card>.nf-actions .nf-field{min-width:0;width:100%}
+ body.nf-popup[data-page=adminIntake] .intake-detail-grid{grid-template-columns:1fr;padding:8px}
+ body.nf-popup[data-page=adminIntake] .receipt-host .receipt-header{padding:8px 12px;gap:6px}
+ body.nf-popup[data-page=adminIntake] .receipt-host .receipt-header h2{font-size:19px;margin:0}
+ body.nf-popup[data-page=adminIntake] .receipt-host .receipt-header p{display:none}
+ body.nf-popup[data-page=adminIntake] .receipt-host .receipt-grid{grid-template-columns:86px minmax(0,1fr) 86px minmax(0,1fr);margin:8px 0 0}
+ body.nf-popup[data-page=adminIntake] .receipt-host .receipt-grid>.receipt-label,body.nf-popup[data-page=adminIntake] .receipt-host .receipt-grid>.receipt-value{min-height:40px;padding:5px 7px;font-size:12px}
+ body.nf-popup[data-page=adminIntake] .receipt-host .receipt-form{font-size:12px}
+ body.nf-popup[data-page=adminIntake] .receipt-host .receipt-value input:not([type=radio]),body.nf-popup[data-page=adminIntake] .receipt-host .receipt-value select{padding:3px;min-height:25px}
+ body.nf-popup[data-page=adminIntake] .receipt-host .receipt-birth small{display:none}
+ body.nf-popup[data-page=adminIntake] .receipt-host .receipt-date{gap:4px}
+ body.nf-popup[data-page=adminIntake] .receipt-host .receipt-call{flex-direction:row;align-items:center;flex-wrap:wrap}
+ body.nf-popup[data-page=adminIntake] .receipt-host .receipt-call input[data-receipt-calltime]{flex:1;min-width:65px;width:70px}
+ body.nf-popup[data-page=adminIntake] .receipt-host .receipt-period{gap:6px}
+ body.nf-popup[data-page=adminIntake] .receipt-host .receipt-note{gap:6px 10px}
+ body.nf-popup[data-page=adminIntake] .receipt-host .receipt-kind-options{padding:0}
+ body.nf-popup[data-page=adminIntake] .receipt-host .receipt-admin-controls{margin:7px 0;gap:8px}
+ body.nf-popup[data-page=adminIntake] .receipt-host .receipt-admin-field{font-size:11px;gap:3px}
+ body.nf-popup[data-page=adminIntake] .receipt-host .receipt-admin-field input,body.nf-popup[data-page=adminIntake] .receipt-host .receipt-admin-field select{padding:4px 6px;min-height:28px}
+ body.nf-popup[data-page=adminIntake] .receipt-host .receipt-policy{margin:4px 0;font-size:11px}
+ body.nf-popup[data-page=adminIntake] .receipt-host .receipt-feedback{margin:3px 0;min-height:0;font-size:12px}
+ body.nf-popup[data-page=adminIntake] .receipt-host .receipt-feedback:empty{display:none}
+ body.nf-popup[data-page=adminIntake] .receipt-host .receipt-actions{padding:6px 0 0;gap:8px}
+ body.nf-popup[data-page=adminIntake] .receipt-host .receipt-actions button{min-height:31px;min-width:90px;padding:5px 12px;font-size:12px}
+}

@@ -167,7 +167,7 @@ document.addEventListener('click',e=>{
  if(admin){
   const record=rows.find(r=>r.id===row.dataset.pendingToggle);if(!record)return;
   const params=new URLSearchParams({role:'admin',month:record.date.slice(0,7),scope:record.isTest?'test':'real',id:record.id,popup:'1'});
-  const child=window.open('/intake.php?'+params.toString(),'_blank','width=1180,height=900,resizable=yes,scrollbars=yes');
+  const child=window.open('/intake.php?'+params.toString(),'_blank','width='+Math.min(1360,window.screen.availWidth)+',height='+Math.min(920,window.screen.availHeight)+',resizable=yes,scrollbars=yes');
   if(!child)window.alert('팝업이 차단되었습니다. 이 사이트의 팝업을 허용해 주세요.');return;
  }
  const id=row.dataset.pendingToggle,on=!expanded.has(id);if(on)expanded.add(id);else expanded.delete(id);row.setAttribute('aria-expanded',String(on));const button=row.querySelector('button');button.setAttribute('aria-expanded',String(on));button.textContent=on?'접기':'펼치기';button.setAttribute('aria-label',(rows.find(r=>r.id===id)?.customer||'고객')+' 상세 '+(on?'접기':'펼치기'));row.nextElementSibling.hidden=!on;if(on)hydratePending(row.nextElementSibling);
