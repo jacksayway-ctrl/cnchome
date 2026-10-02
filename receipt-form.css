@@ -148,3 +148,41 @@ body.receipt-window :is(#tm-preview,.receipt-host) #tm-dialog.receipt-dialog::ba
 
 :is(#tm-preview,.receipt-host) .receipt-actions .receipt-last-edit{align-self:center;margin-right:auto;color:#53687f;font-size:12px;line-height:1.5;overflow-wrap:anywhere}
 @media(max-width:680px){:is(#tm-preview,.receipt-host) .receipt-actions:has(.receipt-last-edit){flex-wrap:wrap}:is(#tm-preview,.receipt-host) .receipt-actions .receipt-last-edit{flex-basis:100%}}
+
+/* One compact field scale for both new and edited receipts, including popups. */
+:is(#tm-preview,.receipt-host) .receipt-form{width:100%;max-width:960px;margin:0 auto;font-size:13px;box-sizing:border-box}
+:is(#tm-preview,.receipt-host) .receipt-header,
+:is(#tm-preview,.receipt-host) .receipt-header.receipt-management-header{min-height:0;padding:10px 14px;gap:8px 12px;box-sizing:border-box}
+:is(#tm-preview,.receipt-host) .receipt-header h2,
+:is(#tm-preview,.receipt-host) .receipt-management-header h2{font-size:22px;margin:0}
+:is(#tm-preview,.receipt-host) .receipt-header p{font-size:12px;margin-top:3px}
+:is(#tm-preview,.receipt-host) .receipt-management-header .intake-header-search{flex:1 1 320px;min-width:0}
+:is(#tm-preview,.receipt-host) .receipt-grid{grid-template-columns:92px minmax(0,1fr) 92px minmax(0,1fr);margin:8px 10px 0}
+:is(#tm-preview,.receipt-host) .receipt-grid>.receipt-label,
+:is(#tm-preview,.receipt-host) .receipt-grid>.receipt-value{min-height:44px;padding:5px 8px;font-size:13px}
+:is(#tm-preview,.receipt-host) .receipt-form .receipt-value input:not([type=radio]):not([type=checkbox]):not([type=hidden]),
+:is(#tm-preview,.receipt-host) .receipt-form .receipt-value select,
+:is(#tm-preview,.receipt-host) .receipt-admin-field input:not([type=hidden]),
+:is(#tm-preview,.receipt-host) .receipt-admin-field select{height:30px;min-height:30px;box-sizing:border-box;padding:4px 5px;font-size:13px}
+:is(#tm-preview,.receipt-host) .receipt-date{gap:5px}
+:is(#tm-preview,.receipt-host) .receipt-gender{gap:18px}
+:is(#tm-preview,.receipt-host) .receipt-form .receipt-call{flex-direction:row;align-items:center;flex-wrap:wrap;gap:5px 8px}
+:is(#tm-preview,.receipt-host) .receipt-period{gap:8px}
+:is(#tm-preview,.receipt-host) .receipt-form .receipt-call input[data-receipt-calltime]{flex:1;min-width:75px;width:90px}
+:is(#tm-preview,.receipt-host) .receipt-birth small{display:none}
+:is(#tm-preview,.receipt-host) .receipt-form .receipt-kind-options{padding-top:0}
+:is(#tm-preview,.receipt-host) .receipt-admin-controls{margin:8px 10px;gap:8px;grid-template-columns:minmax(150px,1fr) minmax(0,2fr)}
+:is(#tm-preview,.receipt-host) .receipt-admin-field{gap:3px}
+:is(#tm-preview,.receipt-host) .receipt-policy{margin:4px 10px;font-size:12px}
+:is(#tm-preview,.receipt-host) .receipt-feedback{margin:4px 10px;min-height:0}
+:is(#tm-preview,.receipt-host) .receipt-feedback:empty{display:none}
+:is(#tm-preview,.receipt-host) .receipt-actions{padding:8px 10px 10px;gap:8px;flex-wrap:wrap}
+:is(#tm-preview,.receipt-host) .receipt-actions button{min-height:32px;min-width:90px;padding:5px 12px;font-size:13px}
+.admin-intake-staff-summary{padding:7px 10px}
+@media(max-width:680px){
+ :is(#tm-preview,.receipt-host) .receipt-grid{grid-template-columns:86px minmax(0,1fr);margin:8px 6px 0}
+ :is(#tm-preview,.receipt-host) .receipt-grid>.receipt-region{grid-column:span 1}
+ :is(#tm-preview,.receipt-host) .receipt-admin-controls{grid-template-columns:1fr;margin:8px 6px}
+ :is(#tm-preview,.receipt-host) .receipt-header.receipt-management-header{padding:10px;gap:8px}
+ :is(#tm-preview,.receipt-host) .receipt-management-header .intake-header-search{flex-basis:100%}
+}
