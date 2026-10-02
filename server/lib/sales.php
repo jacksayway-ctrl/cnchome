@@ -17,7 +17,8 @@ function sales_test_user(array $user): bool {
 class SalesDuplicate extends RuntimeException {
     public function __construct(public readonly int $count){parent::__construct('같은 이름과 전화번호로 접수된 기존 자료가 있습니다.');}
 }
-function sales_customer_key(string $name): string {return preg_replace('/\s+/u','',preg_replace('/(?:\s*\(중복\))+\s*$/u','',trim($name)));}
+function sales_customer_base_name(string $name): string {return preg_replace('/(?:\s*\(중복(?:접수)?\))+\s*$/u','',trim($name));}
+function sales_customer_key(string $name): string {return preg_replace('/\s+/u','',sales_customer_base_name($name));}
 function sales_phone_key(string $phone): string {return preg_replace('/\D/','',$phone);}
 function sales_duplicate_count(array $employee,string $name,string $phone): int {
     $test=cnc_test_user($employee);$nameKey=sales_customer_key($name);$phoneKey=sales_phone_key($phone);$d=db();$count=0;
@@ -93,7 +94,7 @@ function sales_mutate(array $user,array $in): void {
             $q=$d->prepare('SELECT employee_id,is_test FROM sales_records WHERE request_key=?');$q->execute([$key]);$existing=$q->fetch();
             if($existing){hr_assert((int)$existing['employee_id']===(int)$owner,'접수 요청을 확인해 주세요.');if($user['role']!=='admin'&&!cnc_test_user($employee)&&!empty($existing['is_test']))throw new HRForbidden('접수 요청을 확인해 주세요.');$d->commit();return;}
             $duplicates=sales_duplicate_count($employee,$name,$phone);
-            if($duplicates){if(($in['duplicateConfirmed']??false)!==true)throw new SalesDuplicate($duplicates);$name=mb_substr(preg_replace('/(?:\s*\(중복\))+\s*$/u','',trim($name)),0,95).' (중복)';}
+            if($duplicates){if(($in['duplicateConfirmed']??false)!==true)throw new SalesDuplicate($duplicates);$name=mb_substr(sales_customer_base_name($name),0,94).'(중복접수)';}
             $q=$d->prepare("INSERT INTO sales_records(employee_id,department,first_date,customer_name,phone,address,carrier,insurance_kind,birth_year,note,status,is_test,request_key) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)");
             $q->execute([$owner,$employee['department'],$date,$name,$phone,$address,$carrier,$kind,$birth,$note,$status,cnc_test_user($employee)?1:0,$key]);
             $id=(int)$d->lastInsertId();sales_save_counselor($id,$receipt['counselorName']);

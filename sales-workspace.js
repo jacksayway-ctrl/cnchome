@@ -86,7 +86,7 @@
  function confirmDuplicate(form,count){
   return new Promise(resolve=>{
    const dialog=global.document.createElement('dialog');dialog.className='sales-duplicate-dialog cnc-admin-save-confirm';dialog.setAttribute('aria-label','중복 접수 확인');
-   dialog.innerHTML='<h2>중복 접수 확인</h2><p>같은 이름과 전화번호의 기존 접수가 '+Number(count)+'건 있습니다.</p><p>저장하면 고객명 뒤에 <strong>(중복)</strong>을 붙여 접수합니다.</p><div class="row"><button type="button" class="secondary" data-duplicate-cancel autofocus>취소</button><button type="button" class="action" data-duplicate-save>저장</button></div>';
+   dialog.innerHTML='<h2>중복 접수 확인</h2><p>같은 이름과 전화번호의 기존 접수가 '+Number(count)+'건 있습니다.</p><p>저장하면 신청자 성함 뒤에 <strong>(중복접수)</strong>를 붙여 접수합니다.</p><div class="row"><button type="button" class="secondary" data-duplicate-cancel autofocus>취소</button><button type="button" class="action" data-duplicate-save>저장</button></div>';
    bridge.root.append(dialog);let approved=false;
    dialog.querySelector('[data-duplicate-cancel]').addEventListener('click',()=>dialog.close());dialog.querySelector('[data-duplicate-save]').addEventListener('click',event=>{if(event.detail<1){event.preventDefault();return;}approved=true;dialog.close();});
    dialog.addEventListener('close',()=>{dialog.remove();resolve(approved&&form.isConnected);},{once:true});dialog.showModal();

@@ -100,10 +100,10 @@ body.receipt-window :is(#tm-preview,.receipt-host) #tm-dialog.receipt-dialog::ba
  body.nf-popup[data-page=adminIntake] .intake-summary a{padding:3px 9px;font-size:11px}
  body.nf-popup[data-page=adminIntake] .intake-summary strong{font-size:12px}
  body.nf-popup[data-page=adminIntake] .intake-detail-card{display:grid;grid-template-columns:minmax(0,1fr) 210px;gap:6px 12px;align-items:start}
- body.nf-popup[data-page=adminIntake] .intake-detail-card>h2{grid-column:1/-1;font-size:15px;margin:0}
+ body.nf-popup[data-page=adminIntake] .intake-detail-card>.intake-detail-heading{grid-column:1/-1;margin:0}
  body.nf-popup[data-page=adminIntake] .intake-detail-card>.intake-edit{grid-column:1;grid-row:2 / span 8;margin:0;padding:0;border:0;min-width:0}
  body.nf-popup[data-page=adminIntake] .intake-detail-card>.intake-edit>summary{display:none}
- body.nf-popup[data-page=adminIntake] .intake-detail-card>:not(h2):not(.intake-edit){grid-column:2;margin:0;font-size:12px}
+ body.nf-popup[data-page=adminIntake] .intake-detail-card>:not(.intake-detail-heading):not(.intake-edit){grid-column:2;margin:0;font-size:12px}
  body.nf-popup[data-page=adminIntake] .intake-detail-card>.nf-actions{display:flex;align-items:stretch;flex-direction:column;gap:6px}
  body.nf-popup[data-page=adminIntake] .intake-detail-card>.nf-actions .nf-field{min-width:0;width:100%}
  body.nf-popup[data-page=adminIntake] .intake-detail-grid{grid-template-columns:1fr;padding:8px}
@@ -129,4 +129,19 @@ body.receipt-window :is(#tm-preview,.receipt-host) #tm-dialog.receipt-dialog::ba
  body.nf-popup[data-page=adminIntake] .receipt-host .receipt-feedback:empty{display:none}
  body.nf-popup[data-page=adminIntake] .receipt-host .receipt-actions{padding:6px 0 0;gap:8px}
  body.nf-popup[data-page=adminIntake] .receipt-host .receipt-actions button{min-height:31px;min-width:90px;padding:5px 12px;font-size:12px}
+}
+
+/* Receipt management toolbar, with live search next to the title. */
+:is(#tm-preview,.receipt-host) .receipt-header.receipt-management-header{min-height:90px;padding:18px 32px;gap:16px 24px;align-items:center}
+:is(#tm-preview,.receipt-host) .receipt-management-header>div:first-child{flex:none}
+:is(#tm-preview,.receipt-host) .receipt-management-header h2{margin:0;font-size:30px;white-space:nowrap}
+:is(#tm-preview,.receipt-host) .receipt-management-header>div:first-child>p{display:none}
+:is(#tm-preview,.receipt-host) .receipt-management-header .intake-header-search{flex:0 1 536px;min-width:370px;margin-left:auto}
+:is(#tm-preview,.receipt-host) .receipt-management-header .receipt-input-mode{flex:none;margin:0 0 0 auto}
+:is(#tm-preview,.receipt-host) .receipt-management-header .receipt-input-mode select{width:auto;min-height:34px}
+:is(#tm-preview,.receipt-host) .receipt-management-header .intake-search-popover>p{display:block;color:#6a7e96;font-size:11px;margin:0 0 5px}
+@media(max-width:700px){
+ :is(#tm-preview,.receipt-host) .receipt-header.receipt-management-header{padding:14px 16px;gap:12px}
+ :is(#tm-preview,.receipt-host) .receipt-management-header h2{font-size:24px}
+ :is(#tm-preview,.receipt-host) .receipt-management-header .intake-header-search{order:3;flex-basis:100%;min-width:0;gap:10px;margin:0}
 }

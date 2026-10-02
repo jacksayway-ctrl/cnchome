@@ -97,6 +97,7 @@
  // Keep Enter available for multiline notes and IME completion, but never let it save a receipt.
  global.addEventListener('keydown',event=>{
   const target=event.target;if(!(target instanceof global.Element)||!target.closest('.receipt-form,.intake-form')||event.isComposing||event.keyCode===229)return;
+  if(target.closest('[data-intake-side-search]')&&target.matches('button,[data-intake-search-input]'))return;
   const save=target.closest('.receipt-save,[data-receipt-pointer-save]');
   if((save&&(event.key==='Enter'||event.key===' '))||(event.key==='Enter'&&!target.matches('textarea,select')))event.preventDefault();
  },true);

@@ -117,9 +117,11 @@ $duplicateNext=array_replace($duplicateBase,['date'=>$today,'phone'=>'0105555111
 try{sales_mutate($two,$duplicateNext);throw new RuntimeException('duplicate saved without confirmation');}catch(SalesDuplicate $e){check($e->count===1&&!$d->inTransaction(),'both-field duplicate warns without saving and rolls back');}
 check((int)$d->query('SELECT count(*) FROM sales_records')->fetchColumn()===$duplicateBefore+1,'cancelled duplicate does not create a record');
 sales_mutate($two,array_replace($duplicateNext,['duplicateConfirmed'=>true]));
-$duplicateSaved=$d->query("SELECT customer_name FROM sales_records WHERE request_key='b2b2b2b2-b2b2-b2b2-b2b2-b2b2b2b2b2b2'")->fetchColumn();check($duplicateSaved==='중복 검증 고객 (중복)','confirmed duplicate stores the label in the customer name');
+$duplicateSaved=$d->query("SELECT customer_name FROM sales_records WHERE request_key='b2b2b2b2-b2b2-b2b2-b2b2-b2b2b2b2b2b2'")->fetchColumn();check($duplicateSaved==='중복 검증 고객(중복접수)','confirmed duplicate stores the requested label in the customer name');
 sales_mutate($two,$duplicateNext);check((int)$d->query('SELECT count(*) FROM sales_records')->fetchColumn()===$duplicateBefore+2,'acknowledged duplicate retry remains idempotent even without a second acknowledgement');
 $duplicateEmployee=$d->query('SELECT * FROM app_users WHERE id=2')->fetch();check(sales_duplicate_count($duplicateEmployee,'중복 검증 고객 (중복)','010-5555-1111')===2,'stored duplicate label does not hide repeated matches');
+check(sales_duplicate_count($duplicateEmployee,'중복 검증 고객(중복접수)','010-5555-1111')===2,'new duplicate label still matches both customer and phone');
+check(sales_customer_base_name('중복 검증 고객 (중복)(중복접수)')==='중복 검증 고객','mixed old and new duplicate labels normalize to one customer name');
 sales_mutate($one,array_replace($duplicateNext,['customer'=>'다른 고객','requestKey'=>'c3c3c3c3-c3c3-c3c3-c3c3-c3c3c3c3c3c3']));
 sales_mutate($one,array_replace($duplicateNext,['phone'=>'010-5555-2222','requestKey'=>'d4d4d4d4-d4d4-d4d4-d4d4-d4d4d4d4d4d4']));
 sales_mutate($testUser,array_replace($duplicateNext,['requestKey'=>'e5e5e5e5-e5e5-e5e5-e5e5-e5e5e5e5e5e5']));

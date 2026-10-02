@@ -1,8 +1,11 @@
 <?php $detailPosted=(string)($posted['id']??'')===(string)$r['id']?$posted:[];$legacy=str_starts_with($r['id'],'test:');$v=$detailPosted&&($detailPosted['action']??'')==='edit'?$detailPosted:$r; ?>
-<section class="nf-card intake-detail-card" data-intake-detail-panel data-intake-record="<?= $eh($r['id']) ?>"><h2>접수 상세 · <?= $eh($r['customer']) ?> <?= $r['isTest']?'<span class="intake-test">테스트</span>':'' ?></h2>
-<aside class="intake-side-search" data-intake-side-search data-scope="<?= $eh($filters['scope']) ?>">
-<label>이름·전화번호 검색<input type="search" data-intake-search-input maxlength="80" autocomplete="off" placeholder="입력하면 바로 검색" aria-label="접수증 이름 또는 전화번호 검색"></label>
-<p data-intake-search-status role="status" aria-live="polite">이름 또는 전화번호를 입력해 주세요.</p><div data-intake-search-results></div>
+<?php $detailCounts=$counts??null;if($detailCounts===null){$detailCounts=['pending'=>0,'normal'=>0,'as'=>0];foreach(intake_filtered($snapshot['records'],array_replace($filters,['status'=>''])) as $summaryRecord)$detailCounts[$summaryRecord['status']]++;} ?>
+<section class="nf-card intake-detail-card" data-intake-detail-panel data-intake-record="<?= $eh($r['id']) ?>">
+<div class="intake-detail-heading"><h2>접수 상세 · <?= $eh($r['customer']) ?> <?= $r['isTest']?'<span class="intake-test">테스트</span>':'' ?></h2><nav class="intake-summary" aria-label="접수 상태별 조회"><a href="<?= $eh(intake_url($filters,['status'=>'','p'=>1])) ?>"<?= $filters['status']===''?' aria-current="page"':'' ?>>전체 상태<strong><?= number_format(array_sum($detailCounts)) ?>건</strong></a><?php foreach($detailCounts as $summaryStatus=>$summaryCount): ?><a href="<?= $eh(intake_url($filters,['status'=>$summaryStatus,'p'=>1])) ?>"<?= $filters['status']===$summaryStatus?' aria-current="page"':'' ?>><?= intake_status($summaryStatus) ?><strong><?= number_format($summaryCount) ?>건</strong></a><?php endforeach ?></nav></div>
+<aside class="intake-header-search" data-intake-side-search data-scope="<?= $eh($filters['scope']) ?>" aria-label="접수증 검색">
+<div class="intake-search-group"><label><span>이름 또는 전화번호</span><input type="search" data-intake-search-input maxlength="80" autocomplete="off" placeholder="고객 이름 또는 전화번호 입력" aria-label="접수증 이름 또는 전화번호 검색" aria-expanded="false"></label><button type="button" data-intake-search-submit>조회</button>
+<div class="intake-search-popover" data-intake-search-popover hidden><p data-intake-search-status role="status" aria-live="polite">이름 또는 전화번호를 입력해 주세요.</p><div data-intake-search-results></div></div></div>
+<button type="button" class="intake-search-reset" data-intake-new-url="<?= $eh(intake_url(['new'=>'1']+(!empty($popup)?['popup'=>'1']:[]))) ?>" title="새 접수 입력">초기화</button>
 </aside>
 <?php if(!$legacy):
 $editValues=[];foreach(['customer','phone','birthDate','birthYear','carrier','consultationTime','consultationPlace','premiumBand','note','gender','callAvailability','visitSchedule','counselorName','status'] as $key)$editValues[$key]=(string)($v[$key]??$r[$key]??'');

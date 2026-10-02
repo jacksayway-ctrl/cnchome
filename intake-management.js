@@ -20,9 +20,14 @@
  function attachSearch(root){
   for(const box of root.querySelectorAll('[data-intake-side-search]')){
    if(box.dataset.ready)return;box.dataset.ready='1';
-   const input=box.querySelector('[data-intake-search-input]'),status=box.querySelector('[data-intake-search-status]'),results=box.querySelector('[data-intake-search-results]');
+   const input=box.querySelector('[data-intake-search-input]'),status=box.querySelector('[data-intake-search-status]'),results=box.querySelector('[data-intake-search-results]'),popover=box.querySelector('[data-intake-search-popover]');
    const panel=box.closest('[data-intake-detail-panel]');let dirty=false;
-   for(const eventName of ['input','change'])panel.addEventListener(eventName,event=>{if(event.target.closest('form[data-intake-edit-form]'))dirty=true;});
+   for(const eventName of ['input','change'])panel.addEventListener(eventName,event=>{if(event.target.closest('form[data-intake-edit-form]')&&!event.target.closest('[data-intake-side-search]')&&!event.target.matches('[data-receipt-input-mode]'))dirty=true;});
+   panel.addEventListener('intake:editor-reset',()=>{dirty=false;});
+   function confirmNavigation(event){if(dirty&&!confirm('수정 중인 내용을 저장하지 않고 다른 접수 화면을 여시겠습니까?')){event.preventDefault();event.stopImmediatePropagation();}}
+   panel.querySelector('.intake-detail-heading')?.addEventListener('click',event=>{if(event.target.closest('a'))confirmNavigation(event);},true);
+   const resultsId='intake-search-results-'+panel.dataset.intakeRecord.replace(/[^a-zA-Z0-9_-]/g,'-');results.id=resultsId;input.setAttribute('aria-controls',resultsId);
+   function showResults(show){popover.hidden=!show;input.setAttribute('aria-expanded',String(show));}
    let timer=0,request=null,version=0,composing=false;
    function cancel(){clearTimeout(timer);request?.abort();request=null;version++;}
    async function search(sequence,query){
@@ -41,16 +46,26 @@
       const target=new URL('/intake.php',location.origin);target.search=new URLSearchParams({role:'admin',month:record.date.slice(0,7),scope:record.isTest?'test':'real',id:record.id,popup:'1'}).toString();
       link.href=window.CNCWindowSession?.url(target.href)||target.href;
       name.textContent=record.customer;phone.textContent=record.phone||'연락처 미입력';meta.textContent=[record.isTest?'테스트':'',record.employee,record.date,({pending:'가접수',normal:'정상접수',as:'A/S'})[record.status]||''].filter(Boolean).join(' · ');
-      link.append(name,phone,meta);link.addEventListener('click',event=>{if(dirty&&!confirm('수정 중인 내용을 저장하지 않고 다른 접수증을 여시겠습니까?')){event.preventDefault();event.stopImmediatePropagation();}},true);fragment.append(link);
+      link.append(name,phone,meta);link.addEventListener('click',confirmNavigation,true);fragment.append(link);
      }
      results.replaceChildren(fragment);status.textContent=data.records.length?(data.hasMore?'검색 결과 20건 · 검색어를 더 입력하면 좁힐 수 있습니다.':'검색 결과 '+data.records.length+'건'):'일치하는 접수가 없습니다.';
     }catch(error){if(sequence===version&&box.isConnected){results.replaceChildren();status.textContent=error.name==='AbortError'?'검색 응답이 지연되었습니다. 다시 입력해 주세요.':error.message;}}
     finally{clearTimeout(timeout);if(request===controller)request=null;}
    }
-   function schedule(){cancel();results.replaceChildren();const query=input.value.trim();if(composing)return;if(!query){status.textContent='이름 또는 전화번호를 입력해 주세요.';return;}status.textContent='검색 중…';const sequence=version;timer=setTimeout(()=>search(sequence,query),180);}
-   input.addEventListener('compositionstart',()=>{composing=true;cancel();results.replaceChildren();status.textContent='입력 중…';});input.addEventListener('compositionend',()=>{composing=false;schedule();});
+   function schedule(){cancel();results.replaceChildren();const query=input.value.trim();if(composing)return;showResults(!!query);if(!query){status.textContent='이름 또는 전화번호를 입력해 주세요.';return;}status.textContent='검색 중…';const sequence=version;timer=setTimeout(()=>search(sequence,query),180);}
+   function searchNow(){if(composing)return;cancel();results.replaceChildren();showResults(true);const query=input.value.trim();if(query)search(version,query);else{status.textContent='이름 또는 전화번호를 입력해 주세요.';input.focus();}}
+   input.addEventListener('compositionstart',()=>{composing=true;cancel();results.replaceChildren();showResults(false);status.textContent='입력 중…';});input.addEventListener('compositionend',()=>{composing=false;schedule();});
    input.addEventListener('input',event=>{if(!event.isComposing)schedule();});
-   input.addEventListener('keydown',event=>{if(event.key==='Enter'&&!composing&&!event.isComposing){event.preventDefault();cancel();if(input.value.trim())search(version,input.value.trim());}});
+   input.addEventListener('keydown',event=>{if(event.key==='Enter'&&!composing&&!event.isComposing){event.preventDefault();searchNow();}else if(event.key==='Escape'){event.preventDefault();showResults(false);}});
+   input.addEventListener('focus',()=>{if(input.value.trim())showResults(true);});
+   box.querySelector('[data-intake-search-submit]').addEventListener('click',searchNow);
+   box.querySelector('[data-intake-new-url]').addEventListener('click',event=>{
+    if(dirty&&!confirm('수정 중인 내용을 저장하지 않고 새 접수를 입력하시겠습니까?'))return;
+    const target=new URL(event.currentTarget.dataset.intakeNewUrl,location.origin);
+    if(target.origin!==location.origin||target.pathname!=='/intake.php'||target.searchParams.get('new')!=='1'||target.searchParams.has('id'))return;
+    cancel();location.assign(window.CNCWindowSession?.url(target.href)||target.href);
+   });
+   box.addEventListener('focusout',event=>{if(!box.contains(event.relatedTarget))showResults(false);});
    window.addEventListener('pagehide',cancel,{once:true});
   }
  }

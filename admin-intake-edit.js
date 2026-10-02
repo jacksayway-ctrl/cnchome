@@ -20,6 +20,9 @@
   let payload;try{payload=JSON.parse(data.content.textContent);}catch(_){target.textContent='접수 정보를 불러오지 못했습니다. 새로고침해 주세요.';return;}
   const record=payload.record;if(!record||!/^(?:\d+|test:\d+:\d+)$/.test(record.id)||!/^\d{4}-\d{2}-\d{2}$/.test(record.date))return;
   const action=new URL(host.dataset.intakeEditUrl,global.CNCPageUrl||location.href);if(action.origin!==location.origin||action.pathname!=='/intake.php')return;
+  // Keep the live search node and its IME/request state across receipt resets.
+  const search=host.closest('[data-intake-detail-panel]')?.querySelector('[data-intake-side-search]');
+  search?.remove();
   active.get(host)?.();
   target.innerHTML=global.ReceiptForm.markup({admin:true,editing:true,idPrefix:'receipt-edit-'+record.id,staff:[],user:{display_name:record.counselorName},counselorNames:payload.counselorNames||[]});
   const form=target.querySelector('form');form.method='post';form.action=action.href;form.classList.add('intake-form');form.dataset.intakeEditForm='';if(options.submit)form.removeAttribute('data-sales-form');
@@ -67,6 +70,8 @@
   form.addEventListener('input',syncBirth);form.addEventListener('change',syncBirth);form.addEventListener('submit',syncBirth);syncBirth();
   if(options.submit)form.addEventListener('submit',event=>{event.preventDefault();event.stopPropagation();syncBirth();if(form.reportValidity())options.submit(form);});
   global.CNCWindowSession?.decorateForm(form);
+  if(search){const header=form.querySelector('.receipt-header');header.classList.add('receipt-management-header');header.querySelector('.receipt-input-mode').before(search);}
+  if(force)host.dispatchEvent(new CustomEvent('intake:editor-reset',{bubbles:true}));
   active.set(host,()=>{detachReceipt?.();if(typeof detachDetails==='function')detachDetails();});
  }
  function hydrate(root=document){for(const host of root.querySelectorAll('[data-intake-edit-host]'))mount(host);}

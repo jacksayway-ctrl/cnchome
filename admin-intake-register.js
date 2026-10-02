@@ -42,7 +42,7 @@
   return new Promise(resolve=>{
    const dialog=document.createElement('dialog');dialog.className='sales-duplicate-dialog cnc-admin-save-confirm';dialog.setAttribute('aria-label','중복 접수 확인');
    const title=document.createElement('h2'),message=document.createElement('p'),note=document.createElement('p'),actions=document.createElement('div');
-   title.textContent='중복 접수 확인';message.textContent='같은 이름과 전화번호의 기존 접수가 '+Number(count)+'건 있습니다.';note.textContent='저장하면 고객명 뒤에 (중복)을 붙여 접수합니다.';actions.className='cnc-admin-save-confirm-actions';
+   title.textContent='중복 접수 확인';message.textContent='같은 이름과 전화번호의 기존 접수가 '+Number(count)+'건 있습니다.';note.textContent='저장하면 신청자 성함 뒤에 (중복접수)를 붙여 접수합니다.';actions.className='cnc-admin-save-confirm-actions';
    let approved=false;for(const [value,label] of [['cancel','취소'],['save','저장']]){const button=document.createElement('button');button.type='button';button.textContent=label;button.className=value==='save'?'primary':'secondary';button.autofocus=value==='cancel';button.addEventListener('click',event=>{if(value==='save'&&event.detail<1){event.preventDefault();return;}approved=value==='save';dialog.close();});actions.append(button);}
    dialog.append(title,message,note,actions);document.body.append(dialog);dialog.addEventListener('close',()=>{dialog.remove();resolve(approved&&form.isConnected);},{once:true});dialog.showModal();
   });
