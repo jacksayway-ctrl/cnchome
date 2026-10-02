@@ -67,3 +67,25 @@ check(isset(((array)intake_policy_snapshot($admin)['policies'])['hanwha:general'
 rejects(fn()=>intake_policy_history($employee),IntakePolicyForbidden::class);
 $history=intake_policy_history($admin);check(count($history['history'])===11,'all successful changes listed with their immutable versions');
 check(isset(intake_policy_history($admin,1)['state']['policies']['hanwha:general']),'historical upload rows remain readable');
+
+// A same-named product in another department must never replace an insurance publication.
+$insuranceBefore=intake_policy_snapshot($admin);$nextRevision=$insuranceBefore['revision'];
+$cosmeticRows=[['지역','수량'],['대전광역시','9']];
+$cosmetic=intake_policy_mutate($admin,['action'=>'publish','department'=>'cosmetics','revision'=>$nextRevision,'client'=>'legacy','carrier'=>'hanwha','groups'=>['general'=>$cosmeticRows]]);
+check($cosmetic['department']==='cosmetics'&&count((array)$cosmetic['policies'])===1,'department response contains only its policies');
+check((array)intake_policy_snapshot($admin,'insurance')['policies']===(array)$insuranceBefore['policies'],'insurance publications are preserved byte-for-byte');
+$cosmeticEmployee=['id'=>3,'role'=>'employee','department'=>'cosmetics'];
+check(((array)intake_policy_snapshot($cosmeticEmployee,'insurance')['policies'])['hanwha:general']['rows']===$cosmeticRows,'employee query cannot override authenticated department');
+check(count((array)intake_policy_snapshot($admin,'health')['policies'])===0,'unconfigured health department starts empty');
+$lowerCosmetic=$cosmeticRows;$lowerCosmetic[1][1]='5';
+intake_policy_mutate($admin,['action'=>'publish','department'=>'cosmetics','revision'=>$cosmetic['revision'],'client'=>'legacy','carrier'=>'hanwha','groups'=>['general'=>$lowerCosmetic]]);
+$cosmeticFeed=notice_snapshot($cosmeticEmployee);
+check(count($cosmeticFeed['activity'])===1&&$cosmeticFeed['activity'][0]['department']==='cosmetics','policy reduction follows its department');
+$cosmeticHistory=intake_policy_history($admin,0,0,'cosmetics');
+check(count($cosmeticHistory['history'])===2&&count(intake_policy_history($admin)['history'])===11,'history is department-scoped including legacy insurance records');
+$cosmeticHistoryId=(int)$cosmeticHistory['history'][0]['id'];
+rejects(fn()=>intake_policy_history($admin,$cosmeticHistoryId,0,'insurance'),InvalidArgumentException::class);
+$catalog=intake_policy_mutate($admin,['action'=>'client','department'=>'health','revision'=>$cosmetic['revision']+1,'label'=>'건강 부서 전용']);
+check(count($catalog['clients'])===2&&count(intake_policy_snapshot($admin,'cosmetics')['clients'])===1,'catalog changes do not affect another department');
+rejects(fn()=>intake_policy_snapshot($admin,'invalid'),InvalidArgumentException::class);
+echo "PASS: independent department policies, catalogs, history, employee scope and reduction notifications.\n";

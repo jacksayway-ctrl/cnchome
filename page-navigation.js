@@ -11,7 +11,8 @@
   if(!/^[a-zA-Z][a-zA-Z0-9]*$/.test(page))return;
   route.searchParams.set('page',page);route.hash='';if(window.CNCHOME_LIVE)window.CNCHOME_LIVE.page=page;remember();if(ready)conceal();
  }
- window.CNCPageNavigation={setPage,url:()=>route.href};remember();
+ function setDepartment(department){if(!['insurance','cosmetics','health'].includes(department))return;route.searchParams.set('department',department);route.searchParams.delete('team');remember();if(ready)conceal();}
+ window.CNCPageNavigation={setPage,setDepartment,url:()=>route.href};remember();
  function absoluteAction(form){const action=form.getAttribute('action');if(!action||action.startsWith('?'))form.action=new URL(action||route.pathname+route.search,route).href;if(sessionReady)windowSession?.decorateForm(form);}
  document.addEventListener('submit',e=>{if(e.target instanceof HTMLFormElement)absoluteAction(e.target);},true);
  document.addEventListener('click',e=>{const link=e.target.closest('a[href]');if(link?.getAttribute('href').startsWith('?'))link.href=new URL(link.getAttribute('href'),route).href;},true);

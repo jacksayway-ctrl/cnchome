@@ -45,3 +45,15 @@ foreach(['admin','employee'] as $role){
  if($role==='admin')check(str_contains($html,'membership-notification.js')&&str_contains($html,'직원 등록 승인'),'admin approval notification and submenu present');
 }
 echo 'PASS: role-checked PHP routes, escaped output, original-menu exclusion, document allowlist and rendered fixtures.'.PHP_EOL;
+
+$_GET=['department'=>'health'];$role='admin';$user=['id'=>1,'role'=>'admin','department'=>'insurance','display_name'=>'관리자'];
+foreach(['adminPolicy','adminGrade','adminBank','adminCorrections'] as $page){
+ $boot=['user'=>$user,'page'=>$page,'entries'=>[],'revision'=>0,'csrf'=>'TEST','hr'=>['today'=>'2026-10-03','accounts'=>[],'employees'=>[],'payroll'=>[]]];
+ $html=html_view('office',compact('role','page','user','boot'));
+ check(str_contains($html,'class="aw-department-tabs"'),'each scoped group has department tabs');
+ check(str_contains($html,'department=health" class="active"'),'selected department is preserved by server rendering');
+}
+check(str_contains(native_url('adminPayroll','admin'),'department=health'),'native payroll link preserves department');
+check(str_contains(native_url('adminPolicy','admin'),'department=health'),'native-to-office link preserves department');
+$_GET=[];
+echo "PASS: policy, grade and payroll department navigation.\n";

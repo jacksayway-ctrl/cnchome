@@ -14,16 +14,19 @@
  const testAccount=()=>live()?.isTestAccount??/^user[1-6]$/.test(live()?.user.username||'');
  const canViewTest=()=>admin()||testAccount();
  const weekStorageKey=()=>live()?'cnchome.performanceWeekStart.'+live().user.role+'.'+live().user.id:'tm-performance-week-start';
- const route=()=>new URL(global.location.href).searchParams.get('page')||live()?.page;
- function handles(page){return !!live()&&(admin()?['adminHome','adminPerformance'].includes(page):['home','sales','as'].includes(page))}
+ const route=()=>global.location.hash.slice(1)||new URL(global.location.href).searchParams.get('page')||live()?.page;
+ const department=()=>{const params=new URL(global.CNCPageNavigation?.url()||global.location.href).searchParams,value=params.get('department')||params.get('team');return Object.hasOwn(teams,value)?value:'insurance';};
+ const scoped=()=>admin()&&['adminPerformance','adminAs'].includes(route());
+ function handles(page){return !!live()&&(admin()?['adminHome','adminPerformance','adminAs'].includes(page):['home','sales','as'].includes(page))}
  const active=()=>handles(route());
- const allRows=()=>store?.month===month?(store.records||[]).filter(r=>(admin()||Number(r.employeeId)===Number(live().user.id))&&!!r.isTest===(canViewTest()&&showTest)):[];
+ const allRows=()=>store?.month===month?(store.records||[]).filter(r=>(!scoped()||r.team===department())&&(admin()||Number(r.employeeId)===Number(live().user.id))&&!!r.isTest===(canViewTest()&&showTest)):[];
  const rows=()=>allRows().filter(r=>r.date.startsWith(month));
  const table=(heads,body)=>'<div class="scroll"><table><thead><tr>'+heads.map(x=>'<th>'+x+'</th>').join('')+'</tr></thead><tbody>'+body.map(row=>'<tr>'+row.map(x=>'<td>'+x+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>';
  const summary=c=>Object.keys(labels).map(key=>'<span class="sales-status-'+tones[key]+'">'+labels[key]+' <strong>'+c[key]+'건</strong></span>').join('');
  function weekly(){
   const dates=weekDates(weekAnchor,weekStart),records=allRows().filter(r=>dates.includes(r.date));
-  const groups=[['보험 · 일반',r=>r.team==='insurance'&&r.kind==='general'],['보험 · 실버',r=>r.team==='insurance'&&r.kind==='silver'],['보험 · 미지정',r=>r.team==='insurance'&&!['general','silver'].includes(r.kind)],['화장품',r=>r.team==='cosmetics'],['건강보조식품',r=>r.team==='health'],['전체',()=>true]];
+  const allGroups=[['보험 · 일반',r=>r.team==='insurance'&&r.kind==='general'],['보험 · 실버',r=>r.team==='insurance'&&r.kind==='silver'],['보험 · 미지정',r=>r.team==='insurance'&&!['general','silver'].includes(r.kind)],['화장품',r=>r.team==='cosmetics'],['건강보조식품',r=>r.team==='health'],['전체',()=>true]];
+  const groups=scoped()?allGroups.filter(([name])=>department()==='insurance'?name.startsWith('보험'):name===(department()==='cosmetics'?'화장품':'건강보조식품')):allGroups;
   return '<section class="panel"><h3>상품별 주간 실적</h3><div class="toolbar performance-week-toolbar"><button class="secondary" type="button" data-sales-week="-1">이전 주</button><strong>'+dates[0]+' ~ '+dates[6]+'</strong><button class="secondary" type="button" data-sales-week="1">다음 주</button><label>기준일<input type="date" data-sales-week-date value="'+weekAnchor+'"></label><label>주 시작 요일<select data-sales-week-start>'+['일','월','화','수','목','금','토'].map((x,i)=>'<option value="'+i+'" '+(i===weekStart?'selected':'')+'>'+x+'요일</option>').join('')+'</select></label></div>'+table(['상품',...dates.map(x=>x.slice(5)),'정상접수 합계','가접수','A/S'],groups.map(([name,filter])=>{const rs=records.filter(filter),c=counts(rs);return [name,...dates.map(d=>counts(rs.filter(r=>r.date===d)).normal+'건'),c.normal+'건',c.pending+'건',c.as+'건']}))+'</section>';
  }
  function calendar(team,records){
@@ -66,12 +69,13 @@
  }
  function render(page){
   if(page==='home'&&!admin())return home();
-  const ready=store?.month===month,records=rows().filter(r=>page!=='as'||r.status==='as');
-  const title=admin()?(page==='adminHome'?'관리자 홈 · 업무현황':'실적 관리'):page==='as'?'나의 A/S':'나의 실적';
+  const ready=store?.month===month,records=rows().filter(r=>!['as','adminAs'].includes(page)||r.status==='as');
+  const title=admin()?(page==='adminHome'?'관리자 홈 · 업무현황':teams[department()]+' '+(page==='adminAs'?'A/S 관리':'실적 관리')):page==='as'?'나의 A/S':'나의 실적';
   const testAvailable=canViewTest()&&(showTest||store?.records?.some(r=>r.isTest));
   const top=(page==='adminHome'?(global.AdminWorkspace?.home()||''):'')+'<div class="sales-workspace"><div class="sales-page-toolbar" aria-label="실적 조회 및 접수"><h2>'+title+'</h2><div class="sales-month-controls"><button class="secondary" type="button" data-sales-month="-1">이전 달</button><input type="month" aria-label="실적 조회 월" data-sales-month-input value="'+month+'"><button class="secondary" type="button" data-sales-month="1">다음 달</button></div><button class="secondary sales-refresh-button" type="button" data-sales-refresh>새로고침</button>'+(testAvailable?'<label class="sales-test-toggle"><input type="checkbox" data-sales-test '+(showTest?'checked':'')+'><span>테스트 자료 보기</span></label>':'')+'</div><p class="sub" data-sales-sync>'+esc(error||(!ready?'접수 내역을 불러오는 중입니다.':'5초마다 자동 갱신 · 마지막 확인 '+lastFetch))+'</p>'+(showTest?'<p class="notice">테스트 계정의 가상 자료입니다. 실제 실적에는 합산하지 않습니다.</p>':'')+'<p class="sub">최초 접수일 기준 · 상태 변경 시 가접수·정상접수·A/S 건수가 함께 바뀝니다.</p>';
   if(!ready)return top+'</div>';
-  const visibleTeams=admin()?Object.keys(teams).filter(t=>t!=='health'||records.some(r=>r.team===t)):[live().user.department];
+  if(page==='adminAs')return top+table(['최초 접수일','상담원','고객명','전화번호','접수 코드','현재 상태'],records.length?records.map(r=>[esc(r.date),esc(r.employee),esc(r.customer),esc(r.phone||'—'),esc(r.carrier||'—'),'<select aria-label="'+esc(r.customer)+' 접수 상태" data-sales-status="'+esc(r.id)+'" '+(busy?'disabled':'')+'>'+Object.entries(labels).map(([key,label])=>'<option value="'+key+'" '+(key===r.status?'selected':'')+'>'+label+'</option>').join('')+'</select>']):[['—','—','등록된 A/S가 없습니다.','—','—','—']])+'</div>';
+  const visibleTeams=scoped()?[department()]:admin()?Object.keys(teams).filter(t=>t!=='health'||records.some(r=>r.team===t)):[live().user.department];
   return top+'<div class="sales-live-totals">'+summary(counts(records))+'</div>'+(page==='adminPerformance'?weekly():'')+'<div class="team-calendar-stack">'+visibleTeams.map(t=>calendar(t,records)).join('')+'</div>'+details(records)+'</div>';
  }
  function redraw(){if(active())bridge.render()}
@@ -93,21 +97,21 @@
   });
  }
  async function request(body,submittedForm=null){
-  if(loading||busy)return;const version=++requestVersion,requestedMonth=month;loading=true;if(body)busy=true;
+  if(loading||busy)return;const version=++requestVersion,requestedMonth=month,requestedScope=scoped()?department():'';loading=true;if(body)busy=true;
   let duplicateRetry=null;const form=body?.action==='create'?submittedForm:null,controls=form?[...form.querySelectorAll('input,select,textarea,button[type="submit"],button[type="reset"]')].map(input=>[input,input.disabled]):[];
   if(form){form.setAttribute('aria-busy','true');delete form.querySelector('[data-sales-error]').dataset.state;form.querySelector('[data-sales-error]').textContent='접수증을 저장하는 중입니다.';for(const [input] of controls)input.disabled=true;}
   const controller=new AbortController(),timeout=global.setTimeout(()=>controller.abort(),30000);
   try{
-   const response=await global.fetch('/sales-api.php?month='+encodeURIComponent(requestedMonth),{method:body?'POST':'GET',credentials:'same-origin',cache:'no-store',signal:controller.signal,headers:{'Content-Type':'application/json','X-CSRF-Token':live().csrf},...(body?{body:JSON.stringify(body)}:{})});
+   const response=await global.fetch('/sales-api.php?month='+encodeURIComponent(requestedMonth)+(requestedScope?'&department='+requestedScope:''),{method:body?'POST':'GET',credentials:'same-origin',cache:'no-store',signal:controller.signal,headers:{'Content-Type':'application/json','X-CSRF-Token':live().csrf},...(body?{body:JSON.stringify(body)}:{})});
    const data=await response.json();
    if(response.status===409&&data.duplicate===true&&form){global.clearTimeout(timeout);const approved=await confirmDuplicate(form,data.duplicateCount);if(approved)duplicateRetry={...body,duplicateConfirmed:true};else if(form.isConnected)form.querySelector('[data-sales-error]').textContent='중복 접수 저장을 취소했습니다. 입력 내용을 수정할 수 있습니다.';return;}
-   if(!response.ok)throw Error(data.error||'접수 내역을 불러오지 못했습니다.');if(!body&&(version!==requestVersion||month!==requestedMonth))return;
+   if(!response.ok)throw Error(data.error||'접수 내역을 불러오지 못했습니다.');if(!body&&(version!==requestVersion||month!==requestedMonth||(scoped()?department():'')!==requestedScope))return;
    if(!store)showTest=!admin()&&testAccount()&&data.isTestAccount===true;if(!canViewTest())showTest=false;
    const changed=JSON.stringify(store?.records)!==JSON.stringify(data.records)||store?.month!==data.month||!!error;store=data;global.ReceiptForm?.updateCounselors(bridge.root.querySelector('[data-sales-form]'),data.counselorNames);error='';lastFetch=new Date().toLocaleTimeString('ko-KR',{timeZone:'Asia/Seoul'});
    if(body){if(body.action==='create'){if(form?.isConnected&&form.dataset.requestKey===body.requestKey)global.ReceiptForm.saved(form,data.savedReceipt||{});else if(!form)bridge.close();}bridge.toast('접수 상태를 저장했습니다.');global.dispatchEvent(new global.Event('cnc:sales-changed'));try{global.localStorage.setItem('cnchome.sales.changed',String(Date.now()))}catch(e){}}
    busy=false;if(changed||body)redraw();else {const el=bridge.root.querySelector('[data-sales-sync]');if(el)el.textContent='5초마다 자동 갱신 · 마지막 확인 '+lastFetch;}
   }catch(e){error=e.name==='AbortError'?(body?'저장 확인 응답이 지연되었습니다. 같은 입력으로 저장을 다시 눌러 확인해 주세요.':'조회 응답이 지연되었습니다. 잠시 후 다시 확인해 주세요.'):e.message;if(body){const target=form?.isConnected?form.querySelector('[data-sales-error]'):null;if(target)target.textContent=error;bridge.toast(error)}redraw();}
-  finally{global.clearTimeout(timeout);if(form){form.removeAttribute('aria-busy');for(const [input,disabled] of controls)if(!form.hasAttribute('data-saved')||input.type==='reset')input.disabled=disabled;if(form.hasAttribute('data-saved')&&form.isConnected&&form.closest('dialog')?.open)form.querySelector('button[type="reset"]')?.focus();}loading=false;busy=false;if(duplicateRetry&&form?.isConnected)request(duplicateRetry,form);else if(month!==requestedMonth)request();}
+  finally{global.clearTimeout(timeout);if(form){form.removeAttribute('aria-busy');for(const [input,disabled] of controls)if(!form.hasAttribute('data-saved')||input.type==='reset')input.disabled=disabled;if(form.hasAttribute('data-saved')&&form.isConnected&&form.closest('dialog')?.open)form.querySelector('button[type="reset"]')?.focus();}loading=false;busy=false;if(duplicateRetry&&form?.isConnected)request(duplicateRetry,form);else if(month!==requestedMonth||(scoped()?department():'')!==requestedScope)request();}
  }
  function intake(){
   if(!live())return false;

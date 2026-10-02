@@ -1,12 +1,14 @@
 <?php
 declare(strict_types=1);
-native_start($admin?'급여·지급 관리':'가지급명세서',$user,$admin?'adminPayroll':'payslips');
+$department=$department??management_request_department();$payrollEmployees=$payrollEmployees??array_values(array_filter($state['employees'],fn($e)=>!$admin||management_department($e['profile']['team']??null)===$department));
+native_start($admin?management_departments()[$department].' 급여·지급 관리':'가지급명세서',$user,$admin?'adminPayroll':'payslips');
 $eh=fn(mixed $v):string=>htmlspecialchars((string)$v,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');
-$url='/pay-statements.php?role='.$role;
+$url='/pay-statements.php?role='.$role.($admin?'&department='.$department:'');
 ?>
 <?php if($error): ?><p class="nf-alert" role="alert"><?= $eh($error) ?></p><?php endif ?>
 <?php if(isset($_GET['saved'])): ?><p class="nf-alert">저장했습니다.</p><?php endif ?>
 <div class="nf-actions nf-no-print"><a href="<?= $eh($url) ?>">명세서 목록</a><?php if($admin): ?> <a href="<?= $eh($url.'&edit=1') ?>">이번 달 급여 작성</a><?php endif ?></div>
+<?php if($admin): ?><p class="nf-muted"><?= $eh(management_departments()[$department]) ?> 직원과 명세서를 관리합니다. 지급·공제 항목별 금액과 계산 방법은 명세서 작성에서 각각 입력할 수 있습니다.</p><?php if($editing&&!$payrollEmployees): ?><p class="nf-alert">이 부서에 등록된 직원이 없습니다. 인사·출결에서 직원의 소속 부서를 등록해 주세요.</p><?php endif; endif ?>
 <?php if($editing&&$employee):
  $c=$calculation;$month=substr(hr_today(),0,7);$p=$employee['profile'];$payMonth=(new DateTimeImmutable($month.'-01'))->modify('+1 month');$defaultPayday=$payMonth->format('Y-m-').str_pad((string)min((int)($p['payday']?:15),(int)$payMonth->format('t')),2,'0',STR_PAD_LEFT);$hourly=$p['payType']==='시급제';
  $posted=($_SERVER['REQUEST_METHOD']==='POST'&&($_POST['action']??'')==='savePayroll')?$_POST:[];
@@ -14,7 +16,7 @@ $url='/pay-statements.php?role='.$role;
  $items=[];foreach(['allowanceItems','deductionItems'] as $key){$items[$key]=is_array($posted[$key]??null)?$posted[$key]:pay_statement_items($c,$key);if($key==='allowanceItems')$items[$key]=array_values(array_filter($items[$key],fn($i)=>!in_array($i['kind']??'',['grade','gradeDaily','gradeWeekly','gradeMonthly'],true)&&!preg_match('/(?:일|주|월)\s*그레이드/u',$i['label']??'')));if(!$posted&&!isset($c[$key]))foreach($items[$key] as &$oldItem)$oldItem['method']='';unset($oldItem);while(count($items[$key])<8)$items[$key][]=['label'=>'','amount'=>0,'method'=>'','kind'=>'other'];}
  ?>
 <section class="nf-card"><h2>이번 달 급여 작성</h2>
-<?php if(!$selected): ?><form method="get" class="nf-actions"><input type="hidden" name="role" value="admin"><input type="hidden" name="edit" value="1"><label>직원 <select name="employeeId"><?php foreach($state['employees'] as $e): ?><option value="<?= $e['id'] ?>" <?= $e['id']===$employeeId?'selected':'' ?>><?= $eh($e['profile']['name'].' · '.$e['employeeNo']) ?></option><?php endforeach ?></select></label><button>직원 선택</button></form><?php endif ?>
+<?php if(!$selected): ?><form method="get" class="nf-actions"><input type="hidden" name="role" value="admin"><input type="hidden" name="department" value="<?= $eh($department) ?>"><input type="hidden" name="edit" value="1"><label>직원 <select name="employeeId"><?php foreach($payrollEmployees as $e): ?><option value="<?= $e['id'] ?>" <?= $e['id']===$employeeId?'selected':'' ?>><?= $eh($e['profile']['name'].' · '.$e['employeeNo']) ?></option><?php endforeach ?></select></label><button>직원 선택</button></form><?php endif ?>
 <form method="post" action="<?= $eh($url.($selected?'&id='.$selected['id']:'').'&edit=1') ?>">
 <?= native_csrf() ?><input type="hidden" name="action" value="savePayroll"><input type="hidden" name="id" value="<?= $selected['id']??0 ?>"><input type="hidden" name="revision" value="<?= $eh($posted['revision']??$selected['revision']??0) ?>"><input type="hidden" name="employeeId" value="<?= $employeeId ?>">
 <p><strong><?= $eh($p['name']) ?></strong> · <?= $eh($employee['employeeNo']) ?> · 귀속 <?= $eh($month) ?></p>

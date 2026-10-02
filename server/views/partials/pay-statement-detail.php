@@ -2,7 +2,7 @@
 $c=$calculation;$name=$snapshot['name']??$employee['profile']['name']??'';$employeeNo=$snapshot['employeeNo']??$employee['employeeNo']??'';$paySummary=pay_statement_summary($c);
 ?>
 <section class="nf-card nf-pay-statement"><h2>씨앤씨 · <?= $eh($selected['month']) ?> 가지급명세서</h2>
-<p><strong><?= $eh($name) ?></strong> · 사번 <?= $eh($employeeNo) ?> · <?= $eh(pay_statement_status($selected['status'])) ?></p>
+<p><strong><?= $eh($name) ?></strong> · <?= $eh(management_departments()[payroll_record_department($selected,$employee['profile']??[])]) ?> · 사번 <?= $eh($employeeNo) ?> · <?= $eh(pay_statement_status($selected['status'])) ?></p>
 <p>산정 기간 <?= $eh($c['periodStart']??$selected['month'].'-01') ?> ~ <?= $eh($c['periodEnd']??(new DateTimeImmutable($selected['month'].'-01'))->format('Y-m-t')) ?> · 지급일 <?= $eh($c['payday']??'기존 기록 미등록') ?></p>
 <div class="nf-totals" aria-label="지급 합계"><div><span>지급 합계</span><strong><?= native_money($c['gross']) ?></strong></div><div><span>공제 합계</span><strong><?= native_money($c['deductions']) ?></strong></div><div><span>일그레이드 선지급</span><strong><?= native_money($c['prepaidDaily']??0) ?></strong></div><div><span>실지급액</span><strong><?= native_money($c['net']) ?></strong></div></div>
 <?php if($c['payType']==='시급제'): ?>

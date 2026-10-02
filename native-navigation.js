@@ -17,10 +17,11 @@
   target.searchParams.set('role',role);
   for(const item of extra){const [key,...value]=item.split('=');target.searchParams.set(key,value.join('='));}
   if(role==='admin'&&['adminIntake','adminPending','adminIntakeRegister'].includes(page)){
-   const currentTeam=new URL(location.href).searchParams.get('team');
+   const params=new URL(window.CNCPageNavigation?.url()||location.href).searchParams,currentTeam=params.get('department')||params.get('team');
    target.searchParams.set('team',['insurance','cosmetics','health'].includes(currentTeam)?currentTeam:'insurance');
    if(page==='adminIntake')target.searchParams.set('status','');
   }
+  if(role==='admin'&&page==='adminPayroll'){const params=new URL(window.CNCPageNavigation?.url()||location.href).searchParams,department=params.get('department')||params.get('team');target.searchParams.set('department',['insurance','cosmetics','health'].includes(department)?department:'insurance');}
   const url=target.pathname+target.search;
   if(page==='adminStaffNew'){
    const popup=window.open(url,'cnc-staff-register','popup,width=850,height=950,scrollbars=yes,resizable=yes');

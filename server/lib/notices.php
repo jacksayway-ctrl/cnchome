@@ -50,7 +50,7 @@ function notice_policy_rows(array $rows): array {
  }
  return $result;
 }
-function notice_policy_changes(array $before,array $after,int $revision,int $actor): void {
+function notice_policy_changes(array $before,array $after,int $revision,int $actor,string $department='insurance'): void {
  $labels=array_column($after['codes'],'label','id');$clients=array_column($after['clients'],'label','id');
  foreach((array)$after['policies'] as $key=>$policy){
   $old=$before['policies'][$key]??null;if($old&&$old['rows']===$policy['rows'])continue;
@@ -62,7 +62,7 @@ function notice_policy_changes(array $before,array $after,int $revision,int $act
    if($item['quantity']===null||$item['quantity']<=0)continue;
    $current=$next[$identity]['quantity']??null;
    // Report only a confirmed numeric decrease in the same scope. Never infer zero for missing/unknown rows.
-   if($current!==null&&$current<$item['quantity'])notice_add('activity','insurance','접수 가능 수량 감소',$prefix.' · '.$item['region'].' '.$item['quantity'].'건 → '.$current.'건'.($current===0?' · 접수 마감':''),$actor,$source.':'.substr($identity,0,16));
+   if($current!==null&&$current<$item['quantity'])notice_add('activity',$department,'접수 가능 수량 감소',$prefix.' · '.$item['region'].' '.$item['quantity'].'건 → '.$current.'건'.($current===0?' · 접수 마감':''),$actor,$source.':'.substr($identity,0,16));
   }
  }
 }

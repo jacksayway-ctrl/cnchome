@@ -4,8 +4,9 @@
  const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  const date=value=>{const d=new Date(/Z|[+]\d\d:\d\d$/.test(value)?value:value.replace(' ','T')+'Z');return Number.isNaN(d.getTime())?'등록일 미확인':d.toLocaleString('ko-KR',{timeZone:'Asia/Seoul'});};
  const actions={publish:'정책 업로드·변경',client:'거래처 변경',code:'접수 코드 변경'};
+ const department=()=>{const value=new URL(window.CNCPageNavigation?.url()||location.href).searchParams.get('department')||new URL(window.CNCPageNavigation?.url()||location.href).searchParams.get('team');return ['insurance','cosmetics','health'].includes(value)?value:'insurance';};
  let history=[],next=null,revision=null,loading=false;
- async function read(params){const response=await fetch('/intake-policy-api.php?role=admin&history=1'+params,{credentials:'same-origin',cache:'no-store'});const data=await response.json();if(!response.ok)throw Error(data.error||'정책 이력을 불러오지 못했습니다.');return data;}
+ async function read(params){const response=await fetch('/intake-policy-api.php?role=admin&history=1&department='+department()+params,{credentials:'same-origin',cache:'no-store'});const data=await response.json();if(!response.ok)throw Error(data.error||'정책 이력을 불러오지 못했습니다.');return data;}
  function policies(state){
   const rows=Object.entries(state?.policies||{}).sort((a,b)=>String(b[1].savedAt).localeCompare(String(a[1].savedAt)));
   return rows.map(([key,item])=>{const client=state.clients?.find(x=>x.id===item.client)?.label||item.client,carrier=state.codes?.find(x=>x.id===item.carrier)?.label||item.carrier,kind=item.kind==='silver'?'실버':'일반';

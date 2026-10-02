@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__.'/notices.php';
+require_once __DIR__.'/department-scope.php';
 class IntakePolicyForbidden extends RuntimeException {}
 class IntakePolicyConflict extends RuntimeException {}
 function intake_policy_defaults(): array {
@@ -17,21 +18,33 @@ function intake_policy_decode(string $raw): array {
  $state=json_decode($raw,true,64,JSON_THROW_ON_ERROR);
  return array_replace(intake_policy_defaults(),$state);
 }
-function intake_policy_snapshot(?array $user=null): array {
+function intake_policy_scope(array $state,string $department): array {
+ $source=$department==='insurance'?$state:($state['departments'][$department]??[]);
+ return array_replace(intake_policy_defaults(),array_intersect_key($source,intake_policy_defaults()));
+}
+function intake_policy_snapshot(?array $user=null,string $department='insurance'): array {
+ $department=management_department(($user['role']??'')==='employee'?($user['department']??null):$department);
  $row=db()->query('SELECT revision,state FROM intake_policy_state WHERE id=1')->fetch();
  if(!$row)throw new RuntimeException('Policy migration required');
- $state=intake_policy_decode($row['state']);$today=(new DateTimeImmutable('now',new DateTimeZone('Asia/Seoul')))->format('Y-m-d');
+ $state=intake_policy_scope(intake_policy_decode($row['state']),$department);$today=(new DateTimeImmutable('now',new DateTimeZone('Asia/Seoul')))->format('Y-m-d');
  if(($user['role']??'')==='employee')$state['policies']=array_filter($state['policies'],static function($policy)use($today){
   try{return !empty($policy['savedAt'])&&(new DateTimeImmutable($policy['savedAt']))->setTimezone(new DateTimeZone('Asia/Seoul'))->format('Y-m-d')===$today;}catch(Throwable $e){return false;}
  });
  $state['policies']=(object)$state['policies'];
- return array_replace($state,['revision'=>(int)$row['revision'],'date'=>$today]);
+ return array_replace($state,['revision'=>(int)$row['revision'],'date'=>$today,'department'=>$department]);
 }
-function intake_policy_history(array $user,int $id=0,int $before=0): array {
+function intake_policy_history(array $user,int $id=0,int $before=0,string $department='insurance'): array {
  if(($user['role']??'')!=='admin')throw new IntakePolicyForbidden('정책 변경 이력은 관리자만 확인할 수 있습니다.');
- if($id){$q=db()->prepare('SELECT payload FROM intake_policy_history WHERE id=?');$q->execute([$id]);$raw=$q->fetchColumn();intake_policy_check((bool)$raw,'정책 이력을 찾을 수 없습니다.');return ['state'=>intake_policy_decode($raw)];}
- $q=db()->prepare('SELECT h.id,h.revision,h.action,h.created_at,u.display_name AS actor FROM intake_policy_history h LEFT JOIN app_users u ON u.id=h.actor_id'.($before?' WHERE h.id<?':'').' ORDER BY h.id DESC LIMIT 100');$q->execute($before?[$before]:[]);$rows=$q->fetchAll();
- return ['history'=>$rows,'next'=>count($rows)===100?(int)end($rows)['id']:null];
+ $department=management_department($department);
+ if($id){
+  $q=db()->prepare('SELECT payload FROM intake_policy_history WHERE id=?');$q->execute([$id]);$raw=$q->fetchColumn();intake_policy_check((bool)$raw,'정책 이력을 찾을 수 없습니다.');
+  $state=intake_policy_decode($raw);intake_policy_check(($state['_changedDepartment']??'insurance')===$department,'선택한 부서의 정책 이력이 아닙니다.');
+  return ['state'=>intake_policy_scope($state,$department),'department'=>$department];
+ }
+ // Filter metadata in SQL so history lists do not load large policy tables into PHP memory.
+ $scopeExpression=db()->getAttribute(PDO::ATTR_DRIVER_NAME)==='sqlite'?"COALESCE(json_extract(h.payload,'$._changedDepartment'),'insurance')":"COALESCE(JSON_UNQUOTE(JSON_EXTRACT(h.payload,'$._changedDepartment')),'insurance')";
+ $q=db()->prepare('SELECT h.id,h.revision,h.action,h.created_at,u.display_name AS actor FROM intake_policy_history h LEFT JOIN app_users u ON u.id=h.actor_id WHERE '.$scopeExpression.'=?'.($before?' AND h.id<?':'').' ORDER BY h.id DESC LIMIT 100');$q->execute($before?[$department,$before]:[$department]);$rows=$q->fetchAll();
+ return ['history'=>$rows,'next'=>count($rows)===100?(int)end($rows)['id']:null,'department'=>$department];
 }
 function intake_policy_rows(mixed $rows,string $kind): array {
  intake_policy_check(is_array($rows)&&array_is_list($rows)&&count($rows)>=2&&count($rows)<=1000,'정책표는 제목을 포함해 2~1000행이어야 합니다.');
@@ -90,13 +103,16 @@ function intake_policy_mutate(array $user,array $input): array {
   $row=$d->query('SELECT revision,state FROM intake_policy_state WHERE id=1 FOR UPDATE')->fetch();
   if(!$row)throw new RuntimeException('Policy migration required');
   if((int)$row['revision']!==$input['revision'])throw new IntakePolicyConflict('다른 관리자가 정책을 변경했습니다. 최신 정책을 불러왔습니다. 작성한 표를 확인하고 다시 등록해 주세요.');
-  $before=intake_policy_decode($row['state']);$state=intake_policy_apply($before,$input,$user);$changedId=$state['_changedId']??null;unset($state['_changedId']);
-  $state['policies']=(object)$state['policies'];$json=json_encode($state,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);
+  $department=management_department($input['department']??null);$all=intake_policy_decode($row['state']);
+  $before=intake_policy_scope($all,$department);$state=intake_policy_apply($before,$input,$user);$changedId=$state['_changedId']??null;unset($state['_changedId']);
+  $state['policies']=(object)$state['policies'];
+  if($department==='insurance')$all=array_replace($all,$state);else $all['departments'][$department]=$state;
+  $all['_changedDepartment']=$department;$json=json_encode($all,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);
   intake_policy_check(strlen($json)<=20000000,'저장된 정책 용량이 너무 큽니다. 관리자에게 문의해 주세요.');
   $revision=(int)$row['revision']+1;
   $q=$d->prepare('UPDATE intake_policy_state SET state=?,revision=?,updated_at=CURRENT_TIMESTAMP WHERE id=1');$q->execute([$json,$revision]);
   $q=$d->prepare('INSERT INTO intake_policy_history(revision,actor_id,action,payload) VALUES(?,?,?,?)');$q->execute([$revision,$user['id'],$input['action'],$json]);
-  if($input['action']==='publish')notice_policy_changes($before,$state,$revision,(int)$user['id']);
-  $d->commit();return $state+['revision'=>$revision,'changedId'=>$changedId];
+  if($input['action']==='publish')notice_policy_changes($before,$state,$revision,(int)$user['id'],$department);
+  $d->commit();return $state+['revision'=>$revision,'changedId'=>$changedId,'department'=>$department,'date'=>(new DateTimeImmutable('now',new DateTimeZone('Asia/Seoul')))->format('Y-m-d')];
  }catch(Throwable $e){if($d->inTransaction())$d->rollBack();throw $e;}
 }

@@ -3,10 +3,12 @@
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const money=n=>Number(n||0).toLocaleString('ko-KR')+'원';
 const labels={draft:'작성 중',published:'직원 확인 대기',requested:'수정요청',confirmed:'확정'};
-const teams={insurance:'보험팀',cosmetics:'화장품팀',health:'식품팀'};
+const teams={insurance:'보험팀',cosmetics:'화장품팀',health:'건강보조식품팀'};
 const routes=['adminStaff','adminStaffRegister','adminPayroll','adminBank','adminCorrections','payslips'];
 let bridge,store,dialog,busy=false,filter='';
 const live=()=>global.CNCHOME_LIVE,admin=()=>live()?.user.role==='admin';
+const department=()=>{const params=new URL(global.CNCPageNavigation?.url()||global.location?.href||'https://cnc.invalid/').searchParams,value=params.get('department')||params.get('team');return Object.hasOwn(teams,value)?value:'insurance';};
+const scopedEmployees=()=>store.employees.filter(e=>!admin()||(e.profile.team||'insurance')===department());
 const today=()=>store?.today||new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Seoul'}).format(new Date());
 const employee=id=>store.employees.find(e=>e.id===Number(id));
 const payroll=id=>store.payroll.find(e=>e.id===Number(id));
@@ -27,6 +29,7 @@ function termEnd(start,term){
 function open(title,body){dialog.innerHTML=`<div class="hr-dialog-top"><h2>${title}</h2>${button('닫기','close')}</div><div class="hr-paper">${body}</div>`;dialog.showModal();dialog.scrollTop=0;}
 function message(error){const el=dialog.open?dialog.querySelector('[role=alert]'):bridge.root.querySelector('#hr-page-error');if(el)el.textContent=error.message;else bridge.toast(error.message);}
 async function api(body){
+ if(body&&admin()&&['savePayroll','publish'].includes(body.action))body={...body,department:department()};
  const response=await fetch('/hr-api.php',{method:body?'POST':'GET',credentials:'same-origin',cache:'no-store',headers:body?{'Content-Type':'application/json','X-CSRF-Token':live().csrf}:{},...(body?{body:JSON.stringify(body)}:{})});
  const data=await response.json();if(!response.ok)throw Error(data.error||'처리하지 못했습니다.');store=data;return data;
 }
@@ -42,12 +45,12 @@ function staffForm(id){
  <fieldset class="hr-span"><legend>직원 로그인 연결</legend>${e?.userId?'<p class="hr-muted">직원 계정이 연결되어 있습니다. 직책 선택으로 관리자 권한이 부여되지는 않습니다.</p>':`<div class="hr-fields">${select('기존 직원 계정 연결','accountId',[['','선택 안 함'],...store.accounts.map(a=>[a.id,a.username+' · '+a.display_name])],'')}${input('또는 새 직원 비밀번호 (12자 이상)','password','','password','minlength="12" maxlength="72" autocomplete="new-password"')}<p class="hr-span hr-muted">새 계정 아이디는 자동 발급 사번입니다. 두 항목을 비우면 계정 없이 인사정보만 저장합니다.</p></div>`}</fieldset>
  </div><p class="hr-error" role="alert"></p><div class="hr-actions"><button class="action" type="submit">${e?'변경 저장':'직원 등록'}</button>${button('취소','close')}<span class="hr-muted">저장하면 DB에 반영됩니다.</span></div></form>`);
 }
-function sortedRows(){return [...store.payroll].sort((a,b)=>(b.status==='confirmed')-(a.status==='confirmed')||(b.confirmed_at||'').localeCompare(a.confirmed_at||'')||b.month.localeCompare(a.month)||b.id-a.id);}
+function sortedRows(){return store.payroll.filter(p=>!admin()||(p.department||p.calculation?.department||employee(p.employee_id)?.profile.team||'insurance')===department()).sort((a,b)=>(b.status==='confirmed')-(a.status==='confirmed')||(b.confirmed_at||'').localeCompare(a.confirmed_at||'')||b.month.localeCompare(a.month)||b.id-a.id);}
 function payrollList(){
  const rows=sortedRows().filter(p=>!filter||p.status===filter);
  return toolbar('급여·지급 관리',button('<span class="ui-icon ui-icon-plus" aria-hidden="true"></span> 이번 달 급여 작성','pay-new','','action'))+`<p class="sub">기본액 자동 계산 → 관리자 게시 → 직원 확인 또는 수정요청 → 확정. 확정된 직원이 먼저 표시됩니다.</p><div class="hr-inline">${[['','전체'],...Object.entries(labels)].map(([v,l])=>button(l,'filter',v,filter===v?'action':'secondary')).join('')}</div>`+table(['귀속 월','직원','실지급액','상태','직원 확인일','관리'],rows.map(p=>[p.month,esc(employee(p.employee_id)?.profile.name),money(p.calculation.net),stateTag(p),esc(p.confirmed_at? p.confirmed_at.slice(0,19)+' UTC':'—'),button('상세','pay-detail',p.id)]));
 }
-function bankList(){return toolbar('직원 지급 계좌')+table(['사번','직원','은행','계좌번호','예금주','관리'],store.employees.map(e=>[esc(e.employeeNo),esc(e.profile.name),esc(e.profile.bank),esc(e.profile.accountNumber),esc(e.profile.accountHolder),button('수정','edit',e.id)]));}
+function bankList(){return toolbar('직원 지급 계좌')+table(['사번','직원','은행','계좌번호','예금주','관리'],scopedEmployees().map(e=>[esc(e.employeeNo),esc(e.profile.name),esc(e.profile.bank),esc(e.profile.accountNumber),esc(e.profile.accountHolder),button('수정','edit',e.id)]));}
 function payslips(){
  const rows=sortedRows(),current=rows.filter(p=>p.month===today().slice(0,7)),history=rows.filter(p=>p.month<today().slice(0,7));
  const row=p=>[p.month,money(p.calculation.gross),money(p.calculation.deductions),`<strong>${money(p.calculation.net)}</strong>`,stateTag(p),button('명세서 보기','pay-detail',p.id)];
@@ -133,7 +136,9 @@ function init(options){
  if(!admin()&&!bridge.root.querySelector('aside [data-page="payslips"]')){const b=document.createElement('button');b.type='button';b.dataset.page='payslips';b.textContent='가지급명세서';bridge.root.querySelector('aside nav').append(b);const info=document.createElement('button');info.type='button';info.dataset.page='myInfo';info.textContent='내 정보';bridge.root.querySelector('aside nav').append(info);}
  bridge.root.addEventListener('click',async ev=>{
  const registration=ev.target.closest('[data-page="adminStaffRegister"]'),b=ev.target.closest('[data-hr]');if(!registration&&!b)return;ev.preventDefault();ev.stopImmediatePropagation();
- if(busy)return;busy=true;try{if(registration){global.location.hash='adminStaffRegister';staffForm();}else{b.disabled=true;await action(b.dataset.hr,b.dataset.id);}}catch(e){message(e);}finally{busy=false;if(b?.isConnected)b.disabled=false;}
+ if(busy)return;
+ if(b&&['pay-new','pay-edit'].includes(b.dataset.hr)){const target='/pay-statements.php?role=admin&department='+department()+'&edit=1'+(b.dataset.hr==='pay-edit'?'&id='+encodeURIComponent(b.dataset.id):'');global.location.assign(global.CNCWindowSession?.url(target)||target);return;}
+ busy=true;try{if(registration){global.location.hash='adminStaffRegister';staffForm();}else{b.disabled=true;await action(b.dataset.hr,b.dataset.id);}}catch(e){message(e);}finally{busy=false;if(b?.isConnected)b.disabled=false;}
  },true);
  bridge.root.addEventListener('submit',async ev=>{const f=ev.target.closest('[data-hr-form]');if(!f)return;ev.preventDefault();ev.stopImmediatePropagation();if(busy||!f.reportValidity())return;busy=true;const buttons=f.querySelectorAll('button');buttons.forEach(b=>b.disabled=true);try{await submit(f);}catch(e){message(e);}finally{busy=false;buttons.forEach(b=>b.disabled=false);}},true);
  dialog.addEventListener('input',ev=>{previewCalculation();if(ev.target.matches('[name="contractStart"],[name="contractTerm"]')){const f=ev.target.form,t=f.querySelector('[name="contractTerm"]:checked')?.value;if(t&&f.elements.contractStart.value){f.elements.contractEnd.value=termEnd(f.elements.contractStart.value,t);f.elements.contractType.value='기간제';}}});

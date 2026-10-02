@@ -1,5 +1,6 @@
 <?php
 declare(strict_types=1);
+require_once __DIR__.'/department-scope.php';
 require_once __DIR__.'/holiday-pay.php';
 require_once __DIR__.'/test-identities.php';
 require_once __DIR__.'/pay-statements.php';
@@ -82,10 +83,12 @@ function hr_snapshot(array $u): array {
     $q=$d->prepare('SELECT * FROM hr_employees'.($admin?'':' WHERE user_id=?').' ORDER BY id');$q->execute($admin?[]:[$u['id']]);
     $employees=array_map(function($r){return ['id'=>(int)$r['id'],'employeeNo'=>$r['employee_no'],'userId'=>$r['user_id']?(int)$r['user_id']:null,'revision'=>(int)$r['revision'],'profile'=>json_decode($r['profile'],true,512,JSON_THROW_ON_ERROR)];},$q->fetchAll());
     $q=$d->prepare('SELECT p.* FROM hr_payroll p JOIN hr_employees e ON e.id=p.employee_id'.($admin?'':' WHERE e.user_id=? AND p.published_snapshot IS NOT NULL')." ORDER BY (p.status='confirmed') DESC,p.confirmed_at DESC,p.month DESC,p.id DESC");$q->execute($admin?[]:[$u['id']]);
+    $employeeProfiles=[];foreach($employees as $employee)$employeeProfiles[$employee['id']]=$employee['profile'];
     $payroll=[];
     foreach($q->fetchAll() as $r){
         $r['id']=(int)$r['id'];$r['employee_id']=(int)$r['employee_id'];$r['revision']=(int)$r['revision'];
         $r['calculation']=json_decode($r['calculation'],true,512,JSON_THROW_ON_ERROR);$r['published_snapshot']=$r['published_snapshot']?json_decode($r['published_snapshot'],true,512,JSON_THROW_ON_ERROR):null;
+        $r['department']=payroll_record_department($r,$employeeProfiles[$r['employee_id']]??[]);
         if(!$admin)$r['calculation']=$r['published_snapshot']['calculation'];
         $ev=$d->prepare('SELECT event,note,snapshot,created_at FROM hr_payroll_events WHERE payroll_id=? ORDER BY id DESC');$ev->execute([$r['id']]);
         $r['events']=array_values(array_filter($ev->fetchAll(),fn($e)=>$admin||$e['event']!=='savePayroll'));
@@ -157,6 +160,10 @@ function hr_mutate(array $user,array $in): ?int {
     }else{
         $id=hr_int($in['id']??0);$row=null;
         if($id){$q=$d->prepare('SELECT p.*,e.user_id,e.profile,e.employee_no FROM hr_payroll p JOIN hr_employees e ON e.id=p.employee_id WHERE p.id=? FOR UPDATE');$q->execute([$id]);$row=$q->fetch();hr_assert((bool)$row,'급여 내역을 찾을 수 없습니다.');
+            if($admin&&isset($in['department'])){
+                $scope=management_department($in['department']);$recordDepartment=payroll_record_department(['calculation'=>json_decode($row['calculation'],true,512,JSON_THROW_ON_ERROR),'published_snapshot'=>$row['published_snapshot']?json_decode($row['published_snapshot'],true,512,JSON_THROW_ON_ERROR):null],json_decode($row['profile'],true,512,JSON_THROW_ON_ERROR));
+                hr_assert($scope===$recordDepartment,'선택한 부서의 급여 내역이 아닙니다.');
+            }
             if(!$admin&&(int)$row['user_id']!==(int)$user['id']){throw new HRForbidden('본인 급여만 확인할 수 있습니다.');}
             hr_assert((int)$row['revision']===($in['revision']??null),'내역이 변경됐습니다. 새로고침 후 확인해 주세요.');
             hr_assert(hr_can_change($row,$action,$admin,hr_today()),'확정·지난달 기록 또는 현재 상태에서는 수정할 수 없습니다.');
@@ -167,6 +174,8 @@ function hr_mutate(array $user,array $in): ?int {
                 $employee=hr_int($in['employeeId']??null);$month=$in['month']??'';hr_assert($month===substr(hr_today(),0,7),'이번 달 급여만 작성할 수 있습니다.');
                 $q=$d->prepare('SELECT profile,user_id FROM hr_employees WHERE id=? FOR UPDATE');$q->execute([$employee]);$emp=$q->fetch();hr_assert((bool)$emp,'직원을 선택해 주세요.');$profile=json_decode($emp['profile'],true,512,JSON_THROW_ON_ERROR);
             }else{$employee=(int)$row['employee_id'];$month=$row['month'];$profile=json_decode($row['profile'],true,512,JSON_THROW_ON_ERROR);}
+            $payrollDepartment=management_department($profile['team']??null);
+            if(isset($in['department']))hr_assert(management_department($in['department'])===$payrollDepartment,'선택한 직원의 현재 부서가 다릅니다. 부서를 확인해 주세요.');
             $input=array_replace($in['calculation']??[],['month'=>$month]);
             if(isset($input['statementVersion'])){
                 require_once __DIR__.'/grade-ledger.php';$uid=(int)($row['user_id']??$emp['user_id']??0);
@@ -174,12 +183,12 @@ function hr_mutate(array $user,array $in): ?int {
                 $grade=grade_employee_context(['userId'=>$uid,'profile'=>$profile],$month);
                 $input=grade_payroll_input($input,$grade);
             }
-            $calc=hr_calculate($profile,$input);$eventSnapshot=['calculation'=>$calc];
+            $calc=hr_calculate($profile,$input);$calc['department']=$payrollDepartment;$eventSnapshot=['calculation'=>$calc];
             if(!$row){$q=$d->prepare('INSERT INTO hr_payroll(employee_id,month,calculation) VALUES(?,?,?)');$q->execute([$employee,$month,hr_json($calc)]);$id=(int)$d->lastInsertId();}
             else {$q=$d->prepare("UPDATE hr_payroll SET calculation=?,status='draft',revision=revision+1 WHERE id=?");$q->execute([hr_json($calc),$id]);}
         }elseif($action==='publish'){
             hr_assert(!empty($row['user_id']),'먼저 직원 정보에 로그인 계정을 연결해 주세요.');$p=json_decode($row['profile'],true,512,JSON_THROW_ON_ERROR);
-            $eventSnapshot=['name'=>$p['name'],'employeeNo'=>$row['employee_no'],'month'=>$row['month'],'calculation'=>json_decode($row['calculation'],true,512,JSON_THROW_ON_ERROR),'bank'=>$p['bank'],'accountNumber'=>$p['accountNumber'],'accountHolder'=>$p['accountHolder']];
+            $eventSnapshot=['department'=>payroll_record_department(['calculation'=>json_decode($row['calculation'],true,512,JSON_THROW_ON_ERROR)],$p),'name'=>$p['name'],'employeeNo'=>$row['employee_no'],'month'=>$row['month'],'calculation'=>json_decode($row['calculation'],true,512,JSON_THROW_ON_ERROR),'bank'=>$p['bank'],'accountNumber'=>$p['accountNumber'],'accountHolder'=>$p['accountHolder']];
             if(isset($eventSnapshot['calculation']['gradeSnapshot'])){
                 require_once __DIR__.'/grade-ledger.php';$q=$d->prepare('SELECT id FROM app_users WHERE id=? FOR UPDATE');$q->execute([$row['user_id']]);
                 $latest=grade_employee_context(['userId'=>(int)$row['user_id'],'profile'=>$p],$row['month']);$saved=$eventSnapshot['calculation']['gradeSnapshot'];

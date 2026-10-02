@@ -40,3 +40,10 @@ ps_check($legacy['base']===30000&&$legacy['net']===30500&&!isset($legacy['statem
 ps_check(pay_statement_enrich($profile,[],$legacy)===$legacy,'legacy metadata and amounts unchanged');
 pay_statement_publish_check($legacy);
 echo "PASS: itemized wage statements, short-week company support, statutory excess, publication checks, item sums, deductions and legacy preservation.\n";
+
+ps_check(payroll_record_department(['calculation'=>['department'=>'insurance']],['team'=>'health'])==='insurance','saved payroll stays in original department after an employee transfer');
+ps_check(payroll_record_department(['published_snapshot'=>['department'=>'cosmetics']],['team'=>'insurance'])==='cosmetics','published department takes precedence over current employee team');
+ps_check(payroll_record_department([],['team'=>'health'])==='health','legacy payroll remains visible under existing employee team');
+ps_check(payroll_record_department([])==='insurance','legacy records with no team default to insurance');
+ps_reject(fn()=>management_department('all'),'unknown department is never treated as an unscoped write');
+echo "PASS: payroll department attribution and invalid scope rejection.\n";

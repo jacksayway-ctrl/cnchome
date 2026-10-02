@@ -2,6 +2,7 @@
 declare(strict_types=1);
 require_once __DIR__.'/views.php';
 require_once __DIR__.'/grade-departments.php';
+require_once __DIR__.'/department-scope.php';
 
 function native_routes(): array {
     return [
@@ -23,10 +24,11 @@ function native_routes(): array {
 function native_url(string $page,string $role): string {
     $route=native_routes()[$page]??null;
     $url='/'.($route??'office.php').'?role='.($role==='admin'?'admin':'employee');
+    if($role==='admin'&&in_array($page,['adminPolicy','adminPerformance','adminAs','adminGrade','adminDaily','adminDailyHistory','adminPayroll','adminBank','adminCorrections'],true))$url.='&department='.management_request_department();
     if(!$route)return $url.'&page='.rawurlencode($page);
     if($page==='adminStaffRegister')return $url.'&register=1';
     if(in_array($page,['adminIntake','adminPending','adminIntakeRegister'],true)){
-        $team=$_GET['team']??'insurance';if(!in_array($team,['insurance','cosmetics','health'],true))$team='insurance';
+        $team=$_GET['team']??$_GET['department']??'insurance';if(!in_array($team,['insurance','cosmetics','health'],true))$team='insurance';
         $url.='&team='.$team;
         if($page==='adminPending')$url.='&status=pending';
         elseif($page==='adminIntake')$url.='&status=';
@@ -92,9 +94,19 @@ function native_start(string $title,array $user,string $active,array $extraStyle
             foreach(['insurance'=>'보험','cosmetics'=>'화장품','health'=>'건강보조식품'] as $key=>$label)echo '<a href="'.view_h(native_department_tab_url($key)).'"'.($team===$key?' class="active" aria-current="page"':'').'>'.view_h($label).'</a>';
             echo '</nav>';
         }
+        if($role==='admin'&&in_array($selectedGroup['items'][0][0],['adminPolicy','adminGrade','adminPayroll'],true)){
+            $department=management_request_department();
+            echo '<nav class="nf-department-tabs" aria-label="관리 부서">';
+            foreach(management_departments() as $key=>$label){
+                $target=native_url($active,'admin');$parts=parse_url($target);parse_str($parts['query']??'',$query);$query['department']=$key;
+                $path=basename($_SERVER['SCRIPT_NAME']??'')==='payroll.php'?'/payroll.php':$parts['path'];
+                echo '<a href="'.view_h($path.'?'.http_build_query($query)).'"'.($department===$key?' class="active" aria-current="page"':'').'>'.view_h($label).'</a>';
+            }
+            echo '</nav>';
+        }
         echo '<div class="nf-location"><span>관리자</span><span>/</span><strong>'.view_h($selectedGroup['label']).'</strong><span>/</span><span>'.view_h($selectedLabel).'</span></div><nav class="nf-subpage-links" aria-label="'.view_h($selectedGroup['label']).' 하위 페이지">';
         foreach($selectedGroup['items'] as [$page,$label])echo '<a href="'.view_h(native_url($page,$role)).'"'.($page===$active?' class="active" aria-current="page"':'').'>'.view_h($label).'</a>';
-        if($selectedGroup['items'][0][0]==='adminPayroll')echo '<a href="/payroll.php?role=admin">급여 계산 검토 <span class="ui-icon ui-icon-external" aria-hidden="true"></span></a>';
+        if($selectedGroup['items'][0][0]==='adminPayroll')echo '<a href="/payroll.php?role=admin&amp;department='.view_h(management_request_department()).'">급여 계산 검토 <span class="ui-icon ui-icon-external" aria-hidden="true"></span></a>';
         echo '</nav></section>';
     }
     echo '<div class="nf-page-heading"><h1>'.view_h($title).'</h1>'.$headingExtra.'<span>'.(new DateTimeImmutable('now',new DateTimeZone('Asia/Seoul')))->format('Y.m.d').'</span></div>';

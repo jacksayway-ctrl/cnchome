@@ -280,3 +280,10 @@
   .bc-day-box {min-height:64px;font-size:12px;word-break:keep-all}
 }
 .region-map-disclosure{min-width:0;padding:12px 0}.region-map-disclosure>summary{cursor:pointer;font-weight:600;padding:10px;border:1px solid #dce3ec;border-radius:8px}.region-map-disclosure>a{display:inline-block;margin:10px 0}[data-pending-panel] summary{cursor:pointer}[data-pending-panel] textarea{width:100%;min-width:180px;min-height:64px}
+
+/* One department scope across policy, grade and payroll workspaces. */
+.nf-department-tabs,.aw-department-tabs{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px;padding-bottom:10px;border-bottom:1px solid #dbe4ef}
+.nf-department-tabs a,.aw-department-tabs a,.aw-department-tabs button{display:inline-flex;align-items:center;justify-content:center;min-height:38px;padding:8px 22px;border:1px solid #cbd7e6;border-radius:7px;background:#f8fafc;color:#334155;text-decoration:none;font:inherit;font-weight:700;cursor:pointer}
+.nf-department-tabs .active,.aw-department-tabs .active{background:#173b64;border-color:#173b64;color:#fff}
+.nf-department-tabs a:hover,.aw-department-tabs a:hover,.aw-department-tabs button:hover{box-shadow:0 2px 5px #173b6420}
+@media(max-width:600px){.nf-department-tabs>a,.aw-department-tabs>a,.aw-department-tabs>button{flex:1;padding:8px 10px}}

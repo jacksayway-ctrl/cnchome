@@ -1,6 +1,11 @@
 <?php
 require_once (defined('CNC_RUNTIME_DIR')?CNC_RUNTIME_DIR:dirname(__DIR__).'/lib').'/native.php';
-native_start('급여 계산 검토',$user,'adminPayroll',['payroll.css','payroll-review.css']);
+$department=management_request_department();
+native_start(management_departments()[$department].' 급여 계산 검토',$user,'adminPayroll',['payroll.css','payroll-review.css']);
+if($department!=='insurance'){
+ echo '<section class="nf-card"><h2>'.view_h(management_departments()[$department]).' 정산 기준</h2><p>해당 부서의 일·주·월 그레이드를 등록하고, 급여 작성에서 지급·공제 항목별 금액과 계산 방법을 입력하세요.</p><div class="nf-actions"><a href="'.view_h(native_url('adminGrade','admin')).'">부서 그레이드 설정</a><a href="'.view_h(native_url('adminPayroll','admin').'&edit=1').'">급여 작성</a></div></section>';
+ native_end();return;
+}
 ?>
 
 <nav class="payroll-review-tabs nf-no-print" aria-label="급여 검토 항목"><a href="#calculator">계산 검토</a><a href="#management">관리직·팀장</a><a href="#rules">운영 기준</a><a href="/office.php?role=admin&amp;page=adminGrade">날짜별 그레이드</a></nav>

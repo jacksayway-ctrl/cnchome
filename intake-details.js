@@ -62,8 +62,9 @@
   if(!incomplete)for(const token of tail.split(/\s+/)){if(/^[가-힣0-9·]+(?:읍|면|동|리)$/.test(token))path.push(token);else break;}
   return {label:item.label+(path.length>item.place.path.length?' '+path.slice(item.place.path.length).join(' '):''),place:{...item.place,path},incomplete};
  }
- function assess(snapshot,rules,location,kind,carrier){
+ function assess(snapshot,rules,location,kind,carrier,department='insurance'){
   if(!snapshot)return {state:'review',text:'정책을 불러오는 중입니다.',items:[]};
+  if((snapshot.department||'insurance')!==department)return {state:'review',text:'해당 부서의 정책을 확인해 주세요.',items:[]};
   if(!location?.place||location.incomplete)return {state:'review',text:'상담 장소의 지역을 선택해 주세요. 읍·면·동·리까지 초성으로 검색할 수 있습니다.',items:[]};
   const wanted=codeName(carrier),codes=snapshot.codes.filter(code=>!wanted||[code.id,code.label,...(code.aliases||[])].some(name=>codeName(name)===wanted));
   if(!codes.length)return {state:'review',text:'입력한 접수 코드를 찾을 수 없습니다. GA·한화·신한 등 등록 코드를 확인해 주세요.',items:[]};
@@ -119,13 +120,13 @@
    if(carrierSelection)fields.carrier.value=selectedLabel;
    if(product)product.textContent=info.error|| (info.age===null?'':!info.kind?'접수 가능 연령 초과 · '+info.age+'세':info.kind==='silver'?'실버':'일반');
    let result;
-   if(team!=='insurance')result={state:'review',text:team?'보험 접수 정책 적용 대상이 아닙니다.':'담당 직원을 선택하면 해당 부서의 접수 기준을 확인합니다.',items:[]};
-   else if(info.error||!info.birthDate)result={state:'review',text:info.error||'생년월일을 입력하면 나이에 맞는 접수 정책을 확인합니다.',items:[]};
-   else if(!info.kind)result={state:'blocked',text:'접수 불가 · 보험 접수는 세는나이 70세까지 가능합니다.',items:[]};
+   if(!team)result={state:'review',text:'담당 직원을 선택하면 해당 부서의 접수 기준을 확인합니다.',items:[]};
+   else if(team==='insurance'&&(info.error||!info.birthDate))result={state:'review',text:info.error||'생년월일을 입력하면 나이에 맞는 접수 정책을 확인합니다.',items:[]};
+   else if(team==='insurance'&&!info.kind)result={state:'blocked',text:'접수 불가 · 보험 접수는 세는나이 70세까지 가능합니다.',items:[]};
    else if(carrierSelection&&!requested)result={state:'review',text:'접수 코드를 선택해 주세요.',items:[]};
    else if(global.PolicySync?.error)result={state:'review',text:'정책 조회 실패 · 연결을 확인한 뒤 다시 확인해 주세요.',items:[]};
    else if(!fields.consultationPlace.value.trim())result={state:'review',text:'상담 장소의 지역을 선택해 주세요. 읍·면·동·리까지 초성으로 검색할 수 있습니다.',items:[]};
-   else {try{index=index||placeIndex(global.KoreaRegionCatalog);result=assess(snapshot,global.PolicyRegionRules,resolveLocation(fields.consultationPlace.value,index),info.kind,requested);}catch(error){result={state:'review',text:'지역 정책을 확인할 수 없습니다. 잠시 후 다시 확인해 주세요.',items:[]};}}
+   else {try{index=index||placeIndex(global.KoreaRegionCatalog);result=assess(snapshot,global.PolicyRegionRules,resolveLocation(fields.consultationPlace.value,index),info.kind||'general',requested,team);}catch(error){result={state:'review',text:'지역 정책을 확인할 수 없습니다. 잠시 후 다시 확인해 주세요.',items:[]};}}
    if(carrierSelection){
     if(team==='insurance'&&selectedLabel&&info.birthDate&&!info.error&&info.kind)result={...result,text:result.text+' · '+selectedLabel+' '+(info.kind==='silver'?'실버':'일반')};
    }else{

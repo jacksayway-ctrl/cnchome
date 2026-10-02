@@ -10,7 +10,7 @@ try {
     $method=$_SERVER['REQUEST_METHOD'];
     if($method==='GET'){
         $date=$_GET['date']??hr_today();hr_assert(is_string($date),'날짜를 확인해 주세요.');
-        if($user['role']==='admin')daily_grade_reply(200,daily_grade_admin($user,$date));
+        if($user['role']==='admin')daily_grade_reply(200,daily_grade_admin($user,$date,management_request_department()));
         hr_assert(hr_day($date)&&$date<=hr_today(),'날짜를 확인해 주세요.');
         daily_grade_reply(200,grade_summary_snapshot($user,$date));
     }
