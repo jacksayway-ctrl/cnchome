@@ -30,13 +30,7 @@
  function rememberSelection(){
   const employeeValue=owner.value,counselorValue=counselor.value;
   for(const option of owner.options)option.defaultSelected=option.value===employeeValue;
-  for(const option of counselor.options)option.defaultSelected=option.value===counselorValue;
-  counselor.dataset.defaultCounselor=counselorValue;
- }
- function selectEmployee(){
-  const staff=selectedStaff(),name=staff?.name||String(config.user.display_name||'');
-  if(name&&![...counselor.options].some(option=>option.value===name))counselor.add(new global.Option(name,name));
-  counselor.value=name;rememberSelection();renderSummary();
+  counselor.defaultValue=counselorValue;
  }
  function duplicateConfirmation(count){
   return new Promise(resolve=>{
@@ -72,7 +66,7 @@
  global.ReceiptForm.attach(form,{close:()=>global.location.assign(listURL())});
  global.ConsultationLocation?.attach(form);global.IntakeDetails.attach(form,{admin:true,team:()=>selectedStaff()?.team||''});
  form.querySelector('[data-receipt-close]').textContent='접수 목록';
- owner.addEventListener('change',selectEmployee);counselor.addEventListener('change',rememberSelection);
+ owner.addEventListener('change',()=>{rememberSelection();renderSummary();});
  form.addEventListener('input',event=>{if(event.target.matches('[data-receipt-date]'))renderSummary();});
  form.addEventListener('reset',()=>global.setTimeout(renderSummary,0));
  form.addEventListener('submit',event=>{

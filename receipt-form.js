@@ -7,7 +7,7 @@
  function markup({admin,staff=[],user,counselorNames=[],editing=false,idPrefix=''}){
   const defaultCounselor=String(user?.display_name||''),names=[...new Set([defaultCounselor,...counselorNames].filter(name=>typeof name==='string'&&name.trim()))];
   const counselor=admin?'<select id="receipt-counselor" name="counselorName" data-default-counselor="'+esc(defaultCounselor)+'" required aria-label="상담원 이름">'+(defaultCounselor?'':'<option value="" selected>상담원 선택</option>')+names.map(name=>'<option value="'+esc(name)+'"'+(name===defaultCounselor?' selected':'')+'>'+esc(name)+'</option>').join('')+'</select>':'<input id="receipt-counselor" name="counselorName" value="'+esc(defaultCounselor)+'" readonly tabindex="-1" aria-label="상담원 이름">';
-  const date=today(),owner=(admin&&!editing?'<select id="receipt-owner" name="employeeId" required aria-label="담당 직원"><option value="">담당 직원 선택</option>'+staff.map(row=>'<option value="'+row.id+'" data-team="'+esc(row.team)+'">'+esc(row.name)+'</option>').join('')+'</select>':'')+counselor;
+  const date=today(),owner=admin&&!editing?'<select id="receipt-counselor" name="employeeId" required aria-label="상담원 선택"><option value="">상담원 선택</option>'+staff.map(row=>'<option value="'+esc(row.id)+'" data-team="'+esc(row.team)+'" data-counselor-name="'+esc(row.name)+'">'+esc(row.name)+'</option>').join('')+'</select><input type="hidden" name="counselorName" data-receipt-staff-counselor value="">':counselor;
   const html=`<form class="receipt-form" data-sales-form data-intake-admin="${admin}" data-request-key="${global.crypto.randomUUID()}">
    <div class="receipt-header"><div><h2 id="receipt-title">접수증${editing?' 수정':''}</h2><p>${editing?'접수 내용을 확인하고 수정해 주세요.':admin?'접수 상태를 선택하여 등록합니다. 기본은 가접수입니다.':'저장하면 가접수로 등록됩니다.'}</p></div><label class="receipt-input-mode">입력 모드<select data-receipt-input-mode aria-label="문자 입력 모드"><option value="ko" selected>한글 자동</option><option value="en">기본 자판</option></select></label></div>
    <input type="hidden" name="date" value="${date}"><input type="hidden" name="consultationTime" value="${clock().slice(0,5)}"><input type="hidden" name="phone"><input type="hidden" name="birthYear"><input type="hidden" name="birthMonth"><input type="hidden" name="birthDay"><input type="hidden" name="carrier"><input type="hidden" name="callAvailability">
@@ -40,9 +40,10 @@
   if(dialog){dialog.classList.add('receipt-dialog');dialog.setAttribute('aria-labelledby',form.querySelector('.receipt-header h2').id);}
   const birthInsertionAtEnd=new WeakSet(),initialConsultationTime=fields.consultationTime.value;let callEdited=false;
   if(originalDate){date.value=originalDate.slice(5).replace('-','');date.readOnly=true;date.tabIndex=-1;}
-  const fullPhone=phoneMode==='full'||form.dataset.receiptFullPhone==='true';
+  const fullPhone=phoneMode==='full'||form.dataset.receiptFullPhone==='true',staffCounselor=form.querySelector('[data-receipt-staff-counselor]');
   function sync(event){
    const input=event?.target;
+   if(staffCounselor)staffCounselor.value=fields.employeeId?.selectedOptions[0]?.dataset.counselorName||'';
    // Remember the raw caret before numeric cleanup can move it to the end.
    if(event?.type==='input'&&(input===birthYear||input===birthMonth)&&/^\d+$/.test(input.value)&&input.selectionStart===input.value.length&&input.selectionEnd===input.value.length)birthInsertionAtEnd.add(event);
    const currentDate=today(),dateYear=(originalDate||currentDate).slice(0,4),value=date.value.replace(/\D/g,'').slice(0,4),full=dateYear+'-'+value.slice(0,2)+'-'+value.slice(2),parsed=new Date(full+'T00:00:00Z');date.value=value;
