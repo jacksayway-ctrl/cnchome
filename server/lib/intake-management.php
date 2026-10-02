@@ -151,3 +151,28 @@ function intake_create(array $user,array $post): array {
     $in['duplicateConfirmed']=($post['duplicateConfirmed']??'')==='1';sales_mutate($user,$in);$q=db()->prepare('SELECT id,is_test FROM sales_records WHERE request_key=?');$q->execute([$in['requestKey']]);return $q->fetch();
 }
 function intake_csv_cell(mixed $value): string {$s=(string)$value;return preg_match('/^[\s\x00-\x1f]*[=+@-]/u',$s)?"'".$s:$s;}
+
+
+/** Small, authenticated search response; never send full receipt payloads to the browser. */
+function intake_live_search(array $user,string $query,string $scope='real'): array {
+    intake_admin($user);$query=intake_text($query,80);hr_assert(in_array($scope,['real','test','all'],true),'자료 구분을 확인해 주세요.');
+    if($query==='')return ['records'=>[],'hasMore'=>false];
+    $phoneQuery=preg_match('/^[0-9\s()+.\-]+$/uD',$query)===1;$digits=preg_replace('/\D/','',$query);
+    $needle=$phoneQuery?$digits:$query;if($needle==='')return ['records'=>[],'hasMore'=>false];
+    $pattern='%'.str_replace(['!','%','_'],['!!','!%','!_'],$needle).'%';
+    $column=$phoneQuery?"REPLACE(REPLACE(s.phone,'-',''),' ','')":'s.customer_name';
+    $sql="SELECT s.id,s.first_date AS date,s.customer_name AS customer,s.phone,s.status,s.is_test,u.display_name AS employee FROM sales_records s JOIN app_users u ON u.id=s.employee_id WHERE ".$column." LIKE ? ESCAPE '!'";
+    $params=[$pattern];if($scope!=='all'){$sql.=' AND s.is_test=?';$params[]=$scope==='test'?1:0;}
+    $q=db()->prepare($sql.' ORDER BY s.first_date DESC,s.id DESC LIMIT 21');$q->execute($params);$rows=[];
+    foreach($q->fetchAll() as $row){$row['id']=(string)$row['id'];$row['isTest']=(bool)$row['is_test'];unset($row['is_test']);$rows[]=$row;}
+    if($scope!=='real'){
+        $q=db()->query('SELECT t.user_id,t.state,u.display_name AS employee FROM test_employee_data t JOIN app_users u ON u.id=t.user_id');
+        foreach($q->fetchAll() as $owner)foreach(json_decode($owner['state'],true,512,JSON_THROW_ON_ERROR)['sales']??[] as $sale){
+            $value=$phoneQuery?sales_phone_key((string)($sale['phone']??'')):mb_strtolower((string)($sale['name']??''));
+            if(!str_contains($value,mb_strtolower($needle)))continue;
+            $rows[]=['id'=>'test:'.$owner['user_id'].':'.$sale['id'],'date'=>$sale['date'],'customer'=>$sale['name'],'phone'=>$sale['phone']??'','status'=>['가접수'=>'pending','정상'=>'normal','A/S'=>'as'][$sale['status']]??'pending','employee'=>$owner['employee'],'isTest'=>true];
+        }
+    }
+    usort($rows,fn($a,$b)=>strcmp($b['date'],$a['date'])?:strnatcmp($b['id'],$a['id']));
+    return ['records'=>array_slice($rows,0,20),'hasMore'=>count($rows)>20];
+}

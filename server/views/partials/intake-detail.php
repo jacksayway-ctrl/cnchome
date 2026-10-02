@@ -1,5 +1,9 @@
 <?php $detailPosted=(string)($posted['id']??'')===(string)$r['id']?$posted:[];$legacy=str_starts_with($r['id'],'test:');$v=$detailPosted&&($detailPosted['action']??'')==='edit'?$detailPosted:$r; ?>
 <section class="nf-card intake-detail-card" data-intake-detail-panel data-intake-record="<?= $eh($r['id']) ?>"><h2>접수 상세 · <?= $eh($r['customer']) ?> <?= $r['isTest']?'<span class="intake-test">테스트</span>':'' ?></h2>
+<aside class="intake-side-search" data-intake-side-search data-scope="<?= $eh($filters['scope']) ?>">
+<label>이름·전화번호 검색<input type="search" data-intake-search-input maxlength="80" autocomplete="off" placeholder="입력하면 바로 검색" aria-label="접수증 이름 또는 전화번호 검색"></label>
+<p data-intake-search-status role="status" aria-live="polite">이름 또는 전화번호를 입력해 주세요.</p><div data-intake-search-results></div>
+</aside>
 <?php if(!$legacy):
 $editValues=[];foreach(['customer','phone','birthDate','birthYear','carrier','consultationTime','consultationPlace','premiumBand','note','gender','callAvailability','visitSchedule','counselorName','status'] as $key)$editValues[$key]=(string)($v[$key]??$r[$key]??'');
 $editValues+=['id'=>$r['id'],'date'=>$r['date'],'employee'=>$r['employee'],'team'=>$r['team'],'reason'=>(string)(($detailPosted['action']??'')==='edit'?($detailPosted['reason']??''):'')];

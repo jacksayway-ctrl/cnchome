@@ -14,7 +14,45 @@
    if(typeof editor?.hydrate!=='function')throw new Error('접수 입력 양식을 불러오지 못했습니다. 페이지를 새로고침해 주세요.');
    editor.hydrate(content);
   }
+  attachSearch(content);
   for(const form of content.querySelectorAll('form'))window.CNCWindowSession?.decorateForm(form);
+ }
+ function attachSearch(root){
+  for(const box of root.querySelectorAll('[data-intake-side-search]')){
+   if(box.dataset.ready)return;box.dataset.ready='1';
+   const input=box.querySelector('[data-intake-search-input]'),status=box.querySelector('[data-intake-search-status]'),results=box.querySelector('[data-intake-search-results]');
+   const panel=box.closest('[data-intake-detail-panel]');let dirty=false;
+   for(const eventName of ['input','change'])panel.addEventListener(eventName,event=>{if(event.target.closest('form[data-intake-edit-form]'))dirty=true;});
+   let timer=0,request=null,version=0,composing=false;
+   function cancel(){clearTimeout(timer);request?.abort();request=null;version++;}
+   async function search(sequence,query){
+    if(!box.isConnected||composing||sequence!==version)return;
+    request=new AbortController();const controller=request,timeout=setTimeout(()=>controller.abort(),15000);status.textContent='검색 중…';
+    try{
+     const params=new URLSearchParams({role:'admin',q:query,scope:box.dataset.scope||'real'});
+     const response=await fetch('/intake-search.php?'+params.toString(),{credentials:'same-origin',cache:'no-store',signal:controller.signal});
+     const data=await response.json();if(!response.ok)throw new Error(data.error||'검색하지 못했습니다.');
+     if(sequence!==version||!box.isConnected||composing)return;
+     if(!Array.isArray(data.records))throw new Error('검색 응답을 확인하지 못했습니다.');
+     const fragment=document.createDocumentFragment();
+     for(const record of data.records){
+      if(!/^(?:\d+|test:\d+:\d+)$/.test(record.id)||!/^\d{4}-\d{2}-\d{2}$/.test(record.date))continue;
+      const link=document.createElement('a'),name=document.createElement('strong'),phone=document.createElement('span'),meta=document.createElement('small');
+      const target=new URL('/intake.php',location.origin);target.search=new URLSearchParams({role:'admin',month:record.date.slice(0,7),scope:record.isTest?'test':'real',id:record.id,popup:'1'}).toString();
+      link.href=window.CNCWindowSession?.url(target.href)||target.href;
+      name.textContent=record.customer;phone.textContent=record.phone||'연락처 미입력';meta.textContent=[record.isTest?'테스트':'',record.employee,record.date,({pending:'가접수',normal:'정상접수',as:'A/S'})[record.status]||''].filter(Boolean).join(' · ');
+      link.append(name,phone,meta);link.addEventListener('click',event=>{if(dirty&&!confirm('수정 중인 내용을 저장하지 않고 다른 접수증을 여시겠습니까?')){event.preventDefault();event.stopImmediatePropagation();}},true);fragment.append(link);
+     }
+     results.replaceChildren(fragment);status.textContent=data.records.length?(data.hasMore?'검색 결과 20건 · 검색어를 더 입력하면 좁힐 수 있습니다.':'검색 결과 '+data.records.length+'건'):'일치하는 접수가 없습니다.';
+    }catch(error){if(sequence===version&&box.isConnected){results.replaceChildren();status.textContent=error.name==='AbortError'?'검색 응답이 지연되었습니다. 다시 입력해 주세요.':error.message;}}
+    finally{clearTimeout(timeout);if(request===controller)request=null;}
+   }
+   function schedule(){cancel();results.replaceChildren();const query=input.value.trim();if(composing)return;if(!query){status.textContent='이름 또는 전화번호를 입력해 주세요.';return;}status.textContent='검색 중…';const sequence=version;timer=setTimeout(()=>search(sequence,query),180);}
+   input.addEventListener('compositionstart',()=>{composing=true;cancel();results.replaceChildren();status.textContent='입력 중…';});input.addEventListener('compositionend',()=>{composing=false;schedule();});
+   input.addEventListener('input',event=>{if(!event.isComposing)schedule();});
+   input.addEventListener('keydown',event=>{if(event.key==='Enter'&&!composing&&!event.isComposing){event.preventDefault();cancel();if(input.value.trim())search(version,input.value.trim());}});
+   window.addEventListener('pagehide',cancel,{once:true});
+  }
  }
  function parts(row){
   const toggle=row.querySelector('[data-intake-toggle]');

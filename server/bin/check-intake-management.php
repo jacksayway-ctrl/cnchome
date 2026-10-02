@@ -295,3 +295,18 @@ foreach(['normal','as'] as $createdStatus){
  $q=$d->prepare('SELECT status FROM sales_records WHERE request_key=?');$q->execute([$key]);check($q->fetchColumn()===$createdStatus,'admin registration persists selected status');
 }
 echo "PASS: pending receipt transitions and administrator registration status selection.\n";
+
+// Read-only side search is administrator-only, spans months, and returns bounded summaries.
+$searchRow=$combinedRecord();$searchResult=intake_live_search($admin,$searchRow['customer'],'real');
+check(in_array($combinedId,array_column($searchResult['records'],'id'),true),'side search finds a receipt by customer name');
+$phoneResult=intake_live_search($admin,str_replace('-','',$searchRow['phone']),'real');
+check(in_array($combinedId,array_column($phoneResult['records'],'id'),true),'side search normalizes phone separators');
+$oldResult=intake_live_search($admin,$pendingRow($one,(string)$legacyId)['customer'],'real');
+check(in_array((string)$legacyId,array_column($oldResult['records'],'id'),true),'side search includes old receipt months');
+rejects(fn()=>intake_live_search($one,'고객','real'),'employee cannot access administrator side search');
+rejects(fn()=>intake_live_search($admin,'고객','invalid'),'invalid data scope rejected');
+check(intake_live_search($admin,'','real')['records']===[],'empty query does not enumerate receipts');
+check(intake_live_search($admin,'%_','real')['records']===[],'wildcard characters are literal search text');
+check(count($searchResult['records'])<=20&&!array_key_exists('birthDate',$searchResult['records'][0]),'results are bounded and contain no full receipt details');
+foreach(intake_live_search($admin,'고객','test')['records'] as $found)check($found['isTest']===true,'test search never includes real rows');
+echo "PASS: admin side search, name/phone matching, month independence, literal wildcard escaping and data scope.\n";
