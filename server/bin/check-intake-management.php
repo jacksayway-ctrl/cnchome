@@ -316,3 +316,16 @@ check(intake_live_search($admin,'%_','real')['records']===[],'wildcard character
 check(count($searchResult['records'])<=20&&!array_key_exists('birthDate',$searchResult['records'][0]),'results are bounded and contain no full receipt details');
 foreach(intake_live_search($admin,'고객','test')['records'] as $found)check($found['isTest']===true,'test search never includes real rows');
 echo "PASS: admin side search, name/phone matching, month independence, literal wildcard escaping and data scope.\n";
+
+$deleteRow=$d->query('SELECT * FROM sales_records WHERE id=1')->fetch();
+$deleteInput=['action'=>'delete','id'=>'1','revision'=>(int)$deleteRow['revision']];
+rejects(fn()=>intake_update($one,$deleteInput),'employee deletion denied');
+rejects(fn()=>intake_update($admin,array_replace($deleteInput,['revision'=>0])),'stale deletion denied');
+$beforeDeleteCount=(int)$d->query('SELECT COUNT(*) FROM sales_records')->fetchColumn();
+intake_update($admin,$deleteInput);
+check((int)$d->query('SELECT COUNT(*) FROM sales_records')->fetchColumn()===$beforeDeleteCount-1,'only chosen receipt deleted');
+$archive=json_decode($d->query("SELECT before_data FROM intake_management_events WHERE record_key='1' AND action='delete' ORDER BY id DESC LIMIT 1")->fetchColumn(),true,512,JSON_THROW_ON_ERROR);
+check((int)$archive['sales_records'][0]['id']===1&&$archive['sales_records'][0]['customer_name']===$deleteRow['customer_name'],'complete receipt archived in DB audit');
+foreach(['sales_events','sales_consultation_details','sales_receipt_details','sales_birth_details','sales_counselor_details'] as $table)check((int)$d->query('SELECT COUNT(*) FROM '.$table.' WHERE sale_id=1')->fetchColumn()===0,'deleted receipt child removed');
+rejects(fn()=>intake_update($admin,$deleteInput),'repeat deletion rejected');
+echo "PASS: administrator receipt deletion, revision guard and DB archive.\n";

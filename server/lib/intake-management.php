@@ -78,8 +78,23 @@ function intake_recall_request(string $id,int $eventId): array {
     if(ctype_digit($id)){$q=db()->prepare("SELECT MAX(e.created_at) FROM sales_events e JOIN app_users u ON u.id=e.actor_id WHERE e.sale_id=? AND u.role='admin' AND e.old_status<>''");$q->execute([(int)$id]);$handled=$q->fetchColumn();hr_assert(!$handled||$handled<$event['created_at'],'다른 화면에서 처리한 요청입니다. 새로고침해 주세요.');}
     return json_decode($event['after_data'],true,512,JSON_THROW_ON_ERROR);
 }
+function intake_delete(array $user,string $id,int $revision): void {
+    intake_admin($user);hr_assert(ctype_digit($id),'삭제할 접수 번호를 확인해 주세요.');$d=db();$d->beginTransaction();
+    try{
+        $q=$d->prepare('SELECT * FROM sales_records WHERE id=? FOR UPDATE');$q->execute([(int)$id]);$row=$q->fetch();
+        hr_assert($row&&(int)$row['revision']===$revision,'접수 내용이 변경되었거나 이미 삭제됐습니다. 새로고침 후 확인해 주세요.');
+        $archive=['sales_records'=>[$row]];
+        $children=['sales_events','sales_consultation_details','sales_receipt_details','sales_birth_details','sales_counselor_details'];
+        foreach($children as $table){$q=$d->prepare('SELECT * FROM '.$table.' WHERE sale_id=? FOR UPDATE');$q->execute([(int)$id]);$archive[$table]=$q->fetchAll();}
+        intake_audit($id,$user,'delete',$archive,['deleted'=>true],'관리자가 접수증 삭제를 확인했습니다.');
+        foreach($children as $table){$q=$d->prepare('DELETE FROM '.$table.' WHERE sale_id=?');$q->execute([(int)$id]);}
+        $q=$d->prepare('DELETE FROM sales_records WHERE id=? AND revision=?');$q->execute([(int)$id,$revision]);hr_assert($q->rowCount()===1,'삭제 중 접수 내용이 변경됐습니다.');
+        $d->commit();
+    }catch(Throwable $e){if($d->inTransaction())$d->rollBack();throw $e;}
+}
 function intake_update(array $user,array $in): void {
-    intake_admin($user);$id=intake_text($in['id']??'',60);$revision=intake_number($in['revision']??0);$action=intake_text($in['action']??'',15);hr_assert(in_array($action,['status','edit','hold'],true),'지원하지 않는 작업입니다.');
+    intake_admin($user);$id=intake_text($in['id']??'',60);$revision=intake_number($in['revision']??0);$action=intake_text($in['action']??'',15);hr_assert(in_array($action,['status','edit','hold','delete'],true),'지원하지 않는 작업입니다.');
+    if($action==='delete'){intake_delete($user,$id,$revision);return;}
     $reason=intake_text($in['reason']??'',500);if($action==='hold'&&$reason==='')$reason='내용 확인 후 가접수 유지';$status=intake_text($in['status']??'',10);hr_assert(in_array($status,['pending','normal','as'],true),'상태를 확인해 주세요.');
     $recallId=intake_number($in['recallEventId']??0);if($recallId)hr_assert(($action==='status'&&$status==='normal')||($action==='hold'&&$status==='pending'),'재콜 확인 작업을 다시 선택해 주세요.');
     $d=db();$d->beginTransaction();

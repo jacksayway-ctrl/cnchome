@@ -80,6 +80,23 @@
   lastEdit.textContent=record.lastEdit?'마지막 변경: '+record.lastEdit.actor+' · '+record.lastEdit.at:'변경 이력 없음';
   form.querySelector('.receipt-save').before(lastEdit);
   const reset=form.querySelector('.receipt-reset');reset.type='button';reset.textContent='되돌리기';reset.addEventListener('click',()=>options.reset?options.reset():mount(host,true,options));
+  if(!options.submit){
+   const remove=document.createElement('button');remove.type='button';remove.className='receipt-delete';remove.textContent='삭제';form.querySelector('.receipt-reset').after(remove);
+   remove.addEventListener('click',()=>{
+    const dialog=document.createElement('dialog');dialog.className='receipt-delete-dialog';
+    const title=document.createElement('h3');title.id='receipt-delete-title-'+record.id;title.textContent='접수증 삭제 확인';dialog.setAttribute('aria-labelledby',title.id);
+    const message=document.createElement('p');message.textContent=record.customer+' · '+record.phone+' 접수증을 삭제하시겠습니까? 삭제하면 접수 목록과 현재 실적 집계에서 제외됩니다.';
+    const cancel=document.createElement('button');cancel.type='button';cancel.textContent='취소';cancel.autofocus=true;
+    const confirm=document.createElement('button');confirm.type='button';confirm.className='receipt-delete';confirm.textContent='삭제';
+    cancel.addEventListener('click',()=>dialog.close());dialog.addEventListener('close',()=>dialog.remove(),{once:true});
+    confirm.addEventListener('click',()=>{
+     confirm.disabled=true;const deletion=document.createElement('form');deletion.method='post';deletion.action=action.href;
+     for(const name of ['csrf','id','revision'])hidden(deletion,name,form.elements.namedItem(name).value);
+     hidden(deletion,'action','delete');document.body.append(deletion);global.CNCWindowSession?.decorateForm(deletion);HTMLFormElement.prototype.submit.call(deletion);
+    });
+    dialog.append(title,message,cancel,confirm);document.body.append(dialog);dialog.showModal();
+   });
+  }
   function close(){if(options.close){options.close();return;}const row=host.closest('[data-intake-detail]');const toggle=row?.previousElementSibling?.querySelector('[data-intake-toggle]');if(toggle)toggle.click();else host.closest('details')?.removeAttribute('open');}
   const detachReceipt=global.ReceiptForm.attach(form,{originalDate:record.date,originalCallAvailability:record.callAvailability,phoneMode:fullPhone?'full':'mobile',autofocus:false,close});
   global.ConsultationLocation?.attach(form);
