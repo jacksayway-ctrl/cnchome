@@ -186,3 +186,7 @@ body.receipt-window :is(#tm-preview,.receipt-host) #tm-dialog.receipt-dialog::ba
  :is(#tm-preview,.receipt-host) .receipt-header.receipt-management-header{padding:10px;gap:8px}
  :is(#tm-preview,.receipt-host) .receipt-management-header .intake-header-search{flex-basis:100%}
 }
+
+:is(#tm-preview,.receipt-host) .receipt-status-options{display:flex;align-items:center;flex-wrap:wrap;gap:8px 14px;min-height:30px}
+:is(#tm-preview,.receipt-host) .receipt-status-options label{display:inline-flex;align-items:center;gap:5px;margin:0;white-space:nowrap;color:#173966;font-size:13px}
+:is(#tm-preview,.receipt-host) .receipt-admin-field .receipt-status-options input[type=radio]{width:15px;height:15px;min-height:0;margin:0;padding:0;accent-color:#203963}

@@ -9,5 +9,5 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
  $in=json_decode(file_get_contents('php://input',false,null,0,16384),true,16,JSON_THROW_ON_ERROR);
  hr_assert(is_array($in)&&!array_is_list($in),'접수 입력 형식을 확인해 주세요.');pending_intake_update($user,$in);
 }elseif($_SERVER['REQUEST_METHOD']!=='GET'){http_response_code(405);exit;}
-echo hr_json(pending_intake_snapshot($user));
+echo hr_json(pending_intake_snapshot($user,($_GET['allStatuses']??'')==='1'));
 }catch(Throwable $e){if(isset($d)&&$d->inTransaction())$d->rollBack();http_response_code($e instanceof HRForbidden?403:422);echo json_encode(['error'=>$e instanceof InvalidArgumentException||$e instanceof HRForbidden?$e->getMessage():'가접수 처리에 실패했습니다.'],JSON_UNESCAPED_UNICODE);}
