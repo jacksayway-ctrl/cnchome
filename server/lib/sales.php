@@ -94,6 +94,7 @@ function sales_mutate(array $user,array $in): void {
         $action=$in['action']??'';
         if($action==='create'){
             $premiumMemo=$in['premiumMemo']??'';hr_assert(is_string($premiumMemo)&&mb_strlen($premiumMemo)<=500,'월보험료 메모는 500자 이내로 입력해 주세요.');$premiumMemo=trim($premiumMemo);
+            $receiptMemo=$in['receiptMemo']??'';hr_assert(is_string($receiptMemo)&&mb_strlen($receiptMemo)<=500,'접수 메모는 500자 이내로 입력해 주세요.');$receiptMemo=trim($receiptMemo);
             $status='pending'; // New receipts always enter review before an explicit status update.
             if($user['role']!=='admin'&&array_key_exists('employeeId',$in)&&(string)$in['employeeId']!==(string)$user['id'])throw new HRForbidden('본인 아이디로만 접수할 수 있습니다.');
             $owner=$user['role']==='admin'?($in['employeeId']??0):$user['id'];
@@ -126,7 +127,7 @@ function sales_mutate(array $user,array $in): void {
             $q=$d->prepare('INSERT INTO sales_consultation_details(sale_id,consultation_time,consultation_place,premium_band) VALUES(?,?,?,?)');$q->execute([$id,$consultationTime,$consultationPlace,$premiumBand]);
             if($birthDate!==''){$q=$d->prepare('INSERT INTO sales_birth_details(sale_id,birth_date) VALUES(?,?)');$q->execute([$id,$birthDate]);}
             $q=$d->prepare('INSERT INTO sales_events(sale_id,actor_id,old_status,new_status) VALUES(?,?,?,?)');$q->execute([$id,$user['id'],'',$status]);
-            if($premiumMemo!==''){$q=$d->prepare('INSERT INTO intake_management_events(record_key,actor_id,action,before_data,after_data,reason) VALUES(?,?,?,?,?,?)');$q->execute([(string)$id,$user['id'],'create',hr_json([]),hr_json(['premiumMemo'=>$premiumMemo]),'월보험료 메모 등록']);}
+            if($premiumMemo!==''||$receiptMemo!==''){$q=$d->prepare('INSERT INTO intake_management_events(record_key,actor_id,action,before_data,after_data,reason) VALUES(?,?,?,?,?,?)');$q->execute([(string)$id,$user['id'],'create',hr_json([]),hr_json(['premiumMemo'=>$premiumMemo,'receiptMemo'=>$receiptMemo]),'접수 메모 등록']);}
         }elseif($action==='status'){
             $status=$in['status']??'';hr_assert(in_array($status,['pending','normal','as'],true),'접수 상태를 확인해 주세요.');$id=(string)($in['id']??'');
             if(preg_match('/^test:(\d+):(\d+)$/D',$id,$match)){

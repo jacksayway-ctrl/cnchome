@@ -197,3 +197,6 @@ body.receipt-window :is(#tm-preview,.receipt-host) #tm-dialog.receipt-dialog::ba
 
 :is(#tm-preview,.receipt-host) .receipt-form .receipt-premium .receipt-premium-memo{display:flex;align-items:center;flex:1 1 130px;min-width:120px;gap:5px}
 :is(#tm-preview,.receipt-host) .receipt-form .receipt-premium-memo input[name=premiumMemo]{flex:1;width:100%;min-width:0;border:1px solid #c6d4e5;padding:4px 6px}
+
+:is(#tm-preview,.receipt-host) .receipt-form .receipt-note .receipt-free-memo{display:flex;align-items:center;flex:1 1 150px;min-width:120px;gap:5px}
+:is(#tm-preview,.receipt-host) .receipt-form .receipt-free-memo input[name=receiptMemo]{flex:1;width:100%;min-width:0;border:1px solid #c6d4e5;padding:4px 6px}

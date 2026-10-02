@@ -42,9 +42,9 @@ function intake_audit(string $id,array $user,string $action,array $before,array 
     $q=db()->prepare('INSERT INTO intake_management_events(record_key,actor_id,action,before_data,after_data,reason) VALUES(?,?,?,?,?,?)');$q->execute([$id,$user['id'],$action,hr_json($before),hr_json($after),$reason]);
 }
 // The memo is versioned with the receipt edit, so its value and author/time commit together.
-function intake_premium_memo(string $id): string {
+function intake_premium_memo(string $id,string $field='premiumMemo'): string {
     $q=db()->prepare("SELECT after_data FROM intake_management_events WHERE record_key=? AND action IN ('edit','create') ORDER BY id DESC");$q->execute([$id]);
-    while($json=$q->fetchColumn()){$after=json_decode($json,true,512,JSON_THROW_ON_ERROR);if(array_key_exists('premiumMemo',$after))return (string)$after['premiumMemo'];}
+    while($json=$q->fetchColumn()){$after=json_decode($json,true,512,JSON_THROW_ON_ERROR);if(array_key_exists($field,$after))return (string)$after[$field];}
     return '';
 }
 function intake_history(array $user,string $id): array {
@@ -151,6 +151,7 @@ function intake_update(array $user,array $in): void {
                 $before+=$beforeReceipt+$beforeBirth+['employee_id'=>(int)$row['employee_id'],'department'=>$row['department'],'consultation_time'=>(string)($details['consultation_time']??''),'consultation_place'=>(string)($details['consultation_place']??''),'premium_band'=>(string)($details['premium_band']??''),'status'=>$row['status']];
                 $after=$next+$receipt+$afterBirth+['employee_id'=>(int)$employee['id'],'department'=>$employee['department'],'consultation_time'=>$time,'consultation_place'=>$place,'premium_band'=>$band,'status'=>$status];
                 $before['premiumMemo']=intake_premium_memo($id);$after['premiumMemo']=intake_text($in['premiumMemo']??$before['premiumMemo'],500);
+                $before['receiptMemo']=intake_premium_memo($id,'receiptMemo');$after['receiptMemo']=intake_text($in['receiptMemo']??$before['receiptMemo'],500);
                 hr_assert($before!==$after,'변경된 내용이 없습니다.');
                 $q=$d->prepare('UPDATE sales_records SET employee_id=?,department=?,customer_name=?,phone=?,carrier=?,note=?,birth_year=?,insurance_kind=?,status=?,revision=revision+1,updated_at=UTC_TIMESTAMP(6) WHERE id=?');$q->execute([(int)$employee['id'],$employee['department'],$next['customer_name'],$next['phone'],$next['carrier'],$next['note'],$afterBirth['birth_year'],$afterBirth['insurance_kind'],$status,(int)$id]);
                 if($afterBirth['birth_date']!==$beforeBirth['birth_date']){
@@ -171,7 +172,7 @@ function intake_update(array $user,array $in): void {
 }
 function intake_create(array $user,array $post): array {
     intake_admin($user);$in=['action'=>'create','employeeId'=>intake_number($post['employeeId']??0)];
-    foreach(['date'=>10,'customer'=>100,'phone'=>20,'birthDate'=>10,'carrier'=>100,'note'=>1000,'premiumMemo'=>500,'consultationTime'=>5,'consultationPlace'=>500,'premiumBand'=>6,'requestKey'=>36,'gender'=>4,'callAvailability'=>200,'visitSchedule'=>500,'counselorName'=>100] as $key=>$max)$in[$key]=intake_text($post[$key]??'',$max);
+    foreach(['date'=>10,'customer'=>100,'phone'=>20,'birthDate'=>10,'carrier'=>100,'note'=>1000,'premiumMemo'=>500,'receiptMemo'=>500,'consultationTime'=>5,'consultationPlace'=>500,'premiumBand'=>6,'requestKey'=>36,'gender'=>4,'callAvailability'=>200,'visitSchedule'=>500,'counselorName'=>100] as $key=>$max)$in[$key]=intake_text($post[$key]??'',$max);
     hr_assert(hr_day($in['birthDate']),'생년월일을 입력해 주세요.');[$in['birthYear'],$in['birthMonth'],$in['birthDay']]=explode('-',$in['birthDate']);
     $in['duplicateConfirmed']=($post['duplicateConfirmed']??'')==='1';sales_mutate($user,$in);$q=db()->prepare('SELECT id,is_test FROM sales_records WHERE request_key=?');$q->execute([$in['requestKey']]);return $q->fetch();
 }

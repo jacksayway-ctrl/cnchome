@@ -15,8 +15,9 @@ check($d->query('SELECT status FROM sales_records WHERE id=1')->fetchColumn()===
 check((int)$d->query('SELECT count(*) FROM intake_management_events')->fetchColumn()===1,'state audit recorded');
 rejects(fn()=>intake_update($admin,['action'=>'status','id'=>'1','revision'=>$revision,'status'=>'normal']),'stale status rejected');
 $edit=['action'=>'edit','id'=>'1','revision'=>$revision+1,'status'=>'as','customer'=>'<script>alert(1)</script>','phone'=>'010-1234-5678','carrier'=>'GA','note'=>'확인한 상담 내용','consultationTime'=>'16:40','consultationPlace'=>'경기도 이천시','premiumBand'=>'300000','reason'=>'고객 요청 정정'];
-$edit['premiumMemo']='보험료 확인 메모';
+$edit['premiumMemo']='보험료 확인 메모';$edit['receiptMemo']='별도 접수 메모';
 intake_update($admin,$edit);
+check(intake_premium_memo('1','receiptMemo')==='별도 접수 메모','receipt memo persists separately');
 check(intake_premium_memo('1')==='보험료 확인 메모','premium memo persists with receipt edit');
 $saved=$d->query('SELECT * FROM sales_records WHERE id=1')->fetch();
 check($saved['customer_name']===$edit['customer']&&$saved['employee_id']===$row['employee_id']&&$saved['first_date']===$row['first_date'],'editable fields change without shifting owner/date');
@@ -36,9 +37,10 @@ check(count(array_filter($filtered,fn($r)=>$r['isTest']))===0,'test rows stay ou
 check(count(intake_filtered($snapshot['records'],intake_filters(['month'=>$month,'scope'=>'test'])))>0,'test records remain accessible separately');
 rejects(fn()=>intake_filters(['month'=>$month,'from'=>'2000-01-01']),'date filter cannot silently cross month');
 check(intake_csv_cell('=HYPERLINK("bad")')[0]==="'"&&intake_csv_cell("\t+123")[0]==="'",'CSV export blocks formula injection');
-$created=intake_create($admin,['premiumMemo'=>'신규 보험료 메모','employeeId'=>'2','date'=>$today,'customer'=>'관리자 접수','phone'=>'010-9999-8888','birthDate'=>'1990-01-01','requestKey'=>'11111111-aaaa-aaaa-aaaa-aaaaaaaaaaaa']);
+$created=intake_create($admin,['receiptMemo'=>'신규 접수 메모','premiumMemo'=>'신규 보험료 메모','employeeId'=>'2','date'=>$today,'customer'=>'관리자 접수','phone'=>'010-9999-8888','birthDate'=>'1990-01-01','requestKey'=>'11111111-aaaa-aaaa-aaaa-aaaaaaaaaaaa']);
 $retry=intake_create($admin,['employeeId'=>'2','date'=>$today,'customer'=>'관리자 접수','phone'=>'010-9999-8888','birthDate'=>'1990-01-01','requestKey'=>'11111111-aaaa-aaaa-aaaa-aaaaaaaaaaaa']);
 check($created['id']===$retry['id'],'native registration is retry-safe');
+check(intake_premium_memo((string)$created['id'],'receiptMemo')==='신규 접수 메모','new receipt memo survives retry');
 check(intake_premium_memo((string)$created['id'])==='신규 보험료 메모','registration memo survives reload and retry');
 // Render the actual detail page with untrusted customer text.
 $snapshot=sales_snapshot($admin,$month);$rows=intake_filtered($snapshot['records'],$filters);$list=$rows;$selected=array_values(array_filter($snapshot['records'],fn($r)=>$r['id']==='1'))[0];
@@ -320,7 +322,8 @@ check(count($searchResult['records'])<=20&&!array_key_exists('birthDate',$search
 foreach(intake_live_search($admin,'고객','test')['records'] as $found)check($found['isTest']===true,'test search never includes real rows');
 echo "PASS: admin side search, name/phone matching, month independence, literal wildcard escaping and data scope.\n";
 
-$memoEdit=$edit;$memoEdit['revision']=(int)$d->query('SELECT revision FROM sales_records WHERE id=1')->fetchColumn();$memoEdit['premiumMemo']='';intake_update($admin,$memoEdit);
+$memoEdit=$edit;$memoEdit['revision']=(int)$d->query('SELECT revision FROM sales_records WHERE id=1')->fetchColumn();$memoEdit['premiumMemo']='';$memoEdit['receiptMemo']='';intake_update($admin,$memoEdit);
+check(intake_premium_memo('1','receiptMemo')==='','receipt memo can be cleared');
 check(intake_premium_memo('1')==='','explicitly cleared premium memo does not revive old value');
 $deleteRow=$d->query('SELECT * FROM sales_records WHERE id=1')->fetch();
 $deleteInput=['action'=>'delete','id'=>'1','revision'=>(int)$deleteRow['revision']];

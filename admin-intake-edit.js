@@ -54,6 +54,7 @@
   if(!radioValue(form,'gender',record.gender))extraRadio(form.querySelector('.receipt-gender'),'gender','','미입력').tabIndex=-1;
   if(!radioValue(form,'premiumBand',record.premiumBand))extraRadio(form.querySelector('.receipt-premium'),'premiumBand','','미입력');
   inputValue(form,'premiumMemo',record.premiumMemo);
+  inputValue(form,'receiptMemo',record.receiptMemo);
   const call=form.querySelector('[data-receipt-calltime]'),callMatch=/^(오전|오후)(?:\s+(.*))?$/.exec(record.callAvailability);
   radioValue(form,'receiptPeriod',callMatch?.[1]||'');call.value=callMatch?.[2]||(!callMatch?record.callAvailability:'');call.defaultValue=call.value;
   // Preserve saved insurer and old free-text memos until the user chooses a replacement.
