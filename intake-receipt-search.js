@@ -27,7 +27,8 @@
      for(const record of data.records){
       if(!/^(?:\d+|test:\d+:\d+)$/.test(record.id)||!/^\d{4}-\d{2}-\d{2}$/.test(record.date))continue;
       const link=document.createElement('a'),counselor=document.createElement('strong'),name=document.createElement('span'),phone=document.createElement('span'),meta=document.createElement('small');
-      const target=new URL('/intake.php',location.origin);target.search=new URLSearchParams({role:'admin',month:record.date.slice(0,7),scope:record.isTest?'test':'real',id:record.id,popup:'1'}).toString();
+      const target=new URL('/intake.php',location.origin);target.search=new URLSearchParams({role:'admin',month:record.date.slice(0,7),scope:record.isTest?'test':'real',id:record.id}).toString();
+      if(document.body.classList.contains('nf-popup'))target.searchParams.set('popup','1');
       link.href=window.CNCWindowSession?.url(target.href)||target.href;
       counselor.className='intake-search-counselor';counselor.textContent='상담원 '+(record.employee||'미입력');name.textContent='고객명 '+record.customer;phone.textContent=record.phone||'연락처 미입력';meta.textContent=[record.isTest?'테스트':'',record.date,({pending:'가접수',normal:'정상접수',as:'A/S'})[record.status]||''].filter(Boolean).join(' · ');
       link.append(counselor,name,phone,meta);link.addEventListener('click',confirmNavigation,true);fragment.append(link);
