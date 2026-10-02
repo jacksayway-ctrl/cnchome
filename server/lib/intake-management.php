@@ -6,7 +6,7 @@ function intake_admin(array $user): void {if(($user['role']??'')!=='admin')throw
 function intake_text(mixed $value,int $max): string {hr_assert(is_string($value),'입력 형식을 확인해 주세요.');$value=trim($value);hr_assert(mb_strlen($value)<=$max,'입력 내용이 너무 깁니다.');return $value;}
 function intake_number(mixed $value): int {hr_assert((is_string($value)&&ctype_digit($value))||is_int($value),'번호를 확인해 주세요.');return hr_int((int)$value,2147483647);}
 function intake_filters(array $query): array {
-    $f=[];foreach(['month'=>7,'q'=>80,'team'=>20,'status'=>10,'scope'=>10,'employee'=>12,'from'=>10,'to'=>10] as $key=>$max)$f[$key]=intake_text($query[$key]??'', $max);
+    $f=[];foreach(['month'=>7,'q'=>80,'region'=>80,'team'=>20,'status'=>10,'scope'=>10,'employee'=>12,'from'=>10,'to'=>10] as $key=>$max)$f[$key]=intake_text($query[$key]??'', $max);
     $f['month']=$f['month']?:substr(hr_today(),0,7);hr_assert(sales_month($f['month']),'조회 월을 확인해 주세요.');
     hr_assert(in_array($f['team'],['','insurance','cosmetics','health'],true),'부서를 확인해 주세요.');
     hr_assert(in_array($f['status'],['','pending','normal','as'],true),'접수 상태를 확인해 주세요.');
@@ -26,6 +26,7 @@ function intake_filtered(array $records,array $f): array {
         if($f['status']!==''&&$r['status']!==$f['status'])return false;
         if($f['employee']!==''&&(int)$r['employeeId']!==(int)$f['employee'])return false;
         if(($f['from']&&$r['date']<$f['from'])||($f['to']&&$r['date']>$f['to']))return false;
+        $region=mb_strtolower($f['region']??'');if($region!==''&&!str_contains(mb_strtolower((string)($r['consultationPlace']??'').' '.(string)($r['address']??'')),$region))return false;
         if($q!==''){
             $name=mb_strtolower((string)($r['customer']??''));
             if(!str_contains($name,$q)&&!($phoneQuery&&str_contains(sales_phone_key((string)($r['phone']??'')),$digits)))return false;
