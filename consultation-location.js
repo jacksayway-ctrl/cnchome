@@ -182,6 +182,7 @@
    if(selectedAddress&&query!==selectedAddress&&!query.startsWith(selectedAddress+' '))selectedAddress='';
    if(choosing||composing||found.length||selectedAddress||!input.dataset.addressSearch||!provider?.shouldSearch(query)||global.document.activeElement!==input||input.disabled||input.readOnly)return;
    const version=searchVersion,requestKey=form.dataset.requestKey,intent=autoIntent;
+   const cached=provider.cached?.(query);if(cached){display(cached.items,cached.count,true);if(allowAuto)scheduleAutoChoose();return;}
    status.textContent='도로명·지번 주소를 검색합니다…';
    searchTimer=global.setTimeout(async()=>{
     searchTimer=0;
@@ -196,7 +197,7 @@
      if(!current()||controller.signal.aborted)return;
      display([]);status.textContent=typeof error?.message==='string'&&error.message.startsWith('주소 검색')?error.message:'주소 검색에 연결하지 못했습니다. 잠시 후 다시 입력하거나 주소를 직접 입력해 주세요.';
     }finally{if(searchController===controller)searchController=null;}
-   },250);
+   },80);
   }
   function scheduleRender(allowAuto){
    const value=input.value,intent=autoIntent,carryAuto=renderTimer&&queuedValue===value&&queuedIntent===intent&&queuedAuto;
@@ -208,7 +209,7 @@
     renderTimer=0;
     if(version!==renderVersion||!input.isConnected||input.value!==value||form.dataset.requestKey!==requestKey||global.document.activeElement!==input||input.disabled||input.readOnly||composing||form.hasAttribute('data-saved'))return;
     const auto=queuedAuto&&intent===autoIntent;render(auto);if(auto)scheduleAutoChoose();
-   },120);
+   },100);
   }
   function optionRow(event){const row=event.target.closest?.('[data-place-index]');return row&&row.parentElement===list?row:null;}
   for(const eventName of ['pointerdown','mousedown'])list.addEventListener(eventName,event=>{if(optionRow(event))event.preventDefault();});

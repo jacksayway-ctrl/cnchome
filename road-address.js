@@ -74,9 +74,10 @@
    throw failed();
   }finally{global.clearTimeout(timer);signal?.removeEventListener('abort',cancel);}
  }
+ function cached(value){const item=cache.get(clean(value));return item&&Date.now()-item.savedAt<cacheAge?copy(item.result):null;}
  function attach(form){
   const input=form?.querySelector('[name="consultationPlace"]');
   if(input)input.dataset.addressSearch='true';
  }
- global.RoadAddress={search,shouldSearch,attach};
+ global.RoadAddress={search,shouldSearch,attach,cached};
 })(window);
