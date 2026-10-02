@@ -70,8 +70,8 @@
   hidden(form,'insuranceKindMode','age');
   const adminFields=document.createElement('div');adminFields.className='receipt-admin-controls';
   const status=document.createElement('div');status.className='receipt-status-options';status.setAttribute('role','radiogroup');status.setAttribute('aria-label','접수 상태');
-  const savedStatus=hidden(form,'status',record.status||'pending');
-  for(const [value,label] of [['normal','정상 접수'],['pending','가접수'],['as','A/S']]){const option=document.createElement('label'),input=document.createElement('input');input.type='radio';input.name='receiptStatusChoice';input.value=value;input.checked=input.defaultChecked=value===(record.status||'pending');option.append(input,' '+label);status.append(option);}
+  const savedStatus=hidden(form,'status','normal');
+  for(const [value,label] of [['normal','정상 접수'],['pending','가접수'],['as','A/S']]){const option=document.createElement('label'),input=document.createElement('input');input.type='radio';input.name='receiptStatusChoice';input.value=value;input.checked=input.defaultChecked=value==='normal';option.append(input,' '+label);status.append(option);}
   status.addEventListener('change',event=>{if(event.target.matches('input[name=receiptStatusChoice]:checked'))savedStatus.value=event.target.value;});
   const reason=document.createElement('input');reason.name='reason';reason.maxLength=500;reason.value=record.reason;reason.defaultValue=reason.value;reason.placeholder='수정 사유 (선택)';
   const statusField=document.createElement('div');statusField.className='receipt-admin-field';const statusTitle=document.createElement('span');statusTitle.textContent='접수 상태';statusField.append(statusTitle,status);adminFields.append(statusField);if(!options.submit)adminFields.append(field('수정 사유 (선택)',reason));form.querySelector('.receipt-grid').after(adminFields);
