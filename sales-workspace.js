@@ -4,7 +4,7 @@
  const premiumLabels={'100000':'10만 원 이상','200000':'20만 원 이상','300000':'30만 원 이상'};
  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  const today=()=>new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
- function counts(records){return records.reduce((n,r)=>{if(Object.hasOwn(n,r.status))n[r.status]++;return n},{pending:0,normal:0,as:0})}
+ function counts(records){return records.reduce((n,r)=>{if(Object.hasOwn(n,r.status)&&(r.status!=='normal'||r.performanceEligible!==false))n[r.status]++;return n},{pending:0,normal:0,as:0})}
  function daily(records,team,date){return counts(records.filter(r=>(!team||r.team===team)&&r.date===date))}
  function ageKind(birthYear,date=today()){const age=Number(date.slice(0,4))-Number(birthYear)+1;return Number.isInteger(age)&&age>0&&age<=70?{age,kind:age<=60?'general':'silver'}:{age,kind:null}}
  function weekDates(anchor,start){const d=new Date(anchor+'T00:00:00Z');d.setUTCDate(d.getUTCDate()-(d.getUTCDay()-start+7)%7);return Array.from({length:7},(_,i)=>{const v=new Date(d);v.setUTCDate(v.getUTCDate()+i);return v.toISOString().slice(0,10)})}

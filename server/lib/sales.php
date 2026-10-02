@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__.'/hr.php';
+require_once __DIR__.'/sales-performance.php';
 
 function sales_kind(int $birthYear, string $date): string {
     $age=(int)substr($date,0,4)-$birthYear+1;
@@ -17,9 +18,6 @@ function sales_test_user(array $user): bool {
 class SalesDuplicate extends RuntimeException {
     public function __construct(public readonly int $count){parent::__construct('같은 이름과 전화번호로 접수된 기존 자료가 있습니다.');}
 }
-function sales_customer_base_name(string $name): string {return preg_replace('/(?:\s*\(중복(?:접수)?\))+\s*$/u','',trim($name));}
-function sales_customer_key(string $name): string {return preg_replace('/\s+/u','',sales_customer_base_name($name));}
-function sales_phone_key(string $phone): string {return preg_replace('/\D/','',$phone);}
 function sales_duplicate_count(array $employee,string $name,string $phone): int {
     $test=cnc_test_user($employee);$nameKey=sales_customer_key($name);$phoneKey=sales_phone_key($phone);$d=db();$count=0;
     $q=$d->prepare("SELECT customer_name FROM sales_records WHERE is_test=? AND REPLACE(REPLACE(phone,'-',''),' ','')=? FOR UPDATE");$q->execute([$test?1:0,$phoneKey]);
@@ -63,6 +61,8 @@ function sales_snapshot(array $user,string $month): array {
     $q->execute($admin?[]:[$user['id']]);
     foreach($q->fetchAll() as $r){$state=json_decode($r['state'],true,512,JSON_THROW_ON_ERROR);foreach($state['sales']??[] as $sale){if($sale['date']<$start||$sale['date']>=$next)continue;$status=['정상'=>'normal','가접수'=>'pending','A/S'=>'as'][$sale['status']]??null;if(!$status)continue;$records[]=['id'=>'test:'.$r['id'].':'.$sale['id'],'date'=>$sale['date'],'employeeId'=>(int)$r['id'],'employee'=>$r['display_name'],'team'=>$r['department'],'customer'=>$sale['name'],'carrier'=>$sale['carrier'],'kind'=>$sale['kind']==='실버'?'silver':'general','status'=>$status,'revision'=>(int)$r['revision'],'isTest'=>true,'phone'=>$sale['phone']??'','birthDate'=>$sale['birthDate']??'','birthYear'=>(int)($sale['birthYear']??substr($sale['birthDate']??'',0,4)),'note'=>$sale['note']??'','consultationTime'=>$sale['consultationTime']??'','consultationPlace'=>$sale['consultationPlace']??'','premiumBand'=>$sale['premiumBand']??'','gender'=>$sale['gender']??'','callAvailability'=>$sale['callAvailability']??'','visitSchedule'=>$sale['visitSchedule']??'','counselorName'=>$sale['counselorName']??''];}}
     }
+    $earned=array_fill_keys(array_map('strval',array_column(sales_performance_rows($admin?null:$test,hr_today()),'id')),true);
+    foreach($records as &$record){$record['performanceEligible']=$record['status']==='normal'&&isset($earned[$record['id']]);$record['performanceDuplicate']=$record['status']==='normal'&&$record['date']<=hr_today()&&!$record['performanceEligible'];}unset($record);
     $staff=$admin?$d->query("SELECT id,display_name AS name,department AS team FROM app_users WHERE role='employee' AND active=1 ORDER BY id")->fetchAll():[];
     return ['records'=>$records,'staff'=>$staff,'counselorNames'=>sales_counselor_names($user),'isTestAccount'=>$test,'month'=>$month,'today'=>hr_today(),'fetchedAt'=>gmdate('c')];
 }

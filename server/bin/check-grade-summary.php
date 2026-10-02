@@ -4,6 +4,7 @@ declare(strict_types=1);
 require __DIR__.'/../lib/grade-summary.php';
 function db(): PDO {static $d;return $d??=new PDO('sqlite::memory:',null,null,[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION,PDO::ATTR_DEFAULT_FETCH_MODE=>PDO::FETCH_ASSOC]);}
 function check(bool $ok,string $message): void {if(!$ok)throw new RuntimeException($message);}
+$accounts=db();$accounts->exec("CREATE TABLE app_users(id INTEGER PRIMARY KEY,username TEXT,display_name TEXT,role TEXT,department TEXT);INSERT INTO app_users VALUES(1,'one','직원','employee','insurance'),(2,'two','다른 직원','employee','insurance'),(3,'user1','테스트 직원','employee','insurance');");
 $d=db();$d->exec('CREATE TABLE hr_employees(user_id INTEGER,profile TEXT);CREATE TABLE business_calendar(month TEXT PRIMARY KEY,days TEXT);CREATE TABLE grade_versions(id INTEGER PRIMARY KEY,department TEXT,effective_date TEXT,policy TEXT,saved_at TEXT DEFAULT CURRENT_TIMESTAMP);CREATE TABLE sales_records(employee_id INTEGER,department TEXT,first_date TEXT,status TEXT,is_test INTEGER);CREATE TABLE test_employee_data(user_id INTEGER,state TEXT);CREATE TABLE daily_grade_receipts(employee_id INTEGER,performance_date TEXT,milestone INTEGER,amount INTEGER,department TEXT,confirmed_at TEXT DEFAULT CURRENT_TIMESTAMP,PRIMARY KEY(employee_id,performance_date,milestone));');
 $profile=['startDate'=>'2026-09-01','endDate'=>'','workDays'=>['월','화','수','목','금'],'role'=>'상담원'];
 $policy=grade_zero_policy();$policy['dailyCash']=['start'=>6,'perCase'=>5000];
@@ -75,7 +76,6 @@ check($after['daily']['amount']===35000&&$after['daily']['paidCount']===7&&$afte
 $changed=$policy;foreach($changed['weekly'] as &$tier)if($tier['achievement'])$tier['achievement']+=10000;unset($tier);
 $q=$d->prepare('INSERT INTO grade_versions(id,department,effective_date,policy) VALUES(?,?,?,?)');$q->execute([5,'insurance','2026-09-23',hr_json($changed)]);
 $r=grade_summary_snapshot($test,'2026-09-25');check($r['weekly']['amount']===56000&&array_column($r['weekly']['parts'],'bonus')===[20000,36000],'employee weekly amount shares payroll effective-day proration');
-$d->exec("CREATE TABLE app_users(id INTEGER PRIMARY KEY,username TEXT,display_name TEXT,role TEXT);INSERT INTO app_users VALUES(1,'one','직원','employee');");
 $ledger=grade_employee_context(['userId'=>1,'profile'=>$profile+['team'=>'insurance']],'2026-09');
 check($ledger['count']===2&&$ledger['hours']===0,'ordinary employee totals exclude stale fixture receipts and fixture attendance');
 echo "PASS: cumulative daily grades and automatic receipt-independent prepayment, combined own normal records, five-day weekly average, effective-date proration, personal isolation and boundaries.\n";

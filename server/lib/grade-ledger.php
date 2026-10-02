@@ -4,6 +4,7 @@ require_once __DIR__.'/grade-departments.php';
 require_once __DIR__.'/hr.php';
 require_once __DIR__.'/policy.php';
 require_once __DIR__.'/business-calendar.php';
+require_once __DIR__.'/sales-performance.php';
 
 function grade_dates(string $month,array $calendar=[]): array {return business_calendar_workdays($month,$calendar);}
 function grade_week(string $date): array {$d=new DateTimeImmutable($date);$d=$d->modify('-'.((int)$d->format('N')-1).' days');return array_map(fn($i)=>$d->modify('+'.$i.' days')->format('Y-m-d'),range(0,4));}
@@ -76,9 +77,9 @@ function grade_sample_estimates(string $month,array $entries,array $calendar=[])
 function grade_employee_context(array $employee,string $month): array {
     $uid=(int)($employee['userId']??0);$p=$employee['profile'];$counts=[];$hours=[];$days=grade_dates($month);$from=grade_week($days[0])[0];$through=min(hr_today(),grade_week(end($days))[4]);$d=db();
     $q=$d->prepare("SELECT username,display_name,role FROM app_users WHERE id=?");$q->execute([$uid]);$test=cnc_test_user($q->fetch()?:[]);
-    $q=$d->prepare("SELECT first_date,COUNT(*) AS amount FROM sales_records WHERE employee_id=? AND department=? AND is_test=? AND status='normal' AND first_date>=? AND first_date<=? GROUP BY first_date");$q->execute([$uid,$p['team'],$test?1:0,$from,$through]);foreach($q->fetchAll() as $r)$counts[$r['first_date']]=(int)$r['amount'];
+    $counts=sales_performance_counts($uid,$p['team'],$test,$from,$through);
     // Ordinary employees never read fixture receipts or attendance, even if a stale fixture row exists.
-    if($test){$q=$d->prepare('SELECT state FROM test_employee_data WHERE user_id=?');$q->execute([$uid]);$raw=$q->fetchColumn();if($raw){$state=json_decode($raw,true,512,JSON_THROW_ON_ERROR);foreach($state['sales']??[] as $s)if($s['status']==='정상'&&$s['date']>=$from&&$s['date']<=$through)$counts[$s['date']]=($counts[$s['date']]??0)+1;foreach($state['attendance']??[] as $a)if($a['out']&&$a['date']>=$from&&$a['date']<=$through){$start=strtotime($a['date'].' '.$a['in']);$end=strtotime($a['date'].' '.$a['out']);$hours[$a['date']]=max(0,($end-$start)/3600-1);}}}
+    if($test){$q=$d->prepare('SELECT state FROM test_employee_data WHERE user_id=?');$q->execute([$uid]);$raw=$q->fetchColumn();if($raw){$state=json_decode($raw,true,512,JSON_THROW_ON_ERROR);foreach($state['attendance']??[] as $a)if($a['out']&&$a['date']>=$from&&$a['date']<=$through){$start=strtotime($a['date'].' '.$a['in']);$end=strtotime($a['date'].' '.$a['out']);$hours[$a['date']]=max(0,($end-$start)/3600-1);}}}
     $rows=[];for($date=$from;$date<=$through;$date=(new DateTimeImmutable($date))->modify('+1 day')->format('Y-m-d'))if((int)(new DateTimeImmutable($date))->format('N')<=5)$rows[]=['date'=>$date,'count'=>$counts[$date]??0,'hours'=>$hours[$date]??0];
     $history=grade_history($p['team']);
     $result=grade_ledger($month,$rows,$history,$p,business_calendar_rules($month));$q=$d->prepare('SELECT COALESCE(SUM(amount),0) FROM daily_grade_receipts WHERE employee_id=? AND performance_date>=? AND performance_date<=?');$q->execute([$uid,$month.'-01',(new DateTimeImmutable($month.'-01'))->format('Y-m-t')]);

@@ -32,5 +32,5 @@ function personnel_history_date(string $timestamp): string {
     return (new DateTimeImmutable($timestamp,new DateTimeZone('UTC')))->setTimezone(new DateTimeZone('Asia/Seoul'))->format('Y-m-d H:i:s');
 }
 function personnel_history_label(string $event): string {
-    return ['account'=>'로그인 계정 변경','baseline'=>'최초 수정 전 기록','created'=>'등록 확정','confirm'=>'수정 확정','profile'=>'직원 기본정보 수정','unlock'=>'직원 수정권한 해제','lock'=>'인사정보 확정 · 수정 잠금','settings'=>'주휴일·급여일 기본설정 반영','suspend'=>'계정 사용중지','resume'=>'계정 사용 재개'][$event]??'인사정보 수정';
+    return ['account'=>'로그인 계정 변경','baseline'=>'최초 수정 전 기록','created'=>'등록 확정','confirm'=>'수정 확정','profile'=>'직원 기본정보 수정','unlock'=>'직원 수정권한 해제','lock'=>'인사정보 확정 · 수정 잠금','settings'=>'주휴일·급여일 기본설정 반영','suspend'=>'계정 사용중지','resume'=>'계정 사용 재개','transferBefore'=>'계정 이전 전 기존 정보','transferSource'=>'이전받은 계정의 인사정보','accountTransfer'=>'계정 자료 이전 완료'][$event]??'인사정보 수정';
 }
