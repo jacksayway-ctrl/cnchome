@@ -2,6 +2,9 @@
 // Render against the isolated contract workflow fixtures, never production.
 declare(strict_types=1);
 ob_start();require __DIR__.'/check-contracts.php';ob_end_clean();
+// The contract fixture has its own SQLite DB; shared navigation needs an isolated
+// grade provider instead of loading the production bootstrap/database settings.
+function entries_for(array $user): array {return [];}
 require_once __DIR__.'/../lib/native.php';
 $d->exec("CREATE TABLE office_notices(id INTEGER PRIMARY KEY,channel TEXT,department TEXT,title TEXT,body TEXT,active INTEGER,created_at TEXT);
 INSERT INTO office_notices VALUES(1,'company','insurance','회사 알림','<안내> & 내용',1,'2026-09-29 10:00:00');
