@@ -56,7 +56,7 @@ function intake_live_calendar(PDO $d,string $month,string $today): array {
     // first call whose explicitly saved status date belongs to this month.
     $sql="SELECT s.id,s.first_date,s.department,s.status,a.after_data,a.created_at AS audit_created_at,e.created_at AS status_created_at
         FROM sales_records s
-        ".intake_status_date_joins()."
+        ".intake_status_date_joins($d)."
         WHERE s.is_test=0 AND ((s.first_date>=? AND s.first_date<?) OR (s.status<>'pending' AND (JSON_EXTRACT(a.after_data,'$.statusChangedAt') LIKE ? OR (a.created_at>=? AND a.created_at<?) OR (e.created_at>=? AND e.created_at<?))))";
     $q=$d->prepare($sql);$q->execute([$start,$end,'%'.$month.'-%',$utcStart,$utcEnd,$utcStart,$utcEnd]);
     foreach($q->fetchAll() as $row){

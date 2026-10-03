@@ -67,6 +67,8 @@ cp -a /var/www/html "$backup/html"
 if [[ -d /opt/cnchome-runtime ]]; then cp -a /opt/cnchome-runtime "$backup/runtime"; fi
 # Existing additive migrations preserve accounts, grade history and payroll records.
 run_deploy_step server/bin/migrate.php
+# Validate the actual MySQL dialect and live page rendering inside a READ ONLY transaction.
+run_deploy_step server/bin/check-intake-mysql.php
 # Live operation: never recreate demo sales, attendance or payroll on deployment.
 run_deploy_step server/bin/cleanup-automatic-sales.php
 run_deploy_step server/bin/update-personnel-schedule.php

@@ -62,8 +62,10 @@ function intake_effective_status_date(array $row): string {
     }
     return $eventAt!==''?substr(intake_time($eventAt),0,10):$row['first_date'];
 }
-function intake_status_date_joins(): string {
-    return " LEFT JOIN intake_management_events a ON a.id=(SELECT MAX(a2.id) FROM intake_management_events a2 WHERE a2.record_key=CAST(s.id AS CHAR) AND a2.action IN ('edit','status') AND (JSON_EXTRACT(a2.after_data,'$.statusChangedAt') IS NOT NULL OR JSON_EXTRACT(a2.after_data,'$.status')<>JSON_EXTRACT(a2.before_data,'$.status')))
+function intake_status_date_joins(PDO $d): string {
+    // Numeric-to-text casts inherit the MySQL connection collation, which can differ from the audit table.
+    $recordKey=$d->getAttribute(PDO::ATTR_DRIVER_NAME)==='mysql'?'CAST(s.id AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_bin':'CAST(s.id AS CHAR)';
+    return " LEFT JOIN intake_management_events a ON a.id=(SELECT MAX(a2.id) FROM intake_management_events a2 WHERE a2.record_key=".$recordKey." AND a2.action IN ('edit','status') AND (JSON_EXTRACT(a2.after_data,'$.statusChangedAt') IS NOT NULL OR JSON_EXTRACT(a2.after_data,'$.status')<>JSON_EXTRACT(a2.before_data,'$.status')))
         LEFT JOIN sales_events e ON e.id=(SELECT MAX(e2.id) FROM sales_events e2 WHERE e2.sale_id=s.id AND e2.old_status<>'' AND e2.new_status=s.status) ";
 }
 /** Month candidates include previous-month calls completed in the selected month. */
@@ -78,7 +80,7 @@ function intake_actual_normal_records(array $user,array $filters): array {
         $utcFirst=$first->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d H:i:s');$utcNext=$next->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d H:i:s');
         array_push($params,$first->format('Y-m-d'),$next->format('Y-m-d'),'%'.$filters['month'].'-%',$utcFirst,$utcNext,$utcFirst,$utcNext);
     }
-    $q=$d->prepare('SELECT s.*,u.display_name AS employee_name,u.username AS employee_username,c.consultation_time,c.consultation_place,c.premium_band,b.birth_date,rd.gender,rd.call_availability,rd.visit_schedule,rd.created_at AS receipt_created_at,a.after_data,a.created_at AS audit_created_at,e.created_at AS status_created_at FROM sales_records s JOIN app_users u ON u.id=s.employee_id LEFT JOIN sales_consultation_details c ON c.sale_id=s.id LEFT JOIN sales_birth_details b ON b.sale_id=s.id LEFT JOIN sales_receipt_details rd ON rd.sale_id=s.id'.intake_status_date_joins().' WHERE '.implode(' AND ',$where));$q->execute($params);$records=[];
+    $q=$d->prepare('SELECT s.*,u.display_name AS employee_name,u.username AS employee_username,c.consultation_time,c.consultation_place,c.premium_band,b.birth_date,rd.gender,rd.call_availability,rd.visit_schedule,rd.created_at AS receipt_created_at,a.after_data,a.created_at AS audit_created_at,e.created_at AS status_created_at FROM sales_records s JOIN app_users u ON u.id=s.employee_id LEFT JOIN sales_consultation_details c ON c.sale_id=s.id LEFT JOIN sales_birth_details b ON b.sale_id=s.id LEFT JOIN sales_receipt_details rd ON rd.sale_id=s.id'.intake_status_date_joins($d).' WHERE '.implode(' AND ',$where));$q->execute($params);$records=[];
     foreach($q->fetchAll() as $r)$records[]=['id'=>(string)$r['id'],'date'=>$r['first_date'],'statusDate'=>intake_effective_status_date($r),'employeeId'=>(int)$r['employee_id'],'employee'=>$r['employee_name'],'employeeUsername'=>$r['employee_username'],'team'=>$r['department'],'customer'=>$r['customer_name'],'carrier'=>sales_receipt_carrier($r['carrier']??'',$r['note']??''),'kind'=>$r['insurance_kind']??'','status'=>$r['status'],'revision'=>(int)$r['revision'],'isTest'=>(bool)$r['is_test'],'phone'=>$r['phone']??'','address'=>$r['address']??'','birthYear'=>(int)$r['birth_year'],'birthDate'=>$r['birth_date']??'','note'=>$r['note']??'','consultationTime'=>$r['consultation_time']??'','consultationPlace'=>$r['consultation_place']??'','premiumBand'=>$r['premium_band']??'','gender'=>$r['gender']??'','callAvailability'=>$r['call_availability']??'','visitSchedule'=>$r['visit_schedule']??'','counselorName'=>$r['employee_name'],'receivedAt'=>$r['receipt_created_at']??''];
     if($filters['scope']!=='real'){
         $q=$d->query('SELECT t.state,t.revision,u.id,u.display_name,u.department FROM test_employee_data t JOIN app_users u ON u.id=t.user_id');
