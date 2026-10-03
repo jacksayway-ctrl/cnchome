@@ -8,7 +8,7 @@
  function daily(records,team,date){return counts(records.filter(r=>(!team||r.team===team)&&r.date===date))}
  function ageKind(birthYear,date=today()){const age=Number(date.slice(0,4))-Number(birthYear)+1;return Number.isInteger(age)&&age>0&&age<=70?{age,kind:age<=60?'general':'silver'}:{age,kind:null}}
  function weekDates(anchor,start){const d=new Date(anchor+'T00:00:00Z');d.setUTCDate(d.getUTCDate()-(d.getUTCDay()-start+7)%7);return Array.from({length:7},(_,i)=>{const v=new Date(d);v.setUTCDate(v.getUTCDate()+i);return v.toISOString().slice(0,10)})}
- let weekAnchor=today(),weekStart=1;
+ let weekAnchor=today(),weekStart=1,homeCalendarTeam='insurance';
  let bridge,store=null,error='',busy=false,loading=false,month=today().slice(0,7),selected=today(),selectedTeam='',showTest=false,lastFetch='',requestVersion=0;
  const live=()=>global.CNCHOME_LIVE,admin=()=>live()?.user.role==='admin';
  const testAccount=()=>live()?.isTestAccount??/^user[1-6]$/.test(live()?.user.username||'');
@@ -29,7 +29,7 @@
   const groups=scoped()?allGroups.filter(([name])=>department()==='insurance'?name.startsWith('보험'):name===(department()==='cosmetics'?'화장품':'건강보조식품')):allGroups;
   return '<section class="panel"><h3>상품별 주간 실적</h3><div class="toolbar performance-week-toolbar"><button class="secondary" type="button" data-sales-week="-1">이전 주</button><strong>'+dates[0]+' ~ '+dates[6]+'</strong><button class="secondary" type="button" data-sales-week="1">다음 주</button><label>기준일<input type="date" data-sales-week-date value="'+weekAnchor+'"></label><label>주 시작 요일<select data-sales-week-start>'+['일','월','화','수','목','금','토'].map((x,i)=>'<option value="'+i+'" '+(i===weekStart?'selected':'')+'>'+x+'요일</option>').join('')+'</select></label></div>'+table(['상품',...dates.map(x=>x.slice(5)),'정상접수 합계','가접수','A/S'],groups.map(([name,filter])=>{const rs=records.filter(filter),c=counts(rs);return [name,...dates.map(d=>counts(rs.filter(r=>r.date===d)).normal+'건'),c.normal+'건',c.pending+'건',c.as+'건']}))+'</section>';
  }
- function calendar(team,records){
+ function calendar(team,records,tabbed=false){
   const [year,m]=month.split('-').map(Number),first=new Date(Date.UTC(year,m-1,1)).getUTCDay(),days=new Date(Date.UTC(year,m,0)).getUTCDate();
   const cellCount=Math.ceil((first+days)/7)*7;
   let cells='';
@@ -40,13 +40,14 @@
    cells+='<button type="button" class="day sales-live-day '+(date===selected?'active ':'')+(isToday?'team-performance-today':'')+'" data-sales-day="'+date+'" data-sales-team="'+team+'" '+(isToday?'aria-current="date"':'')+' aria-label="'+date+' '+esc(teams[team]||'전체')+' '+(statusKeys.length?statusKeys.map(k=>labels[k]+' '+c[k]+'건').join(' '):'접수 내역 없음')+'"><span class="date-number">'+n+'</span>'+statusKeys.map(k=>'<small class="count sales-status-'+tones[k]+'" data-sales-count="'+k+'">'+labels[k]+' '+c[k]+'건</small>').join('')+'</button>';
   }
   const total=counts(records.filter(r=>!team||r.team===team));
-  return '<section class="panel" data-sales-calendar="'+team+'"><h3>'+esc(teams[team]||'전체')+' 실적 달력 · '+esc(month)+'</h3><div class="sales-live-totals">'+summary(total)+'</div><div class="team-performance-scroll"><div class="calendar sales-live-calendar">'+['일','월','화','수','목','금','토'].map(d=>'<div class="weekday">'+d+'</div>').join('')+cells+'</div></div></section>';
+  const heading=tabbed?'<div class="sales-calendar-heading"><div class="sales-calendar-tabs" role="group" aria-label="부서별 실적 달력">'+Object.entries({insurance:'보험',cosmetics:'화장품',health:'건강보조식품'}).map(([key,label])=>'<button type="button" data-sales-calendar-team="'+key+'" aria-pressed="'+(key===team)+'" aria-controls="sales-home-calendar-view">'+label+' 실적 달력</button>').join('')+'</div><strong class="sales-calendar-month">'+year+'년 '+m+'월</strong></div>':'<h3>'+esc(teams[team]||'전체')+' 실적 달력 · '+esc(month)+'</h3>';
+  return '<section class="panel" data-sales-calendar="'+team+'">'+heading+'<div'+(tabbed?' id="sales-home-calendar-view" role="region" aria-label="'+esc(teams[team])+' 실적 달력 · '+esc(month)+'"':'')+'><div class="sales-live-totals">'+summary(total)+'</div><div class="team-performance-scroll"><div class="calendar sales-live-calendar">'+['일','월','화','수','목','금','토'].map(d=>'<div class="weekday">'+d+'</div>').join('')+cells+'</div></div></div></section>';
  }
  let salesDetailsOpen=false;
  global.document.addEventListener('toggle',e=>{if(e.target.matches?.('[data-sales-details]'))salesDetailsOpen=e.target.open;},true);
- function details(records){
-  const list=records.filter(r=>(!selectedTeam||r.team===selectedTeam)&&r.date===selected);
-  return '<details class="panel sales-intake-details" data-sales-details '+(salesDetailsOpen?'open':'')+'><summary>'+esc(selected)+' · '+esc(teams[selectedTeam]||'전체')+'접수 내역 · '+list.length+'건</summary>'+(!list.length?'<p class="sub">접수 내역이 없습니다.</p>':table(['담당','고객','접수 코드','상품','상담 시간','상담 장소','현재 납부 보험료','상태'],list.map(r=>[esc(r.employee),esc(r.customer),esc(r.carrier||'—'),r.team==='insurance'?(r.kind==='silver'?'실버 · 61~70세':'일반 · 60세 이하'):esc(teams[r.team]),esc(r.consultationTime||'—'),esc(r.consultationPlace||'—'),esc(premiumLabels[r.premiumBand]||'—'),'<select aria-label="'+esc(r.customer)+' 접수 상태" data-sales-status="'+esc(r.id)+'" '+(busy?'disabled':'')+'>'+Object.keys(labels).map(k=>'<option value="'+k+'" '+(k===r.status?'selected':'')+'>'+labels[k]+'</option>').join('')+'</select>'])))+'</details>';
+ function details(records,team=selectedTeam){
+  const list=records.filter(r=>(!team||r.team===team)&&r.date===selected);
+  return '<details class="panel sales-intake-details" data-sales-details '+(salesDetailsOpen?'open':'')+'><summary>'+esc(selected)+' · '+esc(teams[team]||'전체')+'접수 내역 · '+list.length+'건</summary>'+(!list.length?'<p class="sub">접수 내역이 없습니다.</p>':table(['담당','고객','접수 코드','상품','상담 시간','상담 장소','현재 납부 보험료','상태'],list.map(r=>[esc(r.employee),esc(r.customer),esc(r.carrier||'—'),r.team==='insurance'?(r.kind==='silver'?'실버 · 61~70세':'일반 · 60세 이하'):esc(teams[r.team]),esc(r.consultationTime||'—'),esc(r.consultationPlace||'—'),esc(premiumLabels[r.premiumBand]||'—'),'<select aria-label="'+esc(r.customer)+' 접수 상태" data-sales-status="'+esc(r.id)+'" '+(busy?'disabled':'')+'>'+Object.keys(labels).map(k=>'<option value="'+k+'" '+(k===r.status?'selected':'')+'>'+labels[k]+'</option>').join('')+'</select>'])))+'</details>';
  }
  let homeStatus=null,homeGraphDay=today(),homeGraphOpen=false;
  function homeGraph(records,ready){
@@ -75,8 +76,8 @@
   const top=(page==='adminHome'?(global.AdminWorkspace?.home()||''):'')+'<div class="sales-workspace"><div class="sales-page-toolbar" aria-label="실적 조회 및 접수"><h2>'+title+'</h2><div class="sales-month-controls"><button class="secondary" type="button" data-sales-month="-1">이전 달</button><input type="month" aria-label="실적 조회 월" data-sales-month-input value="'+month+'"><button class="secondary" type="button" data-sales-month="1">다음 달</button></div><button class="secondary sales-refresh-button" type="button" data-sales-refresh>새로고침</button>'+(testAvailable?'<label class="sales-test-toggle"><input type="checkbox" data-sales-test '+(showTest?'checked':'')+'><span>테스트 자료 보기</span></label>':'')+'</div><p class="sub" data-sales-sync>'+esc(error||(!ready?'접수 내역을 불러오는 중입니다.':'5초마다 자동 갱신 · 마지막 확인 '+lastFetch))+'</p>'+(showTest?'<p class="notice">테스트 계정의 가상 자료입니다. 실제 실적에는 합산하지 않습니다.</p>':'')+'<p class="sub">최초 접수일 기준 · 상태 변경 시 가접수·정상접수·A/S 건수가 함께 바뀝니다.</p>';
   if(!ready)return top+'</div>';
   if(page==='adminAs')return top+table(['최초 접수일','상담원','고객명','전화번호','접수 코드','현재 상태'],records.length?records.map(r=>[esc(r.date),esc(r.employee),esc(r.customer),esc(r.phone||'—'),esc(r.carrier||'—'),'<select aria-label="'+esc(r.customer)+' 접수 상태" data-sales-status="'+esc(r.id)+'" '+(busy?'disabled':'')+'>'+Object.entries(labels).map(([key,label])=>'<option value="'+key+'" '+(key===r.status?'selected':'')+'>'+label+'</option>').join('')+'</select>']):[['—','—','등록된 A/S가 없습니다.','—','—','—']])+'</div>';
-  const visibleTeams=scoped()?[department()]:admin()?Object.keys(teams).filter(t=>t!=='health'||records.some(r=>r.team===t)):[live().user.department];
-  return top+'<div class="sales-live-totals">'+summary(counts(records))+'</div>'+(page==='adminPerformance'?weekly():'')+'<div class="team-calendar-stack">'+visibleTeams.map(t=>calendar(t,records)).join('')+'</div>'+details(records)+'</div>';
+  const homeCalendar=page==='adminHome',visibleTeams=homeCalendar?[homeCalendarTeam]:scoped()?[department()]:[live().user.department];
+  return top+'<div class="sales-live-totals">'+summary(counts(records))+'</div>'+(page==='adminPerformance'?weekly():'')+'<div class="team-calendar-stack">'+visibleTeams.map(t=>calendar(t,records,homeCalendar)).join('')+'</div>'+details(records,homeCalendar?homeCalendarTeam:scoped()?department():selectedTeam)+'</div>';
  }
  function redraw(){if(active())bridge.render()}
  function chrome(){
@@ -122,9 +123,10 @@
  }
  function setMonth(value){if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(value))return;month=value;selected=value===today().slice(0,7)?today():value+'-01';if(!weekAnchor.startsWith(month))weekAnchor=selected;requestVersion++;redraw();request();}
  function init(options){
-  if(!live())return;bridge=options;store=null;error='';homeStatus=null;homeGraphDay=today();homeGraphOpen=false;showTest=false;
+  if(!live())return;bridge=options;store=null;error='';homeStatus=null;homeGraphDay=today();homeGraphOpen=false;showTest=false;homeCalendarTeam='insurance';
   try{const value=global.localStorage.getItem(weekStorageKey());if(value!==null&&/^[0-6]$/.test(value))weekStart=Number(value)}catch(e){}
   bridge.root.addEventListener('click',e=>{const b=e.target.closest('[data-sales-home-status]');if(!b)return;homeStatus=homeStatus===b.dataset.salesHomeStatus?null:b.dataset.salesHomeStatus;redraw()});
+  bridge.root.addEventListener('click',e=>{const b=e.target.closest('[data-sales-calendar-team]');if(!b||!admin()||route()!=='adminHome'||!Object.hasOwn(teams,b.dataset.salesCalendarTeam))return;homeCalendarTeam=b.dataset.salesCalendarTeam;redraw();bridge.root.querySelector('[data-sales-calendar-team="'+homeCalendarTeam+'"]')?.focus({preventScroll:true});});
   function pickHomeDay(target){const b=target.closest('[data-sales-home-day]');if(!b)return;homeGraphDay=b.dataset.salesHomeDay;homeGraphOpen=true;redraw();}
   bridge.root.addEventListener('click',e=>pickHomeDay(e.target));
   bridge.root.addEventListener('keydown',e=>{if(e.target.closest('[data-sales-home-day]')&&(e.key==='Enter'||e.key===' ')){e.preventDefault();pickHomeDay(e.target);}});
