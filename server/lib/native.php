@@ -88,6 +88,8 @@ function native_start(string $title,array $user,string $active,array $extraStyle
     echo '</nav></aside><main class="nf-main">';
     if($selectedGroup){
         echo '<section class="nf-subpages nf-no-print">';
+        $location='<div class="nf-location"><span>관리자</span><span>/</span><strong>'.view_h($selectedGroup['label']).'</strong><span>/</span><span>'.view_h($selectedLabel).'</span></div>';
+        echo $location;
         if($role==='admin'&&$selectedGroup['items'][0][0]==='adminIntake'){
             $liveIntake=basename($_SERVER['SCRIPT_NAME']??'')==='intake-live.php';$team=$_GET['team']??'insurance';if(!in_array($team,['insurance','cosmetics','health'],true))$team='insurance';
             echo '<nav class="nf-department-tabs" aria-label="접수 부서"><a href="/intake-live.php?role=admin"'.($liveIntake?' class="active" aria-current="page"':'').'>전체 접수 관리</a>';
@@ -104,7 +106,7 @@ function native_start(string $title,array $user,string $active,array $extraStyle
             }
             echo '</nav>';
         }
-        echo '<div class="nf-location"><span>관리자</span><span>/</span><strong>'.view_h($selectedGroup['label']).'</strong><span>/</span><span>'.view_h($selectedLabel).'</span></div><nav class="nf-subpage-links" aria-label="'.view_h($selectedGroup['label']).' 하위 페이지">';
+        echo '<nav class="nf-subpage-links" aria-label="'.view_h($selectedGroup['label']).' 하위 페이지">';
         foreach($selectedGroup['items'] as [$page,$label])echo '<a href="'.view_h(native_url($page,$role)).'"'.($page===$active?' class="active" aria-current="page"':'').'>'.view_h($label).'</a>';
         if($selectedGroup['items'][0][0]==='adminPayroll')echo '<a href="/payroll.php?role=admin&amp;department='.view_h(management_request_department()).'">급여 계산 검토 <span class="ui-icon ui-icon-external" aria-hidden="true"></span></a>';
         echo '</nav></section>';

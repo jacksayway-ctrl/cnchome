@@ -51,9 +51,20 @@ foreach(['adminPolicy','adminGrade','adminBank','adminCorrections'] as $page){
  $boot=['user'=>$user,'page'=>$page,'entries'=>[],'revision'=>0,'csrf'=>'TEST','hr'=>['today'=>'2026-10-03','accounts'=>[],'employees'=>[],'payroll'=>[]]];
  $html=html_view('office',compact('role','page','user','boot'));
  check(str_contains($html,'class="aw-department-tabs"'),'each scoped group has department tabs');
+ $location=strpos($html,'class="aw-location"');$tabs=strpos($html,'class="aw-department-tabs"');
+ check($location!==false&&$tabs!==false&&$location<$tabs,'office breadcrumbs precede department tabs');
  check(str_contains($html,'department=health" class="active"'),'selected department is preserved by server rendering');
 }
 check(str_contains(native_url('adminPayroll','admin'),'department=health'),'native payroll link preserves department');
 check(str_contains(native_url('adminPolicy','admin'),'department=health'),'native-to-office link preserves department');
 $_GET=[];
 echo "PASS: policy, grade and payroll department navigation.\n";
+
+$_GET=['team'=>'insurance'];$user=['id'=>1,'role'=>'admin','display_name'=>'관리자','department'=>'insurance'];
+foreach(['adminIntake','adminPending','adminIntakeRegister','adminPolicy','adminGrade','adminPayroll','adminBank','adminCorrections'] as $page){
+ ob_start();native_start('접수관리',$user,$page);native_end();$html=ob_get_clean();
+ $location=strpos($html,'class="nf-location"');$tabs=strpos($html,'class="nf-department-tabs"');
+ check($location!==false&&$tabs!==false&&$location<$tabs,'native breadcrumbs precede department tabs');
+}
+$_GET=[];
+echo "PASS: admin breadcrumb position across department groups.\n";
