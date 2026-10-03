@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__.'/hr.php';
+require_once __DIR__.'/business-calendar.php';
 
 class CalendarHolidayConflict extends RuntimeException {}
 
@@ -29,7 +30,13 @@ function calendar_holidays_read(array $user,string $from,string $to): array {
         $names[$row['holiday_date']]=$row['holiday_name'];
         $entries[]=['date'=>$row['holiday_date'],'name'=>$row['holiday_name'],'revision'=>(int)$row['revision'],'savedBy'=>$row['actor_name'],'savedAt'=>str_replace(' ','T',$row['updated_at']).'Z'];
     }
-    return ['from'=>$from,'to'=>$to,'holidays'=>$names,'entries'=>$entries];
+    $q=db()->prepare('SELECT month,days FROM business_calendar WHERE month>=? AND month<=?');$q->execute([substr($from,0,7),substr($to,0,7)]);
+    $workdayOverrides=[];
+    foreach($q->fetchAll() as $row){
+        $selected=business_calendar_validate($row['month'],json_decode($row['days'],true,512,JSON_THROW_ON_ERROR));
+        foreach(business_calendar_dates($row['month']) as $date)if($date>=$from&&$date<=$to)$workdayOverrides[$date]=in_array($date,$selected,true);
+    }
+    return ['from'=>$from,'to'=>$to,'holidays'=>$names,'entries'=>$entries,'workdayOverrides'=>$workdayOverrides];
 }
 function calendar_holiday_save(array $user,array $input): void {
     if(($user['role']??'')!=='admin')throw new HRForbidden('관리자만 휴일을 지정할 수 있습니다.');

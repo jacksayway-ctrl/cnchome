@@ -53,13 +53,21 @@
   Object.freeze(result);cache.set(year,result);return result;
  }
  function validDate(value){return typeof value==='string'&&/^(?:20\d{2}|2100)-(0[1-9]|1[0-2])-([0-2]\d|3[01])$/.test(value)&&Number.isFinite(Date.parse(value+'T00:00:00Z'))&&dateKey(new Date(value+'T00:00:00Z'))===value;}
- const company=new Map(),monthLoaded=new Map(),monthRequests=new Map();
+ const company=new Map(),companyWorkdays=new Map(),monthLoaded=new Map(),monthRequests=new Map();
  function name(date){if(!validDate(date))return '';return [...new Set([forYear(Number(date.slice(0,4)))[date]||'',company.get(date)||''].filter(Boolean))].join(' · ');}
  function setCompanyHolidays(month,holidays){
   if(!/^20\d{2}-(0[1-9]|1[0-2])$/.test(month)&&!/^2100-(0[1-9]|1[0-2])$/.test(month))return;
   for(const day of company.keys())if(day.startsWith(month+'-'))company.delete(day);
   for(const [day,label] of Object.entries(holidays||{}))if(validDate(day)&&day.startsWith(month+'-')&&typeof label==='string'&&label.trim())company.set(day,label.trim());
   monthLoaded.set(month,Date.now());
+ }
+ function setCompanyWorkdays(month,workdays){
+  for(const day of companyWorkdays.keys())if(day.startsWith(month+'-'))companyWorkdays.delete(day);
+  for(const [day,working] of Object.entries(workdays||{}))if(validDate(day)&&day.startsWith(month+'-')&&typeof working==='boolean')companyWorkdays.set(day,working);
+ }
+ function isWorkday(date){
+  if(!validDate(date))return false;
+  return companyWorkdays.has(date)?companyWorkdays.get(date):![0,6].includes(new Date(date+'T00:00:00Z').getUTCDay())&&!name(date);
  }
  function role(){
   if(global.CNCHOME_LIVE?.user?.role)return global.CNCHOME_LIVE.user.role;
@@ -72,7 +80,7 @@
   if(monthRequests.has(month)||(!force&&Date.now()-(monthLoaded.get(month)||0)<60000))return;
   monthRequests.set(month,true);const controller=new AbortController(),timer=global.setTimeout(()=>controller.abort(),10000);
   global.fetch('/calendar-holidays-api.php?'+new URLSearchParams({role:role(),month}),{credentials:'same-origin',cache:'no-store',signal:controller.signal})
-   .then(async response=>{if(!response.ok)throw Error('Holiday lookup failed');const data=await response.json();setCompanyHolidays(month,data.holidays);decorate(global.document);})
+   .then(async response=>{if(!response.ok)throw Error('Holiday lookup failed');const data=await response.json();setCompanyHolidays(month,data.holidays);setCompanyWorkdays(month,data.workdayOverrides);decorate(global.document);})
    .catch(()=>{monthLoaded.set(month,Date.now());})
    .finally(()=>{global.clearTimeout(timer);monthRequests.delete(month);});
  }
@@ -87,9 +95,10 @@
    const date=business?(element.querySelector('input[name="days[]"]')?.value||element.getAttribute('aria-label')):element.dataset.calendarDate||element.dataset.salesDay||element.dataset.attendanceDate||(time?element.getAttribute('datetime'):element.getAttribute('aria-label'));
    if(!validDate(date))continue;
    months.add(date.slice(0,7));
-   const holiday=name(date),sunday=new Date(date+'T00:00:00Z').getUTCDay()===0;
+   const holiday=name(date),dow=new Date(date+'T00:00:00Z').getUTCDay(),sunday=dow===0,checkbox=business?cell.querySelector('input[name="days[]"]'):null;
+   const working=checkbox?checkbox.checked:cell.dataset.calendarWorkday==='open'?true:cell.dataset.calendarWorkday==='closed'?false:isWorkday(date);
    if(time&&holiday&&cell.dataset.calendarWorkday!=='open')cell.querySelectorAll('[data-calendar-department]').forEach(row=>row.remove());
-   cell.classList.toggle('cnc-calendar-holiday',Boolean(holiday));cell.classList.toggle('cnc-calendar-sunday',sunday);
+   cell.classList.toggle('cnc-calendar-holiday',Boolean(holiday));cell.classList.toggle('cnc-calendar-sunday',sunday);cell.classList.toggle('cnc-calendar-saturday',dow===6);cell.classList.toggle('cnc-calendar-rest',!working);
    const container=business?cell.querySelector('.bc-day-box'):cell;
    if(!container)continue;
    const heading=time?element:business?container.querySelector('strong'):cell.querySelector('.date-number,.attendance-date-heading')||cell.firstElementChild;
@@ -103,7 +112,7 @@
   }
   for(const month of months)loadCompanyMonth(month,refresh);
  }
- global.CNCPublicHolidays=Object.freeze({forYear,name,decorate,setCompanyHolidays});
+ global.CNCPublicHolidays=Object.freeze({forYear,name,decorate,setCompanyHolidays,isWorkday});
  if(!global.document)return;
  function start(){
   decorate(global.document);
@@ -116,6 +125,7 @@
   global.addEventListener('focus',()=>decorate(global.document,true));
   global.document.addEventListener('visibilitychange',()=>{if(!global.document.hidden)decorate(global.document,true);});
   global.addEventListener('cnc:calendar-holidays-changed',()=>decorate(global.document,true));
+  global.document.addEventListener('change',event=>{const day=event.target.closest?.('.bc-day');if(day)decorate(day);});
  }
  if(global.document.readyState==='loading')global.document.addEventListener('DOMContentLoaded',start,{once:true});else start();
 })(typeof globalThis!=='undefined'?globalThis:this);

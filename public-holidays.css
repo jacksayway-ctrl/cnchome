@@ -1,4 +1,4 @@
-/* Only calendar dates and holiday names change color; performance/status colors stay intact. */
+/* Rest-day backgrounds and date labels are muted; receipt and attendance status colors stay readable. */
 .calendar .cnc-calendar-holiday .cnc-calendar-date,.calendar .cnc-calendar-sunday .cnc-calendar-date,
 .attendance-calendar .cnc-calendar-holiday .cnc-calendar-date,.attendance-calendar .cnc-calendar-sunday .cnc-calendar-date,
 .intake-live-calendar-grid .cnc-calendar-holiday .cnc-calendar-date,.intake-live-calendar-grid .cnc-calendar-sunday .cnc-calendar-date,
@@ -8,4 +8,9 @@
 .intake-live-calendar-grid .intake-live-calendar-today.cnc-calendar-holiday .cnc-calendar-date,.intake-live-calendar-grid .intake-live-calendar-today.cnc-calendar-sunday .cnc-calendar-date,
 .calendar .team-performance-today.cnc-calendar-holiday .cnc-calendar-date,.calendar .team-performance-today.cnc-calendar-sunday .cnc-calendar-date{background:#fff1f2!important}
 .bc-grid .cnc-holiday-label{margin:3px 0;font-size:11px}
+.calendar .cnc-calendar-rest,.attendance-calendar .cnc-calendar-rest,.intake-live-calendar-grid .cnc-calendar-rest,.bc-grid .cnc-calendar-rest .bc-day-box{background:#f7f9fc!important;color:#8c98aa}
+.calendar .cnc-calendar-rest .cnc-calendar-date,.attendance-calendar .cnc-calendar-rest .cnc-calendar-date,.intake-live-calendar-grid .cnc-calendar-rest .cnc-calendar-date,.bc-grid .cnc-calendar-rest .cnc-calendar-date{color:#8c98aa!important}
+.cnc-calendar-rest.cnc-calendar-holiday .cnc-calendar-date,.cnc-calendar-rest.cnc-calendar-sunday .cnc-calendar-date,.cnc-calendar-rest .cnc-holiday-label{color:#b9828a!important}
+.bc-grid .cnc-calendar-rest .bc-day-box{border-color:#e3e8f0}
+.bc-grid .cnc-calendar-rest .bc-holiday{color:#8c98aa}
 @media(max-width:560px){.calendar .cnc-holiday-label,.attendance-calendar .cnc-holiday-label,.intake-live-calendar-grid .cnc-holiday-label,.bc-grid .cnc-holiday-label{font-size:10px}}
