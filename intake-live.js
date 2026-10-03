@@ -2,7 +2,7 @@
  'use strict';
  const root=document.querySelector('[data-intake-live]');if(!root)return;
  const form=root.querySelector('[data-live-filters]'),body=root.querySelector('[data-live-rows]'),status=root.querySelector('[data-live-status]');
- const teams={insurance:'보험',cosmetics:'화장품',health:'건강보조식품'},labels={pending:'가접수',normal:'정상접수',as:'A/S'};
+ const teams={insurance:'보험',cosmetics:'화장품',health:'건강보조식품'},labels={pending:'가접수',normal:'정상접수',as:'A/S'},shortLabels={pending:'가',normal:'정',as:'AS'};
  const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  const calendar=root.querySelector('[data-live-calendar]'),calendarInput=root.querySelector('[data-live-calendar-month]'),calendarBody=root.querySelector('[data-live-calendar-days]'),calendarMessage=root.querySelector('[data-live-calendar-message]');
  function currentKoreaMonth(){const parts=new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit'}).formatToParts(new Date());return parts.find(p=>p.type==='year').value+'-'+parts.find(p=>p.type==='month').value;}
@@ -29,7 +29,7 @@
    if(day<1||day>daysInMonth)cells+='<td class="intake-live-calendar-outside"></td>';
    else{
     const date=data.month+'-'+String(day).padStart(2,'0'),record=byDate.get(date)||{},isFuture=date>data.today,isToday=date===data.today;
-    const entries=isFuture?'':Object.entries(teams).map(([key,label])=>{const counts=record[key]||{};if(!Object.keys(labels).some(state=>amount(counts[state])>0))return '';return `<div class="intake-live-calendar-department"><strong>${esc(label)}</strong>${Object.entries(labels).map(([state,title])=>`<span class="${state}${amount(counts[state])===0?' intake-live-calendar-zero':''}" aria-label="${esc(label+' '+title+' '+number(counts[state])+'건')}" title="${esc(title+' '+number(counts[state])+'건')}">${number(counts[state])}</span>`).join('')}</div>`;}).join('');
+    const entries=isFuture?'':Object.entries(teams).map(([key,label])=>{const counts=record[key]||{};if(!Object.keys(labels).some(state=>amount(counts[state])>0))return '';return `<div class="intake-live-calendar-department"><strong>${esc(label)}</strong><div class="intake-live-calendar-counts">${Object.entries(labels).map(([state,title])=>`<span class="${state}${amount(counts[state])===0?' intake-live-calendar-zero':''}" aria-label="${esc(label+' '+title+' '+number(counts[state])+'건')}" title="${esc(title+' '+number(counts[state])+'건')}"><small>${shortLabels[state]}</small><b>${number(counts[state])}</b></span>`).join('')}</div></div>`;}).join('');
     cells+=`<td class="${isToday?'intake-live-calendar-today':''}${isFuture?' intake-live-calendar-future':''}"><time class="intake-live-calendar-date" datetime="${esc(date)}" aria-label="${esc(date+(isToday?' 오늘':''))}">${day}</time>${entries}</td>`;
    }
    if(index%7===6)cells+='</tr>';

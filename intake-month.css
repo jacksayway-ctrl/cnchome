@@ -1,0 +1,12 @@
+.intake-subpage-month-row{display:flex;align-items:center;justify-content:space-between;gap:10px 18px;flex-wrap:wrap;padding-bottom:10px}
+.intake-subpage-month-row>.nf-subpage-links{padding-bottom:0;flex:0 1 auto;min-width:0}
+.intake-month-toolbar{display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:6px;margin:0 0 12px;font-size:12px}
+.intake-subpage-month-row>.intake-month-toolbar{margin:0 0 0 auto}
+.intake-month-toolbar form{display:flex;align-items:center;gap:6px;margin:0}
+.intake-month-toolbar label{white-space:nowrap}
+.intake-month-toolbar input[type=month]{width:145px;min-height:30px;padding:3px 6px}
+.intake-month-toolbar :is(button,.nf-button){padding:4px 9px;font-size:12px;white-space:nowrap}
+.intake-month-range{font-variant-numeric:tabular-nums;white-space:nowrap;color:#52677e;margin-right:4px}
+.intake-month-all{margin-left:3px;white-space:nowrap}
+@media(max-width:760px){.intake-subpage-month-row>.nf-subpage-links{flex-basis:100%}.intake-subpage-month-row>.intake-month-toolbar{justify-content:flex-start;margin-left:0}.intake-month-range{flex-basis:100%}}
+@media print{.intake-month-toolbar{display:none}}

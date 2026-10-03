@@ -52,7 +52,7 @@ try{
     }
     $activePage=$mode==='new'?'adminIntakeRegister':($filters['status']==='pending'?'adminPending':'adminIntake');
     $title='접수관리';
-    native_start($title,$user,$activePage,['intake-management.css','receipt-form.css'],$popup);require view_root().'/intake.php';native_end();
+    native_start($title,$user,$activePage,['intake-management.css','receipt-form.css','intake-month.css'],$popup);require view_root().'/intake.php';native_end();
 }catch(HRForbidden $e){http_response_code(403);render_view('error',['title'=>'관리자 전용 메뉴입니다.','message'=>$e->getMessage(),'role'=>'admin']);}
 catch(InvalidArgumentException $e){http_response_code(422);render_view('error',['title'=>'조회 조건을 확인해 주세요.','message'=>$e->getMessage(),'role'=>'admin']);}
 catch(Throwable $e){error_log('cnchome intake management: '.$e->getMessage());http_response_code(503);render_view('error',['title'=>'접수관리를 불러오지 못했습니다.','message'=>'잠시 후 다시 시도해 주세요.','role'=>'admin']);}

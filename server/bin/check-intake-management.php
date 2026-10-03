@@ -51,6 +51,7 @@ preg_match('/<template data-intake-edit-data>(.*?)<\/template>/s',$html,$editDat
 $editBoot=json_decode(html_entity_decode($editDataMatch[1]??'',ENT_QUOTES|ENT_HTML5,'UTF-8'),true,512,JSON_THROW_ON_ERROR);
 check(($editBoot['record']['premiumBand']??'')==='300000','stored premium band reaches the shared receipt editor unchanged');
 check(str_contains($html,'fixture-token')&&str_contains($html,'name="revision"'),'mutations carry CSRF and revision');
+check(str_contains($html,'data-intake-month-toolbar')&&str_contains($html,'이전 달')&&str_contains($html,'이번 달')&&str_contains($html,'다음 달')&&strpos($html,'data-intake-month-toolbar')<strpos($html,'class="intake-summary"'),'monthly controls render above state totals before JavaScript places them next to the subpage menu');
 check(str_contains($html,'<th>상담원</th>')&&str_contains($html,'data-intake-id="1"')&&str_contains($html,'data-intake-toggle aria-expanded="true"')&&str_contains($html,'id="intake-detail-1" data-intake-detail data-intake-loaded="true"'),'selected receipt stays expanded beneath its searchable table row with counselor column');
 check(substr_count($html,'data-intake-edit-host')===1&&str_contains($html,'<template data-intake-edit-hidden>')&&str_contains($html,'name="action" value="edit"')&&($editBoot['record']['status']??'')==='as'&&($editBoot['record']['counselorName']??'')==='보험 직원','one guarded shared receipt editor receives the selected counselor and approval status');
 check(($editBoot['record']['customer']??'')===$selected['customer']&&str_contains($html,'admin-intake-edit.js')&&str_contains($html,'consultation-location.js')&&str_contains($html,'<th>상품 구분</th>'),'shared editor retains untrusted text as data and loads address search with product classification');
@@ -61,6 +62,7 @@ check(str_contains($fragmentHtml,'&lt;script&gt;')&&str_contains($fragmentHtml,'
 $mode='new';$registrationData=['user'=>['id'=>1,'role'=>'admin','display_name'=>'관리자'],'csrf'=>'fixture-token','staff'=>$snapshot['staff'],'counselorNames'=>$snapshot['counselorNames'],'listUrl'=>intake_url(),'employeeId'=>'2'];
 ob_start();require __DIR__.'/../views/intake.php';$registrationHtml=ob_get_clean();$mode='list';
 check(str_contains($registrationHtml,'id="admin-intake-register-data"')&&str_contains($registrationHtml,'data-admin-receipt')&&str_contains($registrationHtml,'admin-intake-register.js')&&!str_contains($registrationHtml,'data-intake-create'),'native registration mounts the shared employee receipt with administrator staff selection');
+check(str_contains($registrationHtml,'data-intake-month-form')&&str_contains($registrationHtml,'name="new" value="1"'),'monthly navigation preserves the new receipt screen');
 echo "PASS: intake admin authorization, shared status, edits, atomic audit, stale writes, test isolation, filters, CSV safety, registration retry and rendered escaping.\n";
 
 require __DIR__.'/../lib/intake-alerts.php';
@@ -247,8 +249,20 @@ $searchRecords=[
     array_replace($searchBase,['id'=>'search-test','customer'=>'김고객','phone'=>'010-5555-1234','isTest'=>true]),
 ];
 $searchFilters=intake_filters(['month'=>$month,'scope'=>'real']);
-check(intake_filters([])['month']==='all','default intake list includes all months');
-check(count(intake_filtered($searchRecords,intake_filters([])))===5,'all-month list includes prior receipts and preserves real scope');
+check(intake_filters([])['month']===$month,'default intake list selects the current Korean month');
+check(intake_filters(['popup'=>'1','month'=>''])['month']==='all','a blank popup month keeps the existing all-period search');
+check(intake_filters(['popup'=>'1'])['month']===$month,'a popup without an explicit month uses the current month');
+check(intake_filters([])['from']===$month.'-01'&&intake_filters([])['to']===(new DateTimeImmutable($month.'-01'))->format('Y-m-t'),'monthly default covers the first through last day');
+check(count(intake_filtered($searchRecords,intake_filters([])))===4,'default monthly list excludes previous months and preserves real scope');
+check(count(intake_filtered($searchRecords,intake_filters(['month'=>'all'])))===5,'explicit all-month list includes prior receipts');
+check(intake_month_period('2028-02')===['from'=>'2028-02-01','to'=>'2028-02-29']&&intake_month_period('2026-02')['to']==='2026-02-28','month boundaries handle leap years');
+$monthLink=intake_month_url(array_replace($searchFilters,['q'=>'김고객','team'=>'insurance','employee'=>'2','status'=>'normal','p'=>8,'id'=>'1','detail'=>'1','popup'=>'1']),'2027-01',true);
+parse_str(parse_url($monthLink,PHP_URL_QUERY),$monthQuery);
+check($monthQuery['month']==='2027-01'&&$monthQuery['from']==='2027-01-01'&&$monthQuery['to']==='2027-01-31'&&$monthQuery['p']==='1'&&$monthQuery['new']==='1','month navigation resets the page and complete date range while retaining registration');
+check($monthQuery['q']==='김고객'&&$monthQuery['team']==='insurance'&&$monthQuery['employee']==='2'&&$monthQuery['status']==='normal'&&!isset($monthQuery['id'],$monthQuery['detail'],$monthQuery['popup']),'month navigation preserves relevant filters and drops receipt detail state');
+$savedGet=$_GET;$_GET=['month'=>'2027-01','from'=>'2027-01-01','to'=>'2027-01-31','q'=>'김고객','employee'=>'2','team'=>'insurance','scope'=>'real','p'=>'8'];
+foreach(['adminIntake','adminPending','adminIntakeRegister'] as $page){parse_str(parse_url(native_url($page,'admin'),PHP_URL_QUERY),$navQuery);check($navQuery['month']==='2027-01'&&$navQuery['from']==='2027-01-01'&&$navQuery['to']==='2027-01-31'&&$navQuery['q']==='김고객'&&$navQuery['employee']==='2'&&!isset($navQuery['p']),'intake subpages retain the selected month and search filters');}
+$_GET=$savedGet;
 check(count(intake_filtered($searchRecords,intake_filters(['month'=>$month])))===4,'explicit month still filters list');
 $matchedNames=array_column(intake_filtered($searchRecords,array_replace($searchFilters,['q'=>'김고객'])),'id');sort($matchedNames);
 check($matchedNames===['search-a','search-b','search-d'],'name search shows every same-name receipt, including stored duplicate labels');

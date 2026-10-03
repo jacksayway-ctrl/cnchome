@@ -5,6 +5,23 @@ $eh=fn(mixed $v):string=>view_h((string)$v);
 $displayStatus=fn(string $status):string=>$status==='normal'?'접수':intake_status($status);
 ?>
 <?php if(!empty($detailFragment)): if($selected): $r=$selected;require __DIR__.'/partials/intake-detail.php';endif;return;endif ?>
+<?php if(!$popup):
+    $currentMonth=substr(hr_today(),0,7);$selectedMonth=$filters['month']==='all'?$currentMonth:$filters['month'];
+    $selectedFirst=new DateTimeImmutable($selectedMonth.'-01',new DateTimeZone('Asia/Seoul'));
+    $monthRange=$filters['month']==='all'?'전체 기간':str_replace('-','.',$filters['from']).' ~ '.str_replace('-','.',$filters['to']);
+?>
+<div class="intake-month-toolbar" data-intake-month-toolbar aria-label="접수 통계 조회 월">
+<span class="intake-month-range"><?= $eh($monthRange) ?></span>
+<a class="nf-button" href="<?= $eh(intake_month_url($filters,$selectedFirst->modify('-1 month')->format('Y-m'),$mode==='new')) ?>">이전 달</a>
+<form method="get" action="/intake.php" data-intake-month-form><input type="hidden" name="role" value="admin"><input type="hidden" name="p" value="1">
+<?php foreach(['q','region','scope','status','team','employee'] as $key): ?><input type="hidden" name="<?= $key ?>" value="<?= $eh($filters[$key]) ?>"><?php endforeach ?>
+<?php if($mode==='new'): ?><input type="hidden" name="new" value="1"><?php endif ?>
+<label for="intake-stat-month">조회 월</label><input id="intake-stat-month" type="month" name="month" required value="<?= $eh($filters['month']==='all'?'':$selectedMonth) ?>"><button type="submit">조회</button></form>
+<a class="nf-button" href="<?= $eh(intake_month_url($filters,$currentMonth,$mode==='new')) ?>">이번 달</a>
+<a class="nf-button" href="<?= $eh(intake_month_url($filters,$selectedFirst->modify('+1 month')->format('Y-m'),$mode==='new')) ?>">다음 달</a>
+<a class="intake-month-all" href="<?= $eh(intake_url(array_diff_key($filters,array_flip(['id','detail','export','popup','new'])),['month'=>'all','from'=>'','to'=>'','p'=>1]+($mode==='new'?['new'=>'1']:[]))) ?>">전체 기간</a></div>
+<script src="<?= $eh(asset_url('intake-month.js')) ?>" defer></script>
+<?php endif ?>
 <?php $receiptScripts=['korea-regions.js','korea-localities.js','intake-codes.js','region-rules.js','policy-sync.js','consultation-location.js','intake-details.js','hangul.js','korean-input.js','road-address.js']; ?>
 <script src="<?= $eh(asset_url('intake-receipt-search.js')) ?>" defer></script>
 <?php if($mode==='new'): foreach(array_merge($receiptScripts,['receipt-form.js']) as $script): ?>
@@ -27,8 +44,8 @@ $displayStatus=fn(string $status):string=>$status==='normal'?'접수':intake_sta
 <?php if(!$popup||!$selected): ?><div class="intake-overview-row">
 <div class="intake-summary"><a href="<?= $eh(intake_url($filters,['status'=>'','p'=>1])) ?>">전체 상태<strong><?= number_format(array_sum($counts)) ?>건</strong></a><?php foreach($counts as $status=>$count): ?><a href="<?= $eh(intake_url($filters,['status'=>$status,'p'=>1])) ?>"><?= $eh($displayStatus($status)) ?><strong><?= number_format($count) ?>건</strong></a><?php endforeach ?></div>
 <form method="get" action="/intake.php" class="intake-quick-search"><input type="hidden" name="role" value="admin">
-<label for="intake-query-month">조회 월</label><input id="intake-query-month" type="month" name="month" value="<?= $eh($filters['month']==='all'?'':$filters['month']) ?>"><a href="<?= $eh(intake_url($filters,['month'=>'all','from'=>'','to'=>'','p'=>1])) ?>">전체 기간</a>
-<?php foreach(['scope','status','team','employee'] as $key): ?><input type="hidden" name="<?= $key ?>" value="<?= $eh($filters[$key]) ?>"><?php endforeach ?><?php if($popup): ?><input type="hidden" name="popup" value="1"><?php endif ?>
+<?php if($popup): ?><label for="intake-query-month">조회 월</label><input id="intake-query-month" type="month" name="month" value="<?= $eh($filters['month']==='all'?'':$filters['month']) ?>"><a href="<?= $eh(intake_url($filters,['month'=>'all','from'=>'','to'=>'','p'=>1])) ?>">전체 기간</a><?php else: ?><input type="hidden" name="month" value="<?= $eh($filters['month']) ?>"><?php foreach(['from','to'] as $key): ?><input type="hidden" name="<?= $key ?>" value="<?= $eh($filters[$key]) ?>"><?php endforeach ?><?php endif ?>
+<?php foreach(['scope','status','team','employee','region'] as $key): ?><input type="hidden" name="<?= $key ?>" value="<?= $eh($filters[$key]) ?>"><?php endforeach ?><?php if($popup): ?><input type="hidden" name="popup" value="1"><?php endif ?>
 <label for="intake-quick-query">이름 또는 전화번호</label><input id="intake-quick-query" name="q" value="<?= $eh($filters['q']) ?>" maxlength="80" placeholder="고객 이름 또는 전화번호 입력"><button type="submit">조회</button><a href="<?= $eh(intake_url(['month'=>$filters['month'],'scope'=>$filters['scope'],'team'=>$filters['team'],'employee'=>$filters['employee']]+($popup?['popup'=>1]:[]))) ?>">초기화</a></form></div><?php endif ?>
 <?php if($filters['scope']!=='real'): ?><p class="nf-alert">테스트 자료<?= $filters['scope']==='all'?'가 포함된 조회':' 조회' ?>입니다. 실제 실적과 구분해 확인해 주세요.</p><?php elseif($testCount): ?><p class="nf-muted">별도로 저장된 테스트 자료 <?= number_format($testCount) ?>건 · <a href="<?= $eh(intake_url($filters,['scope'=>'test','p'=>1])) ?>">테스트 자료 보기</a></p><?php endif ?>
 <?php if($popup&&!$selected): ?><section class="nf-card"><h2>검색 결과 · <?= number_format($total) ?>건</h2><div class="nf-table-wrap"><table class="nf-table"><thead><tr><th>접수일</th><th>담당 직원</th><th>고객명</th><th>연락처</th><th>지역</th><th>상태</th><th>접수내용</th></tr></thead><tbody><?php foreach($list as $item): ?><tr><td><?= $eh($item['date']) ?></td><td><?= $eh($item['employee']) ?></td><td><?= $eh($item['customer']) ?></td><td><?= $eh($item['phone']??'') ?></td><td><?= $eh($item['consultationPlace']??'') ?></td><td><?= $eh($displayStatus($item['status'])) ?></td><td><a href="<?= $eh(intake_url($filters,['id'=>$item['id']])) ?>">보기·수정</a></td></tr><?php endforeach ?><?php if(!$list): ?><tr><td colspan="7">조회 조건에 맞는 접수가 없습니다.</td></tr><?php endif ?></tbody></table></div><div class="intake-pagination"><?php if($filters['p']>1): ?><a href="<?= $eh(intake_url($filters,['p'=>$filters['p']-1])) ?>">이전</a><?php endif ?><span><?= $filters['p'] ?> / <?= $pages ?> 페이지</span><?php if($filters['p']<$pages): ?><a href="<?= $eh(intake_url($filters,['p'=>$filters['p']+1])) ?>">다음</a><?php endif ?></div></section><?php endif ?>

@@ -30,6 +30,10 @@ function native_url(string $page,string $role): string {
     if(in_array($page,['adminIntake','adminPending','adminIntakeRegister'],true)){
         $team=$_GET['team']??$_GET['department']??'insurance';if(!in_array($team,['insurance','cosmetics','health'],true))$team='insurance';
         $url.='&team='.$team;
+        $filters=[];$month=$_GET['month']??null;
+        if(is_string($month)&&($month==='all'||preg_match('/^\d{4}-(0[1-9]|1[0-2])$/D',$month)))$filters['month']=$month;
+        foreach(['q','region','scope','employee','from','to'] as $key){$value=$_GET[$key]??null;if(is_string($value)&&$value!=='')$filters[$key]=$value;}
+        if($filters)$url.='&'.http_build_query($filters);
         if($page==='adminPending')$url.='&status=pending';
         elseif($page==='adminIntake')$url.='&status=';
         else $url.='&new=1';
@@ -69,7 +73,7 @@ function native_start(string $title,array $user,string $active,array $extraStyle
     if($role==='admin')$extraStyles[]='admin-save-confirm.css';
     $GLOBALS['membership_admin_context']=$role==='admin'?['user'=>['id'=>(int)($user['id']??0),'role'=>'admin'],'csrf'=>(string)($_SESSION['csrf']??'')]:null;
     $extraCss='';foreach($extraStyles as $file)$extraCss.='<link rel="stylesheet" href="'.view_h(asset_url($file)).'">';
-    echo '<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow,noarchive"><title>'.view_h($title).' · 씨앤씨</title><link rel="icon" href="/cnc-mark.svg"><link rel="stylesheet" href="'.view_h(asset_url('ui-icons.css')).'"><link rel="stylesheet" href="'.view_h(asset_url('native.css')).'">'.$extraCss.'<link rel="stylesheet" href="'.view_h(asset_url('workspace-ui.css')).'"><link rel="stylesheet" href="'.view_h(asset_url('company-ui.css')).'"><script src="'.view_h(asset_url('window-session.js')).'"></script><script src="'.view_h(asset_url('page-navigation.js')).'"></script></head><body class="nf-body'.($popup?' nf-popup':'').'" data-page="'.view_h($active).'">';
+    echo '<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow,noarchive"><title>'.view_h($title).' · 씨앤씨</title><link rel="icon" href="/cnc-mark.svg"><link rel="stylesheet" href="'.view_h(asset_url('ui-icons.css')).'"><link rel="stylesheet" href="'.view_h(asset_url('native.css')).'">'.$extraCss.'<link rel="stylesheet" href="'.view_h(asset_url('workspace-ui.css')).'"><link rel="stylesheet" href="'.view_h(asset_url('company-ui.css')).'"><link rel="stylesheet" href="'.view_h(asset_url('public-holidays.css')).'"><script src="'.view_h(asset_url('window-session.js')).'"></script><script src="'.view_h(asset_url('page-navigation.js')).'"></script><script src="'.view_h(asset_url('public-holidays.js')).'" defer></script></head><body class="nf-body'.($popup?' nf-popup':'').'" data-page="'.view_h($active).'">';
     native_notice_bar($user);
     if($popup){echo '<div class="nf-popup-shell"><main class="nf-main"><div class="nf-page-heading"><h1>'.view_h($title).'</h1><button type="button" data-window-close>창 닫기</button></div>';return;}
     echo '<div class="nf-shell"><aside class="nf-nav"><div class="nf-sidebar-brand"><img src="/cnc-mark.svg" alt="C&amp;C" width="12" height="8"><strong>씨앤씨</strong></div><div class="nf-team">'.view_h(department_label($user['department']??'')).' · '.($role==='admin'?'관리자':'직원').'</div><nav aria-label="'.($role==='admin'?'관리자':'직원').' 메뉴">';
