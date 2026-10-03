@@ -19,7 +19,8 @@
  const scoped=()=>admin()&&['adminPerformance','adminAs'].includes(route());
  function handles(page){return !!live()&&(admin()?['adminHome','adminPerformance','adminAs'].includes(page):['home','sales','as'].includes(page))}
  const active=()=>handles(route());
- const allRows=()=>store?.month===month?(store.records||[]).filter(r=>(!scoped()||r.team===department())&&(admin()||Number(r.employeeId)===Number(live().user.id))&&!!r.isTest===(canViewTest()&&showTest)):[];
+ const visibleRows=records=>records.filter(r=>(!scoped()||r.team===department())&&(admin()||Number(r.employeeId)===Number(live().user.id))&&!!r.isTest===(canViewTest()&&showTest));
+ const allRows=()=>store?.month===month?visibleRows(store.records||[]):[];
  const rows=()=>allRows().filter(r=>r.date.startsWith(month));
  const table=(heads,body)=>'<div class="scroll"><table><thead><tr>'+heads.map(x=>'<th>'+x+'</th>').join('')+'</tr></thead><tbody>'+body.map(row=>'<tr>'+row.map(x=>'<td>'+x+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>';
  const summary=c=>Object.keys(labels).map(key=>'<span class="sales-status-'+tones[key]+'">'+labels[key]+' <strong>'+c[key]+'건</strong></span>').join('');
@@ -49,17 +50,35 @@
   const list=records.filter(r=>(!team||r.team===team)&&r.date===selected);
   return '<details class="panel sales-intake-details" data-sales-details '+(salesDetailsOpen?'open':'')+'><summary>'+esc(selected)+' · '+esc(teams[team]||'전체')+'접수 내역 · '+list.length+'건</summary>'+(!list.length?'<p class="sub">접수 내역이 없습니다.</p>':table(['담당','고객','접수 코드','상품','상담 시간','상담 장소','현재 납부 보험료','상태'],list.map(r=>[esc(r.employee),esc(r.customer),esc(r.carrier||'—'),r.team==='insurance'?(r.kind==='silver'?'실버 · 61~70세':'일반 · 60세 이하'):esc(teams[r.team]),esc(r.consultationTime||'—'),esc(r.consultationPlace||'—'),esc(premiumLabels[r.premiumBand]||'—'),'<select aria-label="'+esc(r.customer)+' 접수 상태" data-sales-status="'+esc(r.id)+'" '+(busy?'disabled':'')+'>'+Object.keys(labels).map(k=>'<option value="'+k+'" '+(k===r.status?'selected':'')+'>'+labels[k]+'</option>').join('')+'</select>'])))+'</details>';
  }
- let homeStatus=null,homeGraphDay=today(),homeGraphOpen=false;
+ let homeStatus=null,homeGraphDay=today(),homeGraphOpen=false,homeGraphMonth=null,homeGraphStore=null,homeGraphLoading=false,homeGraphError='';
+ function homeGraphMonthUrl(value,offset){
+  const date=new Date(value+'-01T00:00:00Z');date.setUTCMonth(date.getUTCMonth()+offset);
+  return '/office.php?role=employee&page=home&homeMonth='+date.toISOString().slice(0,7);
+ }
+ async function requestHomeGraph(){
+  const requestedMonth=homeGraphMonth||today().slice(0,7);
+  if(admin()||route()!=='home'||requestedMonth===today().slice(0,7)||homeGraphLoading)return;
+  homeGraphLoading=true;const controller=new AbortController(),timeout=global.setTimeout(()=>controller.abort(),30000);
+  try{
+   const response=await global.fetch('/sales-api.php?month='+encodeURIComponent(requestedMonth),{credentials:'same-origin',cache:'no-store',signal:controller.signal});
+   const data=await response.json();if(!response.ok)throw Error(data.error||'선택한 달의 실적을 불러오지 못했습니다.');
+   if(requestedMonth!==(homeGraphMonth||today().slice(0,7))||data.month!==requestedMonth)return;
+   const changed=JSON.stringify(homeGraphStore?.records)!==JSON.stringify(data.records)||homeGraphStore?.month!==data.month||!!homeGraphError;
+   homeGraphStore=data;homeGraphError='';if(changed)redraw();
+  }catch(e){homeGraphError=e.name==='AbortError'?'선택한 달의 실적 조회가 지연되었습니다. 자동으로 다시 확인하고 있습니다.':e.message;redraw();}
+  finally{global.clearTimeout(timeout);homeGraphLoading=false;}
+ }
  function homeGraph(records,ready){
-  const date=today(),currentMonth=date.slice(0,7),[year,m]=currentMonth.split('-').map(Number),days=new Date(Date.UTC(year,m,0)).getUTCDate();
-  if(!homeGraphDay.startsWith(currentMonth)){homeGraphDay=date;homeGraphOpen=false;}
+  const date=today(),currentMonth=homeGraphMonth||date.slice(0,7),[year,m]=currentMonth.split('-').map(Number),days=new Date(Date.UTC(year,m,0)).getUTCDate();
+  if(currentMonth!==date.slice(0,7)){ready=ready&&homeGraphStore?.month===currentMonth;records=ready?visibleRows(homeGraphStore.records||[]).filter(r=>r.date.startsWith(currentMonth)):[];}
+  if(!homeGraphDay.startsWith(currentMonth)){homeGraphDay=currentMonth===date.slice(0,7)?date:currentMonth+'-01';homeGraphOpen=false;}
   const dailyCounts=Array.from({length:days},(_,i)=>counts(records.filter(r=>r.date===currentMonth+'-'+String(i+1).padStart(2,'0'))).normal),total=counts(records),selectedRows=records.filter(r=>r.date===homeGraphDay);
   const width=900,height=260,left=58,right=16,top=32,bottom=38,plotHeight=height-top-bottom,step=(width-left-right)/days,tick=Math.max(1,Math.ceil(Math.max(0,...dailyCounts)/4)),max=tick*4,x=n=>left+(n-.5)*step,y=n=>height-bottom-n/max*plotHeight;
   let grid='';for(let n=0;n<=max;n+=tick)grid+='<line x1="'+left+'" y1="'+y(n)+'" x2="'+(width-right)+'" y2="'+y(n)+'" stroke="#dfe7f1"/><text x="'+(left-10)+'" y="'+(y(n)+5)+'" text-anchor="end" fill="#61738b" font-size="14">'+n+'</text>';
   const bars=dailyCounts.map((count,i)=>count?'<rect x="'+(x(i+1)-step*.28)+'" y="'+y(count)+'" width="'+(step*.56)+'" height="'+(height-bottom-y(count))+'" rx="3" fill="'+(homeGraphDay.endsWith('-'+String(i+1).padStart(2,'0'))?'#1464ec':'#94bdff')+'"><title>'+m+'월 '+(i+1)+'일 정상접수 '+count+'건</title></rect>':'').join('');
   const dates=dailyCounts.map((count,i)=>{const day=i+1,dow=new Date(Date.UTC(year,m-1,day)).getUTCDay();return '<text x="'+x(day)+'" y="'+(height-15)+'" text-anchor="middle" fill="'+(dow===0?'#c52c3d':dow===6?'#2563eb':'#61738b')+'" font-size="12">'+day+'</text>';}).join('');
   const targets=dailyCounts.map((count,i)=>'<rect class="chart-day-target" data-sales-home-day="'+currentMonth+'-'+String(i+1).padStart(2,'0')+'" role="button" tabindex="0" aria-label="'+m+'월 '+(i+1)+'일 정상접수 '+count+'건, 접수 내역 보기" x="'+(x(i+1)-step/2)+'" y="'+top+'" width="'+step+'" height="'+plotHeight+'" fill="transparent"><title>'+m+'월 '+(i+1)+'일 · '+count+'건</title></rect>').join('');
-  return '<section class="panel sales-home-graph" aria-busy="'+!ready+'"><h3>'+year+'년 '+m+'월 실적</h3><div class="stats">'+Object.entries(labels).map(([key,label])=>'<div class="stat"><span class="sub">이번 달 '+label+'</span><div class="value">'+total[key]+'건</div></div>').join('')+'</div><p class="sub">'+(ready?'본인 정상접수 · A/S 제외'+(!records.length?' · 등록된 접수 내역이 없습니다.':''):'접수 내역을 불러오는 중입니다.')+'</p><div class="comparison-scroll"><svg class="comparison-chart" viewBox="0 0 '+width+' '+height+'" role="group" aria-label="'+year+'년 '+m+'월 본인 일별 정상접수 그래프"><text x="8" y="18" fill="#61738b" font-size="13">건수</text>'+grid+bars+dates+targets+'</svg></div><div class="legend"><span>'+m+'월 · 날짜</span><span>'+esc(homeGraphDay)+' · 정상접수 '+counts(selectedRows).normal+'건</span></div>'+(homeGraphOpen?'<h3 style="margin-top:18px">'+esc(homeGraphDay)+' 접수 내역 · '+selectedRows.length+'건</h3>'+table(['고객명','전화번호','접수 코드','상태'],selectedRows.length?selectedRows.map(r=>[esc(r.customer),esc(r.phone||'—'),esc(r.carrier||'—'),labels[r.status]]):[['—','—','—','접수 내역 없음']]):'')+'</section>';
+  return '<section class="panel sales-home-graph" aria-busy="'+!ready+'"><nav class="sales-home-graph-heading" aria-label="홈 월별 실적 조회"><a href="'+esc(homeGraphMonthUrl(currentMonth,-1))+'" aria-label="이전 달 실적">이전 달</a><h3>'+year+'년 '+m+'월 실적</h3><a href="'+esc(homeGraphMonthUrl(currentMonth,1))+'" aria-label="다음 달 실적">다음 달</a></nav><div class="stats">'+Object.entries(labels).map(([key,label])=>'<div class="stat"><span class="sub">'+(currentMonth===date.slice(0,7)?'이번 달':m+'월')+' '+label+'</span><div class="value">'+(ready?total[key]+'건':'조회 중')+'</div></div>').join('')+'</div><p class="sub" role="status">'+(ready?'본인 정상접수 · A/S 제외'+(!records.length?' · 등록된 접수 내역이 없습니다.':''):esc((currentMonth===date.slice(0,7)?error:homeGraphError)||'접수 내역을 불러오는 중입니다.'))+'</p><div class="comparison-scroll"><svg class="comparison-chart" viewBox="0 0 '+width+' '+height+'" role="group" aria-label="'+year+'년 '+m+'월 본인 일별 정상접수 그래프"><text x="8" y="18" fill="#61738b" font-size="13">건수</text>'+grid+bars+dates+targets+'</svg></div><div class="legend"><span>'+m+'월 · 날짜</span><span>'+esc(homeGraphDay)+' · 정상접수 '+(ready?counts(selectedRows).normal+'건':'조회 중')+'</span></div>'+(homeGraphOpen?'<h3 style="margin-top:18px">'+esc(homeGraphDay)+' 접수 내역 · '+selectedRows.length+'건</h3>'+table(['고객명','전화번호','접수 코드','상태'],selectedRows.length?selectedRows.map(r=>[esc(r.customer),esc(r.phone||'—'),esc(r.carrier||'—'),labels[r.status]]):[['—','—','—','접수 내역 없음']]):'')+'</section>';
  }
  function home(){
   const date=today(),currentMonth=date.slice(0,7),ready=month===currentMonth&&store?.month===currentMonth;
@@ -124,6 +143,8 @@
  function setMonth(value){if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(value))return;month=value;selected=value===today().slice(0,7)?today():value+'-01';if(!weekAnchor.startsWith(month))weekAnchor=selected;requestVersion++;redraw();request();}
  function init(options){
   if(!live())return;bridge=options;store=null;error='';homeStatus=null;homeGraphDay=today();homeGraphOpen=false;showTest=false;homeCalendarTeam='insurance';
+  const requestedHomeMonth=new URL(global.CNCPageNavigation?.url()||global.location.href).searchParams.get('homeMonth');
+  homeGraphMonth=/^\d{4}-(0[1-9]|1[0-2])$/.test(requestedHomeMonth||'')?requestedHomeMonth:null;homeGraphStore=null;homeGraphError='';homeGraphLoading=false;
   try{const value=global.localStorage.getItem(weekStorageKey());if(value!==null&&/^[0-6]$/.test(value))weekStart=Number(value)}catch(e){}
   bridge.root.addEventListener('click',e=>{const b=e.target.closest('[data-sales-home-status]');if(!b)return;homeStatus=homeStatus===b.dataset.salesHomeStatus?null:b.dataset.salesHomeStatus;redraw()});
   bridge.root.addEventListener('click',e=>{const b=e.target.closest('[data-sales-calendar-team]');if(!b||!admin()||route()!=='adminHome'||!Object.hasOwn(teams,b.dataset.salesCalendarTeam))return;homeCalendarTeam=b.dataset.salesCalendarTeam;redraw();bridge.root.querySelector('[data-sales-calendar-team="'+homeCalendarTeam+'"]')?.focus({preventScroll:true});});
@@ -136,8 +157,8 @@
   bridge.root.addEventListener('change',e=>{const el=e.target;if(el.hasAttribute('data-sales-month-input'))setMonth(el.value);if(el.hasAttribute('data-sales-test')){showTest=canViewTest()&&el.checked;redraw()}if(el.dataset.salesStatus){const row=store?.records.find(r=>r.id===el.dataset.salesStatus);if(row)request({action:'status',id:row.id,revision:row.revision,status:el.value})}});
 
   bridge.root.addEventListener('submit',e=>{const f=e.target.closest('[data-sales-form]');if(!f)return;e.preventDefault();if(!f.reportValidity())return;if(busy||loading){f.querySelector('[data-sales-error]').textContent=busy?'접수 정보를 저장하는 중입니다. 잠시 기다려 주세요.':'기존 접수 내역을 확인 중입니다. 잠시 후 저장을 다시 눌러 주세요.';return;}const data=Object.fromEntries(new FormData(f));request({...data,employeeId:Number(data.employeeId),birthYear:Number(data.birthYear),action:'create',requestKey:f.dataset.requestKey},f)});
-  global.addEventListener('storage',e=>{if(e.key==='cnchome.sales.changed'&&active())request()});global.addEventListener('focus',()=>{if(active())request()});global.addEventListener('hashchange',()=>{if(active())request()});
-  global.setInterval(()=>{if(!global.document.hidden&&active())request()},5000);request();
+  global.addEventListener('storage',e=>{if(e.key==='cnchome.sales.changed'&&active()){request();requestHomeGraph();}});global.addEventListener('focus',()=>{if(active()){request();requestHomeGraph();}});global.addEventListener('hashchange',()=>{if(active()){request();requestHomeGraph();}});
+  global.setInterval(()=>{if(!global.document.hidden&&active()){request();requestHomeGraph();}},5000);request();requestHomeGraph();
  }
  const api={init,handles,render,home,intake,chrome,core:{counts,daily,ageKind,weekDates}};
  if(typeof module!=='undefined'&&module.exports)module.exports=api;else global.SalesWorkspace=api;

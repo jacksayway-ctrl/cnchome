@@ -12,12 +12,13 @@ $actualDateView=($filters['dateBasis']??'first')==='actual';$displayDate=fn(arra
     $monthRange=$filters['month']==='all'?'전체 기간':str_replace('-','.',$filters['from']).' ~ '.str_replace('-','.',$filters['to']);
 ?>
 <div class="intake-month-toolbar" data-intake-month-toolbar aria-label="접수 통계 조회 월">
-<span class="intake-month-range"><?= $eh($monthRange) ?></span>
-<a class="nf-button" href="<?= $eh(intake_month_url($filters,$selectedFirst->modify('-1 month')->format('Y-m'),$mode==='new')) ?>">이전 달</a>
 <form method="get" action="/intake.php" data-intake-month-form><input type="hidden" name="role" value="admin"><input type="hidden" name="p" value="1">
 <?php foreach(['q','region','scope','status','team','employee','dateBasis'] as $key): ?><input type="hidden" name="<?= $key ?>" value="<?= $eh($filters[$key]??'first') ?>"><?php endforeach ?>
 <?php if($mode==='new'): ?><input type="hidden" name="new" value="1"><?php endif ?>
-<label for="intake-stat-month">조회 월</label><input id="intake-stat-month" type="month" name="month" required value="<?= $eh($filters['month']==='all'?'':$selectedMonth) ?>"><button type="submit">조회</button></form>
+<label for="intake-stat-month">조회 월</label><input id="intake-stat-month" type="month" name="month" required value="<?= $eh($filters['month']==='all'?'':$selectedMonth) ?>">
+<span class="intake-month-range"><?= $eh($monthRange) ?></span>
+<a class="nf-button" href="<?= $eh(intake_month_url($filters,$selectedFirst->modify('-1 month')->format('Y-m'),$mode==='new')) ?>">이전 달</a>
+<button type="submit">조회</button></form>
 <a class="nf-button" href="<?= $eh(intake_month_url($filters,$currentMonth,$mode==='new')) ?>">이번 달</a>
 <a class="nf-button" href="<?= $eh(intake_month_url($filters,$selectedFirst->modify('+1 month')->format('Y-m'),$mode==='new')) ?>">다음 달</a>
 <a class="intake-month-all" href="<?= $eh(intake_url(array_diff_key($filters,array_flip(['id','detail','export','popup','new'])),['month'=>'all','from'=>'','to'=>'','p'=>1]+($mode==='new'?['new'=>'1']:[]))) ?>">전체 기간</a></div>

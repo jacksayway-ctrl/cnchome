@@ -162,6 +162,10 @@
   #tm-preview .sales-calendar-tabs button[aria-pressed=true] {background:#173b64;border-color:#173b64;color:#fff}
   #tm-preview .sales-calendar-tabs button:focus-visible {outline:2px solid #2563eb;outline-offset:2px}
   #tm-preview .sales-calendar-month {font-size:14px;color:#334155;white-space:nowrap}
+  #tm-preview .sales-home-graph-heading {display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:14px}
+  #tm-preview .sales-home-graph-heading h3 {margin:0}
+  #tm-preview .sales-home-graph-heading a {color:#285d98;font-size:13px;font-weight:600;white-space:nowrap;text-decoration:none}
+  #tm-preview .sales-home-graph-heading a:hover {text-decoration:underline;color:#1464ec}
   #tm-preview .sales-page-toolbar {padding:10px 12px;margin-bottom:12px;border:1px solid var(--cnc-line);border-radius:8px;background:#f8fafd}
   #tm-preview .sales-page-toolbar button,#tm-preview .sales-page-toolbar [data-sales-month-input] {height:36px;font-size:13px}
   #tm-preview .sales-month-controls {grid-template-columns:repeat(3,max-content);gap:8px;flex:0 0 auto;min-width:0;max-width:100%}
