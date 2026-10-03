@@ -705,6 +705,11 @@ body.policy-window #tm-preview main{padding-top:14px}
 
 #tm-preview [data-estimate-minimum]{display:block;margin-top:4px;font-size:11px;line-height:1.4;color:#426b91}
 
-#tm-preview .sales-home-graph .stats{grid-template-columns:repeat(3,minmax(0,1fr))}
-#tm-preview .sales-home-normal-breakdown{margin-left:5px;font-size:13px;font-weight:500;letter-spacing:0;line-height:1.6}
-@media(max-width:760px){#tm-preview .sales-home-graph .stats{grid-template-columns:1fr}}
+#tm-preview .sales-home-graph .stats{grid-template-columns:repeat(5,minmax(0,1fr))}
+#tm-preview .sales-home-normal-breakdown{display:block;font-size:13px;font-weight:500;letter-spacing:0;line-height:1.6}
+#tm-preview .sales-home-stat{min-width:0;text-align:left}
+#tm-preview .sales-home-stat .value{display:block}
+#tm-preview .sales-home-stat[aria-expanded="true"]{border-color:#1464ec;background:#eef5ff}
+#tm-preview .sales-home-month-records:not(:empty){margin:16px 0 20px}
+#tm-preview .sales-home-graph .legend{flex-wrap:wrap}
+@media(max-width:760px){#tm-preview .sales-home-graph .stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
