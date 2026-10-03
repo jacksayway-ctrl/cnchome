@@ -25,18 +25,22 @@ function intake_filters(array $query): array {
     if($f['month']!=='all')foreach(intake_month_period($f['month']) as $key=>$value)if($f[$key]==='')$f[$key]=$value;
     foreach(['from','to'] as $key)hr_assert($f[$key]===''||(hr_day($f[$key])&&($f['month']==='all'||substr($f[$key],0,7)===$f['month'])),'조회 날짜는 선택한 월 안에서 입력해 주세요.');
     hr_assert(!$f['from']||!$f['to']||$f['from']<=$f['to'],'조회 시작일과 종료일을 확인해 주세요.');
+    $f['dateBasis']=intake_text($query['dateBasis']??'first',10);
+    hr_assert(in_array($f['dateBasis'],['first','actual'],true),'접수 집계 날짜 기준을 확인해 주세요.');
+    if($f['status']!=='normal')$f['dateBasis']='first';
     $f['p']=max(1,intake_number($query['p']??1));return $f;
 }
 function intake_filtered(array $records,array $f): array {
     $q=mb_strtolower($f['q']);$digits=preg_replace('/\D/','',$f['q']);
     $phoneQuery=$digits!==''&&(bool)preg_match('/^[0-9\s()+.\-]+$/uD',$f['q']);
     $rows=array_values(array_filter($records,function($r)use($f,$q,$digits,$phoneQuery){
-        if($f['month']!=='all'&&!str_starts_with($r['date'],$f['month']))return false;
+        $date=($f['dateBasis']??'first')==='actual'&&$r['status']==='normal'?($r['statusDate']??$r['date']):$r['date'];
+        if($f['month']!=='all'&&!str_starts_with($date,$f['month']))return false;
         if($f['scope']!=='all'&&(bool)$r['isTest']!==($f['scope']==='test'))return false;
         if($f['team']!==''&&$r['team']!==$f['team'])return false;
         if($f['status']!==''&&$r['status']!==$f['status'])return false;
         if($f['employee']!==''&&(int)$r['employeeId']!==(int)$f['employee'])return false;
-        if(($f['from']&&$r['date']<$f['from'])||($f['to']&&$r['date']>$f['to']))return false;
+        if(($f['from']&&$date<$f['from'])||($f['to']&&$date>$f['to']))return false;
         $region=mb_strtolower($f['region']??'');if($region!==''&&!str_contains(mb_strtolower((string)($r['consultationPlace']??'').' '.(string)($r['address']??'')),$region))return false;
         if($q!==''){
             $name=mb_strtolower((string)($r['customer']??''));
@@ -44,7 +48,51 @@ function intake_filtered(array $records,array $f): array {
         }
         return true;
     }));
-    usort($rows,fn($a,$b)=>strcmp($b['date'],$a['date'])?:strnatcmp($b['id'],$a['id']));return $rows;
+    $date=fn($r)=>($f['dateBasis']??'first')==='actual'&&$r['status']==='normal'?($r['statusDate']??$r['date']):$r['date'];
+    usort($rows,fn($a,$b)=>strcmp($date($b),$date($a))?:strnatcmp($b['id'],$a['id']));return $rows;
+}
+/** The same saved Korea date / UTC status event rule is used by both views. */
+function intake_effective_status_date(array $row): string {
+    if($row['status']==='pending')return $row['first_date'];
+    $auditAt=(string)($row['audit_created_at']??'');$eventAt=(string)($row['status_created_at']??'');
+    if($auditAt!==''&&($eventAt===''||$auditAt>=$eventAt)){
+        $after=json_decode((string)$row['after_data'],true,512,JSON_THROW_ON_ERROR);$saved=$after['statusChangedAt']??'';
+        if(is_string($saved)&&preg_match('/^\d{4}-\d{2}-\d{2} (?:[01]\d|2[0-3]):[0-5]\d$/D',$saved)&&hr_day(substr($saved,0,10)))return substr($saved,0,10);
+        return substr(intake_time($auditAt),0,10);
+    }
+    return $eventAt!==''?substr(intake_time($eventAt),0,10):$row['first_date'];
+}
+function intake_status_date_joins(): string {
+    return " LEFT JOIN intake_management_events a ON a.id=(SELECT MAX(a2.id) FROM intake_management_events a2 WHERE a2.record_key=CAST(s.id AS CHAR) AND a2.action IN ('edit','status') AND (JSON_EXTRACT(a2.after_data,'$.statusChangedAt') IS NOT NULL OR JSON_EXTRACT(a2.after_data,'$.status')<>JSON_EXTRACT(a2.before_data,'$.status')))
+        LEFT JOIN sales_events e ON e.id=(SELECT MAX(e2.id) FROM sales_events e2 WHERE e2.sale_id=s.id AND e2.old_status<>'' AND e2.new_status=s.status) ";
+}
+/** Month candidates include previous-month calls completed in the selected month. */
+function intake_actual_normal_records(array $user,array $filters): array {
+    intake_admin($user);$d=db();$params=[];$where=["s.status='normal'"];
+    if($filters['scope']!=='all'){$where[]='s.is_test=?';$params[]=$filters['scope']==='test'?1:0;}
+    if($filters['team']!==''){$where[]='s.department=?';$params[]=$filters['team'];}
+    if($filters['employee']!==''){$where[]='s.employee_id=?';$params[]=(int)$filters['employee'];}
+    if($filters['month']!=='all'){
+        $first=new DateTimeImmutable($filters['month'].'-01',new DateTimeZone('Asia/Seoul'));$next=$first->modify('+1 month');
+        $where[]="((s.first_date>=? AND s.first_date<?) OR JSON_EXTRACT(a.after_data,'$.statusChangedAt') LIKE ? OR (a.created_at>=? AND a.created_at<?) OR (e.created_at>=? AND e.created_at<?))";
+        $utcFirst=$first->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d H:i:s');$utcNext=$next->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d H:i:s');
+        array_push($params,$first->format('Y-m-d'),$next->format('Y-m-d'),'%'.$filters['month'].'-%',$utcFirst,$utcNext,$utcFirst,$utcNext);
+    }
+    $q=$d->prepare('SELECT s.*,u.display_name AS employee_name,u.username AS employee_username,c.consultation_time,c.consultation_place,c.premium_band,b.birth_date,rd.gender,rd.call_availability,rd.visit_schedule,rd.created_at AS receipt_created_at,a.after_data,a.created_at AS audit_created_at,e.created_at AS status_created_at FROM sales_records s JOIN app_users u ON u.id=s.employee_id LEFT JOIN sales_consultation_details c ON c.sale_id=s.id LEFT JOIN sales_birth_details b ON b.sale_id=s.id LEFT JOIN sales_receipt_details rd ON rd.sale_id=s.id'.intake_status_date_joins().' WHERE '.implode(' AND ',$where));$q->execute($params);$records=[];
+    foreach($q->fetchAll() as $r)$records[]=['id'=>(string)$r['id'],'date'=>$r['first_date'],'statusDate'=>intake_effective_status_date($r),'employeeId'=>(int)$r['employee_id'],'employee'=>$r['employee_name'],'employeeUsername'=>$r['employee_username'],'team'=>$r['department'],'customer'=>$r['customer_name'],'carrier'=>sales_receipt_carrier($r['carrier']??'',$r['note']??''),'kind'=>$r['insurance_kind']??'','status'=>$r['status'],'revision'=>(int)$r['revision'],'isTest'=>(bool)$r['is_test'],'phone'=>$r['phone']??'','address'=>$r['address']??'','birthYear'=>(int)$r['birth_year'],'birthDate'=>$r['birth_date']??'','note'=>$r['note']??'','consultationTime'=>$r['consultation_time']??'','consultationPlace'=>$r['consultation_place']??'','premiumBand'=>$r['premium_band']??'','gender'=>$r['gender']??'','callAvailability'=>$r['call_availability']??'','visitSchedule'=>$r['visit_schedule']??'','counselorName'=>$r['employee_name'],'receivedAt'=>$r['receipt_created_at']??''];
+    if($filters['scope']!=='real'){
+        $q=$d->query('SELECT t.state,t.revision,u.id,u.display_name,u.department FROM test_employee_data t JOIN app_users u ON u.id=t.user_id');
+        foreach($q->fetchAll() as $owner)foreach(json_decode($owner['state'],true,512,JSON_THROW_ON_ERROR)['sales']??[] as $sale){
+            if(($sale['status']??'')!=='정상')continue;$id='test:'.$owner['id'].':'.$sale['id'];
+            $records[]=['id'=>$id,'date'=>$sale['date'],'statusDate'=>$sale['date'],'employeeId'=>(int)$owner['id'],'employee'=>$owner['display_name'],'counselorName'=>$owner['display_name'],'team'=>$owner['department'],'customer'=>$sale['name'],'phone'=>$sale['phone']??'','carrier'=>$sale['carrier']??'','kind'=>($sale['kind']??'')==='실버'?'silver':'general','status'=>'normal','revision'=>(int)$owner['revision'],'isTest'=>true]+$sale;
+        }
+        $positions=[];foreach($records as $index=>$record)if(str_starts_with($record['id'],'test:'))$positions[$record['id']]=$index;
+        foreach(array_chunk(array_keys($positions),300) as $ids){
+            $q=$d->prepare("SELECT record_key,after_data,created_at FROM intake_management_events a WHERE record_key IN (".implode(',',array_fill(0,count($ids),'?')).") AND a.id=(SELECT MAX(a2.id) FROM intake_management_events a2 WHERE a2.record_key=a.record_key AND a2.action IN ('edit','status') AND (JSON_EXTRACT(a2.after_data,'$.statusChangedAt') IS NOT NULL OR JSON_EXTRACT(a2.after_data,'$.status')<>JSON_EXTRACT(a2.before_data,'$.status')))");$q->execute($ids);
+            foreach($q->fetchAll() as $event){$index=$positions[$event['record_key']];$records[$index]['statusDate']=intake_effective_status_date(['status'=>'normal','first_date'=>$records[$index]['date'],'after_data'=>$event['after_data'],'audit_created_at'=>$event['created_at']]);}
+        }
+    }
+    return $records;
 }
 function intake_url(array $filters=[],array $extra=[]): string {return '/intake.php?'.http_build_query(array_replace(['role'=>'admin'],$filters,$extra));}
 function intake_status(string $status): string {return ['pending'=>'가접수','normal'=>'정상접수','as'=>'A/S'][$status]??$status;}

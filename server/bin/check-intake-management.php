@@ -47,6 +47,7 @@ $snapshot=sales_snapshot($admin,$month);$rows=intake_filtered($snapshot['records
 $user=$admin;$mode='list';$error='';$notice='';$posted=[];$total=count($rows);$pages=1;$testCount=1;$counts=['pending'=>0,'normal'=>0,'as'=>1];$history=intake_history($admin,'1');$_SESSION=['csrf'=>'fixture-token'];
 ob_start();require __DIR__.'/../views/intake.php';$html=ob_get_clean();
 check(!str_contains($html,'<script>alert(1)</script>')&&str_contains($html,'&lt;script&gt;'),'customer text escaped in list and detail');
+check(str_contains($html,'data-intake-count-basis="first"')&&str_contains($html,'data-intake-count-basis="actual"')&&str_contains($html,'가접수일 기준')&&str_contains($html,'실제 접수일 기준'),'summary and detail expose both receipt date bases');
 preg_match('/<template data-intake-edit-data>(.*?)<\/template>/s',$html,$editDataMatch);
 $editBoot=json_decode(html_entity_decode($editDataMatch[1]??'',ENT_QUOTES|ENT_HTML5,'UTF-8'),true,512,JSON_THROW_ON_ERROR);
 check(($editBoot['record']['premiumBand']??'')==='300000','stored premium band reaches the shared receipt editor unchanged');

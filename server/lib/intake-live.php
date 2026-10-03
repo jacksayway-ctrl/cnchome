@@ -18,24 +18,35 @@ function intake_live_calendar_grid_dates(string $month): array {
 }
 // Saved status dates are local time; audit/event timestamps are stored in UTC.
 function intake_live_calendar_date(array $row): string {
-    if($row['status']==='pending')return $row['first_date'];
-    $auditAt=(string)($row['audit_created_at']??'');$eventAt=(string)($row['status_created_at']??'');
-    if($auditAt!==''&&($eventAt===''||$auditAt>=$eventAt)){
-        $after=json_decode((string)$row['after_data'],true,512,JSON_THROW_ON_ERROR);
-        $saved=$after['statusChangedAt']??'';
-        if(is_string($saved)&&preg_match('/^\d{4}-\d{2}-\d{2} (?:[01]\d|2[0-3]):[0-5]\d$/D',$saved)&&hr_day(substr($saved,0,10)))return substr($saved,0,10);
-        return substr(intake_time($auditAt),0,10);
+    return intake_effective_status_date($row);
+}
+function intake_live_calendar_public_holidays(): array {
+    static $public=null;
+    if($public===null){$path=__DIR__.'/config/public-holidays.json';if(!is_file($path))$path=dirname(__DIR__).'/config/public-holidays.json';$public=json_decode(file_get_contents($path),true,512,JSON_THROW_ON_ERROR);}
+    return $public;
+}
+/** Display rules do not change receipt counts, workday settings or payroll. */
+function intake_live_calendar_display(PDO $d,string $month,string $today): array {
+    $q=$d->prepare('SELECT days FROM business_calendar WHERE month=?');$q->execute([$month]);$saved=$q->fetchColumn();
+    $workdays=$saved!==false?array_fill_keys(json_decode((string)$saved,true,512,JSON_THROW_ON_ERROR),true):null;
+    $q=$d->prepare('SELECT holiday_date,holiday_name FROM company_calendar_holidays WHERE active=1 AND holiday_date>=? AND holiday_date<=?');$q->execute([$month.'-01',(new DateTimeImmutable($month.'-01'))->format('Y-m-t')]);$holidays=$q->fetchAll(PDO::FETCH_KEY_PAIR);
+    $public=intake_live_calendar_public_holidays();
+    $names=$public[substr($month,0,4)]??[];$out=[];
+    foreach(intake_live_calendar_grid_dates($month) as $date){
+        if(substr($date,0,7)!==$month)continue;
+        $holiday=implode(' · ',array_unique(array_filter([$names[$date]??'',$holidays[$date]??''])));
+        $open=$workdays!==null?isset($workdays[$date]):((int)(new DateTimeImmutable($date))->format('N')<=5&&$holiday==='');
+        $out[$date]=['showValues'=>$date<=$today&&$open,'workdayOverride'=>$workdays!==null?$open:null,'holiday'=>$holiday];
     }
-    if($eventAt!=='')return substr(intake_time($eventAt),0,10);
-    // Legacy receipts without a status timestamp retain their recorded date.
-    return $row['first_date'];
+    return $out;
 }
 function intake_live_calendar(PDO $d,string $month,string $today): array {
     $zone=new DateTimeZone('Asia/Seoul');$first=new DateTimeImmutable($month.'-01',$zone);$next=$first->modify('+1 month');
     $start=$first->format('Y-m-d');$end=$next->format('Y-m-d');
     $utcStart=$first->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d H:i:s');$utcEnd=$next->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d H:i:s');
     $zero=['pending'=>0,'normal'=>0,'as'=>0];$totals=array_fill_keys(['insurance','cosmetics','health'],$zero);$days=[];
-    for($day=$first;$day<$next;$day=$day->modify('+1 day'))$days[$day->format('Y-m-d')]=['date'=>$day->format('Y-m-d')]+$totals;
+    $display=intake_live_calendar_display($d,$month,$today);
+    for($day=$first;$day<$next;$day=$day->modify('+1 day')){$date=$day->format('Y-m-d');$days[$date]=['date'=>$date]+$display[$date]+$totals;}
     // Eligibility must include earlier months to prevent paying the same normal
     // customer twice; fetch only the identity fields required by the shared rule.
     $q=$d->prepare("SELECT id,first_date,customer_name,phone,status,is_test FROM sales_records WHERE is_test=0 AND status='normal' AND first_date<=?");$q->execute([$today]);
@@ -45,8 +56,7 @@ function intake_live_calendar(PDO $d,string $month,string $today): array {
     // first call whose explicitly saved status date belongs to this month.
     $sql="SELECT s.id,s.first_date,s.department,s.status,a.after_data,a.created_at AS audit_created_at,e.created_at AS status_created_at
         FROM sales_records s
-        LEFT JOIN intake_management_events a ON a.id=(SELECT MAX(a2.id) FROM intake_management_events a2 WHERE a2.record_key=CAST(s.id AS CHAR) AND a2.action IN ('edit','status') AND (JSON_EXTRACT(a2.after_data,'$.statusChangedAt') IS NOT NULL OR JSON_EXTRACT(a2.after_data,'$.status')<>JSON_EXTRACT(a2.before_data,'$.status')))
-        LEFT JOIN sales_events e ON e.id=(SELECT MAX(e2.id) FROM sales_events e2 WHERE e2.sale_id=s.id AND e2.old_status<>'' AND e2.new_status=s.status)
+        ".intake_status_date_joins()."
         WHERE s.is_test=0 AND ((s.first_date>=? AND s.first_date<?) OR (s.status<>'pending' AND (JSON_EXTRACT(a.after_data,'$.statusChangedAt') LIKE ? OR (a.created_at>=? AND a.created_at<?) OR (e.created_at>=? AND e.created_at<?))))";
     $q=$d->prepare($sql);$q->execute([$start,$end,'%'.$month.'-%',$utcStart,$utcEnd,$utcStart,$utcEnd]);
     foreach($q->fetchAll() as $row){

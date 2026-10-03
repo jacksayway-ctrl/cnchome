@@ -34,8 +34,10 @@
    if(day<1||day>daysInMonth)cells+=`<td class="intake-live-calendar-outside"><time class="intake-live-calendar-date" datetime="${date}" aria-label="${date}">${Number(date.slice(5,7))}월 ${Number(date.slice(8))}</time></td>`;
    else{
     const record=byDate.get(date)||{},isFuture=date>today,isToday=date===today;
-    const entries=Object.entries(calendarTeams).map(([key,label])=>{const counts=record[key]||{};return `<div class="intake-live-calendar-department" data-calendar-department="${key}"><strong>${esc(label)}</strong><div class="intake-live-calendar-counts">${Object.entries(labels).map(([state,title])=>`<span class="${state}${loaded&&amount(counts[state])===0?' intake-live-calendar-zero':''}" aria-label="${esc(label+' '+title+' '+(loaded?number(counts[state])+'건':'조회 중'))}" title="${esc(title+' '+(loaded?number(counts[state])+'건':'조회 중'))}"><small>${shortLabels[state]}</small><b data-calendar-status="${state}">${loaded?number(counts[state]):'—'}</b></span>`).join('')}</div></div>`;}).join('');
-    cells+=`<td class="${isToday?'intake-live-calendar-today':''}${isFuture?' intake-live-calendar-future':''}"><time class="intake-live-calendar-date" datetime="${esc(date)}" aria-label="${esc(date+(isToday?' 오늘':''))}">${day}</time>${entries}</td>`;
+    const holiday=record.holiday||window.CNCPublicHolidays?.name(date)||'',override=record.workdayOverride;
+    const showValues=!isFuture&&record.showValues!==false&&(override===true||(!holiday&&(override!==false&&![0,6].includes(new Date(date+'T00:00:00Z').getUTCDay()))));
+    const entries=showValues?Object.entries(calendarTeams).map(([key,label])=>{const counts=record[key]||{};return `<div class="intake-live-calendar-department" data-calendar-department="${key}"><strong>${esc(label)}</strong><div class="intake-live-calendar-counts">${Object.entries(labels).map(([state,title])=>`<span class="${state}${loaded&&amount(counts[state])===0?' intake-live-calendar-zero':''}" aria-label="${esc(label+' '+title+' '+(loaded?number(counts[state])+'건':'조회 중'))}" title="${esc(title+' '+(loaded?number(counts[state])+'건':'조회 중'))}"><small>${shortLabels[state]}</small><b data-calendar-status="${state}">${loaded?number(counts[state]):'—'}</b></span>`).join('')}</div></div>`;}).join(''):'';
+    cells+=`<td data-calendar-workday="${override==null?'default':(override?'open':'closed')}" class="${isToday?'intake-live-calendar-today':''}${isFuture?' intake-live-calendar-future':''}"><time class="intake-live-calendar-date" datetime="${esc(date)}" aria-label="${esc(date+(isToday?' 오늘':''))}">${day}</time>${holiday?`<small class="cnc-holiday-label" data-cnc-holiday-label>${esc(holiday)}</small>`:''}${entries}</td>`;
    }
    if(index%7===6)cells+='</tr>';
   }
@@ -66,7 +68,7 @@
    const response=await fetch('/intake-live-api.php?'+params,{credentials:'same-origin',cache:'no-store',signal:controller.signal});
    const data=await response.json();if(!response.ok)throw Error(data.error||'접수 목록을 불러오지 못했습니다.');
    if(requestVersion===version)draw(data);
-  }catch(error){if(requestVersion===version){status.textContent=error.name==='AbortError'?'응답 지연 · 다시 확인 중입니다.':error.message;calendarBody.setAttribute('aria-busy','false');calendarMessage.textContent='실적 조회 실패 · 지금 새로고침을 눌러 다시 확인하세요.';}}
+  }catch(error){if(requestVersion===version){status.textContent=error.name==='AbortError'?'응답 지연 · 다시 확인 중입니다.':error.message;calendarBody.setAttribute('aria-busy','false');calendarMessage.textContent=paused?'실적 조회 지연 · 자동 갱신을 다시 시작해 주세요.':'실적 조회 지연 · 자동으로 다시 확인하고 있습니다.';}}
   finally{clearTimeout(timeout);busy=false;if(queued){queued=false;load(true);}}
  }
  form.addEventListener('submit',e=>{e.preventDefault();clearTimeout(timer);filterChanged();});

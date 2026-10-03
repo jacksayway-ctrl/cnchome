@@ -88,6 +88,7 @@
    if(!validDate(date))continue;
    months.add(date.slice(0,7));
    const holiday=name(date),sunday=new Date(date+'T00:00:00Z').getUTCDay()===0;
+   if(time&&holiday&&cell.dataset.calendarWorkday!=='open')cell.querySelectorAll('[data-calendar-department]').forEach(row=>row.remove());
    cell.classList.toggle('cnc-calendar-holiday',Boolean(holiday));cell.classList.toggle('cnc-calendar-sunday',sunday);
    const container=business?cell.querySelector('.bc-day-box'):cell;
    if(!container)continue;

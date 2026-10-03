@@ -12,15 +12,27 @@ git fetch origin main
 revision=$(git rev-parse origin/main)
 state=/var/lib/cnchome-deploy
 if [[ -f "$state/success" && $(cat "$state/success") == "$revision" ]]; then exit 0; fi
+retry_count=0
 if [[ -f "$state/attempt" && $(cat "$state/attempt") == "$revision" ]]; then
-  echo '이 버전은 이전 배포가 실패하여 재시도하지 않습니다. 오류 수정 후 새 커밋을 게시해 주세요.'; exit 0
+  retry_after=$(cat "$state/retry-after" 2>/dev/null || true)
+  if [[ "$retry_after" =~ ^[0-9]+$ ]] && (( $(date +%s) < retry_after )); then
+    echo '이전 배포 실패 후 자동 재시도 대기 중입니다.'; exit 0
+  fi
+  saved_count=$(cat "$state/retry-count" 2>/dev/null || true)
+  if [[ "$saved_count" =~ ^[0-9]{1,6}$ ]]; then retry_count=$((10#$saved_count)); fi
 fi
 git merge --ff-only origin/main
 printf '%s\n' "$revision" > "$state/attempt"
 if bash server/deploy.sh; then
   printf '%s\n' "$revision" > "$state/success"
+  rm -f "$state/retry-after" "$state/retry-count"
   echo "자동 배포 완료: $revision"
 else
-  echo "자동 배포 실패: $revision. journalctl -u cnchome-deploy.service 로 확인하세요."
+  retry_count=$((retry_count+1))
+  exponent=$((retry_count-1)); if (( exponent > 4 )); then exponent=4; fi
+  retry_delay=$((60*(1<<exponent))); if (( retry_delay > 900 )); then retry_delay=900; fi
+  printf '%s\n' "$retry_count" > "$state/retry-count"
+  printf '%s\n' "$(( $(date +%s)+retry_delay ))" > "$state/retry-after"
+  echo "자동 배포 실패: $revision. ${retry_delay}초 후 재시도합니다. journalctl -u cnchome-deploy.service 로 확인하세요."
   exit 1
 fi

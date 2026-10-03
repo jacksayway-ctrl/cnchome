@@ -44,7 +44,7 @@ function native_url(string $page,string $role): string {
 function native_department_tab_url(string $team): string {
     if(!in_array($team,['insurance','cosmetics','health'],true))$team='insurance';
     $query=['role'=>'admin','team'=>$team];
-    foreach(['month','q','region','status','scope','from','to'] as $key){$value=$_GET[$key]??null;if(is_string($value)&&$value!=='')$query[$key]=$value;}
+    foreach(['month','q','region','status','scope','from','to','dateBasis'] as $key){$value=$_GET[$key]??null;if(is_string($value)&&$value!=='')$query[$key]=$value;}
     if(($_GET['new']??'')==='1')$query['new']='1';
     if(isset($_GET['p'])&&ctype_digit((string)$_GET['p'])&&(int)$_GET['p']>1)$query['p']=(string)$_GET['p'];
     return '/intake.php?'.http_build_query($query);

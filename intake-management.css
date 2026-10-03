@@ -5,6 +5,8 @@
 .intake-summary a{padding:10px 15px;border-color:#dce5ef;border-radius:9px;color:#52677f;box-shadow:0 2px 7px #173f7006}
 .intake-summary a:hover{border-color:#a8c4e5;background:#f5f9ff}
 .intake-summary strong{font-size:15px;font-variant-numeric:tabular-nums;color:#285d98}
+.intake-summary small{font-size:11px;margin-left:4px;color:#687c93}
+.intake-summary a[aria-current=page]{background:#edf4fd;border-color:#8dafd5}
 .intake-status{padding:3px 8px;border-radius:20px;font-weight:600}
 .intake-list th{padding:11px 10px;background:#f3f6fa;color:#60748d;border-color:#e0e7ef}
 .intake-list td{padding:11px 10px;border-color:#e5ebf2}
