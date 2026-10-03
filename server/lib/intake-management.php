@@ -70,6 +70,10 @@ function intake_status_date_joins(PDO $d): string {
 }
 /** Month candidates include previous-month calls completed in the selected month. */
 function intake_actual_normal_records(array $user,array $filters): array {
+    intake_admin($user);return intake_completion_records($user,$filters);
+}
+/** Employees are always constrained to their authenticated account and data scope. */
+function intake_completion_records(array $user,array $filters): array {
     $employee=($user['role']??'')==='employee';
     if($employee){$filters['employee']=(string)$user['id'];$filters['scope']=sales_test_user($user)?'test':'real';$filters['team']='';}else intake_admin($user);
     $d=db();$params=[];$where=["s.status='normal'"];

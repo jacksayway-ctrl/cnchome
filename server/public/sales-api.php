@@ -28,7 +28,7 @@ try {
     $result=sales_snapshot($user,$month);
     if($user['role']==='employee'){
         require_once CNC_RUNTIME_DIR.'/intake-management.php';
-        $normal=intake_actual_normal_records($user,['month'=>$month,'scope'=>'real','team'=>'','employee'=>'']);
+        $normal=intake_completion_records($user,['month'=>$month,'scope'=>'real','team'=>'','employee'=>'']);
         $home=array_values(array_filter($result['records'],fn($r)=>$r['status']!=='normal'&&str_starts_with($r['date'],$month)));
         foreach($normal as $record)if(str_starts_with($record['statusDate'],$month)){
             $record['firstDate']=$record['date'];$record['date']=$record['statusDate'];
