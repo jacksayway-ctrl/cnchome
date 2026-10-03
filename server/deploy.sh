@@ -36,6 +36,7 @@ run_deploy_step server/bin/check-intake-live.php
 run_deploy_step server/bin/check-receipt-identity.php
 run_deploy_step server/bin/check-receipt-identity-repair.php
 run_deploy_step server/bin/check-account-transfer.php
+run_deploy_step server/bin/check-delete-test-staff-345.php
 run_deploy_step server/bin/check-intake-birth-edit.php
 run_deploy_step server/bin/check-address-search.php
 run_deploy_step server/bin/check-attendance.php
@@ -108,5 +109,6 @@ run_deploy_step server/bin/clear-hantest-performance.php
 run_deploy_step server/bin/cleanup-user1.php
 run_deploy_step server/bin/transfer-lee001-to-lsh.php
 run_deploy_step server/bin/repair-receipt-identities.php
+run_deploy_step server/bin/delete-test-staff-345.php
 deployment_stage=complete
 publish_deployment_status complete
