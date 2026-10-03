@@ -300,6 +300,31 @@ CREATE TABLE IF NOT EXISTS business_calendar_events (
  FOREIGN KEY (actor_id) REFERENCES app_users(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- Named company holidays are shared calendar labels, independent of workday/payroll rules.
+CREATE TABLE IF NOT EXISTS company_calendar_holidays (
+ holiday_date DATE PRIMARY KEY,
+ holiday_name VARCHAR(80) NOT NULL,
+ active BOOLEAN NOT NULL DEFAULT 1,
+ revision BIGINT UNSIGNED NOT NULL DEFAULT 1,
+ actor_id BIGINT UNSIGNED NOT NULL,
+ actor_name VARCHAR(100) NOT NULL,
+ updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+ FOREIGN KEY (actor_id) REFERENCES app_users(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS company_calendar_holiday_events (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+ holiday_date DATE NOT NULL,
+ action VARCHAR(10) NOT NULL,
+ actor_id BIGINT UNSIGNED NOT NULL,
+ actor_name VARCHAR(100) NOT NULL,
+ before_name VARCHAR(80) NULL,
+ after_name VARCHAR(80) NULL,
+ created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+ INDEX company_holiday_history(holiday_date,id),
+ FOREIGN KEY (actor_id) REFERENCES app_users(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- One-time fixtures stay deleted when the user later removes test data.
 CREATE TABLE IF NOT EXISTS test_fixture_batches (
  batch VARCHAR(80) PRIMARY KEY,

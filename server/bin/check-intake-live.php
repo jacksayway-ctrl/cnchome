@@ -70,5 +70,15 @@ check($base['calendar']===$filtered['calendar']&&$filtered['total']===0,'calenda
 check($all['calendar']['month']===substr(hr_today(),0,7),'default calendar month is Korea current month');
 foreach(['invalid','2026-13','1999-12','2101-01',[]] as $monthValue)rejects(fn()=>intake_live_snapshot($admin,['calendarMonth'=>$monthValue]),'invalid or unbounded calendar month');
 check(count(intake_live_calendar($d,'2028-02','2028-02-29')['days'])===29,'leap month includes its last date');
+$grid=intake_live_calendar_grid_dates('2026-05');
+check(count($grid)===42&&$grid[0]==='2026-04-26'&&end($grid)==='2026-06-06','six-week month includes preceding and following display dates');
+check(intake_live_calendar_grid_dates('2026-02')===array_column($calendar['days'],'date'),'Sunday-start four-week month has exactly four complete rows');
+check(in_array('2028-02-29',intake_live_calendar_grid_dates('2028-02'),true),'complete grid preserves leap dates');
+check(intake_live_calendar_grid_dates('2027-01')[0]==='2026-12-27','January display grid includes the previous year');
+require_once __DIR__.'/../lib/native.php';
+$calendarMonth='2026-05';$calendarToday='2026-05-01';$calendarSeed=['month'=>$calendarMonth,'today'=>$calendarToday];
+ob_start();require view_root().'/intake-live.php';$emptyCalendarHtml=ob_get_clean();
+check(substr_count($emptyCalendarHtml,'class="intake-live-calendar-date"')===42&&str_contains($emptyCalendarHtml,'datetime="2026-05-31"')&&str_contains($emptyCalendarHtml,'datetime="2026-06-06"'),'HTML shows every month date and neighboring dates before any data request');
+check(str_contains($emptyCalendarHtml,'id="intake-live-calendar-seed"')&&str_contains($emptyCalendarHtml,'data-live-holiday-manage'),'empty calendar includes its selected month and holiday management link');
 foreach($calendarBefore as $table=>$rows)check($rows===$d->query('SELECT * FROM '.$table.' ORDER BY id')->fetchAll(),'calendar polling never changes receipts or status history');
 echo "PASS: actual all-department live feed, filters, current counselor identity, bounded latest rows, daily department calendar, saved status dates, Korean UTC boundaries, duplicate exclusions and read-only polling.\n";

@@ -7,6 +7,15 @@ function intake_live_calendar_month(mixed $value,string $today): string {
     hr_assert(sales_month($month)&&(int)substr($month,0,4)>=2000&&(int)substr($month,0,4)<=2100,'실적 달력 조회 월을 확인해 주세요.');
     return $month;
 }
+/** Complete Sunday-to-Saturday rows, including adjoining-month display dates. */
+function intake_live_calendar_grid_dates(string $month): array {
+    intake_live_calendar_month($month,$month.'-01');
+    $first=new DateTimeImmutable($month.'-01',new DateTimeZone('Asia/Seoul'));
+    $leading=(int)$first->format('w');$cells=(int)(ceil(($leading+(int)$first->format('t'))/7)*7);
+    $start=$first->modify('-'.$leading.' days');$grid=[];
+    for($i=0;$i<$cells;$i++)$grid[]=$start->modify('+'.$i.' days')->format('Y-m-d');
+    return $grid;
+}
 // Saved status dates are local time; audit/event timestamps are stored in UTC.
 function intake_live_calendar_date(array $row): string {
     if($row['status']==='pending')return $row['first_date'];

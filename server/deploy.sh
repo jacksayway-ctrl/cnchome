@@ -44,6 +44,7 @@ run_deploy_step server/bin/check-membership.php
 run_deploy_step server/bin/check-personnel.php
 run_deploy_step server/bin/check-contract-checklist.php
 run_deploy_step server/bin/check-business-calendar.php
+run_deploy_step server/bin/check-calendar-holidays.php
 run_deploy_step server/bin/check-pay-statements.php
 run_deploy_step server/bin/check-grade-ledger.php
 run_deploy_step server/bin/check-grade-departments.php

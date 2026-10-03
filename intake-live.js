@@ -6,14 +6,16 @@
  const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  const calendar=root.querySelector('[data-live-calendar]'),calendarInput=root.querySelector('[data-live-calendar-month]'),calendarBody=root.querySelector('[data-live-calendar-days]'),calendarMessage=root.querySelector('[data-live-calendar-message]');
  function currentKoreaMonth(){const parts=new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit'}).formatToParts(new Date());return parts.find(p=>p.type==='year').value+'-'+parts.find(p=>p.type==='month').value;}
+ function currentKoreaDate(){const parts=new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());return ['year','month','day'].map(key=>parts.find(part=>part.type===key).value).join('-');}
+ let seed={};try{seed=JSON.parse(document.getElementById('intake-live-calendar-seed')?.textContent||'{}');}catch(error){}
  const amount=value=>Math.max(0,Math.floor(Number(value)||0)),number=value=>amount(value).toLocaleString('ko-KR');
  let page=1,pages=1,selected='',paused=false,busy=false,queued=false,version=0,latest=0,signature='',typing=false,timer,seen=false,inputUntil=0;
- let calendarMonth=currentKoreaMonth(),calendarSignature='',renderedCalendarMonth='';calendarInput.value=calendarMonth;
+ let calendarMonth=seed.month||currentKoreaMonth(),calendarSignature='';calendarInput.value=calendarMonth;
  const fresh=new Set();
  function filterChanged(){version++;page=1;latest=0;seen=false;fresh.clear();signature='';root.querySelector('[data-live-arrivals]').hidden=true;load(true);}
  function changeCalendarMonth(month){
   if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)||month<'2000-01'||month>'2100-12'){calendarInput.value=calendarMonth;return;}
-  if(month===calendarMonth)return;calendarMonth=month;calendarInput.value=month;version++;calendarSignature='';renderedCalendarMonth='';calendarBody.replaceChildren();root.querySelector('[data-live-calendar-totals]').replaceChildren();calendarBody.setAttribute('aria-busy','true');calendarMessage.textContent='실적 달력을 불러오는 중입니다.';load(true);
+  if(month===calendarMonth)return;calendarMonth=month;calendarInput.value=month;version++;calendarSignature='';showEmptyCalendar();load(true);
  }
  function shiftCalendarMonth(offset){
   let [year,month]=calendarMonth.split('-').map(Number);month+=offset;if(month<1){year--;month=12;}if(month>12){year++;month=1;}if(year<2000||year>2100)return;changeCalendarMonth(String(year).padStart(4,'0')+'-'+String(month).padStart(2,'0'));
@@ -21,21 +23,25 @@
  function drawCalendar(data){
   if(!data||data.month!==calendarMonth)return;
   const next=JSON.stringify(data);calendarBody.setAttribute('aria-busy','false');calendarMessage.textContent='';if(next===calendarSignature)return;
-  const [year,month]=data.month.split('-').map(Number),first=new Date(0);first.setFullYear(year,month-1,1);first.setHours(12,0,0,0);
-  const last=new Date(0);last.setFullYear(year,month,0);last.setHours(12,0,0,0);const daysInMonth=last.getDate(),offset=first.getDay(),byDate=new Map((data.days||[]).map(day=>[day.date,day]));
+  const [year,month]=data.month.split('-').map(Number),first=new Date(Date.UTC(year,month-1,1)),last=new Date(Date.UTC(year,month,0)),today=data.today||seed.today||currentKoreaDate();
+  const daysInMonth=last.getUTCDate(),offset=first.getUTCDay(),byDate=new Map((data.days||[]).map(day=>[day.date,day]));
+  root.querySelector('[data-live-calendar-label]').textContent=year+'년 '+month+'월';
+  root.querySelector('[data-live-holiday-manage]').href='/business-calendar.php?role=admin&month='+data.month+'#company-holidays';
   root.querySelector('[data-live-calendar-totals]').innerHTML=Object.entries(teams).map(([key,label])=>{const counts=data.totals?.[key]||{};return `<div class="intake-live-calendar-total"><strong>${esc(label)}</strong>${Object.entries(labels).map(([state,title])=>`<span class="${state}">${title} <b>${number(counts[state])}</b>건</span>`).join('')}</div>`;}).join('');
   let cells='';for(let index=0;index<Math.ceil((offset+daysInMonth)/7)*7;index++){
-   const day=index-offset+1;if(index%7===0)cells+='<tr>';
-   if(day<1||day>daysInMonth)cells+='<td class="intake-live-calendar-outside"></td>';
+   const day=index-offset+1,date=new Date(Date.UTC(year,month-1,day)).toISOString().slice(0,10);if(index%7===0)cells+='<tr>';
+   if(day<1||day>daysInMonth)cells+=`<td class="intake-live-calendar-outside"><time class="intake-live-calendar-date" datetime="${date}" aria-label="${date}">${Number(date.slice(5,7))}월 ${Number(date.slice(8))}</time></td>`;
    else{
-    const date=data.month+'-'+String(day).padStart(2,'0'),record=byDate.get(date)||{},isFuture=date>data.today,isToday=date===data.today;
+    const record=byDate.get(date)||{},isFuture=date>today,isToday=date===today;
     const entries=isFuture?'':Object.entries(teams).map(([key,label])=>{const counts=record[key]||{};if(!Object.keys(labels).some(state=>amount(counts[state])>0))return '';return `<div class="intake-live-calendar-department"><strong>${esc(label)}</strong><div class="intake-live-calendar-counts">${Object.entries(labels).map(([state,title])=>`<span class="${state}${amount(counts[state])===0?' intake-live-calendar-zero':''}" aria-label="${esc(label+' '+title+' '+number(counts[state])+'건')}" title="${esc(title+' '+number(counts[state])+'건')}"><small>${shortLabels[state]}</small><b>${number(counts[state])}</b></span>`).join('')}</div></div>`;}).join('');
     cells+=`<td class="${isToday?'intake-live-calendar-today':''}${isFuture?' intake-live-calendar-future':''}"><time class="intake-live-calendar-date" datetime="${esc(date)}" aria-label="${esc(date+(isToday?' 오늘':''))}">${day}</time>${entries}</td>`;
    }
    if(index%7===6)cells+='</tr>';
   }
-  calendarBody.innerHTML=cells;calendarSignature=next;renderedCalendarMonth=data.month;calendar.setAttribute('aria-label',year+'년 '+month+'월 부서별 실적 달력');
+  calendarBody.innerHTML=cells;calendarSignature=next;calendar.setAttribute('aria-label',year+'년 '+month+'월 부서별 실적 달력');
+  window.CNCPublicHolidays?.decorate(calendar);
  }
+ function showEmptyCalendar(){drawCalendar({month:calendarMonth,today:seed.today||currentKoreaDate(),days:[],totals:{}});calendarBody.setAttribute('aria-busy','true');calendarMessage.textContent='실적을 불러오는 중입니다. 날짜는 먼저 표시합니다.';}
  function draw(data){
   drawCalendar(data.calendar);
   const next=JSON.stringify(data.records);if(next!==signature){
@@ -59,7 +65,7 @@
    const response=await fetch('/intake-live-api.php?'+params,{credentials:'same-origin',cache:'no-store',signal:controller.signal});
    const data=await response.json();if(!response.ok)throw Error(data.error||'접수 목록을 불러오지 못했습니다.');
    if(requestVersion===version)draw(data);
-  }catch(error){if(requestVersion===version){status.textContent=error.name==='AbortError'?'응답 지연 · 다시 확인 중입니다.':error.message;calendarBody.setAttribute('aria-busy','false');if(renderedCalendarMonth!==calendarMonth)calendarMessage.textContent='실적 달력을 불러오지 못했습니다. 지금 새로고침을 눌러 다시 확인하세요.';}}
+  }catch(error){if(requestVersion===version){status.textContent=error.name==='AbortError'?'응답 지연 · 다시 확인 중입니다.':error.message;calendarBody.setAttribute('aria-busy','false');calendarMessage.textContent='실적 조회 실패 · 지금 새로고침을 눌러 다시 확인하세요.';}}
   finally{clearTimeout(timeout);busy=false;if(queued){queued=false;load(true);}}
  }
  form.addEventListener('submit',e=>{e.preventDefault();clearTimeout(timer);filterChanged();});
@@ -83,5 +89,5 @@
  window.addEventListener('focus',()=>load());window.addEventListener('cnc:sales-changed',()=>load());
  window.addEventListener('storage',e=>{if(e.key==='cnchome.sales.changed')load();});
  document.addEventListener('visibilitychange',()=>{if(!document.hidden)load();});
- setInterval(()=>load(),5000);load(true);
+ showEmptyCalendar();setInterval(()=>load(),5000);load(true);
 })();
