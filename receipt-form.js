@@ -48,7 +48,7 @@
   const recallButton=form.querySelector('[data-receipt-recall]'),recallNote=form.querySelector('[data-receipt-recall-note]');
   function syncRecall(){if(!recallButton)return;const selected=fields.recallRequested.value==='true';recallButton.setAttribute('aria-pressed',String(selected));recallButton.textContent=selected?'재콜 선택됨':'재콜';recallNote.hidden=!selected;}
   recallButton?.addEventListener('click',()=>{fields.recallRequested.value=fields.recallRequested.value==='true'?'false':'true';form.dataset.receiptDirty='true';syncRecall();});
-  form.addEventListener('reset',()=>global.setTimeout(syncRecall,0));syncRecall();
+  form.addEventListener('reset',()=>{if(fields.recallRequested)fields.recallRequested.value='false';global.setTimeout(syncRecall,0);});syncRecall();
   for(const eventName of ['input','change'])form.addEventListener(eventName,event=>{if((event.isTrusted||global.document.activeElement===event.target)&&!event.target.closest('[data-intake-side-search]')&&!event.target.matches('[data-receipt-input-mode]'))form.dataset.receiptDirty='true';});
   form.addEventListener('reset',()=>{form.dataset.receiptDirty='false';});
   const birthInsertionAtEnd=new WeakSet(),initialConsultationTime=fields.consultationTime.value;let callEdited=false;

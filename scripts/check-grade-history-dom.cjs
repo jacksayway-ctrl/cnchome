@@ -2,8 +2,8 @@
 const {JSDOM,VirtualConsole}=require('jsdom');
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
 const directory=path.resolve(__dirname,'..'),errors=[],vc=new VirtualConsole();vc.on('jsdomError',e=>errors.push(e.message));
-const dom=new JSDOM(fs.readFileSync(path.join(directory,'.build/office-preview.html'),'utf8'),{url:'http://preview.local/#adminGrade',runScripts:'outside-only',virtualConsole:vc,pretendToBeVisual:true,beforeParse(w){w.structuredClone=structuredClone;w.TextEncoder=TextEncoder;w.TextDecoder=TextDecoder;w.HTMLDialogElement.prototype.showModal=function(){this.setAttribute('open','');};w.HTMLDialogElement.prototype.close=function(){this.removeAttribute('open');};}});
-const w=dom.window,d=w.document;
+const dom=new JSDOM(fs.readFileSync(path.join(directory,'.build/office-preview.html'),'utf8'),{url:'http://preview.local/#adminGrade',runScripts:'outside-only',virtualConsole:vc,pretendToBeVisual:true,beforeParse(w){require('./dom-fixture.cjs')(w);w.structuredClone=structuredClone;w.TextEncoder=TextEncoder;w.TextDecoder=TextDecoder;w.HTMLDialogElement.prototype.showModal=function(){this.setAttribute('open','');};w.HTMLDialogElement.prototype.close=function(){this.removeAttribute('open');};}});
+const w=dom.window,d=w.document;require('./dom-fixture.cjs')(w);
 for(const script of d.querySelectorAll('script'))w.eval(script.src?fs.readFileSync(path.join(directory,new URL(script.src).pathname),'utf8'):script.textContent);
 const q=selector=>{const el=d.querySelector(selector);assert.ok(el,'Missing '+selector);return el;};
 const input=(selector,value)=>{const el=q(selector);el.value=String(value);el.dispatchEvent(new w.Event('input',{bubbles:true}));};
@@ -20,7 +20,7 @@ try{
  q('[data-page="grade"]').click();w.dispatchEvent(new w.HashChangeEvent('hashchange'));
  assert.match(q('[data-original-monthly]').textContent,/70건 이하/);
  assert.match(q('[data-original-monthly]').textContent,/21,000원/);
- assert.match(q('#tm-head-monthly').textContent,/81~90건/);
+ assert.match(q('#tm-head-monthly').textContent,/131~140건/);
  assert.match(q('#tm-grade-history').textContent,/변경일시/);
  assert.match(q('#tm-grade-history').textContent,/2026-01-01/);
  assert.equal(d.querySelector('[data-grade-load]'),null);
@@ -35,5 +35,12 @@ try{
  const next=JSON.stringify(stored);w.localStorage.setItem('tm-office-grade-policy-v1',next);
  w.dispatchEvent(new w.StorageEvent('storage',{key:'tm-office-grade-policy-v1',newValue:next}));
  assert.match(q('[data-original-monthly]').textContent,/21,000원/);assert.match(q('#tm-grade-history').textContent,/적용 예정/);
+ const history=JSON.parse(next);
+ for(let i=0;i<5;i++){const entry=structuredClone(stored.entries[0]);entry.savedAt='2026-09-26T00:0'+i+':00Z';history.entries.push(entry);}
+ const historyJSON=JSON.stringify(history);w.localStorage.setItem('tm-office-grade-policy-v1',historyJSON);w.dispatchEvent(new w.StorageEvent('storage',{key:'tm-office-grade-policy-v1',newValue:historyJSON}));
+ const visible=()=>[...d.querySelectorAll('#tm-grade-history tbody tr')].map(row=>row.dataset.gradeHistoryView);
+ const firstPage=visible();assert.equal(firstPage.length,5);assert.equal(q('[data-grade-history-page="-1"]').disabled,true);
+ q('[data-grade-history-page="1"]').click();const secondPage=visible();assert.equal(secondPage.length,3);assert.equal(new Set([...firstPage,...secondPage]).size,8);assert.equal(q('[data-grade-history-page="1"]').disabled,true);
+ q('[data-grade-history-page="-1"]').click();assert.deepEqual(visible(),firstPage);
  assert.deepEqual(errors,[]);console.log('PASS: saved admin criteria, employee view and header, clickable historical snapshots, read-only history, and scheduled policy isolation.');
 }finally{w.close();}

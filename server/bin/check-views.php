@@ -27,6 +27,7 @@ foreach(['admin','employee'] as $role){
   check($role==='admin'?!str_contains($html,'보험팀 중요 공지'):str_contains($html,'<section hidden class="top-notice"'),'admin pages omit the old notice strip');
   check(strpos($html,'notice-ticker.js')<strpos($html,'session-navigation.js'),'notice ticker loads before session bar');
   check(str_contains($html,'grade-header.js'),'live DB progress script is included');
+  check(str_contains($html,'region-geometry.js')&&strpos($html,'region-geometry.js')<strpos($html,'office.js'),'static map geometry loads before its consumers');
   check(str_contains($html,'id="tm-head-daily">불러오는 중'),'live header never embeds sample counts');
   file_put_contents($directory.'/'.$role.'-'.$page.'.html',$html);
  }

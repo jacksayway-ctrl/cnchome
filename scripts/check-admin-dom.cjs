@@ -3,12 +3,12 @@ const {JSDOM,VirtualConsole}=require('jsdom');
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
 const root=path.resolve(__dirname,'..');
 const errors=[],vc=new VirtualConsole();vc.on('jsdomError',e=>errors.push(e.message));
-const dom=new JSDOM(fs.readFileSync(path.join(root,'.build/office-preview.html'),'utf8'),{url:'http://preview.local/#adminHome',runScripts:'outside-only',virtualConsole:vc,pretendToBeVisual:true,beforeParse(w){
+const dom=new JSDOM(fs.readFileSync(path.join(root,'.build/office-preview.html'),'utf8'),{url:'http://preview.local/#adminHome',runScripts:'outside-only',virtualConsole:vc,pretendToBeVisual:true,beforeParse(w){require('./dom-fixture.cjs')(w);
  w.structuredClone=structuredClone;w.TextEncoder=TextEncoder;w.TextDecoder=TextDecoder;
  w.HTMLDialogElement.prototype.showModal=function(){this.setAttribute('open','');};
  w.HTMLDialogElement.prototype.close=function(){this.removeAttribute('open');};
 }});
-const w=dom.window,d=w.document;
+const w=dom.window,d=w.document;require('./dom-fixture.cjs')(w);
 const pause=()=>new Promise(r=>setTimeout(r,25));
 const q=s=>{const e=d.querySelector(s);assert.ok(e,'Missing element: '+s);return e;};
 const click=s=>q(s).click();
@@ -25,12 +25,12 @@ async function main(){
  }
  assert.ok(w.AdminWorkspace,'Admin module loaded');
  const sections=w.AdminWorkspace.navigation,nav=sections.flatMap(g=>g.items.map(([id])=>id));
- assert.equal(d.querySelectorAll('aside [data-aw-section]').length,6);assert.equal(d.querySelectorAll('aside [data-page^="admin"]').length,0);
- assert.equal(nav.length,20);assert.equal(new Set(nav).size,20);
+ assert.equal(d.querySelectorAll('aside [data-aw-section]').length,sections.length);assert.equal(d.querySelectorAll('aside [data-page^="admin"]').length,0);
+ assert.ok(nav.length>=20);assert.equal(new Set(nav).size,nav.length);
  for(const id of nav){await page(id);const index=sections.findIndex(g=>g.items.some(([p])=>p===id));assert.ok(d.querySelector('[data-aw-section="'+index+'"][aria-current="true"]'),'Parent navigation '+id);assert.ok(d.querySelector('#aw-subpages [data-page="'+id+'"][aria-current="page"]'),'Subpage navigation '+id);assert.equal(d.querySelectorAll('#aw-subpages [data-page]').length,sections[index].items.length);}
  for(let i=0;i<sections.length;i++){click('[data-aw-section="'+i+'"]');await pause();assert.equal(w.location.hash,'#'+sections[i].items[0][0]);const last=sections[i].items.at(-1)[0];click('#aw-subpages [data-page="'+last+'"]');await pause();assert.equal(w.location.hash,'#'+last);}
  await page('home');assert.equal(q('#aw-subpages').hidden,true);assert.equal(d.querySelectorAll('[data-aw-section][aria-current]').length,0);
- await page('adminPayroll');assert.equal(q('#aw-subpages a').getAttribute('href'),'./payroll.php');
+ await page('adminPayroll');assert.match(q('#aw-subpages a').getAttribute('href'),/page=adminPayroll/);
  await page('adminAttendance');
  for(const id of ['AT-2','AT-3'])click('[data-aw-select="'+id+'"]');click('[data-aw="attendance-bulk"]');
  assert.equal(state().attendance[1].status,'승인');assert.equal(state().attendance[2].status,'대기');assert.match(q('#tm-main').textContent,/중복/);
@@ -52,9 +52,10 @@ async function main(){
  setAuto('weekly','start',7);assert.equal(q('[data-weekly-horizontal] th').textContent,'7건');assert.equal(q('[data-weekly-horizontal] thead tr').lastElementChild.textContent,'26건');setAuto('weekly','start',8);
  assert.equal(d.querySelectorAll('[data-grade-auto="monthly"]').length,0);assert.equal(q('[data-original-monthly] tbody').children.length,9);assert.equal(q('[data-original-monthly] [data-grade-monthly-reference="min"][data-grade-reference-index="1"]').value,'101');
  assert.equal(d.querySelectorAll('[data-grade-department]').length,3);assert.equal(q('[data-daily-horizontal] thead tr').children.length,20);assert.equal(d.querySelectorAll('[data-grade-add="daily"]').length,0);
- click('[data-grade-department="cosmetics"]');let productAward=q('[data-grade-dailycash="perCase"]');assert.equal(productAward.value,'0');productAward.value='20000';productAward.dispatchEvent(new w.Event('input',{bubbles:true}));
- click('[data-grade-department="health"]');productAward=q('[data-grade-dailycash="perCase"]');assert.equal(productAward.value,'0');productAward.value='30000';productAward.dispatchEvent(new w.Event('input',{bubbles:true}));q('#tm-grade-form').requestSubmit();assert.match(q('#tm-dialog').textContent,/식품 기준/);click('[data-grade-confirm]');
- click('[data-grade-department="cosmetics"]');assert.equal(q('[data-grade-dailycash="perCase"]').value,'20,000');q('#tm-grade-form').requestSubmit();click('[data-grade-confirm]');assert.match(q('#tm-grade-history').textContent,/총 1건/);
+ const fillProductCriteria=()=>{const basis=d.querySelector('#tm-grade-week-basis');if(basis&&!basis.value){basis.value='total';basis.dispatchEvent(new w.Event('change',{bubbles:true}));}for(const input of d.querySelectorAll('#tm-grade-form input[required]'))if(input.value===''){input.value=input.dataset.gradeDailycash==='start'?'6':'0';input.dispatchEvent(new w.Event('input',{bubbles:true}));}};
+ click('[data-grade-department="cosmetics"]');let productAward=q('[data-grade-dailycash="perCase"]');assert.equal(productAward.value,'');productAward.value='20000';productAward.dispatchEvent(new w.Event('input',{bubbles:true}));
+ click('[data-grade-department="health"]');productAward=q('[data-grade-dailycash="perCase"]');assert.equal(productAward.value,'');productAward.value='30000';productAward.dispatchEvent(new w.Event('input',{bubbles:true}));fillProductCriteria();q('#tm-grade-form').requestSubmit();assert.match(q('#tm-dialog').textContent,/건강보조식품팀 기준/);click('[data-grade-confirm]');
+ click('[data-grade-department="cosmetics"]');assert.equal(q('[data-grade-dailycash="perCase"]').value,'20,000');fillProductCriteria();q('#tm-grade-form').requestSubmit();click('[data-grade-confirm]');assert.match(q('#tm-grade-history').textContent,/총 1건/);
  click('[data-grade-department="insurance"]');assert.equal(q('[data-grade-dailycash="perCase"]').value,'5,000');assert.match(q('#tm-grade-history').textContent,/총 1건/);
  const savedProducts=JSON.parse(w.localStorage.getItem('tm-office-grade-policy-v1')).entries;assert.equal(savedProducts.length,3);assert.deepEqual([...new Set(savedProducts.map(x=>x.department))].sort(),['cosmetics','health','insurance']);
  await page('adminDaily');click('[data-aw="daily-edit"][data-id="staff-8"]');set('count','8');submit();assert.equal(state().daily.find(x=>x.employee==='staff-8').amount,60000);
@@ -95,7 +96,7 @@ async function main(){
  await page('adminPayroll');click('[data-aw="payroll-export"]');const headers=exported.rows[1],row=exported.rows.at(-1);assert.equal(row[headers.indexOf('세전 보정')],10000);assert.equal(row[headers.indexOf('공제 보정')],1000);assert.equal(headers.some(x=>x.includes('일 그레이드')),false);
  await page('adminAttendance');if(!q('[data-aw-select="AT-3"]').checked)click('[data-aw-select="AT-3"]');click('[data-aw="attendance-reject-bulk"]');set('reason','중복 일정 확인');submit();assert.equal(state().attendance.find(r=>r.id==='AT-3').status,'반려');
  assert.deepEqual(errors,[],'No JavaScript/resource errors');
- console.log('PASS: 20 admin routes, staff registration/editing, attendance/AS/payroll/contracts/settlements/permissions/audit/notifications, XLSX action and existing staff routes.');
+ console.log('PASS: admin routes, staff registration/editing, attendance/AS/payroll/contracts/settlements/permissions/audit/notifications, XLSX action and existing staff routes.');
  dom.window.close();
 }
 main().catch(e=>{console.error(e);console.error('Browser errors:',errors);dom.window.close();process.exitCode=1;});

@@ -38,5 +38,6 @@ $data=business_calendar_month($month);$dates=business_calendar_dates($month);$sa
 ob_start();native_start('영업일 달력',$admin,'adminBusinessCalendar',['business-calendar.css']);require view_root().'/business-calendar.php';native_end();$html=ob_get_clean();
 check(substr_count($html,'type="checkbox"')===30&&str_contains($html,'영업일 저장')&&str_contains($html,'name="csrf"'),'calendar has every date, save and CSRF');
 check(substr_count($html,'class="bc-day bc-outside-month"')===5&&str_contains($html,'2026-08-31')&&str_contains($html,'2026-10-04'),'adjoining dates display without editable checkboxes');
-file_put_contents(dirname(__DIR__,2).'/.build/business-calendar.html',$html);
+$fixtureDirectory=dirname(__DIR__,2).'/.build';if(!is_dir($fixtureDirectory))mkdir($fixtureDirectory,0700,true);
+check(file_put_contents($fixtureDirectory.'/business-calendar.html',$html)!==false,'calendar fixture is written successfully');
 echo "PASS: calendar save/restore, authorization, revisions, audit, holiday-aware five-day grades, actual earnings preservation and PHP calendar render.\n";

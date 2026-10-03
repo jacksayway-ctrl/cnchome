@@ -1,8 +1,8 @@
 const test=require('node:test'),assert=require('node:assert/strict'),vm=require('node:vm'),fs=require('node:fs');
 const code=fs.readFileSync(__dirname+'/policy-sync.js','utf8');
-const sample=(revision=0)=>({revision,version:1,clients:[{id:'legacy',label:'메타버스'}],codes:[{id:'hanwha',label:'한화',aliases:[]}],policies:{}});
+const sample=(revision=0)=>({department:'insurance',revision,version:1,clients:[{id:'legacy',label:'메타버스'}],codes:[{id:'hanwha',label:'한화',aliases:[]}],policies:{}});
 function boot(role,fetcher){
- const ctx={CNCHOME_POLICY:{role,csrf:'csrf-test'},fetch:fetcher,AbortController,setTimeout,clearTimeout,setInterval(){},addEventListener(){},document:{hidden:false}};ctx.window=ctx;vm.createContext(ctx);vm.runInContext(code,ctx);return ctx.PolicySync;
+ const ctx={URL,CNCHOME_POLICY:{role,csrf:'csrf-test'},fetch:fetcher,AbortController,setTimeout,clearTimeout,setInterval(){},addEventListener(){},document:{hidden:false,getElementById:()=>null}};ctx.window=ctx;vm.createContext(ctx);vm.runInContext(code,ctx);return ctx.PolicySync;
 }
 const response=(body,status=200)=>({ok:status===200,status,json:async()=>body});
 test('admin registration waits for DB acknowledgement; independent employee sees saved rows',async()=>{

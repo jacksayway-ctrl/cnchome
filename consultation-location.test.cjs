@@ -4,7 +4,8 @@ const roots=buildIndex(require('./korea-regions.js'));
 const names=value=>suggestions(value,roots).map(node=>node.label);
 test('province and city first letters and Korean initials narrow the same region hierarchy',()=>{
  assert(names('경').includes('경기도'));assert(names('ㄱ').includes('경기도'));assert(names('ㄱㄱㄷ').includes('경기도'));
- assert(names('경기도 ').includes('경기도 수원시'));assert.deepEqual(names('경기도 수'),['경기도 수원시']);assert.deepEqual(names('경기수'),['경기도 수원시']);
+ assert(names('경기도 ').includes('경기도 수원시'));
+ for(const query of ['경기도 수','경기수']){assert(names(query).includes('경기도 수원시'));assert(names(query).includes('경기도 성남시 수정구'));assert(names(query).every(name=>name.startsWith('경기도 ')));}
  assert(names('경기도 ㅅ').includes('경기도 성남시'));assert.deepEqual(names('경기도 수원시 ㅇ'),['경기도 수원시 영통구']);
  assert(names('수').includes('경기도 수원시'));assert.equal(startsWith('수원시','수ㅇ'),true);
 });

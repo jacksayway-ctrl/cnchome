@@ -16,10 +16,16 @@
 ## 검증
 
 ```bash
+npm ci
 php server/bin/check-views.php
-node --test *.test.cjs
+php server/bin/check-business-calendar.php
+php server/bin/check-personnel.php
+npm test
+npm run test:dom
 php server/bin/check-policy.php
 php server/bin/check-hr.php
 ```
 
 `check-views.php`가 만든 `.build` 파일로 기존 DOM 검사와 PHP 브라우저 검사를 실행합니다. 검사 전용 Node/PHP 의존성은 운영 서버의 화면 동작에 필요하지 않습니다. DB 비밀번호와 실제 직원자료는 저장소·배포 패키지에 포함하지 않습니다.
+
+화면 변경은 `office.js`, 지도 도형은 `region-geometry.js`에서 관리합니다. 정적 파일 URL에는 내용 해시가 붙어 변경된 파일만 캐시를 갱신합니다. Node 검사는 위 `package.json`의 지원 버전을 사용합니다.

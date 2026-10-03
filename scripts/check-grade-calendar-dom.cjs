@@ -2,8 +2,8 @@
 const {JSDOM,VirtualConsole}=require('jsdom');
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
 const directory=path.resolve(__dirname,'..'),errors=[],vc=new VirtualConsole();vc.on('jsdomError',e=>errors.push(e.message));
-const dom=new JSDOM(fs.readFileSync(path.join(directory,'.build/office-preview.html'),'utf8'),{url:'http://preview.local/#adminGrade',runScripts:'outside-only',virtualConsole:vc,pretendToBeVisual:true,beforeParse(w){w.structuredClone=structuredClone;w.TextEncoder=TextEncoder;w.TextDecoder=TextDecoder;w.HTMLDialogElement.prototype.showModal=function(){this.setAttribute('open','');};w.HTMLDialogElement.prototype.close=function(){this.removeAttribute('open');};}});
-const w=dom.window,d=w.document;
+const dom=new JSDOM(fs.readFileSync(path.join(directory,'.build/office-preview.html'),'utf8'),{url:'http://preview.local/#adminGrade',runScripts:'outside-only',virtualConsole:vc,pretendToBeVisual:true,beforeParse(w){require('./dom-fixture.cjs')(w);w.structuredClone=structuredClone;w.TextEncoder=TextEncoder;w.TextDecoder=TextDecoder;w.HTMLDialogElement.prototype.showModal=function(){this.setAttribute('open','');};w.HTMLDialogElement.prototype.close=function(){this.removeAttribute('open');};}});
+const w=dom.window,d=w.document;require('./dom-fixture.cjs')(w);
 for(const script of d.querySelectorAll('script'))w.eval(script.src?fs.readFileSync(path.join(directory,new URL(script.src).pathname),'utf8'):script.textContent);
 const q=selector=>{const el=d.querySelector(selector);assert.ok(el,'Missing '+selector);return el;};
 const input=(selector,value)=>{const el=q(selector);el.value=String(value);el.dispatchEvent(new w.Event('input',{bubbles:true}));};
@@ -40,7 +40,7 @@ try{
   change('#tm-grade-preview-role','leader');calculate();assert.ok(q('[data-grade-role-excluded]'));assert.equal(d.querySelector('[data-grade-final-amount]'),null);
   change('#tm-grade-preview-role','general');change('#tm-grade-preview-month','2026-09');
   change('#tm-grade-preview-mode','aggregate');input('#tm-grade-preview-count',150);calculate();
-  change('#tm-grade-effective-date','2026-09-16');input('[data-grade-monthly-reference="hourly"][data-grade-reference-index="0"]',20000);calculate();
+  input('#tm-grade-preview-count',0);change('#tm-grade-effective-date','2026-09-16');input('[data-grade-monthly-reference="hourly"][data-grade-reference-index="0"]',20000);calculate();
   assert.match(q('#tm-grade-preview-result').textContent,/2026-09-01 ~ 2026-09-15/);assert.match(q('#tm-grade-preview-result').textContent,/2026-09-16 ~ 2026-09-30/);assert.match(q('[data-grade-final-amount]').textContent,/2,310,000원/);
   q('#tm-grade-form').requestSubmit();q('[data-grade-confirm]').click();
   const entry=JSON.parse(w.localStorage.getItem('tm-office-grade-policy-v1')).entries.at(-1);assert.equal(entry.date,'2026-09-16');assert.equal(entry.policy.monthlyReference[0].hourly,20000);

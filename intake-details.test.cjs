@@ -41,7 +41,7 @@ test('year edits immediately update counting age without month/day or region dat
  const fields=Object.fromEntries(['birthYear','birthMonth','birthDay'].map(name=>[name,{name,value:'',maxLength:name==='birthYear'?4:2,focus(){focus.push(name);},setCustomValidity(value){this.error=value;}}]));Object.assign(fields,{date:{value:'2026-09-29'},carrier:{value:''},consultationPlace:{value:''}});
  const age={},kind={},hint={},panel={dataset:{}},summary={},list={replaceChildren(){},append(){}};
  const nodes={'[data-age-number]':age,'[data-age-kind]':kind,'[data-sales-age]':hint,'[data-intake-eligibility]':panel,'[data-intake-decision]':summary,'[data-intake-options]':list};
- const form={elements:fields,querySelector:key=>nodes[key]||null,closest:()=>null,addEventListener:(name,fn,capture)=>listeners.set(name,{fn,capture}),removeEventListener:()=>{}};
+ const form={dataset:{},elements:fields,querySelector:key=>nodes[key]||null,closest:()=>null,addEventListener:(name,fn,capture)=>listeners.set(name,{fn,capture}),removeEventListener:()=>{}};
  api.attach(form,{team:()=> 'insurance'});const input=listeners.get('input');assert.equal(input.capture,true);
  const type=value=>{fields.birthYear.value=value;input.fn({target:fields.birthYear,isComposing:false});};
  type('199');assert.equal(age.value,'—');type('1990');assert.equal(age.value,'37세');assert.equal(kind.textContent,'일반');assert.deepEqual(focus,['birthMonth']);

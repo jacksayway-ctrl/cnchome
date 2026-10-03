@@ -44,6 +44,11 @@ run_deploy_step server/bin/check-pending-rollover.php
 run_deploy_step server/bin/check-membership.php
 run_deploy_step server/bin/check-personnel.php
 run_deploy_step server/bin/check-contract-checklist.php
+run_deploy_step server/bin/check-contracts.php
+run_deploy_step server/bin/check-contract-pages.php
+run_deploy_step server/bin/check-policy.php
+run_deploy_step server/bin/check-hr.php
+run_deploy_step server/bin/check-sales.php
 run_deploy_step server/bin/check-business-calendar.php
 run_deploy_step server/bin/check-calendar-holidays.php
 run_deploy_step server/bin/check-pay-statements.php

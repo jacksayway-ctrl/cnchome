@@ -5,10 +5,10 @@ const vm = require('node:vm');
 const html = fs.readFileSync(require('node:path').join(__dirname, 'office.js'), 'utf8');
 const code = html.slice(html.indexOf('// Editable grade policy.'), html.indexOf('function adminAttendance()'));
 const listeners={};
-const context = vm.createContext({GradeNumbers:require('./grade-numbers.js'),GradeCalendar:require('./grade-calendar.js'),GradeCalendarPreview:require('./grade-calendar-preview.js'),fmt:n=>n.toLocaleString("ko-KR"),Intl,Date,structuredClone,queueMicrotask,root:{querySelectorAll(){return []},addEventListener(type,fn){(listeners[type]??=[]).push(fn)}},window:{addEventListener(){}},localStorage:{getItem(){return null}}});
+const context = vm.createContext({liveEmployee:false,liveHr:null,URL,location:{href:'https://example.test/preview.php?role=admin'},GradeNumbers:require('./grade-numbers.js'),GradeCalendar:require('./grade-calendar.js'),GradeCalendarPreview:require('./grade-calendar-preview.js'),fmt:n=>n.toLocaleString("ko-KR"),Intl,Date,structuredClone,queueMicrotask,root:{querySelectorAll(){return []},addEventListener(type,fn){(listeners[type]??=[]).push(fn)}},window:{addEventListener(){}},localStorage:{getItem(){return null}}});
 vm.runInContext(code+'\nglobalThis.api={gradeDefaults,gradeValidate,gradeCalculate,gradeValidDate,gradePolicyAt,gradeReadStore,gradeSyncWeeklyBounds,gradeGenerateWeekly,gradePrepareDraft,gradeDailyCashTable,gradeOriginalMonthlyTable,gradeAggregateCalculate,gradeReferenceMonthly,gradePreviewHtml,gradeUpdatePreview};',context);
 const {gradeDefaults,gradeValidate,gradeCalculate,gradeValidDate,gradePolicyAt,gradeReadStore}=context.api;
-vm.runInContext(html.slice(html.indexOf('function personalDailyContent()'),html.indexOf('function monthly()'))+'\nglobalThis.api.personalDailyContent=personalDailyContent;globalThis.api.personalWeeklyContent=personalWeeklyContent;',context);
+vm.runInContext(html.slice(html.indexOf('const gradeOpenDetails='),html.indexOf('function monthly()'))+'\nglobalThis.api.personalDailyContent=personalDailyContent;globalThis.api.personalWeeklyContent=personalWeeklyContent;',context);
 test('monthly screenshot boundaries use only the current tier and include its first count',()=>{
  const p=gradeDefaults();assert.equal(gradeValidate(p),'');
  for(const [count,hourly,bonus] of [[0,14000,0],[60,14000,0],[61,14000,5000],[70,14000,50000],[71,15000,55000],[80,15000,100000],[81,15000,105000],[88,15000,140000],[90,15000,150000],[91,15000,210000],[100,15000,300000],[101,16000,310000]]){
@@ -138,9 +138,9 @@ test('monthly numeric range edits persist and update calculation boundaries',()=
  assert.notEqual(gradeValidate(p),'');
 });
 
-test('monthly start and end edits cascade by ten and preserve every other field',()=>{
+test('monthly start and end edits cascade by ten, preserve payment rules and keep examples in range',()=>{
  const rows=vm.runInContext('gradeMonthlyReferenceRows()',context);
- const fixed=rows.map(({label,max,...rest})=>JSON.stringify(rest));
+ const fixed=rows.map(({label,max,example,...rest})=>JSON.stringify(rest));
  context.rangeRows=rows;
  vm.runInContext("gradeEditMonthlyRange(rangeRows,0,'max',80)",context);
  assert.deepEqual(Array.from(rows,r=>r.label),['80건 이하','81~90건','91~100건','101~110건','111~120건','121~130건','131~140건','141~150건','151건 이상']);
@@ -148,7 +148,8 @@ test('monthly start and end edits cascade by ten and preserve every other field'
  assert.equal(rows[1].label,'81~94건');assert.equal(rows[2].label,'95~104건');assert.equal(rows[3].label,'105~114건');
  vm.runInContext("gradeEditMonthlyRange(rangeRows,8,'min',160)",context);
  assert.equal(rows[8].label,'160건 이상');assert.equal(rows[7].max,159);
- assert.deepEqual(rows.map(({label,max,...rest})=>JSON.stringify(rest)),fixed);
+ assert.deepEqual(rows.map(({label,max,example,...rest})=>JSON.stringify(rest)),fixed);
+ for(const [i,row] of rows.entries()){const min=i?rows[i-1].max+1:0;assert.ok(row.example>=min);assert.ok(row.max===null||row.example<=row.max);}
  const p=gradeDefaults();p.monthlyReference=rows;assert.equal(gradeValidate(p),'');
  const editor=context.api.gradeOriginalMonthlyTable(p,true);
  assert.equal((editor.match(/data-grade-monthly-reference="min"/g)||[]).length,8);
@@ -189,15 +190,15 @@ test('all achieved daily cells automatically show received with display-only but
  assert.doesNotMatch(other,/>_원</);assert.doesNotMatch(other,/data-daily-receive/);
 });
 test('employee panels use the complete PHP weekly result and cumulative daily amount, never fixture-only counts',()=>{
- const daily={count:10,target:6,perCase:5000,paidCount:5,amount:25000,paid:25000,pending:0,eligible:true,receiptMode:'automatic',receipts:[]};
+ const daily={count:10,target:6,perCase:5000,paidCount:5,amount:25000,paid:25000,monthPaid:175000,monthReceipts:[{date:'2026-09-21',count:12,amount:175000}],pending:0,eligible:true,receiptMode:'automatic',receipts:[]};
  const dates=['2026-09-21','2026-09-22','2026-09-23','2026-09-24','2026-09-25'].map(date=>({date,count:12,scheduled:true,completed:true}));
  const weekly={count:60,value:12,availableDays:5,basis:'average',start:dates[0].date,end:dates[4].date,dates,amount:56000,complete:true,payrollMonth:'2026-09',rules:gradeDefaults().weekly,parts:[{start:'2026-09-21',end:'2026-09-22',effective:'2026-09-01',fullBonus:50000,days:2,bonus:20000},{start:'2026-09-23',end:'2026-09-25',effective:'2026-09-23',fullBonus:60000,days:3,bonus:36000}]};
  context.stats=rows=>rows.flat().join('|');context.table=(head,rows)=>head.concat(rows.flat()).join('|');context.panel=(title,body)=>title+body;
  context.window.CNCHOME_LIVE={user:{role:'employee',display_name:'테스트 직원'}};
  context.window.CNCEmployeeTestState={sales:[]};
- context.window.GradeHeader={getState:()=>({data:{date:'2026-09-25',daily,weekly,general:true,scheduleRegistered:true,policyRegistered:true}})};
+ context.window.GradeHeader={getState:()=>({data:{date:'2026-09-25',daily,weekly:{...weekly,amount:0,count:0},previousWeek:weekly,general:true,scheduleRegistered:true,policyRegistered:true}})};
  const day=context.api.personalDailyContent(),week=context.api.personalWeeklyContent();
- assert.match(day,/25,000원/);assert.match(day,/6건째부터 5건 × 5,000원/);assert.match(day,/자동 수령·선지급액/);assert.doesNotMatch(day,/data-daily-receive/);
- assert.match(week,/60건 ÷ 월~금 근무가능일 5일/);assert.match(week,/56,000원/);assert.match(week,/50,000원 × 2\/5/);assert.match(week,/60,000원 × 3\/5/);
+ assert.match(day,/25,000원/);assert.match(day,/이번 달 수령 총액/);assert.match(day,/175,000원/);assert.match(day,/오늘 수령·선지급액/);assert.doesNotMatch(day,/data-daily-receive/);
+ assert.match(week,/지난주 개인별 주그레이드/);assert.match(week,/60건/);assert.match(week,/근무가능일/);assert.match(week,/56,000원/);assert.match(week,/50,000원 × 2\/5/);assert.match(week,/60,000원 × 3\/5/);
  delete context.window.CNCHOME_LIVE;delete context.window.CNCEmployeeTestState;delete context.window.GradeHeader;
 });

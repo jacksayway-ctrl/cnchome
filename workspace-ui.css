@@ -26,7 +26,7 @@
     min-width:0;border:1px solid var(--cnc-line);border-radius:var(--cnc-radius);background:#fff;
     box-shadow:0 1px 2px #203b5b04;
   }
-  #tm-preview .panel,#tm-preview .aw .panel,.nf-body .nf-card,.nf-body .contract-panel,.nf-body .panel {padding:14px 16px;margin:0 0 14px}
+  #tm-preview .panel,#tm-preview .aw .panel,.nf-body .nf-card,.nf-body .contract-panel,.nf-body .panel {padding:12px 14px;margin:0 0 12px}
   #tm-preview .panel .panel {margin-top:12px}
   #tm-preview .panel:last-child,.nf-card:last-child {margin-bottom:0}
   #tm-preview .detail-grid {margin-bottom:14px;align-items:stretch}
@@ -42,7 +42,7 @@
   #tm-preview :is(.sub,.hr-muted),.nf-muted,.contract-hint,.personnel-note {color:var(--cnc-muted);line-height:1.65}
   #tm-preview :is(.aw-notice,.aw-feedback,.notice),.nf-alert,.nf-notice {padding:10px 12px;margin:10px 0 14px;line-height:1.65;border-radius:6px}
   #tm-preview .notice,#tm-preview .aw-notice {background:var(--cnc-soft);border-left:3px solid #809fc8}
-  #tm-preview :is(.aw-empty,.page-loading),.personnel-empty {padding:26px 16px}
+  #tm-preview :is(.aw-empty,.page-loading),.personnel-empty {padding:18px 14px}
 
   /* Navigation keeps the original structure and navy appearance. */
   #tm-preview .aw-subpages,.nf-subpages {padding:12px 20px 0;background:#fff;border-bottom:1px solid var(--cnc-line)}
@@ -121,9 +121,7 @@
   #tm-preview .policy-carrier-columns {grid-template-columns:none!important;grid-auto-flow:column;grid-auto-columns:minmax(300px,1fr);gap:14px!important}
   #tm-preview .policy-carrier-column {min-width:0}
   #tm-preview .policy-carrier-column .policy-table-heading h3 {margin:0;font-size:14px}
-  #tm-preview .policy-carrier-column>.policy-table-heading:first-child {display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-start;gap:7px;margin:0;min-height:100px}
-  #tm-preview .policy-carrier-column[data-policy-carrier=ga]>.policy-table-heading:first-child {min-height:28px}
-  #tm-preview .policy-carrier-column[data-policy-carrier=ga]>div:nth-child(2),#tm-preview .policy-carrier-column[data-policy-carrier=ga]>div:nth-child(3) {min-height:36px}
+  #tm-preview .policy-carrier-column>.policy-table-heading:first-child {display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-start;gap:7px;margin:0;min-height:0}
   #tm-preview .row:has(#tm-policy-publication-client) {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));align-items:end;gap:12px}
   #tm-preview .row:has(#tm-policy-publication-client) label,#tm-preview .row:has(#tm-policy-publication-client) select {width:100%;min-width:0}
 
@@ -166,11 +164,21 @@
   #tm-preview .sales-home-graph-heading h3 {margin:0}
   #tm-preview .sales-home-graph-heading a {color:#285d98;font-size:13px;font-weight:600;white-space:nowrap;text-decoration:none}
   #tm-preview .sales-home-graph-heading a:hover {text-decoration:underline;color:#1464ec}
+  #tm-preview .sales-home-graph .stats {gap:8px;margin-bottom:10px;align-items:start}
+  #tm-preview .sales-home-stat {padding:10px 12px;min-height:0;height:auto}
+  #tm-preview .sales-home-stat .value {font-size:22px;line-height:1.35;margin:4px 0 0;overflow-wrap:anywhere}
+  #tm-preview .sales-home-normal-breakdown {font-size:12px;line-height:1.5;margin-top:3px}
+  #tm-preview .sales-home-graph .comparison-chart {max-height:260px}
+  .nf-totals {display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,190px),1fr));overflow:visible}
+  .nf-totals>div {min-width:0;white-space:normal;flex-wrap:wrap}
+  .nf-totals strong {overflow-wrap:anywhere}
+  .nf-pay-components {table-layout:auto}
+  .nf-pay-components :is(th,td) {white-space:normal;overflow-wrap:anywhere}
   #tm-preview .sales-page-toolbar {padding:10px 12px;margin-bottom:12px;border:1px solid var(--cnc-line);border-radius:8px;background:#f8fafd}
   #tm-preview .sales-page-toolbar button,#tm-preview .sales-page-toolbar [data-sales-month-input] {height:36px;font-size:13px}
   #tm-preview .sales-month-controls {grid-template-columns:repeat(3,max-content);gap:8px;flex:0 0 auto;min-width:0;max-width:100%}
   #tm-preview .sales-page-toolbar [data-sales-month-input] {width:auto;field-sizing:content}
-  #tm-preview .team-performance-calendar .day,#tm-preview .sales-live-day {min-height:100px}
+  #tm-preview .team-performance-calendar .day,#tm-preview .sales-live-day {min-height:84px}
   #tm-preview .attendance-heading {flex-wrap:wrap;gap:8px 16px}
   #tm-preview .attendance-date,#tm-preview .attendance-empty {min-height:90px;padding:8px}
   .bc-panel {max-width:1080px}

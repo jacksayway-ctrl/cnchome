@@ -10,7 +10,7 @@ const test = require('node:test');
 // Exercise the shipped app and its actual modules, with only browser plumbing stubbed.
 const html = fs.readFileSync(path.join(__dirname, 'office.js'), 'utf8');
 let app = html;
-const closing = 'render();\n})();';
+const closing = '\n})();';
 assert.ok(app.includes(closing), 'the app exposes a stable closing marker');
 app = app.replace(closing, `globalThis.integrationHooks = {
   save: intakeCodeSave,
@@ -80,9 +80,9 @@ function boot(saved = new Map(), remote = null) {
 
   const context = {
     console, Date, Math, Map, Set, structuredClone, URL, URLSearchParams, TextEncoder, TextDecoder, AbortController,
-    crypto: webcrypto, document: {getElementById: () => get('root'), createElement: tag => get('created-'+tag)},
+    crypto: webcrypto, document: {getElementById: () => get('root'), createElement: tag => get('created-'+tag),addEventListener() {}},
     MutationObserver: class {observe() {}},
-    location: {hash: ''},
+    location: {hash: '',href:'https://example.test/preview.php'},
     localStorage: {
       getItem: key => storage.get(key) ?? null,
       setItem(key, value) {
@@ -94,12 +94,12 @@ function boot(saved = new Map(), remote = null) {
       if (!windowEvents.has(type)) windowEvents.set(type, []);
       windowEvents.get(type).push(fn);
     },
-    requestAnimationFrame() {}, setTimeout, clearTimeout, setInterval() {}
+    requestAnimationFrame() {}, queueMicrotask, setTimeout, clearTimeout, setInterval() {}
   };
   if(remote){context.CNCHOME_POLICY={role:remote.role||'admin',csrf:'test-token'};context.fetch=remote.fetch;}
   context.window = context;
   vm.createContext(context);
-  for (const file of ['korea-regions.js', 'intake-codes.js', 'region-rules.js', 'grade-numbers.js', 'grade-calendar.js', 'grade-calendar-preview.js', 'policy-dates.js', 'policy-input.js', 'policy-sync.js', 'admin-workspace.js', 'hr-workspace.js']) {
+  for (const file of ['korea-regions.js', 'intake-codes.js', 'region-rules.js', 'region-geometry.js', 'receipt-form.js', 'grade-numbers.js', 'grade-calendar.js', 'grade-calendar-preview.js', 'policy-dates.js', 'policy-input.js', 'policy-sync.js', 'admin-workspace.js', 'hr-workspace.js']) {
     vm.runInContext(fs.readFileSync(path.join(__dirname, file), 'utf8'), context, {filename: file});
   }
   vm.runInContext(app, context, {filename: 'office.js'});
@@ -115,6 +115,7 @@ function boot(saved = new Map(), remote = null) {
 }
 
 const plain = value => JSON.parse(JSON.stringify(value));
+const policyToday=()=>new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
 function addCode(app, label = '테스트접수', aliases = ['TEST']) {
   assert.equal(app.api.save({label, aliases}), true);
   const added = app.api.snapshot().codes.find(code => code.label === label);
@@ -317,20 +318,20 @@ test('employee policy page uses server rows and never renders local/example poli
  let resolveGet;
  const remote=boot(local.storage,{role:'employee',fetch:async()=>new Promise(resolve=>resolveGet=resolve)});
  assert.match(remote.api.markup().map,/불러오는 중/);assert.doesNotMatch(remote.api.markup().map,/접수 정책표 · 예시|정책 등록일 표시 예시/);
- resolveGet({ok:true,status:200,json:async()=>({revision:1,version:1,clients:[{id:'legacy',label:'메타버스'}],codes:[{id:'hanwha',label:'한화',aliases:[]}],policies:{'hanwha:general':{client:'legacy',carrier:'hanwha',kind:'general',rows:[['지역','수량'],['수도권','4']],savedAt:'2026-09-28T06:00:00Z'}}})});
+ resolveGet({ok:true,status:200,json:async()=>({department:'insurance',date:policyToday(),revision:1,version:1,clients:[{id:'legacy',label:'메타버스'}],codes:[{id:'hanwha',label:'한화',aliases:[]}],policies:{'hanwha:general':{client:'legacy',carrier:'hanwha',kind:'general',rows:[['지역','수량'],['수도권','4']],savedAt:policyToday()+'T06:00:00+09:00'}}})});
  await new Promise(r=>setImmediate(r));
  assert.equal(remote.api.result('hanwha','서울','서울특별시').quantity,4);
  const html=remote.api.markup().map;assert.match(html,/접수 정책표/);assert.doesNotMatch(html,/접수 정책표 · 예시|정책 등록일 표시 예시|실제 접수 기준이 아닙니다/);
 });
 test('empty server policy store has no sample fallback',async()=>{
- const a=boot(new Map(),{role:'employee',fetch:async()=>({ok:true,status:200,json:async()=>({revision:0,version:1,clients:[{id:'legacy',label:'메타버스'}],codes:[],policies:{}})})});
- await new Promise(r=>setImmediate(r));assert.match(a.api.markup().map,/아직 서버에 등록된 정책이 없습니다/);assert.doesNotMatch(a.api.markup().map,/예시/);
+ const a=boot(new Map(),{role:'employee',fetch:async()=>({ok:true,status:200,json:async()=>({department:'insurance',date:policyToday(),revision:0,version:1,clients:[{id:'legacy',label:'메타버스'}],codes:[],policies:{}})})});
+ await new Promise(r=>setImmediate(r));assert.match(a.api.markup().map,/오늘 등록된 접수 정책이 없습니다/);assert.doesNotMatch(a.api.markup().map,/예시/);
 });
 test('live registration uses POST and reports failure without local success',async()=>{
  let fail=true,posted;
- const state={revision:0,version:1,clients:[{id:'legacy',label:'메타버스'}],codes:[{id:'hanwha',label:'한화',aliases:[]}],policies:{}};
+ const state={department:'insurance',date:policyToday(),revision:0,version:1,clients:[{id:'legacy',label:'메타버스'}],codes:[{id:'hanwha',label:'한화',aliases:[]}],policies:{}};
  const a=boot(new Map(),{fetch:async(url,options)=>{
-  if(options.method==='POST'){posted=JSON.parse(options.body);if(fail)return {ok:false,status:503,json:async()=>({error:'DB unavailable'})};state.revision++;for(const [kind,rows] of Object.entries(posted.groups))state.policies['hanwha:'+kind]={client:'legacy',carrier:'hanwha',kind,rows,savedAt:'2026-09-28T06:00:00Z'};}
+  if(options.method==='POST'){posted=JSON.parse(options.body);if(fail)return {ok:false,status:503,json:async()=>({error:'DB unavailable'})};state.revision++;for(const [kind,rows] of Object.entries(posted.groups))state.policies['hanwha:'+kind]={client:'legacy',carrier:'hanwha',kind,rows,savedAt:policyToday()+'T06:00:00+09:00'};}
   return {ok:true,status:200,json:async()=>JSON.parse(JSON.stringify(state))};
  }});
  await new Promise(r=>setImmediate(r));a.api.parse('한화\n지역\t수량\n수도권\t4');

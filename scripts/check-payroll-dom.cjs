@@ -9,7 +9,7 @@ const input=(id,value)=>{q(id).value=value;q(id).dispatchEvent(new w.Event('inpu
 async function main(){
  for(const file of ['payroll-engine.js','payroll-preview.js'])w.eval(fs.readFileSync(path.join(root,file),'utf8'));
  await new Promise(r=>setTimeout(r,10));
- assert.equal(q('calculation-error').textContent,'');assert.ok(q('payroll-output').textContent.includes('세전'));assert.equal(q('daily-count'),null);assert.ok(d.querySelector('a[href="./office.php?role=admin#adminPayroll"]'));
+ assert.equal(q('calculation-error').textContent,'');assert.ok(q('payroll-output').textContent.includes('세전'));assert.equal(q('daily-count'),null);assert.ok(d.querySelector('a[href*="pay-statements.php"]'));
  const initial=q('payroll-output').textContent;
  input('s0-minutes','999999');assert.ok(q('calculation-error').textContent);assert.equal(q('payroll-output').textContent,'');
  q('reset').click();assert.equal(q('calculation-error').textContent,'');assert.equal(q('payroll-output').textContent,initial);

@@ -23,7 +23,7 @@
  function startsWith(value,query){return prefixMatches(compact(value),compact(query));}
  function searchIndex(roots){
   if(searchCache.has(roots))return searchCache.get(roots);
-  const entries=[],byLabel=new Map(),firstLetter=new Map(),firstInitial=new Map();
+  const entries=[],byLabel=new Map(),byAlias=new Map(),firstLetter=new Map(),firstInitial=new Map();
   function collect(nodes,ancestors,province){for(const node of nodes){
    const entry={node,ancestors,province:province||node,aliases:normalizedAliases(node)};
    entries.push(entry);byLabel.set(node.label,entry);collect(node.children,[...ancestors,entry],entry.province);
@@ -31,10 +31,11 @@
   collect(roots,[],null);entries.sort((a,b)=>a.ancestors.length-b.ancestors.length||a.node.label.localeCompare(b.node.label,'ko'));
   function add(index,key,entry){if(!index.has(key))index.set(key,new Set());index.get(key).add(entry);}
   for(const entry of entries)for(const alias of entry.aliases){
+   add(byAlias,alias,entry);
    add(firstLetter,alias[0],entry);const code=alias.charCodeAt(0)-0xac00;
    if(code>=0&&code<11172)add(firstInitial,initials[Math.floor(code/588)],entry);
   }
-  const result={entries,byLabel,firstLetter,firstInitial};searchCache.set(roots,result);return result;
+  const result={entries,byLabel,byAlias,firstLetter,firstInitial};searchCache.set(roots,result);return result;
  }
  function buildIndex(catalog,localities=global.KoreaLocalities){
   if(!catalog)return [];
@@ -78,9 +79,20 @@
   // This spelling alias suggests the catalog address; it never changes entered text.
   const aliases=(node,root)=>root?.id==='대전'&&node.label==='대전광역시 서구 탄방동'?[...normalizedAliases(node),'탐방동']:normalizedAliases(node);
   const nextOptions=node=>node.children.length?node.children:[node];
+  function compoundOptions(nodes,query){
+   const found=[];
+   if(query.length<2||![...query].every(letter=>initials.includes(letter)))return found;
+   function walk(items,offset){for(const node of items){if(!startsWith(node.name,query[offset]))continue;if(offset===query.length-1)found.push(node);else walk(node.children,offset+1);}}
+   walk(nodes,0);return found;
+  }
   // Selecting a full catalog address adds a space: continue into children or close at a leaf.
   const selected=trailingSpace?index.byLabel.get(String(value||'').trim()):null;
   if(selected)return selected.node.children;
+  // A complete city name wins over a shorter province alias (광주시 / 광주).
+  if(parts.length===1&&!roots.some(node=>normalizedAliases(node).includes(remaining))){
+   const exact=[...(index.byAlias.get(remaining)||[])].filter(entry=>entry.ancestors.length);
+   if(exact.length)return unique(exact.flatMap(entry=>nextOptions(entry.node)));
+  }
   // Spaced tokens may start at any address level. Match them in ancestor order;
   // short initials such as ㅅ must not force 서울/세종 and hide 설성면 or other towns.
   if(parts.length&&(parts.length>1||trailingSpace)){
@@ -101,7 +113,7 @@
     }
     if(matched)matches.push(entry.node);
    }
-   if(matches.length)return unique(matches);
+   if(matches.length)return unique([...matches,...(explicitProvince?compoundOptions(explicitProvince.children,parts.slice(1).join('')):[])]);
    if(parts.length===1)return [];
    // A segment can itself contain compact levels, such as 대전 서구탄방동.
    const provinces=explicitProvince?[explicitProvince]:roots.filter(node=>normalizedAliases(node).some(alias=>prefixMatches(alias,parts[0])));
@@ -123,11 +135,7 @@
   const candidates=scoped?scopedNodes(scope):scope;
   const matches=candidates.filter(node=>aliases(node,province).some(alias=>prefixMatches(alias,remaining)));
   // One initial per successive address level: ㄱㅇㅅ -> 경기도 / 이천시 / 설성면.
-  const compound=[];
-  if(remaining.length>=2&&[...remaining].every(letter=>initials.includes(letter))){
-   function walk(nodes,offset){for(const node of nodes){if(!startsWith(node.name,remaining[offset]))continue;if(offset===remaining.length-1)compound.push(node);else walk(node.children,offset+1);}}
-   walk(scope,0);
-  }
+  const compound=compoundOptions(scope,remaining);
   if(scoped)return unique([...matches,...compound]);
   // Also allow direct city/district searches; full paths distinguish identical names.
   return unique([...(matches.length?[...matches,...roots.flatMap(node=>node.children).filter(node=>normalizedAliases(node).some(alias=>prefixMatches(alias,query)))]:direct()),...compound]);

@@ -12,7 +12,7 @@
 </div>
 <dialog id="tm-dialog" aria-labelledby="tm-dialog-title"><div class="row"><h2 id="tm-dialog-title">접수 등록</h2><button class="secondary" data-action="close" aria-label="창 닫기">닫기</button></div><div id="tm-dialog-body"></div></dialog>
 
-<?php foreach (['public-holidays.js','korea-regions.js','korea-localities.js','intake-codes.js','region-rules.js','admin-xlsx.js','contract-checklist.js','admin-workspace.js','holiday-pay.js','hr-workspace.js','grade-numbers.js','grade-calendar.js','grade-calendar-preview.js','policy-dates.js','policy-input.js','policy-sync.js','policy-history.js','consultation-location.js','intake-details.js','hangul.js','korean-input.js','road-address.js','receipt-form.js','admin-intake-edit.js','sales-workspace.js','daily-grade-workspace.js','attendance-workspace.js','grade-visibility.js','office.js','grade-header.js','pending-intakes.js'] as $file): ?>
+<?php foreach (['public-holidays.js','korea-regions.js','korea-localities.js','intake-codes.js','region-rules.js','admin-xlsx.js','contract-checklist.js','admin-workspace.js','holiday-pay.js','hr-workspace.js','grade-numbers.js','grade-calendar.js','grade-calendar-preview.js','policy-dates.js','policy-input.js','policy-sync.js','policy-history.js','consultation-location.js','intake-details.js','hangul.js','korean-input.js','road-address.js','receipt-form.js','admin-intake-edit.js','sales-workspace.js','daily-grade-workspace.js','attendance-workspace.js','grade-visibility.js','region-geometry.js','office.js','grade-header.js','pending-intakes.js'] as $file): ?>
 <script src="<?= view_h(asset_url($file)) ?>"></script>
 <?php endforeach; ?>
 </div>
