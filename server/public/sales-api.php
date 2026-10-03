@@ -26,6 +26,16 @@ try {
         sales_mutate($user,$in);
     }elseif($_SERVER['REQUEST_METHOD']!=='GET')sales_reply(405,['error'=>'허용되지 않은 요청입니다.']);
     $result=sales_snapshot($user,$month);
+    if($user['role']==='employee'){
+        require_once CNC_RUNTIME_DIR.'/intake-management.php';
+        $normal=intake_actual_normal_records($user,['month'=>$month,'scope'=>'real','team'=>'','employee'=>'']);
+        $home=array_values(array_filter($result['records'],fn($r)=>$r['status']!=='normal'&&str_starts_with($r['date'],$month)));
+        foreach($normal as $record)if(str_starts_with($record['statusDate'],$month)){
+            $record['firstDate']=$record['date'];$record['date']=$record['statusDate'];
+            $home[]=$record;
+        }
+        $result['homeRecords']=$home;
+    }
     if($department!==null){$result['records']=array_values(array_filter($result['records'],fn($r)=>$r['team']===$department));$result['staff']=array_values(array_filter($result['staff'],fn($r)=>$r['team']===$department));$result['department']=$department;}
     if(($in['action']??'')==='create'){$q=db()->prepare('SELECT s.customer_name,u.display_name AS counselor_name FROM sales_records s JOIN app_users u ON u.id=s.employee_id WHERE s.request_key=?');$q->execute([$in['requestKey']]);$saved=$q->fetch();if($saved)$result['savedReceipt']=['customer'=>$saved['customer_name'],'counselorName'=>$saved['counselor_name']??''];}
     sales_reply(200,$result);

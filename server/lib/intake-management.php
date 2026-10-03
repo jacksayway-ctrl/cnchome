@@ -70,7 +70,9 @@ function intake_status_date_joins(PDO $d): string {
 }
 /** Month candidates include previous-month calls completed in the selected month. */
 function intake_actual_normal_records(array $user,array $filters): array {
-    intake_admin($user);$d=db();$params=[];$where=["s.status='normal'"];
+    $employee=($user['role']??'')==='employee';
+    if($employee){$filters['employee']=(string)$user['id'];$filters['scope']=sales_test_user($user)?'test':'real';$filters['team']='';}else intake_admin($user);
+    $d=db();$params=[];$where=["s.status='normal'"];
     if($filters['scope']!=='all'){$where[]='s.is_test=?';$params[]=$filters['scope']==='test'?1:0;}
     if($filters['team']!==''){$where[]='s.department=?';$params[]=$filters['team'];}
     if($filters['employee']!==''){$where[]='s.employee_id=?';$params[]=(int)$filters['employee'];}
@@ -94,6 +96,7 @@ function intake_actual_normal_records(array $user,array $filters): array {
             foreach($q->fetchAll() as $event){$index=$positions[$event['record_key']];$records[$index]['statusDate']=intake_effective_status_date(['status'=>'normal','first_date'=>$records[$index]['date'],'after_data'=>$event['after_data'],'audit_created_at'=>$event['created_at']]);}
         }
     }
+    if($employee)$records=array_values(array_filter($records,fn($r)=>(int)$r['employeeId']===(int)$user['id']));
     return $records;
 }
 function intake_url(array $filters=[],array $extra=[]): string {return '/intake.php?'.http_build_query(array_replace(['role'=>'admin'],$filters,$extra));}
