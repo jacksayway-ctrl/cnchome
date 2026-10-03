@@ -3,7 +3,7 @@ declare(strict_types=1);
 require_once __DIR__.'/account-transfer.php';
 
 /** One request for the three verified seed identities. Never a general deletion API. */
-function dts345_batch(): string {return 'delete-test-staff-345-20261003-v1';}
+function dts345_batch(): string {return 'delete-test-staff-345-20261003-v2';}
 function dts345_assert(bool $ok,string $reason): void {if(!$ok)throw new RuntimeException($reason);}
 /** Finite public diagnostics, never exception messages or row values. */
 function dts345_reason(string $reason): string {
@@ -103,6 +103,8 @@ function dts345_dependencies(PDO $d,array $plan,array $userIds): void {
         'sales_records'=>['sales_events'=>['sale_id'],'sales_consultation_details'=>['sale_id'],'sales_receipt_details'=>['sale_id'],'sales_birth_details'=>['sale_id'],'sales_counselor_details'=>['sale_id']],
         'employee_checkins'=>['employee_checkin_approvals'=>['user_id','work_date']]];
     $allowed['app_users']['grade_visibility']=['actor_id'];
+    // user_id is covered by the composite checkin FK, not a direct app_users FK.
+    $allowed['app_users']['employee_checkin_approvals']=['actor_id'];
     $tables=array_keys(dts345_primary_keys());$marks=implode(',',array_fill(0,count($tables),'?'));
     $q=$d->prepare('SELECT TABLE_SCHEMA,TABLE_NAME,COLUMN_NAME,REFERENCED_TABLE_NAME,REFERENCED_COLUMN_NAME FROM information_schema.KEY_COLUMN_USAGE WHERE REFERENCED_TABLE_SCHEMA=DATABASE() AND REFERENCED_TABLE_NAME IN ('.$marks.')');$q->execute($tables);$refs=$q->fetchAll();
     $database=(string)$d->query('SELECT DATABASE()')->fetchColumn();$seen=[];
