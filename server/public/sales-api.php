@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-require __DIR__.'/_runtime.php';require_once CNC_RUNTIME_DIR.'/sales.php';
+require __DIR__.'/_runtime.php';require_once CNC_RUNTIME_DIR.'/sales.php';require_once CNC_RUNTIME_DIR.'/pending-rollover.php';
 header('Content-Type: application/json; charset=utf-8');
 function sales_reply(int $status,array $body): never {http_response_code($status);echo hr_json($body);exit;}
 try {
@@ -25,9 +25,10 @@ try {
         }
         sales_mutate($user,$in);
     }elseif($_SERVER['REQUEST_METHOD']!=='GET')sales_reply(405,['error'=>'허용되지 않은 요청입니다.']);
-    $result=sales_snapshot($user,$month);
+    pending_rollover($user);$result=sales_snapshot($user,$month);
     if($user['role']==='employee'){
-        require_once CNC_RUNTIME_DIR.'/intake-management.php';
+        require_once CNC_RUNTIME_DIR.'/pending-intakes.php';
+        $result['pendingRecords']=pending_intake_snapshot($user)['records'];
         $normal=intake_completion_records($user,['month'=>$month,'scope'=>'real','team'=>'','employee'=>'']);
         $home=array_values(array_filter($result['records'],fn($r)=>$r['status']!=='normal'&&str_starts_with($r['date'],$month)));
         foreach($normal as $record)if(str_starts_with($record['statusDate'],$month)){

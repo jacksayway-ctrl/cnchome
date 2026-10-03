@@ -22,7 +22,7 @@ function hr_contract_end(string $start,string $term): string {
 }
 function hr_profile(array $in): array {
     $p=[];
-    foreach(['name'=>60,'phone'=>20,'email'=>120,'birthDate'=>10,'address'=>240,'addressDetail'=>240,'postcode'=>10,'team'=>20,'role'=>20,'startDate'=>10,'endDate'=>10,'employment'=>10,'workplace'=>240,'duties'=>240,'weeklyHoliday'=>5,'payType'=>10,'wageEffective'=>10,'bank'=>50,'accountNumber'=>40,'accountHolder'=>60,'contractStart'=>10,'contractEnd'=>10,'contractTerm'=>20,'contractType'=>20,'memo'=>1000,'gender'=>10,'nationality'=>60,'career'=>2000,'jobType'=>80,'renewalDate'=>10,'retirementReason'=>240,'deathDate'=>10,'deathReason'=>240,'emergencyName'=>60,'emergencyPhone'=>20,'workStart'=>5,'workEnd'=>5,'breakStart'=>5,'breakEnd'=>5,'payday'=>2,'qualification'=>500] as $key=>$max){
+    foreach(['name'=>60,'phone'=>20,'email'=>120,'birthDate'=>10,'address'=>240,'addressDetail'=>240,'postcode'=>10,'team'=>20,'role'=>20,'jobRank'=>60,'startDate'=>10,'endDate'=>10,'employment'=>10,'workplace'=>240,'duties'=>240,'weeklyHoliday'=>5,'payType'=>10,'wageEffective'=>10,'bank'=>50,'accountNumber'=>40,'accountHolder'=>60,'contractStart'=>10,'contractEnd'=>10,'contractTerm'=>20,'contractType'=>20,'memo'=>1000,'gender'=>10,'nationality'=>60,'career'=>2000,'jobType'=>80,'renewalDate'=>10,'retirementReason'=>240,'deathDate'=>10,'deathReason'=>240,'emergencyName'=>60,'emergencyPhone'=>20,'workStart'=>5,'workEnd'=>5,'breakStart'=>5,'breakEnd'=>5,'payday'=>2,'qualification'=>500] as $key=>$max){
         hr_assert(!isset($in[$key])||is_string($in[$key]),'입력 형식을 확인해 주세요.');
         $p[$key]=trim($in[$key]??''); hr_assert(mb_strlen($p[$key])<=$max,'입력 내용이 너무 깁니다: '.$key);
     }
@@ -188,7 +188,7 @@ function hr_mutate(array $user,array $in): ?int {
             else {$q=$d->prepare("UPDATE hr_payroll SET calculation=?,status='draft',revision=revision+1 WHERE id=?");$q->execute([hr_json($calc),$id]);}
         }elseif($action==='publish'){
             hr_assert(!empty($row['user_id']),'먼저 직원 정보에 로그인 계정을 연결해 주세요.');$p=json_decode($row['profile'],true,512,JSON_THROW_ON_ERROR);
-            $eventSnapshot=['department'=>payroll_record_department(['calculation'=>json_decode($row['calculation'],true,512,JSON_THROW_ON_ERROR)],$p),'name'=>$p['name'],'employeeNo'=>$row['employee_no'],'month'=>$row['month'],'calculation'=>json_decode($row['calculation'],true,512,JSON_THROW_ON_ERROR),'bank'=>$p['bank'],'accountNumber'=>$p['accountNumber'],'accountHolder'=>$p['accountHolder']];
+            $eventSnapshot=['department'=>payroll_record_department(['calculation'=>json_decode($row['calculation'],true,512,JSON_THROW_ON_ERROR)],$p),'name'=>$p['name'],'jobRank'=>$p['jobRank']??'','employeeNo'=>$row['employee_no'],'month'=>$row['month'],'calculation'=>json_decode($row['calculation'],true,512,JSON_THROW_ON_ERROR),'bank'=>$p['bank'],'accountNumber'=>$p['accountNumber'],'accountHolder'=>$p['accountHolder']];
             if(isset($eventSnapshot['calculation']['gradeSnapshot'])){
                 require_once __DIR__.'/grade-ledger.php';$q=$d->prepare('SELECT id FROM app_users WHERE id=? FOR UPDATE');$q->execute([$row['user_id']]);
                 $latest=grade_employee_context(['userId'=>(int)$row['user_id'],'profile'=>$p],$row['month']);$saved=$eventSnapshot['calculation']['gradeSnapshot'];

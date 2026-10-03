@@ -2,7 +2,7 @@
 declare(strict_types=1);
 /** Native personnel cards use hr_employees as the single source of staff data. */
 function personnel_default_profile(): array {
-    return ['name'=>'','phone'=>'','team'=>'insurance','role'=>'상담원','startDate'=>hr_today(),'employment'=>'재직','payType'=>'시급제','payAmount'=>15000,'workDays'=>['월','화','수','목','금'],'weeklyHoliday'=>'토,일','contractStart'=>hr_today(),'contractType'=>'무기계약','contractTerm'=>'','payday'=>'15','paydayTiming'=>'next','personnelScheduleVersion'=>1,'workStart'=>'10:00','workEnd'=>'17:00','breakStart'=>'12:00','breakEnd'=>'13:00','workplace'=>'씨앤씨','duties'=>'전화상담'];
+    return ['name'=>'','phone'=>'','team'=>'insurance','role'=>'상담원','jobRank'=>'','startDate'=>hr_today(),'employment'=>'재직','payType'=>'시급제','payAmount'=>15000,'workDays'=>['월','화','수','목','금'],'weeklyHoliday'=>'토,일','contractStart'=>hr_today(),'contractType'=>'무기계약','contractTerm'=>'','payday'=>'15','paydayTiming'=>'next','personnelScheduleVersion'=>1,'workStart'=>'10:00','workEnd'=>'17:00','breakStart'=>'12:00','breakEnd'=>'13:00','workplace'=>'씨앤씨','duties'=>'전화상담'];
 }
 function personnel_records(array $user): array {
     $admin=$user['role']==='admin';
@@ -26,7 +26,7 @@ function personnel_natural(mixed $value): int {
 function personnel_post_profile(array $post,array $existing=[]): array {
     $raw=$post['profile']??[];hr_assert(is_array($raw),'직원 정보를 확인해 주세요.');
     $profile=array_replace(personnel_default_profile(),$existing);
-    $fields=['name','phone','email','birthDate','address','addressDetail','postcode','team','role','startDate','endDate','employment','workplace','duties','weeklyHoliday','payType','wageEffective','bank','accountNumber','accountHolder','contractStart','contractEnd','contractType','memo','gender','nationality','career','jobType','renewalDate','retirementReason','deathDate','deathReason','emergencyName','emergencyPhone','workStart','workEnd','breakStart','breakEnd','payday','qualification'];
+    $fields=['name','phone','email','birthDate','address','addressDetail','postcode','team','role','jobRank','startDate','endDate','employment','workplace','duties','weeklyHoliday','payType','wageEffective','bank','accountNumber','accountHolder','contractStart','contractEnd','contractType','memo','gender','nationality','career','jobType','renewalDate','retirementReason','deathDate','deathReason','emergencyName','emergencyPhone','workStart','workEnd','breakStart','breakEnd','payday','qualification'];
     foreach($fields as $key){
         hr_assert(!isset($raw[$key])||is_string($raw[$key]),'직원 정보 입력 형식을 확인해 주세요.');
         if(array_key_exists($key,$raw))$profile[$key]=trim($raw[$key]);

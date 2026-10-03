@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-require __DIR__.'/_runtime.php';require_once CNC_RUNTIME_DIR.'/native.php';require_once CNC_RUNTIME_DIR.'/pending-intakes.php';
+require __DIR__.'/_runtime.php';require_once CNC_RUNTIME_DIR.'/native.php';require_once CNC_RUNTIME_DIR.'/pending-intakes.php';require_once CNC_RUNTIME_DIR.'/pending-rollover.php';
 $detailFragment=($_GET['detail']??'')==='1';
 try{
     session_boot();$user=current_user();if(!$user){if($detailFragment){http_response_code(401);exit;}header('Location: /login.php?role=admin');exit;}intake_admin($user);
@@ -23,7 +23,7 @@ try{
         }catch(SalesDuplicate $e){http_response_code(409);$error=$e->getMessage();$duplicateCount=$e->count;$posted=array_filter($_POST,'is_string');}
         catch(InvalidArgumentException $e){http_response_code(422);$error=$e->getMessage();$posted=array_filter($_POST,'is_string');}
     }elseif($_SERVER['REQUEST_METHOD']!=='GET'){http_response_code(405);header('Allow: GET, POST');exit;}
-    $snapshot=$filters['month']==='all'?pending_intake_snapshot($user,true):sales_snapshot($user,$filters['month']);
+    pending_rollover($user);$snapshot=$filters['month']==='all'?pending_intake_snapshot($user,true):sales_snapshot($user,$filters['month']);
     if($mode==='list'){
         $records=array_column($snapshot['records'],null,'id');
         foreach(intake_actual_normal_records($user,$filters) as $record)$records[$record['id']]=array_replace($records[$record['id']]??[],$record);

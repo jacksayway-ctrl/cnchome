@@ -96,7 +96,7 @@
  form.addEventListener('reset',()=>global.setTimeout(renderSummary,0));
  form.addEventListener('submit',event=>{
   event.preventDefault();if(busy||!form.reportValidity())return;
-  const values=Object.fromEntries(new FormData(form));rememberSelection();save({...values,employeeId:Number(values.employeeId),birthYear:Number(values.birthYear),scopeTeam:config.team||'',status:'pending',action:'create',requestKey:form.dataset.requestKey});
+  const values=Object.fromEntries(new FormData(form));rememberSelection();save({...values,recallRequested:values.recallRequested==='true',employeeId:Number(values.employeeId),birthYear:Number(values.birthYear),scopeTeam:config.team||'',status:'pending',action:'create',requestKey:form.dataset.requestKey});
  });
  if(config.employeeId&&config.staff.some(staff=>String(staff.id)===String(config.employeeId))){owner.value=String(config.employeeId);owner.dispatchEvent(new global.Event('change',{bubbles:true}));}else renderSummary();
 })(window);

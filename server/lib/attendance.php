@@ -53,9 +53,9 @@ function attendance_snapshot(array $user,mixed $date=null,?DateTimeImmutable $no
     attendance_authorize($user);$today=attendance_now($now)->format('Y-m-d');$d=db();
     if($user['role']==='employee'){
         // Do not select or serialize timestamps for employees, even on a forged admin/date query.
-        $q=$d->prepare('SELECT work_date FROM employee_checkins WHERE user_id=? ORDER BY work_date DESC');$q->execute([$user['id']]);
-        $days=$q->fetchAll(PDO::FETCH_COLUMN);
-        return ['today'=>$today,'checkedIn'=>in_array($today,$days,true),'records'=>array_map(fn($day)=>['date'=>$day,'status'=>'출근 완료'],$days)];
+        $q=$d->prepare('SELECT c.work_date,CASE WHEN a.user_id IS NULL THEN 0 ELSE 1 END AS approved FROM employee_checkins c LEFT JOIN employee_checkin_approvals a ON a.user_id=c.user_id AND a.work_date=c.work_date WHERE c.user_id=? ORDER BY c.work_date DESC');$q->execute([$user['id']]);
+        $records=array_map(fn($row)=>['date'=>$row['work_date'],'checkedIn'=>true,'approved'=>(bool)$row['approved'],'status'=>$row['approved']?'출근 완료':'승인 대기'],$q->fetchAll());
+        return ['today'=>$today,'checkedIn'=>in_array($today,array_column($records,'date'),true),'records'=>$records];
     }
     $date=$date??$today;hr_assert(is_string($date)&&hr_day($date),'조회 날짜를 확인해 주세요.');
     $q=$d->prepare("SELECT u.id,u.username,u.display_name,u.department,c.work_date,c.check_in_at,a.approved_at,actor.display_name AS approved_by FROM app_users u LEFT JOIN employee_checkins c ON c.user_id=u.id AND c.work_date=? LEFT JOIN employee_checkin_approvals a ON a.user_id=c.user_id AND a.work_date=c.work_date LEFT JOIN app_users actor ON actor.id=a.actor_id WHERE u.role='employee' AND (u.active=1 OR c.work_date IS NOT NULL) ORDER BY u.display_name,u.id");$q->execute([$date]);$rows=[];

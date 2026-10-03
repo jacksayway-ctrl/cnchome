@@ -63,6 +63,7 @@ foreach(grade_week('2026-09-21') as $day){for($i=0;$i<9;$i++)$state['sales'][]=[
 for($i=0;$i<100;$i++)$q->execute([3,'insurance','2026-09-26','normal',1]);
 $q=$d->prepare('UPDATE test_employee_data SET state=? WHERE user_id=3');$q->execute([hr_json($state)]);
 $r=grade_summary_snapshot($test,'2026-09-25');
+check($r['daily']['monthPaid']===175000&&count($r['daily']['monthReceipts'])===5,'daily menu accumulates all five received daily awards for the current month');
 check($r['weekly']['count']===60&&$r['weekly']['value']===12.0&&$r['weekly']['availableDays']===5&&$r['weekly']['amount']===50000&&$r['weekly']['complete'],'60 own normal cases / 5 = 12, single 50k tier, both data sources');
 check(grade_summary_snapshot($test,'2026-09-27')['weekly']['amount']===50000,'weekend normal cases never enter five-day weekly grade');
 $counts=['2026-09-21'=>20,'2026-09-22'=>99,'2026-09-23'=>20,'2026-09-25'=>20];
@@ -77,6 +78,7 @@ check($after['daily']['amount']===35000&&$after['daily']['paidCount']===7&&$afte
 $changed=$policy;foreach($changed['weekly'] as &$tier)if($tier['achievement'])$tier['achievement']+=10000;unset($tier);
 $q=$d->prepare('INSERT INTO grade_versions(id,department,effective_date,policy) VALUES(?,?,?,?)');$q->execute([5,'insurance','2026-09-23',hr_json($changed)]);
 $r=grade_summary_snapshot($test,'2026-09-25');check($r['weekly']['amount']===56000&&array_column($r['weekly']['parts'],'bonus')===[20000,36000],'employee weekly amount shares payroll effective-day proration');
+$previous=grade_summary_snapshot($test,'2026-09-29')['previousWeek'];check($previous['start']==='2026-09-21'&&$previous['end']==='2026-09-25'&&$previous['amount']===56000&&$previous['count']===60,'last-week menu uses the completed prior week and effective-date proration');
 $ledger=grade_employee_context(['userId'=>1,'profile'=>$profile+['team'=>'insurance']],'2026-09');
 check($ledger['count']===2&&$ledger['hours']===0,'ordinary employee totals exclude stale fixture receipts and fixture attendance');
 echo "PASS: cumulative daily grades and automatic receipt-independent prepayment, combined own normal records, five-day weekly average, effective-date proration, personal isolation and boundaries.\n";

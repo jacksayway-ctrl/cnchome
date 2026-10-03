@@ -43,6 +43,7 @@ try {
         render_view('contract-document',compact('user','role','selected','documentOnly','download'));exit;
     }
     $contracts=contract_list($user);
+    $contractHistory=$role==='employee'?contract_employee_history($user):[];
     $memberships=$role==='admin'?membership_list($user):[];
     $employees=$role==='admin'?db()->query('SELECT id,employee_no,profile FROM hr_employees ORDER BY id')->fetchAll():[];
     $filterTeam='';$filterEmployee=0;$filterProfile=null;
@@ -57,7 +58,7 @@ try {
     $events=[];
     if($selected){$q=db()->prepare('SELECT ce.event,ce.created_at,ce.snapshot,u.display_name FROM hr_contract_events ce JOIN app_users u ON u.id=ce.actor_id WHERE ce.contract_id=? ORDER BY ce.id DESC LIMIT 30');$q->execute([$selected['id']]);$events=$q->fetchAll();}
     $notice=$_SESSION['contract_notice']??$_SESSION['membership_notice']??'';unset($_SESSION['contract_notice'],$_SESSION['membership_notice']);
-    render_view('contracts',compact('user','role','selected','company','contracts','employees','events','error','notice','failedPost','filterTeam','filterEmployee','filterProfile','basicRequested','editWindow','previewOnly','memberships'));
+    render_view('contracts',compact('user','role','selected','company','contracts','contractHistory','employees','events','error','notice','failedPost','filterTeam','filterEmployee','filterProfile','basicRequested','editWindow','previewOnly','memberships'));
 } catch(HRForbidden $e){http_response_code(403);render_view('error',['title'=>'처리 권한 없음','message'=>$e->getMessage(),'role'=>session_role()]);}
 catch(Throwable $e){
     error_log('cnchome contracts: '.$e->getMessage());http_response_code(503);

@@ -45,6 +45,7 @@ rejects(fn()=>contract_mutate($one,['action'=>'create','employeeId'=>1]),'employ
 $id=contract_mutate($admin,['action'=>'create','employeeId'=>1]);$row=contract_find($id,$admin);
 check($row['version']===1&&$row['status']==='draft','first draft created');
 check(contract_find($id,$one)===null&&contract_list($one)===[],'unissued draft hidden');
+$history=contract_employee_history($one);check(count($history)===1&&!$history[0]['issued']&&!array_key_exists('terms',$history[0])&&contract_employee_history($two)===[],'employee history exposes only own draft dates and state without draft terms');
 rejects(fn()=>contract_mutate($admin,['action'=>'create','employeeId'=>1]),'one open draft per employee');
 rejects(fn()=>contract_mutate($one,['action'=>'acknowledge','id'=>$id,'revision'=>1,'reviewed'=>'1']),'unissued acknowledgement rejected');
 rejects(fn()=>contract_mutate($admin,['action'=>'issue','id'=>$id,'revision'=>1]),'missing working hours and wage agreement');

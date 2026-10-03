@@ -47,3 +47,5 @@ ps_check(payroll_record_department([],['team'=>'health'])==='health','legacy pay
 ps_check(payroll_record_department([])==='insurance','legacy records with no team default to insurance');
 ps_reject(fn()=>management_department('all'),'unknown department is never treated as an unscoped write');
 echo "PASS: payroll department attribution and invalid scope rejection.\n";
+
+$rank=pay_statement_summary(array_replace($c,['allowanceItems'=>[['label'=>'직급수당','amount'=>100000,'kind'=>'rankAllowance','method'=>'부장 수당'],['label'=>'기타','amount'=>20000,'kind'=>'other','method'=>'기타']]]));ps_check($rank['rank']===100000&&$rank['other']===20000,'job-rank allowance is summarized separately without duplicating other allowances');

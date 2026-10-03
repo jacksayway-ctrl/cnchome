@@ -38,7 +38,7 @@ function contract_default_terms(array $employee,array $company): array {
     $terms=array_replace(contract_company_defaults(),$company,[
         'employeeName'=>$p['name']??'','employeeBirth'=>$p['birthDate']??'','employeeAddress'=>trim(($p['address']??'').' '.($p['addressDetail']??'')),'employeePhone'=>$p['phone']??'','hireDate'=>$p['startDate']??'',
         'periodPreset'=>($p['contractEnd']??'')?'custom':'tenMonths','contractType'=>'기간제','contractStart'=>$start,'contractEnd'=>$end,
-        'signedDate'=>hr_today(),'wageEffective'=>hr_today(),'workplace'=>($p['workplace']??'')?:(($company['employerName']??'')?:'씨앤씨'),'duties'=>($p['duties']??'')?:'전화상담',
+        'signedDate'=>hr_today(),'changedDate'=>'','wageEffective'=>hr_today(),'workplace'=>($p['workplace']??'')?:(($company['employerName']??'')?:'씨앤씨'),'duties'=>($p['duties']??'')?:'전화상담',
         'baseHourly'=>$p['payType']==='시급제'?$base:12500,'supportHourly'=>$p['payType']==='시급제'?$rate-$base:2500,
         'paymentDay'=>($p['payday']??'')?:($company['paymentDay']??15),'weeklyHoliday'=>in_array($p['weeklyHoliday']??'',['토','일'],true)?$p['weeklyHoliday']:($p['paidWeeklyHoliday']??'일'),'holidayDetail'=>'','leaveDetail'=>'','schedule'=>$schedule,'existingWageAgreement'=>false,'insurancePension'=>'확인 필요','insuranceHealth'=>'확인 필요','insuranceEmployment'=>'확인 필요','insuranceAccident'=>'적용','insuranceException'=>'',
     ]);
@@ -82,7 +82,8 @@ function contract_terms(array $in): array {
     $t=contract_company($in);
     foreach(['employeeName'=>50,'employeeBirth'=>10,'employeeAddress'=>120,'employeePhone'=>20,'hireDate'=>10,'contractType'=>10,'contractStart'=>10,'contractEnd'=>10,'signedDate'=>10,'wageEffective'=>10,'workplace'=>100,'duties'=>100,'weeklyHoliday'=>1,'holidayDetail'=>100,'leaveDetail'=>100,'insurancePension'=>10,'insuranceHealth'=>10,'insuranceEmployment'=>10,'insuranceAccident'=>10,'insuranceException'=>100] as $key=>$max)$t[$key]=contract_text($in[$key]??'',$max,$key);
     if($t['contractStart']==='')$t['contractStart']=hr_today();
-    foreach(['employeeBirth','hireDate','contractStart','contractEnd','signedDate','wageEffective'] as $k)hr_assert($t[$k]===''||hr_day($t[$k]),'날짜 형식을 확인해 주세요: '.$k);
+    $t['changedDate']=contract_text($in['changedDate']??'',10,'계약 변경일');
+    foreach(['employeeBirth','hireDate','contractStart','contractEnd','signedDate','changedDate','wageEffective'] as $k)hr_assert($t[$k]===''||hr_day($t[$k]),'날짜 형식을 확인해 주세요: '.$k);
     hr_assert(in_array($t['contractType'],['기간제','무기계약'],true),'계약 구분을 선택해 주세요.');
     hr_assert(in_array($t['weeklyHoliday'],['월','화','수','목','금','토','일'],true),'주휴일을 선택해 주세요.');
     $t['baseHourly']=contract_number($in['baseHourly']??0,1000000,'기본시급');
@@ -163,6 +164,13 @@ function contract_list(array $user): array {
 function contract_log(int $id,array $user,string $event,?array $snapshot=null): void {
     $q=db()->prepare('INSERT INTO hr_contract_events(contract_id,actor_id,event,snapshot) VALUES(?,?,?,?)');$q->execute([$id,$user['id'],$event,$snapshot?hr_json($snapshot):null]);
 }
+/** Employee history exposes dates and workflow state, never an unpublished draft's terms. */
+function contract_employee_history(array $user): array {
+    if(($user['role']??'')!=='employee')throw new HRForbidden('본인 계약 이력만 조회할 수 있습니다.');
+    $q=db()->prepare("SELECT c.*,a.state AS approval_state FROM hr_contracts c JOIN hr_employees e ON e.id=c.employee_id LEFT JOIN hr_contract_approvals a ON a.contract_id=c.id WHERE c.recipient_user_id=? OR (c.status='draft' AND e.user_id=?) ORDER BY c.id DESC");$q->execute([$user['id'],$user['id']]);$history=[];
+    foreach($q->fetchAll() as $raw){$row=contract_decode($raw);$terms=$row['issued_snapshot']['terms']??$row['terms'];$history[]=['id'=>$row['id'],'version'=>$row['version'],'signedDate'=>$terms['signedDate']??'','changedDate'=>$terms['changedDate']??'','issuedAt'=>$row['issued_at']?contract_korea_time($row['issued_at']):'','status'=>contract_status($row),'issued'=>$row['status']!=='draft'];}
+    return $history;
+}
 function contract_mutate(array $user,array $in): int {
     $action=contract_text($in['action']??'',30,'처리');$admin=$user['role']==='admin';
     hr_assert(in_array($action,$admin?['saveCompany','saveTemplate','create','revise','save','issue','apply','withdraw']:['acknowledge','approve','reject'],true),'처리 권한이 없습니다.');
@@ -193,7 +201,7 @@ function contract_mutate(array $user,array $in): int {
             hr_assert(!$draft,'이 직원의 미발행 초안이 있습니다. 기존 초안을 먼저 확인해 주세요.');
             $q=$d->prepare('SELECT COALESCE(MAX(version),0)+1 FROM hr_contracts WHERE employee_id=?');$q->execute([$employeeId]);$version=(int)$q->fetchColumn();
             $terms=$source?$source['issued_snapshot']['terms']:contract_default_terms($employee,contract_company_row()['settings']);
-            if($source){$terms['signedDate']=hr_today();$terms['wageEffective']=hr_today();$terms['existingWageAgreement']=false;}
+            if($source){$terms['changedDate']=hr_today();$terms['signedDate']=hr_today();$terms['wageEffective']=hr_today();$terms['existingWageAgreement']=false;}
             if($action==='create'&&isset($in['periodPreset']))$terms=array_replace($terms,contract_period(contract_text($in['contractStart']??'',10,'계약 시작일')?:hr_today(),contract_text($in['periodPreset'],15,'기간 선택'),contract_text($in['contractEnd']??'',10,'종료일'),array_column(array_filter($terms['schedule'],fn($day)=>$day['working']),'day')));
             if($action==='create'&&$terms['contractStart']>hr_today())$terms['wageEffective']=$terms['contractStart'];
             $q=$d->prepare('INSERT INTO hr_contracts(employee_id,version,terms,created_by) VALUES(?,?,?,?)');$q->execute([$employeeId,$version,hr_json($terms),$user['id']]);$id=(int)$d->lastInsertId();contract_log($id,$user,$source?'revisedDraft':'created');

@@ -713,3 +713,7 @@ body.policy-window #tm-preview main{padding-top:14px}
 #tm-preview .sales-home-month-records:not(:empty){margin:16px 0 20px}
 #tm-preview .sales-home-graph .legend{flex-wrap:wrap}
 @media(max-width:760px){#tm-preview .sales-home-graph .stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+.sales-sync-inline{white-space:nowrap;font-size:12px}.sales-toolbar-basis{margin-left:auto;font-size:12px;line-height:1.5}
+
+.receipt-recall{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:12px 0}.receipt-recall [aria-pressed="true"]{background:#eaf1ff;border-color:#2563eb;color:#1d4ed8}.receipt-recall label{flex-basis:100%}.receipt-recall textarea{display:block;width:100%}.receipt-recall small{color:#64748b}

@@ -31,7 +31,7 @@ $send($one,'2026-10-01 10:00:00');check($timeFor(2,'2026-10-01')==='10:00','exac
 attendance_mutate($two,['action'=>'checkIn'],new DateTimeImmutable('2026-09-30 15:05:00',new DateTimeZone('UTC')));
 check($timeFor(3,'2026-10-01')==='10:00','Seoul midnight uses the next work date even when the UTC date is previous day');
 $staff=attendance_snapshot($one,'1900-01-01',$at('2026-10-01 11:00:00'));
-check($staff===['today'=>'2026-10-01','checkedIn'=>true,'records'=>[['date'=>'2026-10-01','status'=>'출근 완료'],['date'=>'2026-09-30','status'=>'출근 완료']]],'employee response contains only own dates/status and ignores a requested date');
+check($staff===['today'=>'2026-10-01','checkedIn'=>true,'records'=>[['date'=>'2026-10-01','checkedIn'=>true,'approved'=>false,'status'=>'승인 대기'],['date'=>'2026-09-30','checkedIn'=>true,'approved'=>false,'status'=>'승인 대기']]],'employee response contains only own dates and approval state and ignores a requested date');
 check(!str_contains(hr_json($staff),'10:00')&&!str_contains(hr_json($staff),'check_in_at')&&!str_contains(hr_json($staff),'checkInTime')&&!str_contains(hr_json($staff),'created_at'),'employee JSON never includes recorded or audit times');
 check(attendance_snapshot($one,null,$at('2026-10-02 00:01:00'))['checkedIn']===false,'button resets for a new Seoul date');
 foreach([['action'=>'checkIn','date'=>'2020-01-01'],['action'=>'checkIn','time'=>'10:00'],['action'=>'checkIn','employeeId'=>3],['action'=>'clockOut']] as $payload)rejects(fn()=>attendance_mutate($one,$payload),'client cannot choose another employee, date, time or action');
@@ -54,6 +54,8 @@ echo "PASS: 10:00 floor, late and exact-boundary check-in, Seoul work date, dupl
 check(attendance_approve($admin,['action'=>'approveAll','date'=>'2026-09-30'])===1,'bulk approval includes only on-time check-ins');
 $records=array_column(attendance_snapshot($admin,'2026-09-30')['records'],null,'employeeId');
 check($records[2]['approved']&&!$records[3]['approved']&&$records[3]['late'],'late arrival waits for individual review');
+$employeeRows=array_column(attendance_snapshot($one,null,$at('2026-10-01 11:00:00'))['records'],null,'date');
+check($employeeRows['2026-09-30']['approved']&&$employeeRows['2026-09-30']['status']==='출근 완료'&&!$employeeRows['2026-10-01']['approved'],'administrator approval updates the employee calendar without approving another date');
 check(attendance_approve($admin,['action'=>'approveAll','date'=>'2026-09-30'])===0,'bulk approval is idempotent');
 rejects(fn()=>attendance_approve($one,['action'=>'approveOne','date'=>'2026-09-30','employeeId'=>3]),'employees cannot approve attendance');
 rejects(fn()=>attendance_approve($admin,['action'=>'approveOne','date'=>'2026-09-30','employeeId'=>5]),'no approval without an actual check-in');

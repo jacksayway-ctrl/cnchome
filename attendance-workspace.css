@@ -39,3 +39,6 @@
 #tm-preview .test-attendance-body table{width:100%;min-width:0;table-layout:fixed}
 #tm-preview .test-attendance-body th,#tm-preview .test-attendance-body td{white-space:normal;overflow-wrap:anywhere}
 .checkin-approval-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:12px 0}.checkin-approval-actions [aria-pressed=true]{background:#edf4ff;border-color:#3172bf;color:#225797}
+/* Submitted check-ins become complete only after administrator approval. */
+#tm-preview .checkin-button.is-pending:disabled{background:#fff4da;border-color:#ead4a8;color:#88651e;opacity:1}
+#tm-preview .attendance-status-pending{background:#fff4da;color:#88651e}

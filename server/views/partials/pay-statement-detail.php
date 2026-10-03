@@ -2,14 +2,14 @@
 $c=$calculation;$name=$snapshot['name']??$employee['profile']['name']??'';$employeeNo=$snapshot['employeeNo']??$employee['employeeNo']??'';$paySummary=pay_statement_summary($c);
 ?>
 <section class="nf-card nf-pay-statement"><h2>씨앤씨 · <?= $eh($selected['month']) ?> 가지급명세서</h2>
-<p><strong><?= $eh($name) ?></strong> · <?= $eh(management_departments()[payroll_record_department($selected,$employee['profile']??[])]) ?> · 사번 <?= $eh($employeeNo) ?> · <?= $eh(pay_statement_status($selected['status'])) ?></p>
+<p><strong><?= $eh($name) ?></strong> · <?= $eh(management_departments()[payroll_record_department($selected,$employee['profile']??[])]) ?> · 직급 <?= $eh(($snapshot['jobRank']??(!$snapshot?($employee['profile']['jobRank']??''):''))?:'미등록') ?> · 사번 <?= $eh($employeeNo) ?> · <?= $eh(pay_statement_status($selected['status'])) ?></p>
 <p>산정 기간 <?= $eh($c['periodStart']??$selected['month'].'-01') ?> ~ <?= $eh($c['periodEnd']??(new DateTimeImmutable($selected['month'].'-01'))->format('Y-m-t')) ?> · 지급일 <?= $eh($c['payday']??'기존 기록 미등록') ?></p>
 <div class="nf-totals" aria-label="지급 합계"><div><span>지급 합계</span><strong><?= native_money($c['gross']) ?></strong></div><div><span>공제 합계</span><strong><?= native_money($c['deductions']) ?></strong></div><div><span>일그레이드 선지급</span><strong><?= native_money($c['prepaidDaily']??0) ?></strong></div><div><span>실지급액</span><strong><?= native_money($c['net']) ?></strong></div></div>
 <?php if($c['payType']==='시급제'): ?>
 <p><strong>시간근무금액 <?= native_money($paySummary['workPay']) ?></strong> = 실제 근무 <?= intdiv($c['minutes'],60) ?>시간 <?= $c['minutes']%60 ?>분 × <?= native_money($c['rate']) ?>/시간</p>
 <?php if($c['holidayInclusive']??false): ?><p>기본시급 <strong><?= native_money($c['baseRate']) ?></strong> + 주휴수당 포함분 <strong><?= native_money($c['holidayRate']) ?></strong> (시간당 환산) = <strong><?= native_money($c['rate']) ?>/시간</strong>. 주휴 포함분은 시간근무금액에 이미 포함되어 있습니다.</p><?php endif ?>
 <?php endif ?>
-<table class="nf-table nf-pay-components" aria-label="급여 구성 요약"><thead><tr><th><?= $c['payType']==='시급제'?'시간근무금액':'계약 월급' ?></th><th><?= ($c['dailyGradeSettlement']??'')==='cash-auto'?'일그레이드 자동 선지급 총액':(($c['dailyGradeSettlement']??'')==='cash'?'일그레이드 현금 지급 총액':'일그레이드 지급 항목') ?></th><th>주그레이드 총액</th><th>월그레이드 총액</th></tr></thead><tbody><tr><td><?= native_money($paySummary['workPay']) ?></td><td><?= native_money($paySummary['daily']) ?></td><td><?= native_money($paySummary['weekly']) ?></td><td><?= native_money($paySummary['monthly']) ?></td></tr></tbody></table>
+<table class="nf-table nf-pay-components" aria-label="급여 구성 요약"><thead><tr><th><?= $c['payType']==='시급제'?'시간근무금액':'계약 월급' ?></th><th><?= ($c['dailyGradeSettlement']??'')==='cash-auto'?'일그레이드 자동 선지급 총액':(($c['dailyGradeSettlement']??'')==='cash'?'일그레이드 현금 지급 총액':'일그레이드 지급 항목') ?></th><th>주그레이드 총액</th><th>월그레이드 총액</th><th>직급수당</th></tr></thead><tbody><tr><td><?= native_money($paySummary['workPay']) ?></td><td><?= native_money($paySummary['daily']) ?></td><td><?= native_money($paySummary['weekly']) ?></td><td><?= native_money($paySummary['monthly']) ?></td><td><?= native_money($paySummary['rank']) ?></td></tr></tbody></table>
 <?php if($paySummary['workAdjustment']||$paySummary['other']): ?><p class="nf-muted">위 금액 외 정산: <?php if($paySummary['workAdjustment']): ?>주휴 추가 정산 <?= native_money($paySummary['workAdjustment']) ?><?php endif ?><?php if($paySummary['other']): ?> · 기타 지급 <?= native_money($paySummary['other']) ?><?php endif ?></p><?php endif ?>
 <p class="nf-pay-formula">급여일 실지급액 <strong><?= native_money($c['net']) ?></strong> = 지급 합계 <?= native_money($c['gross']) ?> − 일그레이드 현금 선지급 <?= native_money($paySummary['dailyPaid']) ?> − 공제 <?= native_money($c['deductions']) ?></p>
 <h3>지급 항목별 계산 내역</h3>
@@ -19,6 +19,7 @@ $c=$calculation;$name=$snapshot['name']??$employee['profile']['name']??'';$emplo
 <tr><th>법정 주휴수당</th><td><?= native_money($c['statutoryHoliday']) ?></td><td>주별 산정 내역 합계<?= !$c['holidayAssessmentComplete']?' · 산정 확인 전':'' ?></td></tr>
 <tr><th>회사 약정수당</th><td><?= native_money($c['companySupport']) ?></td><td>각 주의 약정 주휴·지원 기준액에서 법정 주휴수당을 뺀 부족분 (최소 0원)</td></tr>
 <?php elseif(!empty($c['holidayInclusive'])): ?><tr><th>주휴·회사 지원 합계 (기존 기록)</th><td><?= native_money($c['holiday']) ?></td><td><?= native_money($c['holidayRate']) ?> × 인정시간. 기존 기록에 법정·지원 구분 없음</td></tr><?php endif ?>
+<?php if(!$paySummary['rank']): ?><tr><th>직급수당</th><td>0원</td><td>등록된 직급수당 없음</td></tr><?php endif ?>
 <?php foreach(pay_statement_items($c,'allowanceItems') as $item): ?><tr><th><?= $eh($item['label']) ?></th><td><?= native_money($item['amount']) ?></td><td><?= $eh($item['method']) ?></td></tr><?php endforeach ?>
 </tbody></table>
 <?php if($c['holidayInclusive']??false): ?><p class="nf-muted">주휴수당 포함분 중 법정 주휴 비대상분은 회사 약정수당으로 구분합니다. 법정 주휴수당이 포함분보다 많으면 추가 정산액을 별도로 표시합니다.</p><?php endif ?>

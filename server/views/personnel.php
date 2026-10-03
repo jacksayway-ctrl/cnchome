@@ -55,6 +55,7 @@ personnel_field($profile,'addressDetail','상세주소','text',240);
 <?php
 personnel_select($profile,'team','소속',['insurance'=>'보험팀','cosmetics'=>'화장품팀','health'=>'건강보조식품팀']);
 personnel_select($profile,'role','직책',['상담원'=>'상담원','팀장'=>'팀장','관리자'=>'관리자']);
+personnel_field($profile,'jobRank','직급','text',60);
 personnel_select($profile,'employment','재직 상태',['재직'=>'재직','휴직'=>'휴직','퇴사'=>'퇴사']);
 personnel_field($profile,'startDate','고용·입사일','date',10,true);
 personnel_field($profile,'renewalDate','고용 갱신일','date',10);
@@ -118,7 +119,7 @@ personnel_cells('주소',trim(($p['postcode']??'').' '.($p['address']??'').' '.(
 <h3>2. 고용·인사 사항</h3><table class="personnel-table"><tbody>
 <?php
 personnel_cells('소속',department_label($p['team']??''),'직책',$p['role']??'');
-echo '<tr><th>재직 상태</th><td colspan="3">'.h(personnel_text($p['employment']??'')).'</td></tr>';
+personnel_cells('직급',$p['jobRank']??'','재직 상태',$p['employment']??'');
 personnel_cells('고용·입사일',$p['startDate']??'','고용 갱신일',$p['renewalDate']??'');
 personnel_cells('근무 장소',$p['workplace']??'','종사 업무',$p['duties']??'');
 personnel_cells('퇴직·해고일',$p['endDate']??'','퇴직·해고 사유',$p['retirementReason']??'');
@@ -152,8 +153,8 @@ personnel_cells('임금 적용일',$p['wageEffective']??'','급여일',($p['payd
 <?php endif; ?>
 <?php elseif($admin): ?>
 <details class="nf-card personnel-record-list"><summary><span>직원 인사기록</span><small><?= count($records) ?>명 · 펼쳐보기</small></summary><p class="personnel-note">인사기록과 근로계약은 별도로 관리합니다. 개인정보는 인사·급여 업무 목적으로 확인해 주세요.</p>
-<div class="nf-table-wrap"><table class="nf-table personnel-list"><thead><tr><th>사번</th><th>성명</th><th>소속·직책</th><th>입사일</th><th>상태</th><th>인사기록</th></tr></thead><tbody>
-<?php foreach($records as $item): $p=$item['profile']; ?><tr><td><?= h($item['employee_no']) ?></td><td><?= h($p['name']??'') ?></td><td><?= h(department_label($p['team']??'').' · '.($p['role']??'')) ?></td><td><?= h($p['startDate']??'') ?></td><td><?= h($p['employment']??'') ?></td><td><a href="/personnel.php?role=admin&amp;id=<?= $item['id'] ?>&amp;popup=1" target="_blank" rel="noopener" data-personnel-window>보기</a> · <a href="/personnel.php?role=admin&amp;id=<?= $item['id'] ?>&amp;edit=1&amp;popup=1" target="_blank" rel="noopener" data-personnel-window>수정</a><?php if(!empty($item['user_id'])): ?> <form class="personnel-account-action" method="post" action="/personnel.php?role=admin&amp;id=<?= $item['id'] ?>&amp;returnList=1"><?= native_csrf() ?><input type="hidden" name="id" value="<?= $item['id'] ?>"><input type="hidden" name="revision" value="<?= $item['revision'] ?>"><button type="submit" name="action" value="<?= $item['accountActive']?'suspendStaff':'resumeStaff' ?>"><?= $item['accountActive']?'사용중지':'사용 재개' ?></button></form><?php endif; ?></td></tr><?php endforeach; ?>
+<div class="nf-table-wrap"><table class="nf-table personnel-list"><thead><tr><th>사번</th><th>성명</th><th>소속·직책·직급</th><th>입사일</th><th>상태</th><th>인사기록</th></tr></thead><tbody>
+<?php foreach($records as $item): $p=$item['profile']; ?><tr><td><?= h($item['employee_no']) ?></td><td><?= h($p['name']??'') ?></td><td><?= h(department_label($p['team']??'').' · '.($p['role']??'').' · '.personnel_text($p['jobRank']??'')) ?></td><td><?= h($p['startDate']??'') ?></td><td><?= h($p['employment']??'') ?></td><td><a href="/personnel.php?role=admin&amp;id=<?= $item['id'] ?>&amp;popup=1" target="_blank" rel="noopener" data-personnel-window>보기</a> · <a href="/personnel.php?role=admin&amp;id=<?= $item['id'] ?>&amp;edit=1&amp;popup=1" target="_blank" rel="noopener" data-personnel-window>수정</a><?php if(!empty($item['user_id'])): ?> <form class="personnel-account-action" method="post" action="/personnel.php?role=admin&amp;id=<?= $item['id'] ?>&amp;returnList=1"><?= native_csrf() ?><input type="hidden" name="id" value="<?= $item['id'] ?>"><input type="hidden" name="revision" value="<?= $item['revision'] ?>"><button type="submit" name="action" value="<?= $item['accountActive']?'suspendStaff':'resumeStaff' ?>"><?= $item['accountActive']?'사용중지':'사용 재개' ?></button></form><?php endif; ?></td></tr><?php endforeach; ?>
 <?php if(!$records): ?><tr><td colspan="6" class="personnel-empty">등록된 직원이 없습니다. 직원 등록에서 인사기록을 작성해 주세요.</td></tr><?php endif; ?>
 </tbody></table></div></details>
 <?php else: ?><section class="nf-card personnel-empty">아직 연결된 인사기록이 없습니다. 관리자에게 직원 계정 연결을 요청해 주세요.</section><?php endif; ?>

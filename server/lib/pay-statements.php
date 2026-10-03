@@ -94,9 +94,10 @@ function pay_statement_items(array $c,string $key): array {
 }
 /** Summarize saved amounts only; never substitute live grades into an issued statement. */
 function pay_statement_summary(array $c): array {
-    $s=['daily'=>0,'weekly'=>0,'monthly'=>0,'other'=>0];
+    $s=['daily'=>0,'weekly'=>0,'monthly'=>0,'rank'=>0,'other'=>0];
     foreach(pay_statement_items($c,'allowanceItems') as $item){
-        $key=['gradeDaily'=>'daily','gradeWeekly'=>'weekly','gradeMonthly'=>'monthly'][$item['kind']??'']??'other';
+        $key=['gradeDaily'=>'daily','gradeWeekly'=>'weekly','gradeMonthly'=>'monthly','rankAllowance'=>'rank'][$item['kind']??'']??'other';
+        if($key==='other'&&preg_match('/직급\s*수당/u',$item['label']??''))$key='rank';
         if($key==='other'&&preg_match('/(일|주|월)\s*그레이드/u',$item['label']??'',$match))$key=['일'=>'daily','주'=>'weekly','월'=>'monthly'][$match[1]];
         $s[$key]+=$item['amount'];
     }

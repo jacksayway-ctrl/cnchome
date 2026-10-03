@@ -40,6 +40,7 @@ run_deploy_step server/bin/check-delete-test-staff-345.php
 run_deploy_step server/bin/check-intake-birth-edit.php
 run_deploy_step server/bin/check-address-search.php
 run_deploy_step server/bin/check-attendance.php
+run_deploy_step server/bin/check-pending-rollover.php
 run_deploy_step server/bin/check-membership.php
 run_deploy_step server/bin/check-personnel.php
 run_deploy_step server/bin/check-contract-checklist.php

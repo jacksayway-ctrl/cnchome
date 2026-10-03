@@ -7,9 +7,9 @@ const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 const route=()=>location.hash.slice(1)||new URL(location.href).searchParams.get('page')||live.page||'home';
 const day=()=>new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Seoul'}).format(new Date());
 function employeeMarkup(){
- const done=data?.checkedIn===true;
+ const submitted=data?.checkedIn===true,done=data?.records?.some(r=>r.date===(data?.today||day())&&r.approved===true)===true;
  const today=esc(data?.today||day());
- return `<div class="checkin-heading"><h3>오늘 출근</h3><time datetime="${today}">${today}</time></div><button type="button" class="action checkin-button ${done?'is-done':''}" data-checkin ${loading||!data||done?'disabled':''}>${done?'출근 완료':loading?'확인 중…':'출근'}</button>${error?`<p class="checkin-error" role="alert">${esc(error)}</p><button type="button" class="secondary" data-checkin-refresh ${loading?'disabled':''}>다시 확인</button>`:''}`;
+ return `<div class="checkin-heading"><h3>오늘 출근</h3><time datetime="${today}">${today}</time></div><button type="button" class="action checkin-button ${done?'is-done':submitted?'is-pending':''}" data-checkin ${loading||!data||submitted?'disabled':''}>${done?'출근 완료':submitted?'승인 대기':loading?'확인 중…':'출근'}</button>${error?`<p class="checkin-error" role="alert">${esc(error)}</p><button type="button" class="secondary" data-checkin-refresh ${loading?'disabled':''}>다시 확인</button>`:''}`;
 }
 function adminMarkup(){
  const ready=data?.date===selectedDate,all=ready?data.records:[],count=all.filter(r=>r.checkedIn).length,eligible=all.filter(r=>r.checkedIn&&!r.late&&!r.approved).length,late=all.filter(r=>r.late&&!r.approved).length,records=lateOnly?all.filter(r=>r.late&&!r.approved):all;
@@ -48,5 +48,5 @@ document.addEventListener('change',event=>{if(event.target.matches('[data-checki
 const active=()=>admin?route()==='adminAttendance':['home','attendance'].includes(route());
 window.addEventListener('focus',()=>{if(active())load();});window.addEventListener('hashchange',()=>{mount();if(active())load();});
 new MutationObserver(mount).observe(document.getElementById('tm-main'),{childList:true,subtree:true});
-if(!admin)load();mount();setInterval(()=>{if(!document.hidden&&active())load();},60000);
+if(!admin)load();mount();setInterval(()=>{if(!document.hidden&&active())load();},5000);
 })();

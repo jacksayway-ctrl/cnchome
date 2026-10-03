@@ -61,7 +61,7 @@ function grade_summary_snapshot(array $user,?string $today=null): array {
     try {
         $q=$d->prepare('SELECT profile FROM hr_employees WHERE user_id=?');$q->execute([$user['id']]);$raw=$q->fetchColumn();$profile=$raw?json_decode($raw,true,512,JSON_THROW_ON_ERROR):[];
         $entries=grade_history($user['department']);$entry=null;foreach($entries as $candidate)if($candidate['date']<=$today)$entry=$candidate;$policy=$entry['policy']??null;
-        $date=new DateTimeImmutable($today);$week=$date->modify('-'.((int)$date->format('N')-1).' days')->format('Y-m-d');$from=min(substr($today,0,7).'-01',$week);
+        $date=new DateTimeImmutable($today);$monday=$date->modify('-'.((int)$date->format('N')-1).' days');$previousFriday=$monday->modify('-3 days')->format('Y-m-d');$from=min(substr($today,0,7).'-01',$monday->modify('-7 days')->format('Y-m-d'));
         $test=cnc_test_user($user);
         $counts=sales_performance_counts((int)$user['id'],$user['department'],$test,$from,$today);
         $calendar=business_calendar_rules(substr($today,0,7));$result=grade_progress($profile,$counts,$policy,$today,$calendar)+['gradeAvailable'=>$user['department']==='insurance'||$entry!==null,'gradeVisibility'=>grade_visibility_for($user)[$user['department']]??['daily'=>true,'weekly'=>true,'monthly'=>true],'department'=>$user['department'],'isTest'=>$test,'policyDate'=>$entry['date']??null,'fetchedAt'=>gmdate('c')];
@@ -72,6 +72,18 @@ function grade_summary_snapshot(array $user,?string $today=null): array {
         foreach($ledger['weeks'] as $item)if($item['start']===$result['weekly']['start']){
             $result['weekly']['amount']=$item['bonus'];$result['weekly']['parts']=$item['parts'];$result['weekly']['complete']=!$item['missing']&&$item['days']>0;$result['weekly']['payrollMonth']=$item['payrollMonth'];break;
         }
+        $monthRecords=[];foreach($counts as $day=>$count)if(str_starts_with($day,substr($today,0,7))&&$day<=$today)$monthRecords[]=['date'=>$day,'count'=>$count,'hours'=>0];
+        $monthLedger=grade_ledger(substr($today,0,7),$monthRecords,$entries,$profile,$calendar);
+        $result['daily']['monthPaid']=$monthLedger['daily'];$result['daily']['monthReceipts']=$monthLedger['dailyDetails'];
+        $previousEntry=null;foreach($entries as $candidate)if($candidate['date']<=$previousFriday)$previousEntry=$candidate;
+        $previous=grade_progress($profile,$counts,$previousEntry['policy']??null,$previousFriday,$calendar);$previousRecords=[];
+        foreach($previous['weekly']['dates'] as $day)if($day['scheduled'])$previousRecords[]=['date'=>$day['date'],'count'=>$day['count'],'hours'=>0];
+        $previousLedger=grade_ledger(substr($previous['weekly']['end'],0,7),$previousRecords,$entries,$weekProfile,$calendar);
+        $previous['weekly']['amount']=0;$previous['weekly']['parts']=[];$previous['weekly']['policyRegistered']=$previousEntry!==null;
+        foreach($previousLedger['weeks'] as $item)if($item['start']===$previous['weekly']['start']){
+            $previous['weekly']['amount']=$item['bonus'];$previous['weekly']['parts']=$item['parts'];$previous['weekly']['complete']=!$item['missing']&&$item['days']>0;$previous['weekly']['payrollMonth']=$item['payrollMonth'];break;
+        }
+        $result['previousWeek']=$previous['weekly'];
         $q=$d->prepare('SELECT milestone,amount,confirmed_at FROM daily_grade_receipts WHERE employee_id=? AND performance_date=? ORDER BY milestone');$q->execute([$user['id'],$today]);
         $result['daily']['receipts']=array_map(static fn($r)=>['milestone'=>(int)$r['milestone'],'amount'=>(int)$r['amount'],'confirmedAt'=>$r['confirmed_at']],$q->fetchAll());
         // Earned cash is automatically treated as received; old click records remain audit history only.
