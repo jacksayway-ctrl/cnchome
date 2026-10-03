@@ -80,5 +80,12 @@ $calendarMonth='2026-05';$calendarToday='2026-05-01';$calendarSeed=['month'=>$ca
 ob_start();require view_root().'/intake-live.php';$emptyCalendarHtml=ob_get_clean();
 check(substr_count($emptyCalendarHtml,'class="intake-live-calendar-date"')===42&&str_contains($emptyCalendarHtml,'datetime="2026-05-31"')&&str_contains($emptyCalendarHtml,'datetime="2026-06-06"'),'HTML shows every month date and neighboring dates before any data request');
 check(str_contains($emptyCalendarHtml,'id="intake-live-calendar-seed"')&&str_contains($emptyCalendarHtml,'data-live-holiday-manage'),'empty calendar includes its selected month and holiday management link');
+check(substr_count($emptyCalendarHtml,'data-calendar-department=')===31*3&&substr_count($emptyCalendarHtml,'data-calendar-status=')===31*9,'every date has all departments and status placeholders before data loads');
+check(str_contains($emptyCalendarHtml,'data-calendar-status="normal">—</b>'),'a loading calendar does not pretend missing data is zero');
+$calendarMonth='2026-02';$calendarToday='2026-02-10';$calendarSeed=$calendar;
+ob_start();require view_root().'/intake-live.php';$loadedCalendarHtml=ob_get_clean();
+check(substr_count($loadedCalendarHtml,'data-calendar-department=')===28*3&&substr_count($loadedCalendarHtml,'data-calendar-status=')===28*9,'empty departments and future dates stay visible after loading');
+check(str_contains($loadedCalendarHtml,'aria-label="보험 정상접수 1건"')&&str_contains($loadedCalendarHtml,'aria-label="화장품 A/S 1건"')&&str_contains($loadedCalendarHtml,'aria-label="건강식품 정상접수 1건"'),'initial HTML carries real status-date department totals');
+check(str_contains($loadedCalendarHtml,'data-calendar-status="pending">0</b>')&&!str_contains($loadedCalendarHtml,'data-calendar-status="normal">—</b>'),'loaded dates show actual zero counts without loading placeholders');
 foreach($calendarBefore as $table=>$rows)check($rows===$d->query('SELECT * FROM '.$table.' ORDER BY id')->fetchAll(),'calendar polling never changes receipts or status history');
 echo "PASS: actual all-department live feed, filters, current counselor identity, bounded latest rows, daily department calendar, saved status dates, Korean UTC boundaries, duplicate exclusions and read-only polling.\n";

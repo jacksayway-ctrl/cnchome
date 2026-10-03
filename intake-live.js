@@ -3,6 +3,7 @@
  const root=document.querySelector('[data-intake-live]');if(!root)return;
  const form=root.querySelector('[data-live-filters]'),body=root.querySelector('[data-live-rows]'),status=root.querySelector('[data-live-status]');
  const teams={insurance:'보험',cosmetics:'화장품',health:'건강보조식품'},labels={pending:'가접수',normal:'정상접수',as:'A/S'},shortLabels={pending:'가',normal:'정',as:'AS'};
+ const calendarTeams={insurance:'보험',cosmetics:'화장품',health:'건강식품'};
  const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  const calendar=root.querySelector('[data-live-calendar]'),calendarInput=root.querySelector('[data-live-calendar-month]'),calendarBody=root.querySelector('[data-live-calendar-days]'),calendarMessage=root.querySelector('[data-live-calendar-message]');
  function currentKoreaMonth(){const parts=new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit'}).formatToParts(new Date());return parts.find(p=>p.type==='year').value+'-'+parts.find(p=>p.type==='month').value;}
@@ -24,16 +25,16 @@
   if(!data||data.month!==calendarMonth)return;
   const next=JSON.stringify(data);calendarBody.setAttribute('aria-busy','false');calendarMessage.textContent='';if(next===calendarSignature)return;
   const [year,month]=data.month.split('-').map(Number),first=new Date(Date.UTC(year,month-1,1)),last=new Date(Date.UTC(year,month,0)),today=data.today||seed.today||currentKoreaDate();
-  const daysInMonth=last.getUTCDate(),offset=first.getUTCDay(),byDate=new Map((data.days||[]).map(day=>[day.date,day]));
+  const daysInMonth=last.getUTCDate(),offset=first.getUTCDay(),byDate=new Map((data.days||[]).map(day=>[day.date,day])),loaded=Array.isArray(data.days)&&data.loaded!==false;
   root.querySelector('[data-live-calendar-label]').textContent=year+'년 '+month+'월';
   root.querySelector('[data-live-holiday-manage]').href='/business-calendar.php?role=admin&month='+data.month+'#company-holidays';
-  root.querySelector('[data-live-calendar-totals]').innerHTML=Object.entries(teams).map(([key,label])=>{const counts=data.totals?.[key]||{};return `<div class="intake-live-calendar-total"><strong>${esc(label)}</strong>${Object.entries(labels).map(([state,title])=>`<span class="${state}">${title} <b>${number(counts[state])}</b>건</span>`).join('')}</div>`;}).join('');
+  root.querySelector('[data-live-calendar-totals]').innerHTML=Object.entries(teams).map(([key,label])=>{const counts=data.totals?.[key]||{};return `<div class="intake-live-calendar-total"><strong>${esc(label)}</strong>${Object.entries(labels).map(([state,title])=>`<span class="${state}">${title} <b>${loaded?number(counts[state]):'—'}</b>건</span>`).join('')}</div>`;}).join('');
   let cells='';for(let index=0;index<Math.ceil((offset+daysInMonth)/7)*7;index++){
    const day=index-offset+1,date=new Date(Date.UTC(year,month-1,day)).toISOString().slice(0,10);if(index%7===0)cells+='<tr>';
    if(day<1||day>daysInMonth)cells+=`<td class="intake-live-calendar-outside"><time class="intake-live-calendar-date" datetime="${date}" aria-label="${date}">${Number(date.slice(5,7))}월 ${Number(date.slice(8))}</time></td>`;
    else{
     const record=byDate.get(date)||{},isFuture=date>today,isToday=date===today;
-    const entries=isFuture?'':Object.entries(teams).map(([key,label])=>{const counts=record[key]||{};if(!Object.keys(labels).some(state=>amount(counts[state])>0))return '';return `<div class="intake-live-calendar-department"><strong>${esc(label)}</strong><div class="intake-live-calendar-counts">${Object.entries(labels).map(([state,title])=>`<span class="${state}${amount(counts[state])===0?' intake-live-calendar-zero':''}" aria-label="${esc(label+' '+title+' '+number(counts[state])+'건')}" title="${esc(title+' '+number(counts[state])+'건')}"><small>${shortLabels[state]}</small><b>${number(counts[state])}</b></span>`).join('')}</div></div>`;}).join('');
+    const entries=Object.entries(calendarTeams).map(([key,label])=>{const counts=record[key]||{};return `<div class="intake-live-calendar-department" data-calendar-department="${key}"><strong>${esc(label)}</strong><div class="intake-live-calendar-counts">${Object.entries(labels).map(([state,title])=>`<span class="${state}${loaded&&amount(counts[state])===0?' intake-live-calendar-zero':''}" aria-label="${esc(label+' '+title+' '+(loaded?number(counts[state])+'건':'조회 중'))}" title="${esc(title+' '+(loaded?number(counts[state])+'건':'조회 중'))}"><small>${shortLabels[state]}</small><b data-calendar-status="${state}">${loaded?number(counts[state]):'—'}</b></span>`).join('')}</div></div>`;}).join('');
     cells+=`<td class="${isToday?'intake-live-calendar-today':''}${isFuture?' intake-live-calendar-future':''}"><time class="intake-live-calendar-date" datetime="${esc(date)}" aria-label="${esc(date+(isToday?' 오늘':''))}">${day}</time>${entries}</td>`;
    }
    if(index%7===6)cells+='</tr>';
@@ -41,7 +42,7 @@
   calendarBody.innerHTML=cells;calendarSignature=next;calendar.setAttribute('aria-label',year+'년 '+month+'월 부서별 실적 달력');
   window.CNCPublicHolidays?.decorate(calendar);
  }
- function showEmptyCalendar(){drawCalendar({month:calendarMonth,today:seed.today||currentKoreaDate(),days:[],totals:{}});calendarBody.setAttribute('aria-busy','true');calendarMessage.textContent='실적을 불러오는 중입니다. 날짜는 먼저 표시합니다.';}
+ function showEmptyCalendar(){drawCalendar({month:calendarMonth,today:seed.today||currentKoreaDate(),days:[],totals:{},loaded:false});calendarBody.setAttribute('aria-busy','true');calendarMessage.textContent='실적을 불러오는 중입니다. 날짜는 먼저 표시합니다.';}
  function draw(data){
   drawCalendar(data.calendar);
   const next=JSON.stringify(data.records);if(next!==signature){
@@ -89,5 +90,5 @@
  window.addEventListener('focus',()=>load());window.addEventListener('cnc:sales-changed',()=>load());
  window.addEventListener('storage',e=>{if(e.key==='cnchome.sales.changed')load();});
  document.addEventListener('visibilitychange',()=>{if(!document.hidden)load();});
- showEmptyCalendar();setInterval(()=>load(),5000);load(true);
+ if(Array.isArray(seed.days)&&seed.loaded!==false)drawCalendar(seed);else showEmptyCalendar();setInterval(()=>load(),5000);load(true);
 })();

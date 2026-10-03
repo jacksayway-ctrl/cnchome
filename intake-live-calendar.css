@@ -1,5 +1,6 @@
 .intake-live-calendar{
   width:100%;min-width:0;max-width:100%;height:auto;max-height:none;box-sizing:border-box;
+  container-type:inline-size;container-name:intake-calendar;
   margin:18px 0;padding:14px;border:1px solid #dbe3ec;border-radius:8px;background:#fff;
 }
 .intake-live-calendar-heading,.intake-live-calendar-month{
@@ -65,17 +66,26 @@
   display:block;min-width:0;max-width:100%;margin:0 0 4px;font-size:10px;line-height:1.3;
   color:#b54545;white-space:normal;overflow-wrap:anywhere;word-break:normal;
 }
-.intake-live-calendar-department{display:flex;flex-direction:column;min-width:0;max-width:100%;gap:3px;padding:4px 0;font-size:11px;line-height:1.3}
+.intake-live-calendar-department{
+  display:grid;grid-template-columns:44px minmax(0,1fr);align-items:center;
+  min-width:0;max-width:100%;gap:5px;padding:2px 0;font-size:11px;line-height:1.3;
+}
+.intake-live-calendar-department+.intake-live-calendar-department{border-top:1px solid #e6ebf2}
 .intake-live-calendar-department>strong{display:block;min-width:0;font-weight:600;color:#334155;white-space:normal;overflow-wrap:anywhere}
-.intake-live-calendar-counts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:3px;min-width:0;max-width:100%}
-.intake-live-calendar-counts>span{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:center;gap:2px;min-width:0;padding:2px 1px;border-radius:3px;background:#f3f6fa;font-variant-numeric:tabular-nums;line-height:1.35;overflow-wrap:anywhere}
+.intake-live-calendar-counts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:2px;min-width:0;max-width:100%}
+.intake-live-calendar-counts>span{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:center;gap:2px;min-width:0;padding:1px 0;border-radius:3px;background:#f3f6fa;font-variant-numeric:tabular-nums;line-height:1.3;overflow-wrap:anywhere}
 .intake-live-calendar-counts small{font-size:9px;min-width:0;color:inherit;white-space:normal;overflow-wrap:anywhere}
 .intake-live-calendar-counts b{font-size:11px;min-width:0;overflow-wrap:anywhere}
-.intake-live-calendar-department .intake-live-calendar-zero{color:#94a3b8;font-weight:400}
+.intake-live-calendar-department .intake-live-calendar-zero b{color:#5f6f83;font-weight:500}
+@container intake-calendar (max-width:840px){
+  .intake-live-calendar-department{grid-template-columns:minmax(0,1fr);gap:2px}
+  .intake-live-calendar-department>strong{font-size:10px}
+}
 @media(max-width:1000px){
   .intake-live-calendar-totals{grid-template-columns:1fr}
   .intake-live-calendar-total>strong{min-width:80px;margin-right:4px}
   .intake-live-calendar .intake-live-calendar-grid>tbody>tr>td{padding:5px 3px}
+  .intake-live-calendar-department{grid-template-columns:minmax(0,1fr);gap:2px}
   .intake-live-calendar-counts{gap:2px}
 }
 @media(max-width:760px){
